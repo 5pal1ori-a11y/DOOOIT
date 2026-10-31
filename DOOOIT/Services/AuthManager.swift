@@ -221,7 +221,7 @@ final class AuthManager {
 // MARK: - Keychain
 
 enum Keychain {
-    private static let service = "com.dooit.planner"
+    private static let service = "com.bravekoon.dooit"
 
     private static func baseQuery(_ key: String) -> [String: Any] {
         [

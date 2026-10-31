@@ -24,7 +24,7 @@ SwiftUI + SwiftData로 만든 iOS 공부 플래너 앱입니다. 화면은 iOS 2
    (열리지 않으면 `brew install xcodegen` 후 이 폴더에서 `xcodegen generate`)
 2. 프로젝트 → **DOOOIT** 타깃 → *Signing & Capabilities*
    - Team: 본인 개발자 계정 선택
-   - Bundle Identifier: `com.dooit.planner` → 본인만의 값으로 변경 (예: `com.내이름.dooit`)
+   - Bundle Identifier: `com.bravekoon.dooit` → 본인만의 값으로 변경 (예: `com.내이름.dooit`)
 3. **DOOOITWidgetsExtension** 타깃도 같은 Team을 선택하고 Bundle ID를 `(앱 Bundle ID).widgets`로 맞춥니다.
 4. 실제 iPhone을 연결해 실행합니다. (다이나믹 아일랜드, 문서 스캐너, Apple 로그인은 실기기에서 확인하는 것이 정확합니다)
 
