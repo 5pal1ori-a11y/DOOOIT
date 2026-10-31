@@ -1,0 +1,51 @@
+# (백업용) DOOOIT.xcodeproj가 열리지 않을 때: brew install xcodegen && xcodegen generate
+name: DOOOIT
+options:
+  bundleIdPrefix: com.dooit
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: ko
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  DOOOIT:
+    type: application
+    platform: iOS
+    sources:
+      - DOOOIT
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dooit.planner
+        INFOPLIST_FILE: Config/DOOOIT-Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DOOOIT
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.education
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        CODE_SIGN_ENTITLEMENTS: Config/DOOOIT.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    dependencies:
+      - target: DOOOITWidgetsExtension
+        embed: true
+  DOOOITWidgetsExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - DOOOITWidgets
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.dooit.planner.widgets
+        INFOPLIST_FILE: Config/DOOOITWidgets-Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: DOOOIT Widgets
+        SKIP_INSTALL: YES
