@@ -18,6 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check secrets
+        run: |
+          missing=0
+          for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT TEAM_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error title=Missing secret::$name is empty (check the secret name in repo settings)"
+              missing=1
+            else
+              echo "::notice title=Secret OK::$name is set"
+            fi
+          done
+          exit $missing
+
       - name: Select Xcode 26
         run: |
           XCODE=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)
@@ -35,6 +48,7 @@ jobs:
 
       - name: Archive
         run: |
+          set -o pipefail
           xcodebuild archive \
             -project DOOOIT.xcodeproj \
             -scheme DOOOIT \
@@ -46,7 +60,12 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic
+            CODE_SIGN_STYLE=Automatic 2>&1 | tee "$RUNNER_TEMP/archive.log" || {
+              grep -E "error:|Error |\*\* ARCHIVE FAILED" "$RUNNER_TEMP/archive.log" | sort -u | head -40 | while IFS= read -r line; do
+                echo "::error title=Archive::${line:0:900}"
+              done
+              exit 1
+            }
 
       - name: Upload to TestFlight
         run: |
@@ -63,6 +82,7 @@ jobs:
           </dict>
           </plist>
           PLIST
+          set -o pipefail
           xcodebuild -exportArchive \
             -archivePath "$RUNNER_TEMP/DOOOIT.xcarchive" \
             -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
@@ -70,4 +90,9 @@ jobs:
             -allowProvisioningUpdates \
             -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8" \
             -authenticationKeyID "$ASC_KEY_ID" \
-            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" 2>&1 | tee "$RUNNER_TEMP/export.log" || {
+              grep -iE "error" "$RUNNER_TEMP/export.log" | sort -u | head -30 | while IFS= read -r line; do
+                echo "::error title=Upload::${line:0:900}"
+              done
+              exit 1
+            }
