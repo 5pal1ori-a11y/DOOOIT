@@ -39,10 +39,14 @@ struct TimerView: View {
         .animation(.smooth(duration: 0.4), value: studyTimer.phase)
         .animation(.smooth(duration: 0.4), value: savedSeconds)
         .confirmationDialog("공부를 마칠까요?", isPresented: $showStopConfirm, titleVisibility: .visible) {
-            Button("종료하고 기록 저장", role: .destructive) {
+            Button(studyTimer.lockUntil != nil ? "종료하고 잠금 해제" : "종료하고 기록 저장", role: .destructive) {
                 savedSeconds = studyTimer.stop()
             }
             Button("계속하기", role: .cancel) {}
+        } message: {
+            if studyTimer.lockUntil != nil {
+                Text("지금 끝내면 다른 앱 잠금도 바로 해제돼요.")
+            }
         }
     }
 
@@ -167,6 +171,15 @@ struct TimerView: View {
     private var running: some View {
         VStack(spacing: 36) {
             VStack(spacing: 6) {
+                if let lockUntil = studyTimer.lockUntil {
+                    Label("다른 앱 잠금 중 · \(lockUntil.kr("a h:mm"))까지", systemImage: "lock.fill")
+                        .font(.footnote.weight(.bold))
+                        .foregroundStyle(Palette.danger)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Palette.danger.opacity(0.14), in: .capsule)
+                        .padding(.bottom, 8)
+                }
                 Image(systemName: studyTimer.symbol)
                     .font(.title2)
                     .foregroundStyle(Color.accentColor)

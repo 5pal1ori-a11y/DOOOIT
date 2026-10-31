@@ -30,12 +30,18 @@ enum NotificationService {
                 "isStudy": plan.isStudy
             ]
 
-            let leadDate = occurrence.start.addingTimeInterval(-Double(lead * 60))
-            if leadDate > now {
+            // 공부 플랜: 설정의 미리 알림 / 일반 플랜: 플랜마다 정한 알림 (-1 없음, 0 정시)
+            let planLead = plan.isStudy ? lead : plan.reminderMinutes
+            if !plan.isStudy && planLead < 0 { continue }
+
+            let leadDate = occurrence.start.addingTimeInterval(-Double(planLead * 60))
+            if planLead > 0 && leadDate > now {
                 add(
                     id: "lead.\(occurrence.id)",
-                    title: "\(lead)분 후 \(plan.title)",
-                    body: plan.isStudy ? "곧 공부 시간이에요. 책상 정리하고 준비해볼까요?" : "곧 일정이 시작돼요.",
+                    title: "\(planLead)분 후 \(plan.title)",
+                    body: plan.isStudy
+                        ? (plan.lockApps ? "곧 공부 시간이에요. 시작하면 다른 앱이 잠겨요." : "곧 공부 시간이에요. 책상 정리하고 준비해볼까요?")
+                        : "곧 일정이 시작돼요.",
                     date: leadDate,
                     info: info
                 )

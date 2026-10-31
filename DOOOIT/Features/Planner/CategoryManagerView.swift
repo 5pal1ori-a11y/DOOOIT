@@ -1,42 +1,39 @@
 import SwiftData
 import SwiftUI
 
+/// 공부 과목(공부 플랜용)과 일반 카테고리(일반 플랜용)를 나눠서 관리
 struct CategoryManagerView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \PlanCategory.sortIndex) private var categories: [PlanCategory]
     @State private var editing: PlanCategory?
-    @State private var showNew = false
+    @State private var newIsStudy: Bool?
+
+    private var subjects: [PlanCategory] { categories.filter(\.isStudy) }
+    private var generals: [PlanCategory] { categories.filter { !$0.isStudy } }
 
     var body: some View {
         List {
             Section {
-                ForEach(categories) { category in
-                    Button { editing = category } label: {
-                        HStack(spacing: 12) {
-                            IconBadge(symbol: category.symbol, color: category.color, size: 36)
-                            Text(category.name)
-                                .font(.body.weight(.semibold))
-                            Spacer()
-                            if category.isStudy {
-                                TagLabel(text: "공부 타이머", symbol: "timer", color: category.color)
-                            }
-                        }
-                    }
-                    .tint(.primary)
-                }
-                .onDelete { offsets in
-                    for i in offsets { context.delete(categories[i]) }
-                    try? context.save()
-                }
-                .onMove { from, to in
-                    var items = categories
-                    items.move(fromOffsets: from, toOffset: to)
-                    for (i, item) in items.enumerated() { item.sortIndex = i }
-                    try? context.save()
-                }
+                ForEach(subjects) { row($0) }
+                    .onDelete { delete($0, in: subjects) }
+                    .onMove { move($0, $1, in: subjects) }
+                Button { newIsStudy = true } label: { Label("과목 추가", systemImage: "plus") }
+            } header: {
+                Text("공부 과목")
             } footer: {
-                Text("'공부 타이머'가 켜진 카테고리의 일정은 시작 시간에 공부 타이머가 자동으로 실행되고, 시작 전에 다이나믹 아일랜드에 남은 시간이 표시돼요.")
+                Text("공부 플랜에서 고르는 과목이에요. 공부 시간 통계도 과목별로 모여요.")
+            }
+
+            Section {
+                ForEach(generals) { row($0) }
+                    .onDelete { delete($0, in: generals) }
+                    .onMove { move($0, $1, in: generals) }
+                Button { newIsStudy = false } label: { Label("카테고리 추가", systemImage: "plus") }
+            } header: {
+                Text("일반 카테고리")
+            } footer: {
+                Text("약속, 개인 일정처럼 알림만 받는 일반 플랜에 쓰여요.")
             }
         }
         .navigationTitle("카테고리")
@@ -45,23 +42,48 @@ struct CategoryManagerView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button { dismiss() } label: { Image(systemName: "xmark") }
             }
-            ToolbarItemGroup(placement: .primaryAction) {
+            ToolbarItem(placement: .primaryAction) {
                 EditButton()
-                Button { showNew = true } label: { Image(systemName: "plus") }
             }
         }
         .sheet(item: $editing) { category in
-            CategoryEditorView(category: category, nextIndex: categories.count)
+            CategoryEditorView(category: category, nextIndex: categories.count, initialIsStudy: category.isStudy)
         }
-        .sheet(isPresented: $showNew) {
-            CategoryEditorView(category: nil, nextIndex: categories.count)
+        .sheet(isPresented: Binding(get: { newIsStudy != nil }, set: { if !$0 { newIsStudy = nil } })) {
+            CategoryEditorView(category: nil, nextIndex: categories.count, initialIsStudy: newIsStudy ?? true)
         }
+    }
+
+    private func row(_ category: PlanCategory) -> some View {
+        Button { editing = category } label: {
+            HStack(spacing: 12) {
+                IconBadge(symbol: category.symbol, color: category.color, size: 36)
+                Text(category.name).font(.body.weight(.semibold))
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+            }
+        }
+        .tint(.primary)
+    }
+
+    private func delete(_ offsets: IndexSet, in list: [PlanCategory]) {
+        for i in offsets { context.delete(list[i]) }
+        try? context.save()
+    }
+
+    private func move(_ from: IndexSet, _ to: Int, in list: [PlanCategory]) {
+        var items = list
+        items.move(fromOffsets: from, toOffset: to)
+        let base = list.map(\.sortIndex).min() ?? 0
+        for (i, item) in items.enumerated() { item.sortIndex = base + i }
+        try? context.save()
     }
 }
 
 struct CategoryEditorView: View {
     let category: PlanCategory?
     let nextIndex: Int
+    var initialIsStudy: Bool = true
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -73,9 +95,9 @@ struct CategoryEditorView: View {
 
     private let symbols = [
         "book.fill", "books.vertical.fill", "character.book.closed.fill", "function", "pencil",
-        "graduationcap.fill", "brain.head.profile", "atom", "globe.asia.australia.fill", "laptopcomputer",
-        "figure.run", "dumbbell.fill", "music.note", "paintpalette.fill", "briefcase.fill",
-        "cart.fill", "heart.fill", "person.fill", "house.fill", "star.fill"
+        "graduationcap.fill", "brain.head.profile", "atom", "globe.asia.australia.fill", "building.columns.fill",
+        "flask.fill", "laptopcomputer", "figure.run", "dumbbell.fill", "music.note",
+        "paintpalette.fill", "briefcase.fill", "person.2.fill", "person.fill", "star.fill"
     ]
 
     var body: some View {
@@ -88,17 +110,19 @@ struct CategoryEditorView: View {
                         Spacer()
                     }
                     .listRowBackground(Color.clear)
-                    TextField("카테고리 이름", text: $name)
+                    TextField(isStudy ? "과목 이름 (예: 한국사)" : "카테고리 이름", text: $name)
                         .font(.headline)
                         .multilineTextAlignment(.center)
                 }
 
                 Section {
-                    Toggle(isOn: $isStudy) {
-                        Label("공부 타이머 자동 실행", systemImage: "timer")
+                    Picker("종류", selection: $isStudy) {
+                        Text("공부 과목").tag(true)
+                        Text("일반 카테고리").tag(false)
                     }
+                    .pickerStyle(.segmented)
                 } footer: {
-                    Text("켜면 이 카테고리의 일정 시간이 되었을 때 공부 타이머가 자동으로 시작돼요.")
+                    Text(isStudy ? "공부 플랜에서 고를 수 있고, 시간이 되면 공부 타이머가 자동으로 시작돼요." : "일반 플랜에서 고를 수 있고, 알림만 보내요.")
                 }
 
                 Section("색상") {
@@ -134,7 +158,7 @@ struct CategoryEditorView: View {
                     .padding(.vertical, 6)
                 }
             }
-            .navigationTitle(category == nil ? "새 카테고리" : "카테고리 수정")
+            .navigationTitle(category == nil ? (isStudy ? "새 과목" : "새 카테고리") : "카테고리 수정")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -151,6 +175,10 @@ struct CategoryEditorView: View {
                     colorHex = category.colorHex
                     symbol = category.symbol
                     isStudy = category.isStudy
+                } else {
+                    isStudy = initialIsStudy
+                    symbol = initialIsStudy ? "book.fill" : "star.fill"
+                    colorHex = initialIsStudy ? Palette.swatches[0] : Palette.swatches[8]
                 }
             }
         }

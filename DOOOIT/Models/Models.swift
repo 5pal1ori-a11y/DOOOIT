@@ -20,13 +20,22 @@ enum RepeatRule: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum PlanKind: String, Codable, CaseIterable, Identifiable {
+    case general, study
+
+    var id: String { rawValue }
+    var title: String { self == .study ? "공부 플랜" : "일반 플랜" }
+    var subtitle: String { self == .study ? "자동 타이머 · 앱 잠금" : "약속 · 할 일 · 알림" }
+    var symbol: String { self == .study ? "timer" : "calendar" }
+}
+
 @Model
 final class PlanCategory {
     var id: UUID = UUID()
     var name: String = ""
     var colorHex: String = "#6C63FF"
     var symbol: String = "book.fill"
-    /// 공부 카테고리면 일정 시간에 공부 타이머가 자동 실행됨
+    /// true: 공부 과목(공부 플랜용), false: 일반 카테고리(일반 플랜용)
     var isStudy: Bool = false
     var sortIndex: Int = 0
 
@@ -60,9 +69,16 @@ final class Plan {
     var completedKeys: [String] = []
     var category: PlanCategory?
     var createdAt: Date = Date()
+    /// general: 일반 플랜(알림만), study: 공부 플랜(자동 타이머, 앱 잠금)
+    var kindRaw: String = "general"
+    /// 공부 플랜: 시작~종료 시간 동안 DOOOIT 외 다른 앱 잠금
+    var lockApps: Bool = false
+    /// 일반 플랜 알림: -1 없음, 0 정시, N분 전
+    var reminderMinutes: Int = 10
 
     init(title: String, startDate: Date, durationMinutes: Int, isAllDay: Bool = false,
-         repeatRule: RepeatRule = .none, repeatEnd: Date? = nil, category: PlanCategory? = nil, note: String = "") {
+         repeatRule: RepeatRule = .none, repeatEnd: Date? = nil, category: PlanCategory? = nil, note: String = "",
+         kind: PlanKind = .general, lockApps: Bool = false, reminderMinutes: Int = 10) {
         self.id = UUID()
         self.title = title
         self.startDate = startDate
@@ -73,6 +89,14 @@ final class Plan {
         self.category = category
         self.note = note
         self.createdAt = Date()
+        self.kindRaw = kind.rawValue
+        self.lockApps = kind == .study && lockApps
+        self.reminderMinutes = reminderMinutes
+    }
+
+    var kind: PlanKind {
+        get { PlanKind(rawValue: kindRaw) ?? .general }
+        set { kindRaw = newValue.rawValue }
     }
 
     var repeatRule: RepeatRule {
@@ -82,7 +106,7 @@ final class Plan {
 
     var color: Color { category?.color ?? .accentColor }
     var symbol: String { category?.symbol ?? "circle.fill" }
-    var isStudy: Bool { category?.isStudy ?? false }
+    var isStudy: Bool { kind == .study }
 
     func occurs(on day: Date) -> Bool {
         let cal = Calendar.current
@@ -316,12 +340,14 @@ enum SeedData {
         guard !UserDefaults.standard.bool(forKey: key) else { return }
         let existing = (try? context.fetchCount(FetchDescriptor<PlanCategory>())) ?? 0
         if existing == 0 {
+            // 공부 과목(국어·영어·수학) + 일반 카테고리. 둘 다 사용자가 추가할 수 있음
             let defaults: [(String, String, String, Bool)] = [
-                ("공부", "book.fill", "#6C63FF", true),
+                ("국어", "book.fill", "#EF4444", true),
                 ("영어", "character.book.closed.fill", "#3B82F6", true),
                 ("수학", "function", "#10B981", true),
-                ("운동", "figure.run", "#F97316", false),
-                ("개인", "person.fill", "#EC4899", false)
+                ("개인", "person.fill", "#EC4899", false),
+                ("약속", "person.2.fill", "#F59E0B", false),
+                ("운동", "figure.run", "#F97316", false)
             ]
             for (i, d) in defaults.enumerated() {
                 context.insert(PlanCategory(name: d.0, symbol: d.1, colorHex: d.2, isStudy: d.3, sortIndex: i))

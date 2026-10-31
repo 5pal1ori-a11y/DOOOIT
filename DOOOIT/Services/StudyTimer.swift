@@ -19,6 +19,8 @@ final class StudyTimer {
     private(set) var planKey: String?
     private(set) var targetSeconds: Int?
     private(set) var startedAt: Date?
+    /// 공부 플랜의 앱 잠금 종료 시각 (잠금이 없으면 nil)
+    private(set) var lockUntil: Date?
     private var segmentStart: Date?
     private var accumulated: TimeInterval = 0
 
@@ -39,6 +41,7 @@ final class StudyTimer {
         var startedAt: Date?
         var segmentStart: Date?
         var accumulated: TimeInterval
+        var lockUntil: Date?
     }
 
     init() {
@@ -55,7 +58,7 @@ final class StudyTimer {
         accumulated + (segmentStart.map { max(0, date.timeIntervalSince($0)) } ?? 0)
     }
 
-    func start(title: String, categoryName: String, symbol: String, planKey: String? = nil, targetMinutes: Int? = nil) {
+    func start(title: String, categoryName: String, symbol: String, planKey: String? = nil, targetMinutes: Int? = nil, lockUntil: Date? = nil) {
         if phase != .idle { stop() }
         let now = Date()
         self.title = title.isEmpty ? "자유 공부" : title
@@ -66,8 +69,12 @@ final class StudyTimer {
         self.startedAt = now
         self.segmentStart = now
         self.accumulated = 0
+        self.lockUntil = lockUntil
         self.phase = .running
         persist()
+        if let lockUntil {
+            Task { await AppLockManager.shared.lock(until: lockUntil) }
+        }
 
         activityKey = planKey ?? "free-\(Int(now.timeIntervalSince1970))"
         LiveActivityManager.shared.showStudying(
@@ -110,6 +117,10 @@ final class StudyTimer {
                                         seconds: seconds, planKey: planKey))
             try? context.save()
         }
+        if lockUntil != nil {
+            AppLockManager.shared.endLock(planKey: planKey)
+        }
+        lockUntil = nil
         phase = .idle
         title = "자유 공부"
         planKey = nil
@@ -125,7 +136,7 @@ final class StudyTimer {
     private func persist() {
         let snapshot = Snapshot(phase: phase, title: title, categoryName: categoryName, symbol: symbol,
                                 planKey: planKey, targetSeconds: targetSeconds, startedAt: startedAt,
-                                segmentStart: segmentStart, accumulated: accumulated)
+                                segmentStart: segmentStart, accumulated: accumulated, lockUntil: lockUntil)
         if let data = try? JSONEncoder().encode(snapshot) {
             UserDefaults.standard.set(data, forKey: storageKey)
         }
@@ -143,5 +154,6 @@ final class StudyTimer {
         startedAt = s.startedAt
         segmentStart = s.segmentStart
         accumulated = s.accumulated
+        lockUntil = s.lockUntil
     }
 }

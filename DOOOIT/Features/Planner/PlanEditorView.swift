@@ -4,10 +4,19 @@ import SwiftUI
 struct PlanEditorView: View {
     let target: PlanEditorTarget
 
+    private enum TimeField: String, Identifiable {
+        case start, end
+        var id: String { rawValue }
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Query(sort: \PlanCategory.sortIndex) private var categories: [PlanCategory]
 
+    @AppStorage(SettingsKey.reminderLeadMinutes) private var leadMinutes = 10
+    @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
+
+    @State private var kind: PlanKind = .study
     @State private var title = ""
     @State private var note = ""
     @State private var day = Date()
@@ -18,8 +27,12 @@ struct PlanEditorView: View {
     @State private var hasRepeatEnd = false
     @State private var repeatEnd = Date().adding(months: 1)
     @State private var category: PlanCategory?
+    @State private var lockApps = false
+    @State private var reminderMinutes = 10
+    @State private var timeField: TimeField?
     @State private var showDeleteConfirm = false
-    @State private var showCategories = false
+    @State private var showNewCategory = false
+    @State private var lockError: String?
     @State private var didLoad = false
     @FocusState private var titleFocused: Bool
 
@@ -28,50 +41,71 @@ struct PlanEditorView: View {
         return nil
     }
 
+    private var kindCategories: [PlanCategory] {
+        categories.filter { $0.isStudy == (kind == .study) }
+    }
+
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("할 일 (예: 수학 공부)", text: $title)
+                    kindPicker
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                }
+
+                Section {
+                    TextField(kind == .study ? "공부할 내용 (예: 수학 문제집 3단원)" : "할 일 (예: 친구랑 점심)", text: $title)
                         .font(.headline)
                         .focused($titleFocused)
+                }
 
-                    Picker(selection: $category) {
-                        Text("없음").tag(PlanCategory?.none)
-                        ForEach(categories) { item in
-                            Label(item.name, systemImage: item.symbol)
-                                .tag(PlanCategory?.some(item))
+                Section(kind == .study ? "과목" : "카테고리") {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(kindCategories) { item in
+                                let isOn = category?.id == item.id
+                                Button { category = item } label: {
+                                    Label(item.name, systemImage: item.symbol)
+                                        .font(.subheadline.weight(.semibold))
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 8)
+                                        .foregroundStyle(isOn ? Color.white : Color.primary)
+                                        .background(isOn ? item.color : Color.primary.opacity(0.06), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            Button { showNewCategory = true } label: {
+                                Label(kind == .study ? "과목 추가" : "추가", systemImage: "plus")
+                                    .font(.subheadline.weight(.semibold))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Color.primary.opacity(0.06), in: .capsule)
+                            }
+                            .buttonStyle(.plain)
                         }
-                    } label: {
-                        Label("카테고리", systemImage: "tag")
+                        .padding(.vertical, 2)
                     }
-
-                    Button { showCategories = true } label: {
-                        Label("카테고리 관리", systemImage: "slider.horizontal.3")
-                    }
-                } footer: {
-                    if category?.isStudy == true {
-                        Label("공부 카테고리예요. 시작 \(AppSettings.leadMinutes)분 전에 다이나믹 아일랜드로 알려드리고, 시간이 되면 공부 타이머가 자동으로 시작돼요.",
-                              systemImage: "timer")
-                    }
+                    .scrollIndicators(.hidden)
                 }
 
                 Section("시간") {
                     DatePicker(selection: $day, displayedComponents: .date) {
                         Label("날짜", systemImage: "calendar")
                     }
-                    Toggle(isOn: $isAllDay.animation()) {
-                        Label("하루 종일", systemImage: "sun.max")
+                    if kind == .general {
+                        Toggle(isOn: $isAllDay.animation()) {
+                            Label("하루 종일", systemImage: "sun.max")
+                        }
                     }
-                    if !isAllDay {
-                        DatePicker(selection: $startTime, displayedComponents: .hourAndMinute) {
-                            Label("시작", systemImage: "clock")
+                    if kind == .study || !isAllDay {
+                        timeRow("시작", symbol: "clock", value: startTime) { timeField = .start }
+                        timeRow("종료", symbol: "clock.badge.checkmark", value: endTime) { timeField = .end }
+                        LabeledContent(kind == .study ? "공부 시간" : "소요 시간") {
+                            Text(TimeText.duration(minutes: durationMinutes))
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Color.accentColor)
                         }
-                        DatePicker(selection: $endTime, displayedComponents: .hourAndMinute) {
-                            Label("종료", systemImage: "clock.badge.checkmark")
-                        }
-                        LabeledContent("소요 시간", value: TimeText.duration(minutes: durationMinutes))
-                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -89,6 +123,49 @@ struct PlanEditorView: View {
                         }
                         if hasRepeatEnd {
                             DatePicker("종료일", selection: $repeatEnd, in: day..., displayedComponents: .date)
+                        }
+                    }
+                }
+
+                if kind == .study {
+                    Section {
+                        LabeledContent {
+                            Text(autoStartTimer ? "켜짐" : "꺼짐 (계정 설정)").foregroundStyle(.secondary)
+                        } label: {
+                            Label("시작 시간에 타이머 자동 실행", systemImage: "timer")
+                        }
+                        Toggle(isOn: lockBinding) {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("다른 앱 잠금")
+                                    Text("공부 시간 동안 DOOOIT 말고 다른 앱을 잠가요")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "lock.fill")
+                            }
+                        }
+                    } header: {
+                        Text("공부 설정")
+                    } footer: {
+                        if lockApps {
+                            Text("\(startTime.kr("a h:mm"))부터 \(endTime.kr("a h:mm"))까지 다른 앱이 잠기고, 끝나면 자동으로 풀려요. 중간에 타이머를 끝내면 잠금도 함께 해제돼요.")
+                        } else {
+                            Text("시작 \(leadMinutes)분 전에 다이나믹 아일랜드로 알려드리고, 시간이 되면 공부 타이머가 자동으로 시작돼요.")
+                        }
+                    }
+                } else {
+                    Section("알림") {
+                        Picker(selection: $reminderMinutes) {
+                            Text("없음").tag(-1)
+                            Text("정시").tag(0)
+                            Text("5분 전").tag(5)
+                            Text("10분 전").tag(10)
+                            Text("30분 전").tag(30)
+                            Text("1시간 전").tag(60)
+                        } label: {
+                            Label("알림", systemImage: "bell")
                         }
                     }
                 }
@@ -115,6 +192,16 @@ struct PlanEditorView: View {
                         .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
+            .sheet(item: $timeField) { field in
+                TimePickerSheet(title: field == .start ? "시작 시간" : "종료 시간",
+                                initial: field == .start ? startTime : endTime) { picked in
+                    apply(picked, to: field)
+                }
+                .presentationDetents([.height(360)])
+            }
+            .sheet(isPresented: $showNewCategory) {
+                CategoryEditorView(category: nil, nextIndex: categories.count, initialIsStudy: kind == .study)
+            }
             .confirmationDialog("플랜을 삭제할까요?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
                 Button("삭제", role: .destructive) { delete() }
             } message: {
@@ -122,11 +209,76 @@ struct PlanEditorView: View {
                     Text("반복되는 모든 일정이 함께 삭제돼요.")
                 }
             }
-            .sheet(isPresented: $showCategories) {
-                NavigationStack { CategoryManagerView() }
-            }
+            .errorAlert($lockError, title: "앱 잠금")
             .onAppear(perform: load)
+            .onChange(of: categories.count) { oldCount, newCount in
+                // 방금 추가한 과목/카테고리를 바로 선택
+                if newCount > oldCount, let newest = kindCategories.max(by: { $0.sortIndex < $1.sortIndex }) {
+                    category = newest
+                }
+            }
         }
+    }
+
+    // MARK: Pieces
+
+    private var kindPicker: some View {
+        HStack(spacing: 10) {
+            ForEach(PlanKind.allCases) { item in
+                let isOn = kind == item
+                Button {
+                    withAnimation(.snappy) { switchKind(to: item) }
+                } label: {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Image(systemName: item.symbol)
+                            .font(.title3)
+                            .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                        Text(item.title).font(.headline)
+                        Text(item.subtitle).font(.caption).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(14)
+                    .background(isOn ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(isOn ? Color.accentColor : Color.clear, lineWidth: 2)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func timeRow(_ title: String, symbol: String, value: Date, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Label(title, systemImage: symbol)
+                    .foregroundStyle(Color.primary)
+                Spacer()
+                Text(value.kr("a h:mm"))
+                    .monospacedDigit()
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.07), in: .rect(cornerRadius: 10))
+            }
+        }
+    }
+
+    private var lockBinding: Binding<Bool> {
+        Binding(
+            get: { lockApps },
+            set: { newValue in
+                guard newValue else { lockApps = false; return }
+                Task {
+                    if await AppLockManager.shared.requestAuthorization() {
+                        lockApps = true
+                    } else {
+                        lockError = "앱 잠금을 쓰려면 스크린 타임 권한이 필요해요. 설정 > 스크린 타임에서 DOOOIT을 허용해주세요. (개발자: README의 '앱 잠금 켜기' 참고)"
+                    }
+                }
+            }
+        )
     }
 
     private var durationMinutes: Int {
@@ -138,6 +290,25 @@ struct PlanEditorView: View {
         return minutes
     }
 
+    private func apply(_ picked: Date, to field: TimeField) {
+        switch field {
+        case .start:
+            // 시작을 바꾸면 길이를 유지한 채 종료도 함께 이동
+            let length = durationMinutes
+            startTime = picked
+            endTime = picked.addingTimeInterval(Double(length) * 60)
+        case .end:
+            endTime = picked
+        }
+    }
+
+    private func switchKind(to newKind: PlanKind) {
+        guard kind != newKind else { return }
+        kind = newKind
+        category = kindCategories.first
+        if newKind == .study { isAllDay = false } else { lockApps = false }
+    }
+
     private func load() {
         guard !didLoad else { return }
         didLoad = true
@@ -145,16 +316,16 @@ struct PlanEditorView: View {
         switch target {
         case .new(let date):
             day = date.startOfDay
-            // 다음 정시로 기본 설정
             let cal = Calendar.current
             let thisHour = cal.date(from: cal.dateComponents([.year, .month, .day, .hour], from: Date())) ?? Date()
-            let nextHour = thisHour.addingTimeInterval(3600)
-            startTime = nextHour
-            endTime = nextHour.addingTimeInterval(3600)
+            startTime = thisHour.addingTimeInterval(3600)
+            endTime = startTime.addingTimeInterval(3600)
+            kind = .study
             category = categories.first(where: \.isStudy)
             titleFocused = true
 
         case .edit(let plan):
+            kind = plan.kind
             title = plan.title
             note = plan.note
             day = plan.startDate.startOfDay
@@ -165,12 +336,15 @@ struct PlanEditorView: View {
             hasRepeatEnd = plan.repeatEnd != nil
             repeatEnd = plan.repeatEnd ?? day.adding(months: 1)
             category = plan.category
+            lockApps = plan.lockApps
+            reminderMinutes = plan.reminderMinutes
         }
     }
 
     private func save() {
-        let start = isAllDay ? day.startOfDay : day.combined(withTime: startTime)
-        let duration = isAllDay ? 24 * 60 : durationMinutes
+        let allDay = kind == .general && isAllDay
+        let start = allDay ? day.startOfDay : day.combined(withTime: startTime)
+        let duration = allDay ? 24 * 60 : durationMinutes
         let end: Date? = (repeatRule != .none && hasRepeatEnd) ? repeatEnd : nil
         let trimmed = title.trimmingCharacters(in: .whitespaces)
 
@@ -179,13 +353,17 @@ struct PlanEditorView: View {
             plan.note = note
             plan.startDate = start
             plan.durationMinutes = duration
-            plan.isAllDay = isAllDay
+            plan.isAllDay = allDay
             plan.repeatRule = repeatRule
             plan.repeatEnd = end
             plan.category = category
+            plan.kind = kind
+            plan.lockApps = kind == .study && lockApps
+            plan.reminderMinutes = reminderMinutes
         } else {
-            let plan = Plan(title: trimmed, startDate: start, durationMinutes: duration, isAllDay: isAllDay,
-                            repeatRule: repeatRule, repeatEnd: end, category: category, note: note)
+            let plan = Plan(title: trimmed, startDate: start, durationMinutes: duration, isAllDay: allDay,
+                            repeatRule: repeatRule, repeatEnd: end, category: category, note: note,
+                            kind: kind, lockApps: lockApps, reminderMinutes: reminderMinutes)
             context.insert(plan)
         }
         try? context.save()
@@ -202,5 +380,45 @@ struct PlanEditorView: View {
             PlanScheduler.shared.rescheduleNotifications()
         }
         dismiss()
+    }
+}
+
+/// 휠로 시간을 고르고 "완료"를 눌러야 반영되는 시간 선택 시트
+struct TimePickerSheet: View {
+    let title: String
+    let initial: Date
+    var onDone: (Date) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var value = Date()
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 10) {
+                DatePicker("", selection: $value, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                    .environment(\.locale, Locale(identifier: "ko_KR"))
+                Text("돌려서 고른 뒤 완료를 누르면 시간이 설정돼요.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal)
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("취소") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("완료") {
+                        onDone(value)
+                        dismiss()
+                    }
+                    .fontWeight(.bold)
+                }
+            }
+        }
+        .onAppear { value = initial }
     }
 }

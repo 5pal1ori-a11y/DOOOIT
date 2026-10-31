@@ -28,11 +28,19 @@ final class PlanScheduler {
         guard let context else { return }
         let plans = (try? context.fetch(FetchDescriptor<Plan>())) ?? []
         NotificationService.reschedule(plans: plans)
+        AppLockManager.shared.scheduleLocks(for: plans)
     }
 
     func tick() {
         guard let context, let timer else { return }
         let now = Date()
+
+        // 앱 잠금 공부 플랜이 끝나면 타이머 종료 + 잠금 해제
+        if timer.phase != .idle, let lockUntil = timer.lockUntil, lockUntil <= now {
+            timer.stop()
+        }
+        AppLockManager.shared.unlockIfExpired(now: now)
+
         let plans = (try? context.fetch(FetchDescriptor<Plan>())) ?? []
         let today = plans.occurrences(on: now).filter { $0.plan.isStudy && !$0.plan.isAllDay }
 
@@ -89,7 +97,8 @@ final class PlanScheduler {
             categoryName: occurrence.plan.category?.name ?? "공부",
             symbol: occurrence.plan.symbol,
             planKey: occurrence.id,
-            targetMinutes: min(occurrence.plan.durationMinutes, remaining)
+            targetMinutes: min(occurrence.plan.durationMinutes, remaining),
+            lockUntil: occurrence.plan.lockApps ? occurrence.end : nil
         )
         timer.isPresented = true
     }

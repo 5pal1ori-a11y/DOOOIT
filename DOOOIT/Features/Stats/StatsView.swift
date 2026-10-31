@@ -1,0 +1,281 @@
+import Charts
+import SwiftData
+import SwiftUI
+
+enum StatPeriod: String, CaseIterable, Identifiable {
+    case day, week, month
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .day: return "일간"
+        case .week: return "주간"
+        case .month: return "월간"
+        }
+    }
+    var previousName: String {
+        switch self {
+        case .day: return "어제"
+        case .week: return "지난주"
+        case .month: return "지난달"
+        }
+    }
+}
+
+/// 공부 통계: 과목별 시간, 이전 기간과 비교, 추이, 집중 시간대
+struct StatsView: View {
+    @Environment(StudyTimer.self) private var studyTimer
+    @Query private var sessions: [StudySession]
+    @Query private var categories: [PlanCategory]
+    @State private var period: StatPeriod = .week
+
+    private struct Entry {
+        let category: String
+        let start: Date
+        let seconds: Int
+    }
+
+    private struct SubjectTotal: Identifiable {
+        let name: String
+        let seconds: Int
+        var id: String { name }
+    }
+
+    private struct Point: Identifiable {
+        let id: Int
+        let label: String
+        let minutes: Int
+        let isCurrent: Bool
+    }
+
+    var body: some View {
+        let range = Self.range(period, offset: 0)
+        let current = entries(in: range)
+        let total = current.reduce(0) { $0 + $1.seconds }
+        let previous = entries(in: Self.range(period, offset: -1)).reduce(0) { $0 + $1.seconds }
+        let bySubject = Dictionary(grouping: current, by: \.category)
+            .map { SubjectTotal(name: $0.key, seconds: $0.value.reduce(0) { $0 + $1.seconds }) }
+            .sorted { $0.seconds > $1.seconds }
+
+        ScrollView {
+            VStack(spacing: 24) {
+                tabs
+
+                VStack(spacing: 4) {
+                    Text(label(for: range))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Text("총 \(bigTime(total)) 집중했어요")
+                        .font(.subheadline.weight(.semibold))
+                }
+
+                if total == 0 {
+                    Label("이 기간에는 아직 공부 기록이 없어요", systemImage: "chart.pie")
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 30)
+                } else {
+                    subjectBar(bySubject, total: total)
+                    subjectList(bySubject, total: total)
+                }
+
+                comparison(total: total, previous: previous)
+
+                if total > 0 {
+                    hourHeat(current)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 40)
+        }
+        .scrollIndicators(.hidden)
+        .background { AppBackground() }
+        .navigationTitle("공부 통계")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: Pieces
+
+    private var tabs: some View {
+        HStack(spacing: 28) {
+            ForEach(StatPeriod.allCases) { item in
+                Button {
+                    withAnimation(.snappy) { period = item }
+                } label: {
+                    Text(item.title)
+                        .font(.headline)
+                        .foregroundStyle(period == item ? Color.accentColor : Color.secondary)
+                        .padding(.vertical, 10)
+                        .overlay(alignment: .bottom) {
+                            if period == item {
+                                Capsule().fill(Color.accentColor).frame(height: 3)
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private func bigTime(_ seconds: Int) -> Text {
+        let minutes = Int((Double(seconds) / 60).rounded())
+        let big = Font.system(size: 36, weight: .black)
+        return Text("\(Text("\(minutes / 60)").font(big).foregroundStyle(Color.accentColor))\(Text("시간 ").foregroundStyle(Color.accentColor))\(Text("\(minutes % 60)").font(big).foregroundStyle(Color.accentColor))\(Text("분").foregroundStyle(Color.accentColor))")
+    }
+
+    private func color(for name: String) -> Color {
+        categories.first { $0.name == name }?.color ?? .gray
+    }
+
+    private func subjectBar(_ items: [SubjectTotal], total: Int) -> some View {
+        GeometryReader { geo in
+            let gaps = CGFloat(max(items.count - 1, 0)) * 2
+            HStack(spacing: 2) {
+                ForEach(items) { item in
+                    Rectangle()
+                        .fill(color(for: item.name))
+                        .frame(width: max(2, (geo.size.width - gaps) * CGFloat(item.seconds) / CGFloat(total)))
+                }
+            }
+        }
+        .frame(height: 16)
+        .clipShape(Capsule())
+    }
+
+    private func subjectList(_ items: [SubjectTotal], total: Int) -> some View {
+        VStack(spacing: 0) {
+            ForEach(items) { item in
+                let index = items.firstIndex { $0.id == item.id } ?? 0
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(color(for: item.name))
+                        .frame(width: 4, height: 22)
+                    Text(item.name).font(.body.weight(.semibold))
+                    Spacer()
+                    Text("\(Int((Double(item.seconds) / Double(total) * 100).rounded()))%")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Text(TimeText.duration(seconds: item.seconds))
+                        .font(.body.weight(.bold))
+                        .monospacedDigit()
+                        .frame(minWidth: 90, alignment: .trailing)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 13)
+                if index < items.count - 1 { Divider().padding(.leading, 32) }
+            }
+        }
+        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+    }
+
+    private func comparison(total: Int, previous: Int) -> some View {
+        let diff = total - previous
+        let points: [Point] = (-5...0).map { offset in
+            let r = Self.range(period, offset: offset)
+            let seconds = entries(in: r).reduce(0) { $0 + $1.seconds }
+            return Point(id: offset, label: shortLabel(r.0), minutes: seconds / 60, isCurrent: offset == 0)
+        }
+
+        return VStack(spacing: 6) {
+            Text("집중 시간이 \(period.previousName)보다")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            if diff == 0 {
+                Text("똑같아요").font(.title2.weight(.bold))
+            } else {
+                Text("\(bigTime(abs(diff))) \(diff > 0 ? "늘었어요" : "줄었어요")")
+                    .font(.subheadline.weight(.semibold))
+            }
+
+            Chart(points) { point in
+                LineMark(x: .value("기간", point.label), y: .value("분", point.minutes))
+                    .interpolationMethod(.monotone)
+                    .foregroundStyle(Color.accentColor)
+                PointMark(x: .value("기간", point.label), y: .value("분", point.minutes))
+                    .symbolSize(point.isCurrent ? 110 : 55)
+                    .foregroundStyle(point.isCurrent ? Color.accentColor : Color.accentColor.opacity(0.55))
+                    .annotation(position: .top, spacing: 6) {
+                        Text(String(format: "%02d:%02d", point.minutes / 60, point.minutes % 60))
+                            .font(.caption2.weight(point.isCurrent ? .heavy : .regular))
+                            .foregroundStyle(point.isCurrent ? Color.accentColor : Color.secondary)
+                    }
+            }
+            .chartYAxis(.hidden)
+            .frame(height: 190)
+            .padding(.top, 8)
+        }
+    }
+
+    private func hourHeat(_ items: [Entry]) -> some View {
+        var hours = Array(repeating: 0, count: 24)
+        for item in items { hours[Calendar.current.component(.hour, from: item.start)] += item.seconds }
+        let maxValue = max(hours.max() ?? 1, 1)
+        let best = hours.firstIndex(of: hours.max() ?? 0) ?? 0
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("언제 집중했나요").font(.title3.weight(.heavy))
+                Spacer()
+                Text("가장 많이 공부한 시간 \(best)시")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 2) {
+                ForEach(0..<24, id: \.self) { hour in
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Color.accentColor.opacity(hours[hour] == 0 ? 0.08 : 0.25 + 0.75 * Double(hours[hour]) / Double(maxValue)))
+                }
+            }
+            .frame(height: 34)
+            HStack {
+                ForEach(["0시", "6시", "12시", "18시", "24시"], id: \.self) { label in
+                    Text(label)
+                    if label != "24시" { Spacer() }
+                }
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+    }
+
+    // MARK: Data
+
+    private func entries(in range: (Date, Date)) -> [Entry] {
+        var list = sessions
+            .filter { $0.start >= range.0 && $0.start < range.1 }
+            .map { Entry(category: $0.categoryName.isEmpty ? "기타" : $0.categoryName, start: $0.start, seconds: $0.seconds) }
+        if studyTimer.isActive, let started = studyTimer.startedAt, started >= range.0, started < range.1 {
+            list.append(Entry(category: studyTimer.categoryName, start: started, seconds: Int(studyTimer.elapsed())))
+        }
+        return list
+    }
+
+    static func range(_ period: StatPeriod, offset: Int) -> (Date, Date) {
+        let cal = Calendar.current
+        let today = Date().startOfDay
+        switch period {
+        case .day:
+            let start = today.adding(days: offset)
+            return (start, start.adding(days: 1))
+        case .week:
+            let weekStart = today.adding(days: -(cal.component(.weekday, from: today) - 1) + offset * 7)
+            return (weekStart, weekStart.adding(days: 7))
+        case .month:
+            let start = today.startOfMonth.adding(months: offset)
+            return (start, start.adding(months: 1))
+        }
+    }
+
+    private func label(for range: (Date, Date)) -> String {
+        switch period {
+        case .day: return range.0.kr("M월 d일 EEEE")
+        case .week: return "\(range.0.kr("M월 d일")) – \(range.1.adding(days: -1).kr("M월 d일"))"
+        case .month: return range.0.kr("yyyy년 M월")
+        }
+    }
+
+    private func shortLabel(_ date: Date) -> String {
+        period == .month ? date.kr("M월") : date.kr("M/d")
+    }
+}

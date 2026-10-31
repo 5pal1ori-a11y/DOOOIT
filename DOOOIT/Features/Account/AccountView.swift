@@ -84,11 +84,16 @@ struct AccountView: View {
                     Text("공부 카테고리 일정이 다가오면 다이나믹 아일랜드에 남은 시간을 보여주고, 시작 시간이 되면 타이머를 자동으로 실행해요.")
                 }
 
-                Section("플래너") {
+                Section("플래너 · 통계") {
                     NavigationLink {
                         CategoryManagerView()
                     } label: {
-                        Label("카테고리 관리", systemImage: "tag.fill")
+                        Label("과목 · 카테고리 관리", systemImage: "tag.fill")
+                    }
+                    NavigationLink {
+                        StatsView()
+                    } label: {
+                        Label("공부 통계", systemImage: "chart.pie.fill")
                     }
                 }
 

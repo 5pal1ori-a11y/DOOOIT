@@ -47,6 +47,7 @@ enum AppTab: Hashable {
 struct MainTabView: View {
     @Environment(StudyTimer.self) private var studyTimer
     @State private var tab: AppTab = .home
+    @State private var plannerRouter = PlannerRouter()
 
     var body: some View {
         @Bindable var studyTimer = studyTimer
@@ -69,6 +70,7 @@ struct MainTabView: View {
         .tabViewBottomAccessory {
             TimerAccessoryView()
         }
+        .environment(plannerRouter)
         .fullScreenCover(isPresented: $studyTimer.isPresented) {
             TimerView()
         }

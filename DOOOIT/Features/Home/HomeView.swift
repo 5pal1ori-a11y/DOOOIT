@@ -2,11 +2,14 @@ import Charts
 import SwiftData
 import SwiftUI
 
+/// 홈: 카드만 반복하지 않고 구획마다 다른 형태로 구성
+/// 인사 헤더 → 주간 스트립 → 집중 패널(글라스) → 타임라인형 오늘의 플랜 → 메모지 단어 카드 → 원형 바로가기 → 차트
 struct HomeView: View {
     @Binding var selectedTab: AppTab
 
     @Environment(AuthManager.self) private var auth
     @Environment(StudyTimer.self) private var studyTimer
+    @Environment(PlannerRouter.self) private var router
 
     @Query(sort: \Plan.startDate) private var plans: [Plan]
     @Query(sort: \StudySession.start, order: .reverse) private var sessions: [StudySession]
@@ -16,34 +19,27 @@ struct HomeView: View {
     @AppStorage(SettingsKey.dailyStudyGoalMinutes) private var studyGoalMinutes = 180
     @AppStorage(SettingsKey.dailyWordGoal) private var wordGoal = 20
     @AppStorage(SettingsKey.wordGoalDoneKey) private var wordGoalDoneKey = ""
-    @AppStorage(SettingsKey.dDayTitle) private var dDayTitle = ""
-    @AppStorage(SettingsKey.dDayDate) private var dDayDate: Double = 0
 
     @State private var showAllPlans = false
     @State private var showNewPlan = false
+    @State private var editingPlan: Plan?
 
     var body: some View {
         NavigationStack {
             TimelineView(.everyMinute) { timeline in
                 let now = timeline.date
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: 24) {
                         header(now: now)
-                            .padding(.top, 8)
-                            .padding(.bottom, 4)
-                        todayPlansCard(now: now)
-                        quickActions
-                        HStack(spacing: 14) {
-                            studyTimeCard(now: now)
-                            streakCard(now: now)
-                        }
-                        wordGoalCard(now: now)
-                        if !dDayTitle.isEmpty && dDayDate > 0 {
-                            dDayCard(now: now)
-                        }
-                        weeklyChartCard(now: now)
+                        WeekStrip(selected: now) { day in openPlanner(day) }
+                        focusPanel(now: now)
+                        plansSection(now: now)
+                        wordMemoCard(now: now)
+                        quickTools
+                        weekSection(now: now)
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 8)
                     .padding(.bottom, 32)
                 }
                 .scrollIndicators(.hidden)
@@ -51,13 +47,22 @@ struct HomeView: View {
             .background { AppBackground() }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showAllPlans) {
-                TodayPlansSheet()
-                    .presentationDetents([.medium, .large])
+                TodayPlansSheet().presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showNewPlan) {
                 PlanEditorView(target: .new(Date()))
             }
+            .sheet(item: $editingPlan) { plan in
+                PlanEditorView(target: .edit(plan))
+            }
         }
+    }
+
+    private func openPlanner(_ day: Date) {
+        router.selectedDate = day.startOfDay
+        router.mode = .day
+        router.scrollRequest += 1
+        selectedTab = .planner
     }
 
     // MARK: Header
@@ -68,6 +73,8 @@ struct HomeView: View {
                 Image(systemName: Greeting.symbol(at: now))
                     .symbolRenderingMode(.multicolor)
                 Text(now.kr("M월 d일 EEEE"))
+                Spacer()
+                DDayChip()
             }
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(.secondary)
@@ -75,91 +82,10 @@ struct HomeView: View {
             Text(Greeting.text(name: auth.currentUser?.name ?? "유저", at: now))
                 .font(.system(size: 30, weight: .bold))
                 .fixedSize(horizontal: false, vertical: true)
-                .contentTransition(.opacity)
         }
     }
 
-    // MARK: Today plans
-
-    private func todayPlansCard(now: Date) -> some View {
-        let occurrences = plans.occurrences(on: now)
-        let done = occurrences.filter(\.isCompleted).count
-
-        return VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(title: "오늘의 플랜", symbol: "checklist") {
-                if !occurrences.isEmpty {
-                    Text("\(done)/\(occurrences.count)")
-                        .font(.subheadline.monospacedDigit().weight(.semibold))
-                        .foregroundStyle(.secondary)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-            }
-
-            if occurrences.isEmpty {
-                HStack(spacing: 12) {
-                    Image(systemName: "calendar.badge.plus")
-                        .font(.title2)
-                        .foregroundStyle(Color.accentColor)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("오늘 등록된 플랜이 없어요").font(.subheadline.weight(.semibold))
-                        Text("눌러서 오늘의 목표를 추가해보세요").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 6)
-            } else {
-                if !occurrences.isEmpty {
-                    ProgressView(value: Double(done), total: Double(occurrences.count))
-                        .tint(Color.accentColor)
-                }
-                VStack(spacing: 12) {
-                    ForEach(occurrences.prefix(3)) { occurrence in
-                        PlanRow(occurrence: occurrence)
-                    }
-                }
-                if occurrences.count > 3 {
-                    HStack {
-                        Spacer()
-                        Text("+\(occurrences.count - 3)개 더 보기")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Color.accentColor)
-                        Spacer()
-                    }
-                    .padding(.top, 2)
-                }
-            }
-        }
-        .glassCard()
-        .contentShape(.rect(cornerRadius: 26))
-        .onTapGesture {
-            if occurrences.isEmpty { showNewPlan = true } else { showAllPlans = true }
-        }
-    }
-
-    // MARK: Quick actions
-
-    private var quickActions: some View {
-        GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
-                NavigationLink { WordHomeView() } label: {
-                    QuickAction(symbol: "character.book.closed.fill", title: "영어 단어")
-                }
-                NavigationLink { MathNoteListView() } label: {
-                    QuickAction(symbol: "function", title: "오답노트")
-                }
-                NavigationLink { MemoListView() } label: {
-                    QuickAction(symbol: "note.text", title: "메모")
-                }
-                Button { studyTimer.isPresented = true } label: {
-                    QuickAction(symbol: "timer", title: "타이머")
-                }
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    // MARK: Study time
+    // MARK: Focus panel (유일한 큰 글라스 패널)
 
     private func todaySeconds(now: Date) -> Int {
         let saved = sessions.filter { $0.start.isSameDay(as: now) }.reduce(0) { $0 + $1.seconds }
@@ -167,137 +93,202 @@ struct HomeView: View {
         return saved + running
     }
 
-    private func studyTimeCard(now: Date) -> some View {
-        let seconds = todaySeconds(now: now)
-        let progress = Double(seconds) / Double(max(studyGoalMinutes * 60, 1))
-
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("오늘 공부", systemImage: "clock.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                ProgressRing(progress: progress, lineWidth: 5)
-                    .frame(width: 26, height: 26)
-            }
-            Text(TimeText.duration(seconds: seconds))
-                .font(.title2.weight(.bold))
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-            Text("목표 \(TimeText.duration(minutes: studyGoalMinutes))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .glassCard(padding: 16)
-    }
-
-    // MARK: Streak
-
     private func streak(now: Date) -> Int {
-        let studiedDays = Set(sessions.filter { $0.seconds >= 60 }.map { $0.start.dayKey })
+        let studied = Set(sessions.filter { $0.seconds >= 60 }.map { $0.start.dayKey })
         var day = now.startOfDay
-        if !studiedDays.contains(day.dayKey) { day = day.adding(days: -1) }
+        if !studied.contains(day.dayKey) { day = day.adding(days: -1) }
         var count = 0
-        while studiedDays.contains(day.dayKey) {
+        while studied.contains(day.dayKey) {
             count += 1
             day = day.adding(days: -1)
         }
         return count
     }
 
-    private func streakCard(now: Date) -> some View {
-        let days = streak(now: now)
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label("연속 공부", systemImage: "flame.fill")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Image(systemName: "flame.fill")
-                    .font(.title3)
-                    .foregroundStyle(days > 0 ? Color.orange : Color.secondary)
-                    .symbolEffect(.bounce, value: days)
-            }
-            Text("\(days)일")
-                .font(.title2.weight(.bold))
-            Text(days > 0 ? "기록을 이어가세요" : "오늘 첫 기록을 남겨요")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .glassCard(padding: 16)
-    }
+    private func focusPanel(now: Date) -> some View {
+        let seconds = todaySeconds(now: now)
+        let progress = Double(seconds) / Double(max(studyGoalMinutes * 60, 1))
+        let occurrences = plans.occurrences(on: now)
+        let done = occurrences.filter(\.isCompleted).count
+        let unsolved = mathNotes.filter { $0.status != .correct }.count
 
-    // MARK: Words
-
-    private func wordGoalCard(now: Date) -> some View {
-        let unlearned = words.filter { !$0.isLearned }.count
-        let doneToday = wordGoalDoneKey == now.dayKey
-        let remaining = doneToday ? 0 : min(wordGoal, unlearned)
-        let learnedToday = words.filter { $0.learnedAt?.isSameDay(as: now) ?? false }.count
-
-        return NavigationLink {
-            WordHomeView()
-        } label: {
-            HStack(spacing: 16) {
-                ZStack {
-                    ProgressRing(progress: doneToday ? 1 : Double(learnedToday) / Double(max(wordGoal, 1)),
-                                 lineWidth: 6, color: doneToday ? Palette.success : .accentColor)
-                    Image(systemName: doneToday ? "checkmark" : "character.book.closed.fill")
-                        .font(.headline)
-                        .foregroundStyle(doneToday ? Palette.success : Color.accentColor)
-                }
-                .frame(width: 54, height: 54)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("오늘의 영어 단어")
+        return VStack(spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("오늘 집중한 시간")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                    if words.isEmpty {
-                        Text("단어장을 촬영해서 시작해요")
-                            .font(.headline)
-                    } else if doneToday {
-                        Text("오늘의 단어목표 성공!")
-                            .font(.headline)
-                    } else {
-                        Text("외워야 할 단어 \(remaining)개")
-                            .font(.headline)
-                    }
-                    Text("하루 목표 \(wordGoal)개 · 남은 단어 \(unlearned)개")
+                    Text(TimeText.duration(seconds: seconds))
+                        .font(.system(size: 34, weight: .heavy))
+                        .minimumScaleFactor(0.7)
+                        .lineLimit(1)
+                    Text("목표 \(TimeText.duration(minutes: studyGoalMinutes)) · \(Int(min(progress, 1) * 100))% 달성")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                ZStack {
+                    ProgressRing(progress: progress, lineWidth: 8)
+                    Text("\(Int(min(progress, 1) * 100))%")
+                        .font(.subheadline.weight(.bold))
+                        .monospacedDigit()
+                }
+                .frame(width: 72, height: 72)
             }
-            .glassCard(interactive: true)
+
+            HStack(spacing: 0) {
+                focusStat(symbol: "flame.fill", color: .orange, value: "\(streak(now: now))일", label: "연속 공부")
+                Divider().frame(height: 34)
+                focusStat(symbol: "checklist", color: .accentColor, value: "\(done)/\(occurrences.count)", label: "오늘 플랜")
+                Divider().frame(height: 34)
+                focusStat(symbol: "arrow.counterclockwise", color: Palette.danger, value: "\(unsolved)", label: "복습할 오답")
+            }
+            .padding(.top, 12)
+            .overlay(alignment: .top) { Divider() }
+
+            Button {
+                studyTimer.isPresented = true
+            } label: {
+                Label(studyTimer.isActive ? "타이머 보기" : "집중 시작", systemImage: "play.fill")
+                    .font(.body.weight(.bold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+            }
+            .buttonStyle(.glassProminent)
+            .controlSize(.large)
+        }
+        .padding(20)
+        .glassEffect(.regular, in: .rect(cornerRadius: 30))
+    }
+
+    private func focusStat(symbol: String, color: Color, value: String, label: String) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: symbol).foregroundStyle(color)
+            Text(value).font(.headline).monospacedDigit()
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: Plans (타임라인, 카드 없음)
+
+    private func plansSection(now: Date) -> some View {
+        let occurrences = plans.occurrences(on: now)
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("오늘의 플랜").font(.title3.weight(.heavy))
+                Spacer()
+                if occurrences.count > 3 {
+                    Button("전체 \(occurrences.count)개") { showAllPlans = true }
+                        .font(.subheadline.weight(.semibold))
+                } else {
+                    Button("추가") { showNewPlan = true }
+                        .font(.subheadline.weight(.semibold))
+                }
+            }
+
+            if occurrences.isEmpty {
+                Button { showNewPlan = true } label: {
+                    Label("오늘 등록된 플랜이 없어요. 눌러서 오늘의 목표를 추가해보세요", systemImage: "calendar.badge.plus")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 14)
+                        .overlay(alignment: .top) { DashedLine() }
+                        .overlay(alignment: .bottom) { DashedLine() }
+                }
+                .buttonStyle(.plain)
+            } else {
+                ForEach(occurrences.prefix(3)) { occurrence in
+                    PlanTimelineRow(occurrence: occurrence) { editingPlan = occurrence.plan }
+                }
+                if occurrences.count > 3 {
+                    Button("+\(occurrences.count - 3)개 더 보기") { showAllPlans = true }
+                        .font(.subheadline.weight(.bold))
+                        .padding(.leading, 64)
+                }
+            }
+        }
+    }
+
+    // MARK: Word memo card (메모지 형태)
+
+    private func wordMemoCard(now: Date) -> some View {
+        let unlearned = words.filter { !$0.isLearned }
+        let doneToday = wordGoalDoneKey == now.dayKey
+        let remaining = doneToday ? 0 : min(wordGoal, unlearned.count)
+        let preview = unlearned.prefix(3).map(\.term).joined(separator: " · ")
+
+        return NavigationLink { WordHomeView() } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("오늘의 영어 단어")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Palette.ink.opacity(0.55))
+                    Text(words.isEmpty ? "단어장을 찍어서 시작해요" : (doneToday ? "오늘의 단어목표 성공!" : "외워야 할 단어 \(remaining)개"))
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(Palette.ink)
+                    Text(doneToday || preview.isEmpty ? "하루 목표 \(wordGoal)개" : preview + " …")
+                        .font(.custom("Noteworthy-Bold", size: 17, relativeTo: .body))
+                        .foregroundStyle(Palette.ink.opacity(0.65))
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: doneToday ? "checkmark" : "arrow.right")
+                    .font(.headline)
+                    .foregroundStyle(Palette.paper)
+                    .frame(width: 38, height: 38)
+                    .background(Palette.ink, in: .circle)
+            }
+            .padding(.vertical, 22)
+            .padding(.leading, 46)
+            .padding(.trailing, 18)
+            .background { NotePaperBackground() }
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, bottomTrailingRadius: 22, topTrailingRadius: 22))
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.accentColor.opacity(0.35))
+                    .frame(width: 78, height: 20)
+                    .rotationEffect(.degrees(-4))
+                    .offset(y: -9)
+            }
+            .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
+            .rotationEffect(.degrees(-0.6))
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: D-Day
+    // MARK: Quick tools (원형 버튼, 카드 없음)
 
-    private func dDayCard(now: Date) -> some View {
-        let target = Date(timeIntervalSince1970: dDayDate).startOfDay
-        let diff = Calendar.current.dateComponents([.day], from: now.startOfDay, to: target).day ?? 0
-        let label = diff > 0 ? "D-\(diff)" : (diff == 0 ? "D-DAY" : "D+\(-diff)")
-
-        return HStack(spacing: 14) {
-            IconBadge(symbol: "flag.checkered", size: 44)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(dDayTitle).font(.headline)
-                Text(target.kr("yyyy년 M월 d일 (E)")).font(.caption).foregroundStyle(.secondary)
+    private var quickTools: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("바로가기").font(.title3.weight(.heavy))
+            GlassEffectContainer(spacing: 14) {
+                HStack(spacing: 0) {
+                    NavigationLink { WordHomeView() } label: { quickTool("character.book.closed.fill", "영어 단어") }
+                    NavigationLink { MathNoteListView() } label: { quickTool("function", "오답노트") }
+                    NavigationLink { MemoListView() } label: { quickTool("note.text", "메모") }
+                    NavigationLink { StatsView() } label: { quickTool("chart.pie.fill", "통계") }
+                }
+                .buttonStyle(.plain)
             }
-            Spacer()
-            Text(label)
-                .font(.system(size: 28, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.accentColor)
         }
-        .glassCard()
     }
 
-    // MARK: Weekly chart
+    private func quickTool(_ symbol: String, _ title: String) -> some View {
+        VStack(spacing: 7) {
+            Image(systemName: symbol)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 58, height: 58)
+                .glassEffect(.regular.interactive(), in: .circle)
+            Text(title)
+                .font(.caption.weight(.semibold))
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: Week chart (카드 없이)
 
     private struct DayStat: Identifiable {
         let id: String
@@ -306,7 +297,7 @@ struct HomeView: View {
         let isToday: Bool
     }
 
-    private func weeklyChartCard(now: Date) -> some View {
+    private func weekSection(now: Date) -> some View {
         let stats: [DayStat] = (0..<7).reversed().map { offset in
             let day = now.startOfDay.adding(days: -offset)
             let seconds = offset == 0
@@ -315,154 +306,39 @@ struct HomeView: View {
             return DayStat(id: day.dayKey, label: day.kr("E"), minutes: seconds / 60, isToday: offset == 0)
         }
         let total = stats.reduce(0) { $0 + $1.minutes }
-        let unsolved = mathNotes.filter { $0.status != .correct }.count
 
-        return VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(title: "이번 주 공부", symbol: "chart.bar.fill") {
-                Text("총 \(TimeText.duration(minutes: total))")
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("이번 주").font(.title3.weight(.heavy))
+                Spacer()
+                NavigationLink("통계 자세히 보기") { StatsView() }
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
             }
-
-            Chart(stats) { stat in
-                BarMark(
-                    x: .value("요일", stat.label),
-                    y: .value("분", stat.minutes)
-                )
-                .cornerRadius(6)
-                .foregroundStyle(stat.isToday ? Color.accentColor : Color.accentColor.opacity(0.35))
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading)
-            }
-            .chartYAxisLabel("분")
-            .frame(height: 150)
-
-            if unsolved > 0 {
-                Divider()
-                NavigationLink { MathNoteListView() } label: {
-                    HStack {
-                        Label("다시 풀어볼 오답 \(unsolved)문제", systemImage: "arrow.counterclockwise")
-                            .font(.subheadline.weight(.semibold))
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .glassCard()
-    }
-}
-
-private struct QuickAction: View {
-    let symbol: String
-    let title: String
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(height: 24)
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
-    }
-}
-
-// MARK: - Plan row (홈/플래너 공용)
-
-struct PlanRow: View {
-    let occurrence: PlanOccurrence
-    @Environment(\.modelContext) private var context
-
-    var body: some View {
-        let plan = occurrence.plan
-        let completed = occurrence.isCompleted
-
-        HStack(spacing: 12) {
-            Button {
-                withAnimation(.snappy) { plan.toggleCompleted(on: occurrence.day) }
-                try? context.save()
-                Haptics.tap()
-            } label: {
-                Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(completed ? plan.color : Color.secondary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .buttonStyle(.plain)
-
-            RoundedRectangle(cornerRadius: 2)
-                .fill(plan.color)
-                .frame(width: 4, height: 34)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(plan.title)
-                    .font(.body.weight(.semibold))
-                    .strikethrough(completed)
-                    .foregroundStyle(completed ? Color.secondary : Color.primary)
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    Text(occurrence.timeText)
-                    if let category = plan.category {
-                        Label(category.name, systemImage: category.symbol)
-                    }
-                    if plan.repeatRule != .none {
-                        Image(systemName: "repeat")
-                    }
-                }
+            Text("최근 7일 총 \(TimeText.duration(minutes: total))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+            Chart(stats) { stat in
+                BarMark(x: .value("요일", stat.label), y: .value("분", stat.minutes))
+                    .cornerRadius(7)
+                    .foregroundStyle(stat.isToday ? Color.accentColor : Color.accentColor.opacity(0.32))
             }
-
-            Spacer(minLength: 0)
-
-            if plan.isStudy {
-                Image(systemName: "timer")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(plan.color)
-            }
+            .chartYAxis { AxisMarks(position: .leading) }
+            .chartYAxisLabel("분")
+            .frame(height: 150)
         }
     }
 }
 
-/// 오늘의 플랜 전체 보기
-struct TodayPlansSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Query(sort: \Plan.startDate) private var plans: [Plan]
-    @State private var editing: Plan?
-
+/// 점선 구분선
+struct DashedLine: View {
     var body: some View {
-        NavigationStack {
-            let occurrences = plans.occurrences(on: Date())
-            List {
-                Section {
-                    ForEach(occurrences) { occurrence in
-                        PlanRow(occurrence: occurrence)
-                            .contentShape(Rectangle())
-                            .onTapGesture { editing = occurrence.plan }
-                    }
-                } footer: {
-                    Text("완료 \(occurrences.filter(\.isCompleted).count) / \(occurrences.count)")
-                }
+        GeometryReader { geo in
+            Path { path in
+                path.move(to: .zero)
+                path.addLine(to: CGPoint(x: geo.size.width, y: 0))
             }
-            .navigationTitle("오늘의 플랜")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button { dismiss() } label: { Image(systemName: "checkmark") }
-                }
-            }
-            .sheet(item: $editing) { plan in
-                PlanEditorView(target: .edit(plan))
-            }
+            .stroke(Color.primary.opacity(0.15), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
         }
+        .frame(height: 1)
     }
 }
