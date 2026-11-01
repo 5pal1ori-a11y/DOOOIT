@@ -52,6 +52,7 @@ struct MathNoteEditorView: View {
                         page(width: pageWidth)
                     case .grade:
                         gradingCard
+                        WorkCheckCard(note: note)
                         WrittenSolutionCard(note: note)
                         SimilarProblemsCard(note: note)
                     case .text:

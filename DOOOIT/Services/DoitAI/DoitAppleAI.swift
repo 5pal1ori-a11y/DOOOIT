@@ -248,6 +248,22 @@ enum DoitAppleAI {
         #endif
     }
 
+    // MARK: - 풀이 과정 채점 설명
+
+    /// 두잇 AI가 찾은 첫 번째 틀린 줄을 학생에게 쉽게 설명 (2~3문장)
+    static func explainMistake(problem: String, lines: [String], wrongIndex: Int, correctAnswer: String) async throws -> String {
+        let numbered = lines.enumerated().map { "\($0.offset + 1)) \($0.element)" }.joined(separator: "\n")
+        return try await answer("""
+            학생의 풀이를 이미 채점했어. \(wrongIndex + 1)번째 줄에서 처음 틀렸어.
+            그 줄에서 무엇을 잘못했는지와 어떻게 고치면 되는지 2~3문장으로 설명해줘. 정답을 다시 계산하지 말고 실수만 짚어줘.
+
+            문제: \(String(problem.prefix(300)))
+            정답: \(correctAnswer)
+            학생 풀이:
+            \(String(numbered.prefix(600)))
+            """)
+    }
+
     // MARK: - 문제 사진 글자 복원 (오답노트)
 
     static let ocrInstructions = """

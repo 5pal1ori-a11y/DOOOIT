@@ -265,6 +265,10 @@ final class MathNote {
     @Attribute(.externalStorage) var problemImageData: Data?
     /// 내가 단계별로 적은 풀이
     var stepAnswersData: Data?
+    /// 풀이 과정 채점: 내 풀이 (한 줄에 한 단계)
+    var workText: String = ""
+    /// 풀이 과정 채점 결과 (DoitWorkChecker.Report JSON)
+    var workCheckData: Data?
 
     var stepAnswers: [String] {
         get { stepAnswersData.flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? [] }

@@ -254,6 +254,24 @@ enum OCRService {
         return (fixed, true)
     }
 
+    /// 손으로 쓴 풀이 읽기: 영어(수식) 위주, 교정 없이, 위에서 아래로 한 줄씩
+    static func readHandwriting(_ image: UIImage) async -> [String] {
+        let lines = (try? await recognize(image, languageCorrection: false, languages: ["en-US", "ko-KR"], preferMath: true)) ?? []
+        let rows = lines.filter { !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+            .sorted { $0.box.midY > $1.box.midY }
+        // 같은 높이에 나뉘어 읽힌 조각은 한 줄로 합침
+        var merged: [(text: String, box: CGRect)] = []
+        for line in rows {
+            if let last = merged.last, abs(last.box.midY - line.box.midY) < min(last.box.height, line.box.height) * 0.5 {
+                let left = last.box.minX <= line.box.minX
+                merged[merged.count - 1] = (left ? last.text + " " + line.text : line.text + " " + last.text, last.box.union(line.box))
+            } else {
+                merged.append((line.text, line.box))
+            }
+        }
+        return merged.map { MathOCRFixer.fix($0.text) }
+    }
+
     /// 검은색(채도가 낮고 어두운) 픽셀만 남기고 나머지는 흰색으로 지움
     /// - 빨강·파랑 펜: 채도가 높아서 지워짐
     /// - 연필 풀이: 인쇄 글자보다 밝아서 지워짐
