@@ -18,7 +18,23 @@ enum DoitTutor {
     // MARK: - 1. 개념 정리
 
     static func concept(subject: String, unit: String, booster: Bool) async throws -> ConceptNote {
-        let article = try await topicArticle(subject: subject, unit: unit)
+        // 수학은 직접 정리한 교과서 핵심 + 예제
+        if isMath(subject: subject, unit: unit), let math = DoitMathConcepts.note(for: unit) {
+            var example = ""
+            if let problem = MathProblems.make(unit: unit, hard: false) {
+                example = "예제: \(problem.question)\n풀이: \(problem.steps.joined(separator: " → "))\n답: \(problem.finalAnswer)"
+            }
+            return ConceptNote(title: math.title, keyPoints: Array(math.points.prefix(booster ? 4 : 8)), example: example)
+        }
+        // 앱 안 지식(영어 문법, 과학·사회 개념)이 있으면 그것부터
+        if !isMath(subject: subject, unit: unit), let note = builtInNote(subject: subject, unit: unit, booster: booster) { return note }
+        let article: DoitSearch.Article
+        do {
+            article = try await topicArticle(subject: subject, unit: unit)
+        } catch {
+            if let note = builtInNote(subject: subject, unit: unit, booster: booster, force: true) { return note }
+            throw error
+        }
         let sentences = article.sentences
         guard !sentences.isEmpty else { throw TutorError.notEnough("'\(unit)' 자료가 너무 짧아요. 단원 이름을 조금 바꿔보세요.") }
         let points = Array(sentences.prefix(booster ? 3 : 6))
@@ -30,6 +46,59 @@ enum DoitTutor {
         }
         example += (example.isEmpty ? "" : "\n\n") + article.source
         return ConceptNote(title: article.title, keyPoints: points, example: example)
+    }
+
+    /// 영어·과학·사회 엔진에 들어 있는 설명으로 개념 정리 만들기
+    private static func builtInNote(subject: String, unit: String, booster: Bool, force: Bool = false) -> ConceptNote? {
+        // 교과서 단원 이름이 여러 개념을 묶은 경우 (예: 시제와 태 → 시제 + 수동태)
+        let combined: [String: [String]] = [
+            "시제와 태": ["12시제", "현재완료", "수동태"], "분사와 분사구문": ["분사", "분사구문"],
+            "관계사": ["관계대명사", "관계부사"], "가정법": ["가정법 과거", "가정법 과거완료"]
+        ]
+        let topics = combined[unit] ?? [unit]
+        let useEnglish = subject.contains("영어") || force
+        var title = ""
+        var points: [String] = []
+        var examples: [String] = []
+        for topic in topics {
+            let question = "\(topic) 설명해줘"
+            guard let text = (useEnglish ? DoitEnglish.answer(question) : nil) ?? DoitScience.answer(question) ?? DoitSocial.answer(question) else { continue }
+            var lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "**", with: "") }
+                .filter { !$0.isEmpty }
+            let heading = lines.first ?? topic
+            if !lines.isEmpty { lines.removeFirst() }
+            title = title.isEmpty ? heading : title
+            // 예문(1) …, 예: …)은 예시로, 나머지는 핵심 정리로
+            let isExample: (String) -> Bool = { line in
+                line.hasPrefix("예:") || line.hasPrefix("예)") || line.range(of: #"^\d\)"#, options: .regularExpression) != nil
+            }
+            var part = lines.filter { !isExample($0) && $0 != "예문" && !$0.hasPrefix("※") }.map { line -> String in
+                var l = line
+                for bullet in ["• ", "- ", "· "] where l.hasPrefix(bullet) { l.removeFirst(bullet.count) }
+                return l
+            }
+            // 한 문단짜리 설명은 문장으로 나눔
+            if part.count < 2 {
+                part = part.flatMap { $0.components(separatedBy: "요. ").map { $0.hasSuffix(".") || $0.hasSuffix("요") ? $0 : $0 + "요." } }
+                    .filter { $0.count > 3 }
+            }
+            if topics.count > 1 { part = part.map { "[\(heading)] " + $0 } }
+            points += part.prefix(topics.count > 1 ? 4 : 8)
+            examples += lines.filter(isExample).prefix(topics.count > 1 ? 1 : 2)
+        }
+        guard !points.isEmpty else { return nil }
+        if topics.count > 1 { title = unit }
+        let limit = booster ? 4 : 8
+        return ConceptNote(title: title, keyPoints: Array(points.prefix(limit)),
+                           example: examples.isEmpty ? (points.count > limit ? points[limit] : "") : numbered(examples))
+    }
+
+    /// 예문 번호를 1), 2), 3) 순서로 다시 매김
+    private static func numbered(_ lines: [String]) -> String {
+        lines.enumerated().map { index, line in
+            let body = line.replacingOccurrences(of: #"^\d\)\s*"#, with: "", options: .regularExpression)
+            return body.hasPrefix("예") ? body : "\(index + 1)) \(body)"
+        }.joined(separator: "\n")
     }
 
     // MARK: - 2. 빈칸 암기
@@ -127,7 +196,7 @@ enum DoitTutor {
         guard let solved = MathSolver.solve(problem) else {
             let concept = (try? await conceptLine(for: problem)) ?? ""
             throw TutorError.cannotSolve(
-                "이 문제는 아직 두잇 AI가 직접 풀 수 없는 유형이에요.\n지금은 방정식(일차·이차), 이차함수의 꼭짓점·최대최소, 두 근의 합·곱, 나머지정리, 식 계산·전개를 풀 수 있어요."
+                "이 문제는 아직 두잇 AI가 직접 풀 수 없는 유형이에요. 문제 글자가 정확히 읽혔는지 '문제 글' 탭에서 확인해 보세요.\n지금 풀 수 있는 유형: 방정식(일차·이차·고차·연립·절댓값), 부등식(이차·연립·절댓값), 인수분해, 이차함수 최대·최소, 근과 계수, 나머지정리, 복소수, 경우의 수, 좌표·직선·원, 집합, 합성·역함수, 유리·무리함수, 산술·기하평균, 미분·적분, 수열, 통계, 도형 공식"
                 + (concept.isEmpty ? "" : "\n\n관련 개념: \(concept)")
             )
         }
@@ -140,7 +209,10 @@ enum DoitTutor {
 
     static func similar(to problem: String) throws -> SimilarProblemSet {
         guard let kind = MathSolver.kind(of: problem) else {
-            throw TutorError.cannotSolve("비슷한 문제는 지금 방정식, 이차함수, 두 근의 합·곱, 나머지정리 문제에서 만들 수 있어요.")
+            throw TutorError.cannotSolve("이 문제의 유형을 알아보지 못했어요. 문제 글자를 확인해 주세요. (방정식·부등식·인수분해·이차함수·경우의 수·좌표·함수·미적분·수열 등에서 비슷한 문제를 만들 수 있어요)")
+        }
+        guard MathProblems.topic(for: kind) != nil else {
+            throw TutorError.cannotSolve("단순 계산 문제는 비슷한 문제를 만들지 않아요.")
         }
         let made = (0..<3).compactMap { level in MathProblems.similar(kind: kind, level: level) }
         guard made.count == 3 else { throw TutorError.notEnough("비슷한 문제를 만들지 못했어요. 다시 시도해주세요.") }
@@ -160,10 +232,15 @@ enum DoitTutor {
         guard !text.isEmpty else { throw TutorError.notEnough("사진에서 글자를 찾지 못했어요. 글자가 잘 보이게 다시 찍어주세요.") }
         // 수학이면 직접 풀이
         if let solved = MathSolver.solve(text) {
-            var lines = ["**\(solved.topic)**", solved.concept]
-            lines += solved.steps.enumerated().map { "\($0.offset + 1). \($0.element.hint) \($0.element.work)" }
+            var lines = ["**\(solved.topic)**", "💡 " + solved.concept]
+            lines += solved.steps.enumerated().map { "\($0.offset + 1). \($0.element.hint)" + ($0.element.work.isEmpty ? "" : " → \($0.element.work)") }
             lines.append("**답: \(solved.answer)**")
             return lines.joined(separator: "\n")
+        }
+        // 앱 안 지식: 영어 → 과학 → 사회
+        if let known = DoitEnglish.answer(text) ?? DoitScience.answer(text) ?? DoitSocial.answer(text) { return known }
+        if let word = DoitEnglish.lookupWord(in: text), let entry = await DoitEnglish.define(word) {
+            return (DoitEnglish.koreanMeaning(of: word).map { "**\(word)**: \($0)\n\n" } ?? "") + entry
         }
         // 그 밖에는 검색해서 설명
         // 질문이 짧거나 없으면 사진 글자의 첫 줄로 검색

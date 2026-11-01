@@ -21,10 +21,12 @@ struct DoitAIView: View {
         Suggestion(symbol: "calendar", text: "오늘 할 일 알려줘"),
         Suggestion(symbol: "plus.circle", text: "내일 오후 4시에 수학 공부 2시간 추가해줘"),
         Suggestion(symbol: "timer", text: "영어 단어 25분 타이머 시작해줘"),
-        Suggestion(symbol: "character.book.closed", text: "단어 추가: abundant 풍부한, resilient 회복력 있는"),
-        Suggestion(symbol: "chart.bar", text: "이번 주 공부 통계"),
-        Suggestion(symbol: "flag.checkered", text: "기말고사 D-Day 12월 10일로 설정해줘"),
-        Suggestion(symbol: "function", text: "x²-5x+6=0 풀어줘"),
+        Suggestion(symbol: "function", text: "x³−6x²+11x−6=0 풀어줘"),
+        Suggestion(symbol: "character.book.closed", text: "현재완료 설명해줘"),
+        Suggestion(symbol: "atom", text: "전압 12V 저항 4Ω 전류는?"),
+        Suggestion(symbol: "globe.asia.australia", text: "임진왜란 언제 일어났어?"),
+        Suggestion(symbol: "gamecontroller", text: "수학 퀴즈 내줘"),
+        Suggestion(symbol: "heart.text.square", text: "집중이 안 돼"),
         Suggestion(symbol: "questionmark.circle", text: "뭐 할 수 있어?")
     ]
 
@@ -115,7 +117,7 @@ struct DoitAIView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("두잇 AI는 휴대폰 안에서만 동작해요. 인터넷이 없어도 되고 무료예요.")
+            Text("두잇 AI는 외부 AI 없이 휴대폰 안에서 동작하고 무료예요. 개념 검색(위키백과)과 영어 사전만 인터넷을 써요.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }

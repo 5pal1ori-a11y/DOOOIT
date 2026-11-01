@@ -328,3 +328,33 @@ final class DoitActions {
         return "이동했어요."
     }
 }
+
+// MARK: - 대화·퀴즈용 정보
+
+extension DoitActions {
+    /// 일상 대화에 쓰는 오늘 상황 (공부 시간, 남은 플랜, D-Day)
+    func chatContext() -> DoitChat.Context {
+        let today = Date()
+        let sessions = fetch(StudySession.self).filter { $0.start.isSameDay(as: today) }
+        let seconds = sessions.reduce(0) { $0 + $1.seconds } + (StudyTimer.shared.isActive ? Int(StudyTimer.shared.elapsed()) : 0)
+        let goal = UserDefaults.standard.object(forKey: SettingsKey.dailyStudyGoalMinutes) as? Int ?? 180
+        let remaining = fetch(Plan.self).occurrences(on: today).filter { !$0.isCompleted }.count
+        return DoitChat.Context(now: today, todayMinutes: seconds / 60, goalMinutes: goal, remainingPlans: remaining, dDay: dDayText())
+    }
+
+    /// 단어 퀴즈용: 틀린 단어와 안 외운 단어를 먼저
+    func quizWords(_ count: Int) -> [(term: String, meaning: String)] {
+        let words = fetch(Word.self).filter { !$0.term.isEmpty && !$0.meaning.isEmpty }
+        let weighted = words.sorted { ($0.wrongCount, $0.isLearned ? 0 : 1) > ($1.wrongCount, $1.isLearned ? 0 : 1) }
+        let pool = Array(weighted.prefix(max(count * 3, 12))).shuffled()
+        return pool.prefix(count).map { ($0.term, $0.meaning) }
+    }
+
+    var wordCount: Int { fetch(Word.self).count }
+
+    /// 내 단어장에 있는 뜻 (없으면 nil)
+    func savedMeaning(of term: String) -> String? {
+        let key = term.lowercased()
+        return fetch(Word.self).first { $0.term.lowercased() == key }?.meaning
+    }
+}

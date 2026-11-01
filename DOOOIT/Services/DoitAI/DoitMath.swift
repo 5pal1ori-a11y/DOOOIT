@@ -16,13 +16,13 @@ enum DoitMath {
         let expression = extractExpression(text)
         guard expression.count >= 3 else { return false }
         let hasDigit = expression.contains { $0.isNumber }
-        let hasOperator = expression.contains { "+-*/^=×÷²³√()".contains($0) } || expression.contains("x")
+        let hasOperator = expression.contains { "+-*/^=×÷²³⁴√()−".contains($0) } || expression.contains("x")
         return hasDigit && hasOperator
     }
 
     /// 문장에서 식 부분만 꺼냄 ("2x+3=11 풀어줘" → "2x+3=11")
     static func extractExpression(_ text: String) -> String {
-        let allowed = Set("0123456789.+-*/^=()xX×÷−²³√ ")
+        let allowed = Set("0123456789.+-*/^=()[]xX×÷−–·²³⁴⁵√ ")
         var best = ""
         var current = ""
         for character in text {
@@ -56,7 +56,7 @@ enum DoitMath {
     static func polynomial(_ text: String) -> Poly? { Parser.parse(text) }
 
     static func value(_ p: Poly, at x: Double) -> Double {
-        (0..<5).reduce(0) { $0 + p[$1] * pow(x, Double($1)) }
+        (0..<Poly.size).reduce(0) { $0 + p[$1] * pow(x, Double($1)) }
     }
 
     /// 방정식 부분만 풀이 (좌변 - 우변)
@@ -114,7 +114,9 @@ enum DoitMath {
     // MARK: 다항식 (최고 4차까지)
 
     struct Poly {
-        var c: [Double] = [0, 0, 0, 0, 0]
+        /// 최고 차수 (8차까지)
+        static let size = 9
+        var c: [Double] = Array(repeating: 0, count: Poly.size)
 
         subscript(_ i: Int) -> Double { i < c.count ? c[i] : 0 }
 
@@ -126,15 +128,15 @@ enum DoitMath {
         static func constant(_ v: Double) -> Poly { var p = Poly(); p.c[0] = v; return p }
         static var x: Poly { var p = Poly(); p.c[1] = 1; return p }
 
-        static func + (l: Poly, r: Poly) -> Poly { var p = Poly(); for i in 0..<5 { p.c[i] = l[i] + r[i] }; return p }
-        static func - (l: Poly, r: Poly) -> Poly { var p = Poly(); for i in 0..<5 { p.c[i] = l[i] - r[i] }; return p }
+        static func + (l: Poly, r: Poly) -> Poly { var p = Poly(); for i in 0..<Poly.size { p.c[i] = l[i] + r[i] }; return p }
+        static func - (l: Poly, r: Poly) -> Poly { var p = Poly(); for i in 0..<Poly.size { p.c[i] = l[i] - r[i] }; return p }
         static prefix func - (p: Poly) -> Poly { Poly() - p }
 
         static func * (l: Poly, r: Poly) -> Poly? {
             var p = Poly()
-            for i in 0..<5 where abs(l[i]) > 1e-12 {
-                for j in 0..<5 where abs(r[j]) > 1e-12 {
-                    guard i + j < 5 else { return nil }
+            for i in 0..<Poly.size where abs(l[i]) > 1e-12 {
+                for j in 0..<Poly.size where abs(r[j]) > 1e-12 {
+                    guard i + j < Poly.size else { return nil }
                     p.c[i + j] += l[i] * r[j]
                 }
             }
@@ -149,11 +151,11 @@ enum DoitMath {
 
         static func parse(_ raw: String) -> Poly? {
             var text = raw.replacingOccurrences(of: " ", with: "")
-            for (from, to) in [("×", "*"), ("÷", "/"), ("−", "-"), ("²", "^2"), ("³", "^3"), ("X", "x")] {
+            for (from, to) in [("×", "*"), ("÷", "/"), ("−", "-"), ("–", "-"), ("·", "*"), ("²", "^2"), ("³", "^3"), ("⁴", "^4"), ("⁵", "^5"), ("X", "x"), ("[", "("), ("]", ")"), ("{", "("), ("}", ")")] {
                 text = text.replacingOccurrences(of: from, with: to)
             }
             // 휴대폰으로 쓴 x2, x3 은 x², x³ 으로
-            text = text.replacingOccurrences(of: "x([234])(?![0-9.])", with: "x^$1", options: .regularExpression)
+            text = text.replacingOccurrences(of: "x([2-8])(?![0-9.])", with: "x^$1", options: .regularExpression)
             guard !text.isEmpty else { return nil }
             var parser = Parser(chars: Array(text))
             guard let result = parser.expression(), parser.i == parser.chars.count else { return nil }
@@ -205,7 +207,7 @@ enum DoitMath {
             if base.degree <= 0 {
                 return .constant(pow(base[0], n))
             }
-            guard n >= 0, n == n.rounded(), n <= 4 else { return nil }
+            guard n >= 0, n == n.rounded(), n < Double(Poly.size) else { return nil }
             var result = Poly.constant(1)
             for _ in 0..<Int(n) {
                 guard let product = result * base else { return nil }
@@ -246,19 +248,26 @@ enum DoitMath {
 
     static func describe(_ p: Poly) -> String {
         var parts: [String] = []
-        let names = ["", "x", "x²", "x³", "x⁴"]
-        for power in stride(from: 4, through: 0, by: -1) {
+        for power in stride(from: Poly.size - 1, through: 0, by: -1) {
             let value = p[power]
             guard abs(value) > 1e-9 else { continue }
             let sign = value < 0 ? "−" : "+"
             let magnitude = abs(value)
-            let number = (power > 0 && abs(magnitude - 1) < 1e-9) ? "" : fraction(magnitude)
-            parts.append("\(sign) \(number)\(names[power])")
+            var number = (power > 0 && abs(magnitude - 1) < 1e-9) ? "" : fraction(magnitude)
+            if power > 0 && number.contains("/") { number = "(\(number))" }
+            parts.append("\(sign) \(number)\(power == 0 ? "" : "x" + superscript(power))")
         }
         guard !parts.isEmpty else { return "0" }
         var text = parts.joined(separator: " ")
         if text.hasPrefix("+ ") { text.removeFirst(2) } else if text.hasPrefix("− ") { text = "−" + text.dropFirst(2) }
         return text
+    }
+
+    /// 2 → ², 10 → ¹⁰ (1이면 빈칸)
+    static func superscript(_ n: Int) -> String {
+        guard n != 1 else { return "" }
+        let map: [Character: Character] = ["0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "-": "⁻"]
+        return String(String(n).compactMap { map[$0] })
     }
 
     static func format(_ value: Double, digits: Int = 6) -> String {
