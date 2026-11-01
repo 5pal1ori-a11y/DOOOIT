@@ -93,7 +93,7 @@ export default {
 
     try {
       const message = await client.messages.create({
-        model: env.MODEL || "claude-opus-5-5",
+        model: env.MODEL || "claude-sonnet-5-5",
         max_tokens: 2048,
         output_config: { format: { type: "json_schema", schema: SCHEMA } },
         messages: [

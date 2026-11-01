@@ -8,8 +8,8 @@ Anthropic API 키는 **서버에만** 있고 앱에는 들어가지 않습니다
 
 | MODEL (`wrangler.toml`) | 정확도 | 문제당 |
 |---|---|---|
-| `claude-opus-5-5` (기본) | 가장 정확 | 약 20~55원 |
-| `claude-sonnet-5-5` | 충분히 정확 | 약 10~30원 |
+| `claude-opus-5-5` | 가장 정확 | 약 20~55원 |
+| `claude-sonnet-5-5` (기본) | 충분히 정확 | 약 10~30원 |
 | `claude-haiku-5-5` | 단순한 문제 위주 | 약 0.5~1.5원 |
 
 ## 설정 (PC 없이, GitHub 시크릿만)
