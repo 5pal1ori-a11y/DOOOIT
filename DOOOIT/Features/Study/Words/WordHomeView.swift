@@ -66,6 +66,7 @@ struct WordHomeView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text("\(doneToday ? 0 : todayWords.count)")
                             .font(.system(size: 56, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Palette.ink)
                             .contentTransition(.numericText())
                         Text("개").font(.title3.weight(.semibold))
                     }
@@ -109,7 +110,7 @@ struct WordHomeView: View {
             .buttonStyle(.glassProminent)
             .controlSize(.large)
         }
-        .glassCard(padding: 20)
+        .softCard(cornerRadius: 24, padding: 20)
     }
 
     private var primaryTitle: String {
@@ -127,7 +128,7 @@ struct WordHomeView: View {
             HStack(spacing: 14) {
                 IconBadge(symbol: "mic.fill", color: Palette.success, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("발음 연습").font(.headline)
+                    Text("발음 연습").font(.headline).foregroundStyle(Palette.ink)
                     Text("단어를 듣고 따라 말하면 발음을 확인해요")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -135,7 +136,7 @@ struct WordHomeView: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
             }
-            .glassCard(interactive: true)
+            .softCard()
         }
         .buttonStyle(.plain)
     }
@@ -153,7 +154,7 @@ struct WordHomeView: View {
                 }
             }
         }
-        .glassCard()
+        .softCard()
     }
 
     private func addButton(symbol: String, title: String, action: @escaping () -> Void) -> some View {
@@ -162,12 +163,13 @@ struct WordHomeView: View {
                 Image(systemName: symbol).font(.title3.weight(.semibold))
                 Text(title).font(.caption.weight(.semibold))
             }
+            .foregroundStyle(Theme.accent)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
+            .background(Theme.accent.opacity(0.09), in: .rect(cornerRadius: 18))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
     }
 
     private func openScanner() {
@@ -187,7 +189,7 @@ struct WordHomeView: View {
             HStack(spacing: 14) {
                 IconBadge(symbol: "arrow.counterclockwise", color: Palette.danger, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("틀린 단어 복습").font(.headline)
+                    Text("틀린 단어 복습").font(.headline).foregroundStyle(Palette.ink)
                     Text("\(wrongWords.count)개의 단어를 다시 외워요")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -195,7 +197,7 @@ struct WordHomeView: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
             }
-            .glassCard(interactive: true)
+            .softCard()
         }
         .buttonStyle(.plain)
     }
@@ -215,7 +217,7 @@ struct WordHomeView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .glassCard()
+        .softCard()
     }
 
     private var listLink: some View {
@@ -223,11 +225,12 @@ struct WordHomeView: View {
             HStack {
                 Label("전체 단어 목록", systemImage: "list.bullet.rectangle")
                     .font(.headline)
+                    .foregroundStyle(Palette.ink)
                 Spacer()
                 Text("\(words.count)개").foregroundStyle(.secondary)
                 Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
             }
-            .glassCard(interactive: true)
+            .softCard()
         }
         .buttonStyle(.plain)
     }

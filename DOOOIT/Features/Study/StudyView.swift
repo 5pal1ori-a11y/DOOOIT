@@ -12,9 +12,12 @@ struct StudyView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 26) {
                     wordsHero
-                    toolList
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("공부 도구").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
+                        toolList
+                    }
                     LearnHubSection()
                 }
                 .padding(.horizontal, 20)
@@ -65,13 +68,17 @@ struct StudyView: View {
             .foregroundStyle(.white)
             .padding(22)
             .background {
-                ZStack {
-                    LinearGradient(colors: [Color(hex: "#5148E8"), Color(hex: "#2F2A9C")], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    RadialGradient(colors: [Color(hex: "#9B6CF5"), .clear], center: .topTrailing, startRadius: 0, endRadius: 240)
+                ZStack(alignment: .topTrailing) {
+                    LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                    RadialGradient(colors: [Color.white.opacity(0.28), .clear], center: .topTrailing, startRadius: 0, endRadius: 240)
+                    Circle()
+                        .fill(Color.white.opacity(0.1))
+                        .frame(width: 160, height: 160)
+                        .offset(x: 50, y: -60)
                 }
             }
-            .clipShape(.rect(cornerRadius: 30))
-            .shadow(color: Color(hex: "#4F46E5").opacity(0.35), radius: 20, y: 12)
+            .clipShape(.rect(cornerRadius: 28))
+            .shadow(color: Theme.accent.opacity(0.32), radius: 18, y: 10)
         }
         .buttonStyle(.plain)
     }
@@ -99,14 +106,14 @@ struct StudyView: View {
             }
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .softCardBackground(cornerRadius: 22)
     }
 
     private func listRow(symbol: String, color: Color, title: String, subtitle: String) -> some View {
         HStack(spacing: 14) {
             IconBadge(symbol: symbol, color: color, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline)
+                Text(title).font(.headline).foregroundStyle(Palette.ink)
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()

@@ -201,7 +201,8 @@ struct TimerView: View {
                     .font(.title2)
                     .foregroundStyle(Theme.accent)
                 Text(studyTimer.title)
-                    .font(.title2.weight(.bold))
+                    .font(.title2.weight(.heavy))
+                    .foregroundStyle(Palette.ink)
                     .multilineTextAlignment(.center)
             }
 
@@ -217,6 +218,7 @@ struct TimerView: View {
                     VStack(spacing: 8) {
                         Text(TimeText.clock(elapsed))
                             .font(.system(size: 50, weight: .bold, design: .rounded).monospacedDigit())
+                            .foregroundStyle(Palette.ink)
                             .contentTransition(.numericText())
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
@@ -240,7 +242,8 @@ struct TimerView: View {
                 }
                 .frame(width: 290, height: 290)
                 .padding(18)
-                .glassEffect(.regular, in: .circle)
+                .background(Color.white, in: .circle)
+                .shadow(color: Theme.accent.opacity(0.18), radius: 24, y: 10)
             }
 
             GlassEffectContainer(spacing: 24) {
@@ -281,7 +284,8 @@ struct TimerView: View {
                 .symbolEffect(.bounce, value: seconds)
             VStack(spacing: 6) {
                 Text(seconds >= 10 ? "수고했어요!" : "기록이 너무 짧아요")
-                    .font(.title.weight(.bold))
+                    .font(.title.weight(.heavy))
+                    .foregroundStyle(Palette.ink)
                 Text(seconds >= 10 ? "\(TimeText.clock(TimeInterval(seconds))) 공부를 기록했어요." : "10초 이상 공부해야 기록돼요.")
                     .foregroundStyle(.secondary)
             }

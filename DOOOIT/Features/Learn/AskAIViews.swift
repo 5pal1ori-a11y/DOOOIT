@@ -24,7 +24,7 @@ struct AskAIListView: View {
                             Text(item.createdAt.kr("M.d")).font(.caption).foregroundStyle(.secondary)
                             if item.imageData != nil { Image(systemName: "photo").font(.caption).foregroundStyle(.secondary) }
                         }
-                        Text(item.question).font(.subheadline.weight(.semibold)).lineLimit(2)
+                        Text(item.question).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
                     }
                     .padding(.vertical, 2)
                 }
@@ -189,8 +189,8 @@ struct AIQuestionDetailView: View {
                                       isEnabled: false, controller: CanvasController()) { _ in }
                     }
                 }
-                .background(Color.white.opacity(0.001))
-                .glassEffect(.regular, in: .rect(cornerRadius: 22))
+                .background(Color.white, in: .rect(cornerRadius: 22))
+                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
 
                 Toggle(isOn: $showNotes.animation()) {
                     Label("답변 위에 내 필기", systemImage: "pencil.tip.crop.circle")

@@ -79,7 +79,8 @@ struct HomeView: View {
             .foregroundStyle(.secondary)
 
             Text(Greeting.text(name: auth.currentUser?.name ?? "유저", at: now))
-                .font(.system(size: 30, weight: .bold))
+                .font(.system(size: 30, weight: .heavy))
+                .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -111,55 +112,75 @@ struct HomeView: View {
         let done = occurrences.filter(\.isCompleted).count
         let unsolved = mathNotes.filter { $0.status != .correct }.count
 
-        return VStack(spacing: 16) {
+        return VStack(spacing: 18) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text("오늘 집중한 시간")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.85))
                     Text(TimeText.duration(seconds: seconds))
                         .font(.system(size: 34, weight: .heavy))
+                        .foregroundStyle(.white)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
                     Text("목표 \(TimeText.duration(minutes: studyGoalMinutes)) · \(Int(min(progress, 1) * 100))% 달성")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.85))
                 }
                 Spacer()
                 ZStack {
-                    ProgressRing(progress: progress, lineWidth: 8)
+                    ProgressRing(progress: progress, lineWidth: 8, color: .white)
                     Text("\(Int(min(progress, 1) * 100))%")
                         .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.white)
                         .monospacedDigit()
                 }
                 .frame(width: 72, height: 72)
             }
 
-            HStack(spacing: 14) {
-                Label("연속 \(streak(now: now))일", systemImage: "flame.fill")
-                Label("플랜 \(done)/\(occurrences.count)", systemImage: "checklist")
+            HStack(spacing: 8) {
+                focusChip("연속 \(streak(now: now))일", symbol: "flame.fill")
+                focusChip("플랜 \(done)/\(occurrences.count)", symbol: "checklist")
                 if unsolved > 0 {
-                    Label("복습 \(unsolved)", systemImage: "arrow.counterclockwise")
+                    focusChip("복습 \(unsolved)", symbol: "arrow.counterclockwise")
                 }
                 Spacer(minLength: 0)
             }
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
-            .labelStyle(.titleAndIcon)
 
             Button {
                 studyTimer.isPresented = true
             } label: {
                 Label(studyTimer.isActive ? "타이머 보기" : "집중 시작", systemImage: "play.fill")
                     .font(.body.weight(.bold))
+                    .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 40)
+                    .frame(height: 46)
+                    .background(Color.white, in: .capsule)
             }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
+            .buttonStyle(.plain)
         }
         .padding(20)
-        .glassEffect(.regular, in: .rect(cornerRadius: 30))
+        .background {
+            ZStack(alignment: .topTrailing) {
+                AccentGradient.linear
+                Circle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 180, height: 180)
+                    .offset(x: 60, y: -70)
+            }
+            .clipShape(.rect(cornerRadius: 28))
+        }
+        .shadow(color: Theme.accent.opacity(0.3), radius: 16, y: 8)
+    }
+
+    private func focusChip(_ text: String, symbol: String) -> some View {
+        Label(text, systemImage: symbol)
+            .font(.caption.weight(.semibold))
+            .labelStyle(.titleAndIcon)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.white.opacity(0.2), in: .capsule)
     }
 
     // MARK: Plans (타임라인, 카드 없음)
@@ -168,7 +189,7 @@ struct HomeView: View {
         let occurrences = plans.occurrences(on: now)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("오늘의 플랜").font(.title3.weight(.heavy))
+                Text("오늘의 플랜").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
                 Spacer()
                 if occurrences.count > 3 {
                     Button("전체 \(occurrences.count)개") { showAllPlans = true }
@@ -181,24 +202,32 @@ struct HomeView: View {
 
             if occurrences.isEmpty {
                 Button { showNewPlan = true } label: {
-                    Label("오늘 등록된 플랜이 없어요. 눌러서 오늘의 목표를 추가해보세요", systemImage: "calendar.badge.plus")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 14)
-                        .overlay(alignment: .top) { DashedLine() }
-                        .overlay(alignment: .bottom) { DashedLine() }
+                    HStack(spacing: 12) {
+                        IconBadge(symbol: "calendar.badge.plus", size: 40)
+                        Text("오늘 등록된 플랜이 없어요. 눌러서 오늘의 목표를 추가해보세요")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                    }
+                    .softCard(cornerRadius: 20, padding: 16)
                 }
                 .buttonStyle(.plain)
+                .padding(.top, 4)
             } else {
-                ForEach(occurrences.prefix(3)) { occurrence in
-                    PlanTimelineRow(occurrence: occurrence) { editingPlan = occurrence.plan }
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(occurrences.prefix(3)) { occurrence in
+                        PlanTimelineRow(occurrence: occurrence) { editingPlan = occurrence.plan }
+                    }
+                    if occurrences.count > 3 {
+                        Button("+\(occurrences.count - 3)개 더 보기") { showAllPlans = true }
+                            .font(.subheadline.weight(.bold))
+                            .padding(.leading, 64)
+                            .padding(.top, 4)
+                    }
                 }
-                if occurrences.count > 3 {
-                    Button("+\(occurrences.count - 3)개 더 보기") { showAllPlans = true }
-                        .font(.subheadline.weight(.bold))
-                        .padding(.leading, 64)
-                }
+                .softCard(cornerRadius: 22, padding: 14)
+                .padding(.top, 4)
             }
         }
     }
@@ -271,22 +300,30 @@ struct HomeView: View {
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("이번 주").font(.title3.weight(.heavy))
+                Text("이번 주").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
                 Spacer()
                 NavigationLink("통계 자세히 보기") { StatsView() }
                     .font(.subheadline.weight(.semibold))
             }
-            Text("최근 7일 총 \(TimeText.duration(minutes: total))")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Chart(stats) { stat in
-                BarMark(x: .value("요일", stat.label), y: .value("분", stat.minutes))
-                    .cornerRadius(7)
-                    .foregroundStyle(stat.isToday ? Theme.accent : Theme.accent.opacity(0.32))
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(TimeText.duration(minutes: total))
+                        .font(.title3.weight(.heavy))
+                        .foregroundStyle(Palette.ink)
+                    Text("최근 7일 총 공부")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Chart(stats) { stat in
+                    BarMark(x: .value("요일", stat.label), y: .value("분", stat.minutes))
+                        .cornerRadius(7)
+                        .foregroundStyle(stat.isToday ? Theme.accent : Theme.accent.opacity(0.28))
+                }
+                .chartYAxis { AxisMarks(position: .leading) }
+                .chartYAxisLabel("분")
+                .frame(height: 150)
             }
-            .chartYAxis { AxisMarks(position: .leading) }
-            .chartYAxisLabel("분")
-            .frame(height: 150)
+            .softCard()
         }
     }
 }

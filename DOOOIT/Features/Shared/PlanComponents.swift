@@ -36,9 +36,10 @@ struct DDayChip: View {
             }
             .font(.caption.weight(.semibold))
             .lineLimit(1)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 11)
             .frame(height: 28)
-            .background(Color.primary.opacity(0.06), in: .capsule)
+            .background(Color.white, in: .capsule)
+            .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
         }
     }
 }
@@ -70,8 +71,10 @@ struct WeekStrip: View {
                             .font(.callout.weight(.bold))
                             .monospacedDigit()
                             .frame(width: 34, height: 34)
-                            .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.accent : Color.primary))
-                            .background(isSelected ? Theme.accent : Color.clear, in: .circle)
+                            .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.accent : Palette.ink))
+                            .background(isSelected ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.clear), in: .circle)
+                            .overlay(Circle().strokeBorder(isToday && !isSelected ? Theme.accent.opacity(0.4) : Color.clear, lineWidth: 1.5))
+                            .shadow(color: isSelected ? Theme.accent.opacity(0.3) : .clear, radius: 6, y: 3)
                         HStack(spacing: 3) {
                             ForEach(Array(plans.occurrences(on: day).prefix(3).enumerated()), id: \.offset) { _, o in
                                 Circle().fill(o.plan.color).frame(width: 5, height: 5)
@@ -81,12 +84,14 @@ struct WeekStrip: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .background(isSelected ? Color.primary.opacity(0.06) : Color.clear, in: .rect(cornerRadius: 18))
                     .contentShape(.rect(cornerRadius: 18))
                 }
                 .buttonStyle(.plain)
             }
         }
+        .padding(.horizontal, 4)
+        .padding(.vertical, 2)
+        .softCardBackground(cornerRadius: 22)
     }
 }
 
@@ -127,7 +132,7 @@ struct PlanTimelineRow: View {
                     Text(plan.title)
                         .font(.body.weight(.semibold))
                         .strikethrough(done)
-                        .foregroundStyle(done ? Color.secondary : Color.primary)
+                        .foregroundStyle(done ? Color.secondary : Palette.ink)
                         .lineLimit(1)
                     subtitle
                         .font(.caption)
@@ -150,7 +155,15 @@ struct PlanTimelineRow: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .background(plan.isStudy ? plan.color.opacity(0.15) : Color.clear, in: .rect(cornerRadius: 16))
+            .background(plan.color.opacity(done ? 0.05 : (plan.isStudy ? 0.13 : 0.06)), in: .rect(cornerRadius: 16))
+            .overlay(alignment: .leading) {
+                if plan.isStudy {
+                    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
+                        .fill(plan.color)
+                        .frame(width: 4)
+                }
+            }
+            .clipShape(.rect(cornerRadius: 16))
             .contentShape(.rect(cornerRadius: 16))
             .onTapGesture(perform: onOpen)
             .padding(.vertical, 3)

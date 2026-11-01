@@ -101,7 +101,8 @@ struct PlannerView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 Text(month.kr("yyyy년 M월"))
-                    .font(.title2.weight(.bold))
+                    .font(.title2.weight(.heavy))
+                    .foregroundStyle(Palette.ink)
                     .contentTransition(.numericText())
                 Spacer()
                 GlassEffectContainer(spacing: 8) {
@@ -136,6 +137,9 @@ struct PlannerView: View {
             }
 
             CalendarGrid(month: month, selected: Binding(get: { router.selectedDate }, set: { router.selectedDate = $0 }), plans: plans)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 14)
+                .softCardBackground(cornerRadius: 24)
                 .id(month)
                 .transition(.asymmetric(insertion: .move(edge: slideEdge).combined(with: .opacity), removal: .opacity))
                 .gesture(
@@ -164,7 +168,7 @@ struct PlannerView: View {
         let occurrences = plans.occurrences(on: selected)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(selected.kr("M월 d일 EEEE")).font(.title3.weight(.heavy))
+                Text(selected.kr("M월 d일 EEEE")).font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
                 if selected.isSameDay(as: Date()) { TagLabel(text: "오늘") }
                 Spacer()
                 Button("타임라인으로 보기") {
@@ -174,16 +178,20 @@ struct PlannerView: View {
             }
             if occurrences.isEmpty {
                 Button { editorTarget = .new(selected) } label: {
-                    Label("일정이 없어요. 눌러서 할 일을 추가해보세요", systemImage: "calendar.badge.plus")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 14)
-                        .overlay(alignment: .top) { DashedLine() }
-                        .overlay(alignment: .bottom) { DashedLine() }
+                    HStack(spacing: 12) {
+                        IconBadge(symbol: "calendar.badge.plus", size: 40)
+                        Text("일정이 없어요. 눌러서 할 일을 추가해보세요")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.leading)
+                        Spacer(minLength: 0)
+                    }
+                    .softCard(cornerRadius: 20, padding: 16)
                 }
                 .buttonStyle(.plain)
+                .padding(.top, 4)
             } else {
+                VStack(alignment: .leading, spacing: 2) {
                 ForEach(occurrences) { occurrence in
                     PlanTimelineRow(occurrence: occurrence) { editorTarget = .edit(occurrence.plan) }
                         .contextMenu {
@@ -197,6 +205,9 @@ struct PlannerView: View {
                             }
                         }
                 }
+                }
+                .softCard(cornerRadius: 22, padding: 14)
+                .padding(.top, 4)
             }
         }
     }
@@ -218,9 +229,11 @@ struct PlannerView: View {
             }
             Text(router.selectedDate.kr("M월 d일 EEEE"))
                 .font(.title3.weight(.heavy))
+                .foregroundStyle(Palette.ink)
             DayTimelineView(day: router.selectedDate, plans: plans) { plan in
                 editorTarget = .edit(plan)
             }
+            .softCard(cornerRadius: 24, padding: 14)
         }
     }
 
@@ -261,7 +274,7 @@ struct DayTimelineView: View {
                                 .font(.footnote.weight(.semibold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .background(Color.primary.opacity(0.06), in: .capsule)
+                                .background(occurrence.plan.color.opacity(0.12), in: .capsule)
                             }
                             .buttonStyle(.plain)
                         }
@@ -473,7 +486,8 @@ private struct DayCell: View {
                 .frame(width: 36, height: 36)
                 .background {
                     if isSelected {
-                        Circle().fill(Theme.accent)
+                        Circle().fill(AccentGradient.linear)
+                            .shadow(color: Theme.accent.opacity(0.3), radius: 5, y: 2)
                     } else if isToday {
                         Circle().stroke(Theme.accent, lineWidth: 1.5)
                     }
@@ -497,6 +511,6 @@ private struct DayCell: View {
         if isToday { return Theme.accent }
         if weekday == 1 { return Palette.danger }
         if weekday == 7 { return Theme.accent }
-        return .primary
+        return Palette.ink
     }
 }

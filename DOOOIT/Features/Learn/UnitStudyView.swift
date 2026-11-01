@@ -131,10 +131,11 @@ struct UnitStudyView: View {
                             Text(item.longTitle)
                         }
                         .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 13)
                         .padding(.vertical, 8)
-                        .foregroundStyle(step == item ? Theme.accent : Color.secondary)
-                        .background(step == item ? Theme.accent.opacity(0.14) : Color.clear, in: .capsule)
+                        .foregroundStyle(step == item ? Color.white : (doneSteps.contains(item.rawValue) ? Theme.accent : Color.secondary))
+                        .background(step == item ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.white), in: .capsule)
+                        .shadow(color: step == item ? Theme.accent.opacity(0.25) : .black.opacity(0.04), radius: 5, y: 2)
                     }
                     .buttonStyle(.plain)
                     if item != LearnStep.allCases.last {
@@ -283,7 +284,9 @@ struct ConceptStepView: View {
         } content: { note, regenerate in
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Label("\(subject) · \(note.title)", systemImage: "book.pages").font(.headline)
+                    Label("\(subject) · \(note.title)", systemImage: "book.pages")
+                        .font(.headline)
+                        .foregroundStyle(Palette.ink)
                     Spacer()
                     Button(action: regenerate) { Image(systemName: "arrow.clockwise") }
                         .accessibilityLabel("다시 만들기")
@@ -295,11 +298,16 @@ struct ConceptStepView: View {
                                 .font(.caption.weight(.heavy))
                                 .foregroundStyle(.white)
                                 .frame(width: 24, height: 24)
-                                .background(Theme.accent, in: .circle)
-                            Text(point).font(.body).fixedSize(horizontal: false, vertical: true)
+                                .background(AccentGradient.linear, in: .circle)
+                            Text(point)
+                                .font(.body)
+                                .foregroundStyle(Palette.ink)
+                                .lineSpacing(2)
+                                .fixedSize(horizontal: false, vertical: true)
                         }
                     }
                 }
+                .softCard()
                 VStack(alignment: .leading, spacing: 6) {
                     Label("예시", systemImage: "lightbulb.fill").font(.subheadline.weight(.bold)).foregroundStyle(Palette.warning)
                     Text(note.example).font(.subheadline).fixedSize(horizontal: false, vertical: true)
@@ -402,9 +410,8 @@ struct OXStepView: View {
                     Text(item.statement)
                         .font(.title3.weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(20)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+                        .foregroundStyle(Palette.ink)
+                        .softCard(cornerRadius: 22, padding: 20)
                     HStack(spacing: 14) {
                         oxButton(true, item: item)
                         oxButton(false, item: item)
@@ -455,7 +462,9 @@ struct OXStepView: View {
                 .frame(height: 76)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+        .background((value ? Palette.success : Palette.danger).opacity(0.08), in: .rect(cornerRadius: 22))
+        .background(Color.white, in: .rect(cornerRadius: 22))
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         .opacity(picked == nil || picked == value ? 1 : 0.4)
     }
 

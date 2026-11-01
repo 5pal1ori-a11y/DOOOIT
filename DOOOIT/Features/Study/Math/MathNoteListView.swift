@@ -45,7 +45,7 @@ struct MathNoteListView: View {
                     emptyState
                 } else if filtered.isEmpty {
                     EmptyStateView(symbol: "tray", title: "해당하는 문제가 없어요", message: "다른 필터를 선택해보세요.")
-                        .glassCard()
+                        .softCard()
                 } else {
                     LazyVGrid(columns: columns, spacing: 14) {
                         ForEach(filtered) { note in
@@ -123,7 +123,7 @@ struct MathNoteListView: View {
             }
             .buttonStyle(.glass)
         }
-        .glassCard(padding: 20)
+        .softCard(cornerRadius: 24, padding: 20)
     }
 
     private func openScanner() {
@@ -205,12 +205,14 @@ private struct MathNoteCard: View {
                 Image(systemName: note.status.symbol)
                     .font(.title3)
                     .foregroundStyle(.white, note.status.color)
+                    .shadow(color: .black.opacity(0.15), radius: 3, y: 1)
                     .padding(6)
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(note.title)
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Text(note.status.title).foregroundStyle(note.status.color)
@@ -222,6 +224,13 @@ private struct MathNoteCard: View {
             }
         }
         .padding(10)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 22))
+        .background(Color.white, in: .rect(cornerRadius: 22))
+        .overlay(alignment: .bottom) {
+            Capsule()
+                .fill(note.status.color.opacity(0.7))
+                .frame(height: 3)
+                .padding(.horizontal, 22)
+        }
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
     }
 }

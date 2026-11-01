@@ -1,5 +1,32 @@
 import SwiftUI
 
+// MARK: - 카드 스타일 (두잇 AI 화면과 같은 흰 카드)
+
+extension View {
+    /// 흰 카드: 부드러운 그림자 + 둥근 모서리
+    func softCard(cornerRadius: CGFloat = 22, padding: CGFloat = 18) -> some View {
+        self
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white, in: .rect(cornerRadius: cornerRadius))
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+    }
+
+    /// 패딩 없이 흰 카드 배경만 (목록 묶음 등)
+    func softCardBackground(cornerRadius: CGFloat = 22) -> some View {
+        self
+            .background(Color.white, in: .rect(cornerRadius: cornerRadius))
+            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+    }
+}
+
+/// 테마 색 그라데이션 (강조 카드·버튼용)
+enum AccentGradient {
+    static var linear: LinearGradient {
+        LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+}
+
 /// 섹션 제목 (아이콘 + 제목 + 우측 액세서리)
 struct SectionHeader<Trailing: View>: View {
     let title: String
@@ -9,10 +36,13 @@ struct SectionHeader<Trailing: View>: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Theme.accent)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 24, height: 24)
+                .background(AccentGradient.linear, in: .rect(cornerRadius: 7))
             Text(title)
-                .font(.headline)
+                .font(.headline.weight(.bold))
+                .foregroundStyle(Palette.ink)
             Spacer(minLength: 0)
             trailing
         }
@@ -34,11 +64,15 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 36, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 30, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 68, height: 68)
+                .background(Theme.accent.opacity(0.12), in: .circle)
                 .symbolEffect(.pulse, options: .repeating.speed(0.4))
+                .padding(.bottom, 2)
             Text(title)
                 .font(.headline)
+                .foregroundStyle(Palette.ink)
             Text(message)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -60,7 +94,7 @@ struct IconBadge: View {
             .font(.system(size: size * 0.42, weight: .semibold))
             .foregroundStyle(color)
             .frame(width: size, height: size)
-            .background(color.opacity(0.16), in: .circle)
+            .background(color.opacity(0.14), in: .rect(cornerRadius: size * 0.32))
     }
 }
 
@@ -77,9 +111,9 @@ struct TagLabel: View {
         }
         .font(.caption2.weight(.bold))
         .foregroundStyle(color)
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 9)
         .padding(.vertical, 4)
-        .background(color.opacity(0.15), in: .capsule)
+        .background(color.opacity(0.13), in: .capsule)
     }
 }
 
@@ -177,10 +211,11 @@ struct ProcessingOverlay: View {
             Color.black.opacity(0.25).ignoresSafeArea()
             VStack(spacing: 14) {
                 ProgressView().controlSize(.large)
-                Text(message).font(.subheadline.weight(.semibold))
+                Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
             }
             .padding(28)
-            .glassEffect(.regular, in: .rect(cornerRadius: 26))
+            .background(Color.white, in: .rect(cornerRadius: 26))
+            .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
         }
         .transition(.opacity)
     }

@@ -57,24 +57,25 @@ struct MemoListView: View {
 
     private func row(_ memo: Memo) -> some View {
         Button { opened = memo } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    if memo.isPinned {
-                        Image(systemName: "pin.fill").font(.caption).foregroundStyle(Palette.warning)
-                    }
+            HStack(spacing: 12) {
+                IconBadge(symbol: memo.isPinned ? "pin.fill" : "note.text",
+                          color: memo.isPinned ? Palette.warning : Theme.accent, size: 38)
+                VStack(alignment: .leading, spacing: 4) {
                     Text(memo.displayTitle)
                         .font(.body.weight(.semibold))
+                        .foregroundStyle(Palette.ink)
                         .lineLimit(1)
+                    HStack(spacing: 6) {
+                        Text(memo.updatedAt.kr("M월 d일"))
+                            .foregroundStyle(Theme.accent)
+                        Text(memo.content.replacingOccurrences(of: "\n", with: " "))
+                            .lineLimit(1)
+                    }
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
                 }
-                HStack(spacing: 6) {
-                    Text(memo.updatedAt.kr("M월 d일"))
-                    Text(memo.content.replacingOccurrences(of: "\n", with: " "))
-                        .lineLimit(1)
-                }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 2)
+            .padding(.vertical, 4)
         }
         .tint(.primary)
         .swipeActions(edge: .leading) {
@@ -109,7 +110,8 @@ struct MemoEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TextField("제목", text: $memo.title)
-                .font(.title2.weight(.bold))
+                .font(.title2.weight(.heavy))
+                .foregroundStyle(Palette.ink)
                 .focused($focus, equals: .title)
                 .submitLabel(.next)
                 .onSubmit { focus = .content }

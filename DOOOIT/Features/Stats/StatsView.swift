@@ -60,27 +60,35 @@ struct StatsView: View {
             VStack(spacing: 24) {
                 tabs
 
-                VStack(spacing: 4) {
-                    Text(label(for: range))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Text("총 \(bigTime(total)) 집중했어요")
-                        .font(.subheadline.weight(.semibold))
-                }
+                VStack(spacing: 16) {
+                    VStack(spacing: 4) {
+                        Text(label(for: range))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text("총 \(bigTime(total)) 집중했어요")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Palette.ink)
+                    }
+                    .frame(maxWidth: .infinity)
 
-                if total == 0 {
-                    Label("이 기간에는 아직 공부 기록이 없어요", systemImage: "chart.pie")
-                        .foregroundStyle(.secondary)
-                        .padding(.vertical, 30)
-                } else {
-                    subjectBar(bySubject, total: total)
+                    if total == 0 {
+                        EmptyStateView(symbol: "chart.pie", title: "아직 공부 기록이 없어요", message: "타이머로 공부하면 여기에 쌓여요.")
+                    } else {
+                        subjectBar(bySubject, total: total)
+                    }
+                }
+                .softCard(cornerRadius: 24, padding: 20)
+
+                if total > 0 {
                     subjectList(bySubject, total: total)
                 }
 
                 comparison(total: total, previous: previous)
+                    .softCard(cornerRadius: 24, padding: 20)
 
                 if total > 0 {
                     hourHeat(current)
+                        .softCard(cornerRadius: 24, padding: 20)
                 }
             }
             .padding(.horizontal, 20)
@@ -95,26 +103,31 @@ struct StatsView: View {
     // MARK: Pieces
 
     private var tabs: some View {
-        HStack(spacing: 28) {
+        HStack(spacing: 4) {
             ForEach(StatPeriod.allCases) { item in
                 Button {
                     withAnimation(.snappy) { period = item }
                 } label: {
                     Text(item.title)
-                        .font(.headline)
-                        .foregroundStyle(period == item ? Theme.accent : Color.secondary)
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(period == item ? Color.white : Color.secondary)
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .overlay(alignment: .bottom) {
+                        .background {
                             if period == item {
-                                Capsule().fill(Theme.accent).frame(height: 3)
+                                Capsule()
+                                    .fill(AccentGradient.linear)
+                                    .shadow(color: Theme.accent.opacity(0.3), radius: 6, y: 3)
                             }
                         }
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: .infinity)
-        .overlay(alignment: .bottom) { Divider() }
+        .padding(4)
+        .background(Color.white, in: .capsule)
+        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
     }
 
     private func bigTime(_ seconds: Int) -> Text {
@@ -150,7 +163,7 @@ struct StatsView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(color(for: item.name))
                         .frame(width: 4, height: 22)
-                    Text(item.name).font(.body.weight(.semibold))
+                    Text(item.name).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
                     Spacer()
                     Text("\(Int((Double(item.seconds) / Double(total) * 100).rounded()))%")
                         .font(.caption)
@@ -166,7 +179,7 @@ struct StatsView: View {
                 if index < items.count - 1 { Divider().padding(.leading, 32) }
             }
         }
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        .softCardBackground(cornerRadius: 22)
     }
 
     private func comparison(total: Int, previous: Int) -> some View {
@@ -215,7 +228,7 @@ struct StatsView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("언제 집중했나요").font(.title3.weight(.heavy))
+                Text("언제 집중했나요").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
                 Spacer()
                 Text("가장 많이 공부한 시간 \(best)시")
                     .font(.caption)

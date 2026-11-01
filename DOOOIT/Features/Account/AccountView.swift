@@ -127,6 +127,7 @@ struct AccountView: View {
             }
             .scrollContentBackground(.hidden)
             .background { AppBackground() }
+            .tint(Theme.accent)
             .navigationTitle("계정")
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {
@@ -172,41 +173,52 @@ struct AccountView: View {
         let user = auth.currentUser
         return HStack(spacing: 16) {
             Text(String(user?.name.prefix(1) ?? "D"))
-                .font(.system(size: 30, weight: .bold))
-                .foregroundStyle(.white)
+                .font(.system(size: 30, weight: .heavy))
+                .foregroundStyle(Theme.accent)
                 .frame(width: 68, height: 68)
-                .background(
-                    LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.6)],
-                                   startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: .circle
-                )
+                .background(Color.white, in: .circle)
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 3).padding(-4))
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(user?.name ?? "")
-                        .font(.title2.weight(.bold))
+                        .font(.title2.weight(.heavy))
+                        .foregroundStyle(.white)
                     Button {
                         nameDraft = user?.name ?? ""
                         showNameEdit = true
                     } label: {
                         Image(systemName: "pencil.circle.fill")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.8))
                     }
                     .buttonStyle(.plain)
                 }
                 if let email = user?.email, !email.isEmpty {
                     Text(email)
                         .font(.subheadline)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.85))
                 }
                 if let provider = user?.provider {
-                    TagLabel(text: provider.title, symbol: provider.symbol, color: .secondary)
+                    TagLabel(text: provider.title, symbol: provider.symbol, color: .white)
                 }
             }
             Spacer(minLength: 0)
         }
-        .glassCard(padding: 20)
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            ZStack(alignment: .topTrailing) {
+                AccentGradient.linear
+                Circle()
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 150, height: 150)
+                    .offset(x: 50, y: -60)
+            }
+            .clipShape(.rect(cornerRadius: 26))
+        }
+        .shadow(color: Theme.accent.opacity(0.28), radius: 14, y: 8)
+        .padding(.bottom, 6)
     }
 
     private var statsRow: some View {
@@ -219,13 +231,14 @@ struct AccountView: View {
             Divider().frame(height: 36)
             stat(value: "\(notes.count)", label: "오답노트")
         }
-        .glassCard(padding: 16)
+        .softCard(cornerRadius: 22, padding: 16)
     }
 
     private func stat(value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.headline.monospacedDigit())
+                .foregroundStyle(Theme.accent)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)
