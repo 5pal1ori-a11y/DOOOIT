@@ -175,6 +175,8 @@ struct AIContentLoader<T: Codable, Content: View>: View {
     @State private var value: T?
     @State private var loading = false
     @State private var error: String?
+    @State private var startedAt = Date()
+    @State private var generation: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -193,13 +195,19 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 VStack(spacing: 12) {
                     ProgressView().controlSize(.large)
                     Text("AI 선생님이 자료를 만들고 있어요").font(.subheadline.weight(.semibold))
-                    Text("기기 안에서 만들어서 10~30초 정도 걸릴 수 있어요").font(.caption).foregroundStyle(.secondary)
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 10~30초 걸려요" : "준비 중")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 50)
             }
         }
         .task { await load(force: false) }
+        .onDisappear { generation?.cancel() }
     }
 
     private func load(force: Bool) async {
@@ -207,17 +215,35 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             value = cached
             return
         }
+        generation?.cancel()
         loading = true
         error = nil
         value = nil
-        do {
-            let made = try await make()
-            ContentCache.save(made, key: cacheKey, context: context)
-            value = made
-        } catch {
-            self.error = error.localizedDescription
+        startedAt = Date()
+
+        let work = Task { @MainActor in
+            do {
+                let made = try await make()
+                guard !Task.isCancelled else { return }
+                ContentCache.save(made, key: cacheKey, context: context)
+                value = made
+            } catch {
+                guard !Task.isCancelled else { return }
+                self.error = error.localizedDescription
+            }
+            loading = false
         }
-        loading = false
+        generation = work
+
+        // 90초가 지나도 안 끝나면 멈추고 다시 시도할 수 있게
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(90))
+            if loading && value == nil && error == nil {
+                work.cancel()
+                loading = false
+                error = "시간이 너무 오래 걸려서 멈췄어요. 다시 시도해주세요.\n(기기가 뜨겁거나 저전력 모드면 느려질 수 있어요)"
+            }
+        }
     }
 }
 

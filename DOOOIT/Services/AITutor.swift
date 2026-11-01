@@ -85,13 +85,35 @@ struct WrittenSolution: Codable {
 
 enum AITutorError: LocalizedError {
     case unavailable(String)
-    case failed
+    case failed(String)
 
     var errorDescription: String? {
         switch self {
         case .unavailable(let message): return message
-        case .failed: return "AI가 답을 만들지 못했어요. 잠시 후 다시 시도해주세요."
+        case .failed(let reason): return "AI가 답을 만들지 못했어요.\n\(reason)"
         }
+    }
+
+    /// 기기 AI 오류를 사용자가 이해할 수 있는 문장 + 원래 오류 이름으로
+    static func describe(_ error: Error) -> AITutorError {
+        let raw = String(describing: error)
+        let reason: String
+        if raw.contains("guardrail") {
+            reason = "안전 필터에 걸렸어요. 단원 이름을 조금 바꿔서 다시 시도해보세요."
+        } else if raw.contains("unsupportedLanguage") || raw.contains("Locale") {
+            reason = "기기 AI가 지금 언어 설정을 지원하지 않아요. 설정 > Apple Intelligence 및 Siri의 언어를 확인해주세요."
+        } else if raw.contains("exceededContext") {
+            reason = "내용이 너무 길어요. 문제 텍스트를 줄여서 다시 시도해주세요."
+        } else if raw.contains("assetsUnavailable") {
+            reason = "AI 모델을 아직 내려받는 중이에요. Wi-Fi에 연결해 두고 잠시 후 다시 시도해주세요."
+        } else if raw.contains("rateLimited") || raw.contains("concurrent") {
+            reason = "요청이 겹쳤어요. 잠시 후 다시 시도해주세요."
+        } else if raw.contains("Cancellation") || raw.contains("cancelled") {
+            reason = "중간에 멈췄어요. 다시 시도해주세요."
+        } else {
+            reason = "잠시 후 다시 시도해주세요."
+        }
+        return .failed("\(reason)\n(오류: \(String(raw.prefix(120))))")
     }
 }
 
@@ -130,7 +152,7 @@ enum AITutor {
             return response.content
         } catch {
             print("AI 생성 실패: \(error)")
-            throw AITutorError.failed
+            throw AITutorError.describe(error)
         }
     }
 
@@ -141,7 +163,7 @@ enum AITutor {
             return try await session.respond(to: question).content
         } catch {
             print("AI 답변 실패: \(error)")
-            throw AITutorError.failed
+            throw AITutorError.describe(error)
         }
     }
 
