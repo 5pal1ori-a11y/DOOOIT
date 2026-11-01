@@ -50,7 +50,6 @@ struct AskAIListView: View {
 /// 질문 작성 → AI 답변 생성 → 저장
 struct AskAIComposer: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(CreditStore.self) private var credits
     @Environment(\.modelContext) private var context
 
     @State private var subject = "수학"
@@ -61,7 +60,6 @@ struct AskAIComposer: View {
     @State private var showScanner = false
     @State private var working = false
     @State private var error: String?
-    @State private var confirmCredits = false
 
     private let subjects = ["국어", "영어", "수학", "과학", "사회", "기타"]
 
@@ -93,21 +91,7 @@ struct AskAIComposer: View {
                     }
                     .buttonStyle(.borderless)
                 } footer: {
-                    Text("사진은 두잇 AI가 직접 보고 분석해요. AI 답은 틀릴 수 있어요.")
-                }
-
-                if credits.canAfford() {
-                    Section {
-                        Label("질문 1개에 \(CreditStore.costPerUse) 크레딧 · 지금 \(credits.balance) 크레딧", systemImage: "bolt.circle.fill")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                } else {
-                    Section {
-                        NotEnoughCreditsView()
-                            .listRowBackground(Color.clear)
-                            .listRowInsets(EdgeInsets())
-                    }
+                    Text("사진 속 글자를 읽어서 두잇 AI와 Apple Intelligence가 답해요. AI 답은 틀릴 수 있어요.")
                 }
             }
             .navigationTitle("새 질문")
@@ -117,27 +101,20 @@ struct AskAIComposer: View {
                     Button { dismiss() } label: { Image(systemName: "xmark") }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("질문하기") { confirmCredits = true }
+                    Button("질문하기") { Task { await ask() } }
                         .fontWeight(.bold)
-                        .disabled(working || !credits.canAfford() || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil))
+                        .disabled(working || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil))
                 }
             }
             .imageInput(showScanner: $showScanner, showPhotoPicker: $showPicker, photoItems: $photoItems, maxPhotos: 1) { images in
                 image = images.first
             }
             .overlay { if working { ProcessingOverlay(message: "AI 선생님이 답을 쓰고 있어요") } }
-            .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-                Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await ask() } }
-                Button("취소", role: .cancel) {}
-            } message: {
-                Text(credits.confirmText("AI에게 질문하면"))
-            }
             .errorAlert($error)
         }
     }
 
     private func ask() async {
-        guard credits.canAfford() else { return }
         working = true
         defer { working = false }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -148,7 +125,6 @@ struct AskAIComposer: View {
             item.answer = answer
             context.insert(item)
             try? context.save()
-            credits.charge(.askAI)
             dismiss()
         } catch {
             self.error = error.localizedDescription

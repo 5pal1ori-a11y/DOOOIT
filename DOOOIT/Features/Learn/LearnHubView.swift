@@ -5,11 +5,7 @@ import SwiftUI
 struct LearnHubSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("AI 학습").font(.title3.weight(.heavy))
-                Spacer()
-                Text("AI 한 번 \(CreditStore.costPerUse) 크레딧").font(.caption).foregroundStyle(.secondary)
-            }
+            Text("AI 학습").font(.title3.weight(.heavy))
 
             VStack(spacing: 0) {
                 NavigationLink { CurriculumView() } label: {

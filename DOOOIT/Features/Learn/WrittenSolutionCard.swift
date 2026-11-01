@@ -5,7 +5,6 @@ import SwiftUI
 struct WrittenSolutionCard: View {
     @Bindable var note: MathNote
     @Environment(\.modelContext) private var context
-    @Environment(CreditStore.self) private var credits
 
     enum Tab: String, CaseIterable, Identifiable {
         case problem = "직접 풀기", concept = "개념", answer = "모범 답안"
@@ -16,7 +15,6 @@ struct WrittenSolutionCard: View {
     @State private var working = false
     @State private var error: String?
     @State private var myAnswers: [String] = []
-    @State private var confirmCredits = false
 
     private var solution: WrittenSolution? {
         note.solutionData.flatMap { try? JSONDecoder().decode(WrittenSolution.self, from: $0) }
@@ -57,12 +55,6 @@ struct WrittenSolutionCard: View {
         .padding(18)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
         .errorAlert($error)
-        .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-            Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
-            Button("취소", role: .cancel) {}
-        } message: {
-            Text(credits.confirmText("AI 단계별 풀이를 만들면"))
-        }
         .onAppear { myAnswers = note.stepAnswers }
         .onChange(of: myAnswers) { _, value in note.stepAnswers = value }
     }
@@ -87,15 +79,15 @@ struct WrittenSolutionCard: View {
             }
             Spacer()
             if solution != nil {
-                Button { confirmCredits = true } label: {
+                Button { Task { await generate() } } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))
                         .frame(width: 34, height: 34)
                         .background(Color.primary.opacity(0.06), in: .circle)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("다시 만들기 (\(CreditStore.costPerUse) 크레딧)")
-                .disabled(working || !credits.canAfford())
+                .accessibilityLabel("다시 만들기")
+                .disabled(working)
             }
         }
     }
@@ -107,22 +99,14 @@ struct WrittenSolutionCard: View {
                  : "생각할 점과 식을 단계별로 나눠서 정리해드려요. 먼저 직접 풀어보고 모범 답안과 비교해보세요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button { confirmCredits = true } label: {
+            Button { Task { await generate() } } label: {
                 Label("AI 단계별 풀이 만들기", systemImage: "sparkles")
                     .font(.body.weight(.bold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
             }
             .buttonStyle(.glassProminent)
-            .disabled(note.recognizedText.isEmpty || !credits.canAfford())
-
-            if credits.canAfford() {
-                Label("\(CreditStore.costPerUse) 크레딧 사용 · 지금 \(credits.balance) 크레딧", systemImage: "bolt.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                NotEnoughCreditsView()
-            }
+            .disabled(note.recognizedText.isEmpty)
         }
     }
 
@@ -251,17 +235,12 @@ struct WrittenSolutionCard: View {
     }
 
     private func generate() async {
-        guard credits.canAfford() else {
-            error = "크레딧이 부족해요. 공부 탭의 크레딧에서 광고를 보고 받을 수 있어요."
-            return
-        }
         working = true
         defer { working = false }
         do {
             let result = try await DoitTutor.solution(for: note.recognizedText)
             note.solutionData = try? JSONEncoder().encode(result)
             try? context.save()
-            credits.charge(.solution)
             tab = .problem
         } catch {
             self.error = error.localizedDescription

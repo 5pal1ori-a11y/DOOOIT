@@ -5,7 +5,6 @@ import SwiftUI
 struct SimilarProblemsCard: View {
     @Bindable var note: MathNote
     @Environment(\.modelContext) private var context
-    @Environment(CreditStore.self) private var credits
 
     @State private var problemSet: SimilarProblemSet?
     @State private var answers: [String] = ["", "", ""]
@@ -13,7 +12,6 @@ struct SimilarProblemsCard: View {
     @State private var openExplanation: Set<Int> = []
     @State private var working = false
     @State private var error: String?
-    @State private var confirmCredits = false
 
     private var cacheKey: String { ContentCache.key("오답노트", note.id.uuidString, "similar") }
 
@@ -44,12 +42,6 @@ struct SimilarProblemsCard: View {
         .padding(18)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
         .errorAlert($error)
-        .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-            Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
-            Button("취소", role: .cancel) {}
-        } message: {
-            Text(credits.confirmText("비슷한 문제 3개를 만들면"))
-        }
         .onAppear {
             if problemSet == nil { problemSet = ContentCache.load(SimilarProblemSet.self, key: cacheKey, context: context) }
         }
@@ -75,14 +67,14 @@ struct SimilarProblemsCard: View {
             }
             Spacer()
             if problemSet != nil {
-                Button { confirmIfPossible() } label: {
+                Button { Task { await generate() } } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))
                         .frame(width: 34, height: 34)
                         .background(Color.primary.opacity(0.06), in: .circle)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("새로 만들기 (\(CreditStore.costPerUse) 크레딧)")
+                .accessibilityLabel("새로 만들기")
                 .disabled(working)
             }
         }
@@ -95,18 +87,14 @@ struct SimilarProblemsCard: View {
                  : "같은 개념으로 숫자와 조건만 바꾼 문제 3개를 만들어드려요. 풀면서 진짜 이해했는지 확인해보세요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button { confirmIfPossible() } label: {
+            Button { Task { await generate() } } label: {
                 Label("비슷한 문제 3개 만들기", systemImage: "sparkles")
                     .font(.body.weight(.bold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
             }
             .buttonStyle(.glassProminent)
-            .disabled(note.recognizedText.isEmpty || !credits.canAfford())
-
-            if !credits.canAfford() {
-                NotEnoughCreditsView()
-            }
+            .disabled(note.recognizedText.isEmpty)
         }
     }
 
@@ -179,14 +167,6 @@ struct SimilarProblemsCard: View {
 
     // MARK: Actions
 
-    private func confirmIfPossible() {
-        if credits.canAfford() {
-            confirmCredits = true
-        } else {
-            error = "크레딧이 부족해요. 공부 탭 오른쪽 위 크레딧에서 광고를 보거나 공부해서 받을 수 있어요."
-        }
-    }
-
     private func check(_ index: Int, problem: SimilarProblem) {
         let ok = MathGrader.grade(myAnswer: answers[index], correctAnswer: problem.answer) ?? false
         withAnimation(.snappy) { results[index] = ok }
@@ -194,7 +174,6 @@ struct SimilarProblemsCard: View {
     }
 
     private func generate() async {
-        guard credits.canAfford() else { return }
         working = true
         defer { working = false }
         do {
@@ -210,7 +189,6 @@ struct SimilarProblemsCard: View {
                 results = [nil, nil, nil]
                 openExplanation = []
             }
-            credits.charge(.similar)
         } catch {
             self.error = error.localizedDescription
         }

@@ -159,8 +159,7 @@ struct MathNoteListView: View {
         var created: [MathNote] = []
         for (i, pair) in pairs.enumerated() {
             // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
-            let lines = (try? await OCRService.recognizeMath(pair.problem)) ?? []
-            let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
+            let text = await OCRService.readMathProblem(pair.problem).text
             let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,

@@ -77,8 +77,54 @@ enum MathOCRFixer {
         return nil
     }
 
+    /// 숫자 자리에 끼어든 비슷한 글자 → 숫자 (Z→2, O→0, l·I·|→1, S→5, B→8)
+    private static let digitRules: [(pattern: String, template: String)] = [
+        // 숫자 옆의 Z: 2Z → 22, Z3 → 23, 1Z+ → 12+
+        (#"(?<=[0-9])Z|Z(?=[0-9])"#, "2"),
+        // 계수 자리: Zx, -Zy, (Za → 2x, -2y, (2a
+        (#"(^|[\s+\-−=×÷(,])Z(?=[xyabk(√])"#, "$12"),
+        // 변수·괄호 뒤의 Z/z: xZ, (x+1)Z → x2, (x+1)2 (뒤에서 x², (x+1)² 로 바뀜)
+        (#"(?<=[xyab)])[Zz](?![A-Za-z가-힣])"#, "2"),
+        // 식 안에 홀로 있는 Z: + Z, = Z, (Z) → 2
+        (#"(?<=[+\-−=×÷(]\s?)Z(?=\s?[+\-−=×÷),]|\s*$)"#, "2"),
+        // 지수 자리: x^Z → x^2
+        (#"(?<=\^)[Zz]"#, "2"),
+        // 숫자 사이의 O, l, I, |, S, B
+        (#"(?<=[0-9])[Oo](?=[0-9])"#, "0"),
+        (#"(?<=[0-9.])[lI|](?=[0-9])"#, "1"),
+        (#"(?<=[0-9])S(?=[0-9])"#, "5"),
+        (#"(?<=[0-9])B(?=[0-9])"#, "8"),
+        // 숫자 뒤 바로 O+연산자 (예: 1O+ → 10+)
+        (#"(?<=[0-9])[Oo](?=\s*[+\-−=×÷)])"#, "0")
+    ]
+
+    /// 복소수 문제에서는 z가 변수: "복소수 2 = 3+4i" 처럼 z를 2로 읽은 것을 되돌림
+    private static let complexRules: [(pattern: String, template: String)] = [
+        (#"복소수\s*2(?=\s*[=에의는가를와,])"#, "복소수 z"),
+        (#"(^|[\s,(])2(\s*=\s*[^=\n]*[0-9)]\s*i)"#, "$1z$2"),
+        (#"(^|[\s(])2(\s*[+\-]\s*2̄|̄)"#, "$1z$2"),
+        (#"(^|[\s(])2(?=의\s*켤레|\s*의\s*켤레|z̄)"#, "$1z"),
+        (#"(^|[\s(])Z(?=[\s=+\-)의는가를에]|$)"#, "$1z")
+    ]
+
     static func fix(_ text: String) -> String {
         var result = text
+        let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil
+        for rule in (isComplex ? complexRules : digitRules) {
+            guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
+            let range = NSRange(result.startIndex..., in: result)
+            result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: rule.template)
+        }
+        if !isComplex {
+            // 복소수 문제가 아니면 숫자 옆 소문자 z도 2
+            result = result.replacingOccurrences(of: #"(?<=[0-9])z|z(?=[0-9])"#, with: "2", options: .regularExpression)
+        } else {
+            // 복소수 문제여도 숫자 사이의 O, l 은 숫자
+            for rule in digitRules.suffix(5) {
+                guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
+                result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: rule.template)
+            }
+        }
         for rule in rules {
             guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
             let range = NSRange(result.startIndex..., in: result)

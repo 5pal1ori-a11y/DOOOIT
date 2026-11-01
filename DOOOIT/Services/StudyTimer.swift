@@ -26,8 +26,6 @@ final class StudyTimer {
 
     /// 전체 화면 타이머 표시 여부
     var isPresented = false
-    /// 방금 끝낸 공부로 받은 크레딧 (요약 화면에 표시)
-    private(set) var lastCreditReward = 0
 
     @ObservationIgnored private var context: ModelContext?
     @ObservationIgnored private let storageKey = "dooit.studyTimer"
@@ -114,16 +112,10 @@ final class StudyTimer {
     @discardableResult
     func stop() -> Int {
         let seconds = Int(elapsed())
-        lastCreditReward = 0
         if seconds >= 10, let context, let startedAt {
             context.insert(StudySession(title: title, categoryName: categoryName, start: startedAt,
                                         seconds: seconds, planKey: planKey))
             try? context.save()
-            // 오늘 공부 시간이 1시간을 넘을 때마다 크레딧 보상
-            let today = Date()
-            let all = (try? context.fetch(FetchDescriptor<StudySession>())) ?? []
-            let todaySeconds = all.filter { $0.start.isSameDay(as: today) }.reduce(0) { $0 + $1.seconds }
-            lastCreditReward = CreditStore.shared.rewardStudyTime(todaySeconds: todaySeconds)
         }
         if lockUntil != nil {
             AppLockManager.shared.endLock(planKey: planKey)

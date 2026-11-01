@@ -141,8 +141,7 @@ final class DoitActions {
             let seconds = timer.stop()
             AmbientSoundPlayer.shared.stop()
             done("타이머 종료 · \(TimeText.duration(seconds: seconds)) 기록")
-            let reward = timer.lastCreditReward > 0 ? " (공부 보상 +\(timer.lastCreditReward) 크레딧)" : ""
-            return "타이머 종료, \(TimeText.duration(seconds: seconds)) 기록\(reward)"
+            return "타이머 종료, \(TimeText.duration(seconds: seconds)) 기록"
         case "pause":
             guard timer.isActive else { return "진행 중인 타이머가 없어요." }
             timer.togglePause()
@@ -319,7 +318,7 @@ final class DoitActions {
             defaults.set(AppTab.planner.rawValue, forKey: "selectedTab")
         case "study", "words", "notes", "memo":
             defaults.set(AppTab.study.rawValue, forKey: "selectedTab")
-        case "account", "credits", "settings":
+        case "account", "settings":
             defaults.set(AppTab.account.rawValue, forKey: "selectedTab")
         default:
             defaults.set(AppTab.home.rawValue, forKey: "selectedTab")

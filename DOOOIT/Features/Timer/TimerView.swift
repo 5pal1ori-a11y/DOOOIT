@@ -285,14 +285,6 @@ struct TimerView: View {
                 Text(seconds >= 10 ? "\(TimeText.clock(TimeInterval(seconds))) 공부를 기록했어요." : "10초 이상 공부해야 기록돼요.")
                     .foregroundStyle(.secondary)
             }
-            if studyTimer.lastCreditReward > 0 {
-                Label("오늘 공부 시간 달성 보상 +\(studyTimer.lastCreditReward) 크레딧", systemImage: "bolt.circle.fill")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Theme.accent.opacity(0.12), in: .capsule)
-            }
             Button {
                 savedSeconds = nil
                 studyTimer.isPresented = false

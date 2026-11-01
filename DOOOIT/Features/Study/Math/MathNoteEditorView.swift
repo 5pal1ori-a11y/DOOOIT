@@ -7,7 +7,6 @@ struct MathNoteEditorView: View {
     @Bindable var note: MathNote
 
     @Environment(\.modelContext) private var context
-    @Environment(CreditStore.self) private var credits
 
     @State private var image: UIImage?
     @State private var isDrawing = false
@@ -365,6 +364,37 @@ struct MathNoteEditorView: View {
                 Text("문제").font(.headline).foregroundStyle(Palette.ink)
                 if isRecognizing { ProgressView().controlSize(.small) }
                 Spacer()
+                Menu {
+                    if let problemImage {
+                        Button {
+                            Task { await recognize(problemImage) }
+                        } label: {
+                            Label(DoitAppleAI.isAvailable ? "다시 읽기 (Apple Intelligence로 다듬기)" : "다시 읽기", systemImage: "text.viewfinder")
+                        }
+                    }
+                    if let image {
+                        Button { cropItem = CropItem(image: image) } label: {
+                            Label("문제 영역 다시 고르기", systemImage: "crop")
+                        }
+                    }
+                    if let previousText {
+                        Button {
+                            let current = note.recognizedText
+                            note.recognizedText = previousText
+                            self.previousText = current
+                            withAnimation { textMessage = "이전 글로 되돌렸어요." }
+                        } label: {
+                            Label("되돌리기", systemImage: "arrow.uturn.backward")
+                        }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.subheadline.weight(.bold))
+                        .frame(width: 32, height: 32)
+                        .background(Color.primary.opacity(0.06), in: .circle)
+                        .foregroundStyle(Palette.ink)
+                }
+                .disabled(isRecognizing)
                 Button {
                     withAnimation(.snappy) { isEditingText.toggle() }
                 } label: {
@@ -447,9 +477,10 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
-        let lines = (try? await OCRService.recognizeMath(problem)) ?? []
-        let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
-        apply(text, message: text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
+        let result = await OCRService.readMathProblem(problem)
+        apply(result.text, message: result.text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요."
+              : result.usedAI ? "인쇄된 글자를 읽고 Apple Intelligence가 수식을 다듬었어요. 틀린 곳은 \"고치기\"로 바꿔주세요."
+              : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
     }
 
     // MARK: Text annotations

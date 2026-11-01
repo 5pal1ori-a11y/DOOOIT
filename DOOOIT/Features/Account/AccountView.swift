@@ -49,18 +49,6 @@ struct AccountView: View {
                     Text("바탕은 흰색이고, 버튼과 강조 색이 바뀌어요.")
                 }
 
-                Section {
-                    NavigationLink {
-                        CreditsView()
-                    } label: {
-                        CreditRowLabel()
-                    }
-                } header: {
-                    Text("AI 크레딧")
-                } footer: {
-                    Text("매일 \(CreditStore.dailyGrant) 크레딧을 무료로 받고, 타이머로 공부하면 1시간마다 \(CreditStore.studyRewardPerHour) 크레딧을 더 받아요.")
-                }
-
                 Section("학습 목표") {
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
                         settingLabel("하루 단어 목표", value: "\(wordGoal)개", symbol: "character.book.closed.fill")
@@ -287,17 +275,5 @@ struct AccountView: View {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         LiveActivityManager.shared.endAll()
         auth.deleteAccount()
-    }
-}
-
-private struct CreditRowLabel: View {
-    @Environment(CreditStore.self) private var credits
-
-    var body: some View {
-        LabeledContent {
-            Text("\(credits.balance)").monospacedDigit().fontWeight(.bold)
-        } label: {
-            Label("크레딧", systemImage: "bolt.circle.fill")
-        }
     }
 }

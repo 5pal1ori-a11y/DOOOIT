@@ -161,16 +161,11 @@ struct UnitStudyView: View {
 
 struct AIContentLoader<T: Codable, Content: View>: View {
     let cacheKey: String
-    /// 크레딧을 받는 단위 (단원). 같은 단원의 다른 단계는 추가 차감 없음
-    var creditKey: String? = nil
     let make: () async throws -> T
     @ViewBuilder var content: (T, _ regenerate: @escaping () -> Void) -> Content
 
     @Environment(\.modelContext) private var context
-    @Environment(CreditStore.self) private var credits
     @State private var value: T?
-    @State private var needCredits = false
-    @State private var needConfirm = false
     @State private var loading = false
     @State private var error: String?
     @State private var startedAt = Date()
@@ -180,11 +175,6 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         Group {
             if let value {
                 content(value) { Task { await load(force: true) } }
-            } else if needCredits {
-                NotEnoughCreditsView()
-                    .padding(.vertical, 20)
-            } else if needConfirm, let creditKey {
-                confirmCard(creditKey)
             } else if let error {
                 VStack(spacing: 12) {
                     Text(error).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -197,7 +187,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 // 처음부터 이 화면을 보여줘야 .task가 실행됨 (빈 화면이면 시작되지 않음)
                 VStack(spacing: 12) {
                     ProgressView().controlSize(.large)
-                    Text("두잇 AI가 자료를 찾아서 만들고 있어요").font(.subheadline.weight(.semibold))
+                    Text("두잇 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold))
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요" : "준비 중")
                             .font(.caption)
@@ -211,45 +201,6 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         }
         .task { await load(force: false) }
         .onDisappear { generation?.cancel() }
-        .onChange(of: credits.balance) {
-            if needCredits && credits.canAfford() {
-                needCredits = false
-                Task { await load(force: false) }
-            }
-        }
-    }
-
-    /// 단원 첫 학습 전에 크레딧 사용을 물어봄
-    private func confirmCard(_ key: String) -> some View {
-        VStack(spacing: 14) {
-            Image(systemName: "bolt.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(Theme.accent)
-            VStack(spacing: 6) {
-                Text("크레딧이 사용돼요").font(.headline)
-                Text(credits.confirmText("이 단원을 AI로 학습하면"))
-                    .font(.subheadline)
-                    .multilineTextAlignment(.center)
-                Text("같은 단원의 개념·빈칸·O/X·문제는 추가로 차감되지 않아요.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            Button {
-                credits.confirmUnit(key)
-                Task { await load(force: false) }
-            } label: {
-                Text("진행 (\(CreditStore.costPerUse) 크레딧)")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-            }
-            .buttonStyle(.glassProminent)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-        .padding(.vertical, 20)
     }
 
     private func load(force: Bool) async {
@@ -257,17 +208,6 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             value = cached
             return
         }
-        if let creditKey, !credits.isUnitConfirmed(creditKey) {
-            if credits.canAfford() {
-                needCredits = false
-                needConfirm = true
-            } else {
-                needCredits = true
-            }
-            return
-        }
-        needCredits = false
-        needConfirm = false
         generation?.cancel()
         loading = true
         error = nil
@@ -279,7 +219,6 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 let made = try await make()
                 guard !Task.isCancelled else { return }
                 ContentCache.save(made, key: cacheKey, context: context)
-                if let creditKey { credits.chargeUnit(creditKey) }
                 value = made
             } catch {
                 guard !Task.isCancelled else { return }
@@ -339,7 +278,7 @@ struct ConceptStepView: View {
     var onDone: (LearnStep) -> Void
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "concept", booster: booster), creditKey: "\(subject)|\(unit)") {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "concept", booster: booster)) {
             try await DoitTutor.concept(subject: subject, unit: unit, booster: booster)
         } content: { note, regenerate in
             VStack(alignment: .leading, spacing: 16) {
@@ -388,7 +327,7 @@ struct ClozeStepView: View {
     @State private var checked = false
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "cloze", booster: booster), creditKey: "\(subject)|\(unit)") {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "cloze", booster: booster)) {
             try await DoitTutor.cloze(subject: subject, unit: unit, count: booster ? 4 : 6)
         } content: { set, regenerate in
             VStack(alignment: .leading, spacing: 14) {
@@ -451,7 +390,7 @@ struct OXStepView: View {
     @State private var finished = false
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "ox", booster: booster), creditKey: "\(subject)|\(unit)") {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "ox", booster: booster)) {
             try await DoitTutor.ox(subject: subject, unit: unit, count: booster ? 4 : 6)
         } content: { set, regenerate in
             if finished || set.items.isEmpty {
@@ -550,7 +489,7 @@ struct ProblemStepView: View {
     @State private var showSteps = false
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "problem", booster: booster), creditKey: "\(subject)|\(unit)") {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "problem", booster: booster)) {
             try await DoitTutor.problems(subject: subject, unit: unit, count: booster ? 3 : 4, hard: !booster)
         } content: { set, regenerate in
             if finished || set.items.isEmpty {

@@ -141,7 +141,7 @@ enum DoitEngine {
 
         return Reply(
             text: "아직 그 말은 이해하지 못했어요. 일정·타이머·단어·메모 같은 앱 기능, 수학 풀이, 영어 문법·단어, 과학 계산, 사회·역사 질문, 퀴즈, 공부 고민 상담을 도와드릴 수 있어요.",
-            suggestions: examples,
+            suggestions: ["뭐 할 수 있어?"],
             understood: false
         )
     }
@@ -451,7 +451,7 @@ enum DoitEngine {
         let targets: [(String, [String])] = [
             ("timer", ["타이머"]), ("planner", ["플래너", "달력", "캘린더"]),
             ("study", ["단어 화면", "단어장 열", "공부 화면", "공부 탭", "오답노트 열", "메모장"]),
-            ("account", ["계정", "설정", "크레딧"]), ("home", ["홈"])
+            ("account", ["계정", "설정"]), ("home", ["홈"])
         ]
         for (screen, words) in targets where has(t, words) {
             return Reply(text: DoitActions.shared.open(screen))

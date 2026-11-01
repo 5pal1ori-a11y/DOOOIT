@@ -13,7 +13,7 @@ struct OCRLine {
 
 enum OCRService {
     static func recognize(_ image: UIImage, languageCorrection: Bool = true,
-                          languages: [String] = ["ko-KR", "en-US"]) async throws -> [OCRLine] {
+                          languages: [String] = ["ko-KR", "en-US"], preferMath: Bool = false) async throws -> [OCRLine] {
         let prepared = image.preparedForOCR()
         guard let cgImage = prepared.cgImage else { return [] }
 
@@ -29,8 +29,15 @@ enum OCRService {
                     try handler.perform([request])
                     let observations = request.results ?? []
                     let lines: [OCRLine] = observations.compactMap { observation in
-                        guard let candidate = observation.topCandidates(1).first else { return nil }
-                        return OCRLine(text: candidate.string, confidence: candidate.confidence, box: observation.boundingBox)
+                        let candidates = observation.topCandidates(preferMath ? 3 : 1)
+                        guard let best = candidates.first else { return nil }
+                        // 수학 문제: 신뢰도가 비슷하면 숫자 자리에 글자(Z, O, l, S)가 덜 섞인 후보를 고름
+                        var chosen = best
+                        if preferMath {
+                            chosen = candidates.filter { $0.confidence >= best.confidence - 0.15 }
+                                .min { mathPenalty($0.string) < mathPenalty($1.string) } ?? best
+                        }
+                        return OCRLine(text: chosen.string, confidence: max(chosen.confidence, best.confidence * 0.9), box: observation.boundingBox)
                     }
                     continuation.resume(returning: lines)
                 } catch {
@@ -42,12 +49,34 @@ enum OCRService {
 
     /// 수학 문제용: 검은 인쇄 글자만 남긴 사진(빨간 펜·파란 펜·연필 풀이 제거, 작은 지수가 보이게 확대)으로 읽음
     static func recognizeMath(_ image: UIImage) async throws -> [OCRLine] {
-        let original = try await recognize(image)
-        guard let ink = inkOnly(image), let inkLines = try? await recognize(ink), !inkLines.isEmpty else { return original }
+        let original = try await recognize(image, preferMath: true)
+        guard let ink = inkOnly(image), let inkLines = try? await recognize(ink, preferMath: true), !inkLines.isEmpty else { return original }
         // 검은 글자만 읽은 결과가 원래보다 확실히 적으면 (얇은 글씨가 지워진 경우) 원래 결과 사용
         let inkCount = printedText(from: inkLines).count
         let originalCount = printedText(from: original).count
         return inkCount >= originalCount * 7 / 10 ? inkLines : original
+    }
+
+    /// 수식처럼 보이는 줄에서 숫자 자리에 비슷한 글자가 끼어든 정도 (작을수록 좋음)
+    static func mathPenalty(_ text: String) -> Int {
+        let patterns = [#"[0-9][ZOlISB]"#, #"[ZOlISB][0-9]"#, #"[+\-=×÷(^][ZOlS](?![a-z])"#, #"[|]"#]
+        return patterns.reduce(0) { total, pattern in
+            total + ((try? NSRegularExpression(pattern: pattern))?.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text)) ?? 0)
+        }
+    }
+
+    /// 수학 문제 사진 → 문제 글: 기기 글자 인식 + 자주 틀리는 글자 교정
+    /// Apple Intelligence를 쓸 수 있으면 여러 번 읽은 결과를 비교해서 원래 인쇄된 문제로 한 번 더 복원
+    static func readMathProblem(_ image: UIImage, useAI: Bool = true) async -> (text: String, usedAI: Bool) {
+        let lines = (try? await recognizeMath(image)) ?? []
+        let base = MathOCRFixer.fix(printedText(from: lines))
+        guard useAI, DoitAppleAI.isAvailable, !base.isEmpty else { return (base, false) }
+        let readings = await multiPassRead(image)
+        guard let repaired = try? await DoitAppleAI.reconstruct(readings: readings, current: base) else { return (base, false) }
+        let fixed = MathOCRFixer.fix(repaired)
+        // 너무 짧아졌거나 엉뚱하게 길어지면 기본 결과 사용
+        guard fixed.count >= base.count / 2, fixed.count <= base.count * 2 + 40 else { return (base, false) }
+        return (fixed, true)
     }
 
     /// 검은색(채도가 낮고 어두운) 픽셀만 남기고 나머지는 흰색으로 지움

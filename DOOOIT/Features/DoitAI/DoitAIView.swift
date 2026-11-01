@@ -11,44 +11,28 @@ struct DoitAIView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @FocusState private var focused: Bool
 
-    private struct Suggestion: Identifiable {
-        let symbol: String
-        let text: String
-        var id: String { text }
-    }
-
-    private let suggestions: [Suggestion] = [
-        Suggestion(symbol: "calendar", text: "오늘 할 일 알려줘"),
-        Suggestion(symbol: "plus.circle", text: "내일 오후 4시에 수학 공부 2시간 추가해줘"),
-        Suggestion(symbol: "timer", text: "영어 단어 25분 타이머 시작해줘"),
-        Suggestion(symbol: "function", text: "x³−6x²+11x−6=0 풀어줘"),
-        Suggestion(symbol: "character.book.closed", text: "현재완료 설명해줘"),
-        Suggestion(symbol: "atom", text: "전압 12V 저항 4Ω 전류는?"),
-        Suggestion(symbol: "globe.asia.australia", text: "임진왜란 언제 일어났어?"),
-        Suggestion(symbol: "gamecontroller", text: "수학 퀴즈 내줘"),
-        Suggestion(symbol: "heart.text.square", text: "집중이 안 돼"),
-        Suggestion(symbol: "questionmark.circle", text: "뭐 할 수 있어?")
-    ]
-
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 14) {
+                        LazyVStack(alignment: .leading, spacing: 16) {
                             if assistant.messages.isEmpty {
                                 welcome
                             }
                             ForEach(assistant.messages) { message in
-                                bubble(message).id(message.id)
+                                bubble(message)
+                                    .id(message.id)
+                                    .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                             }
                             if assistant.isResponding {
-                                typing.id("typing")
+                                TypingIndicator(status: assistant.status).id("typing")
                             }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 16)
+                        .animation(.snappy, value: assistant.messages.count)
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .onChange(of: assistant.messages.count) {
@@ -83,45 +67,29 @@ struct DoitAIView: View {
     // MARK: 시작 화면
 
     private var welcome: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 30, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 60, height: 60)
-                    .background(LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                                in: .rect(cornerRadius: 18))
-                Text("무엇을 도와드릴까요?").font(.title.weight(.heavy))
-                Text("말로 시키면 일정, 타이머, 단어, 오답노트, 메모, 목표 설정을 대신 해드려요. 방정식도 풀어요. 사진을 보내면 글자를 읽어서 단어장이나 오답노트로 정리해요.")
+        VStack(spacing: 18) {
+            Spacer(minLength: 70)
+            AIOrb(size: 96)
+            VStack(spacing: 8) {
+                Text("무엇을 도와드릴까요?")
+                    .font(.title2.weight(.heavy))
+                    .foregroundStyle(Palette.ink)
+                Text("두잇 AI로 공부 계획부터 문제 풀이까지 편하게 물어보세요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
-
-            VStack(spacing: 8) {
-                ForEach(suggestions) { suggestion in
-                    Button {
-                        Task { await assistant.send(suggestion.text) }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: suggestion.symbol)
-                                .foregroundStyle(Theme.accent)
-                                .frame(width: 22)
-                            Text(suggestion.text).font(.subheadline).multilineTextAlignment(.leading)
-                            Spacer(minLength: 0)
-                            Image(systemName: "arrow.up.right").font(.caption).foregroundStyle(.tertiary)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(Color.white.opacity(0.7), in: .rect(cornerRadius: 16))
-                    }
-                    .buttonStyle(.plain)
-                }
+            if DoitAppleAI.isAvailable {
+                Label("Apple Intelligence와 함께", systemImage: "apple.intelligence")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Theme.accent.opacity(0.1), in: .capsule)
             }
-            Text(DoitAppleAI.isAvailable ? "두잇 AI 엔진과 기기 안 Apple Intelligence가 함께 답해요. 대화는 휴대폰 밖으로 나가지 않아요." : "두잇 AI 엔진이 휴대폰 안에서 답해요. Apple Intelligence를 켜면 더 자유롭게 대화할 수 있어요.")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
-        .padding(.top, 12)
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24)
     }
 
     // MARK: 말풍선
@@ -135,73 +103,68 @@ struct DoitAIView: View {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
-                        .frame(maxWidth: 200, maxHeight: 200)
-                        .clipShape(.rect(cornerRadius: 14))
+                        .frame(maxWidth: 210, maxHeight: 210)
+                        .clipShape(.rect(cornerRadius: 18))
+                        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
                 }
                 if !message.text.isEmpty {
                     Text(message.text)
                         .font(.body)
                         .foregroundStyle(.white)
-                        .padding(.horizontal, 14)
+                        .padding(.horizontal, 15)
                         .padding(.vertical, 10)
-                        .background(Theme.accent, in: .rect(cornerRadius: 20))
+                        .background(
+                            LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20)
+                        )
+                        .shadow(color: Theme.accent.opacity(0.25), radius: 8, y: 4)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.leading, 50)
+            .padding(.leading, 56)
         case .assistant:
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: message.source == .apple ? "apple.intelligence" : "sparkles")
-                        .font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
-                    Text(message.source == .apple ? "두잇 AI · Apple Intelligence" : "두잇 AI")
-                        .font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                }
-                if !message.actions.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(message.actions, id: \.self) { action in
-                            Label(action, systemImage: "checkmark.circle.fill")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Palette.success)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    AIOrb(size: 30, symbol: message.source == .apple ? "apple.intelligence" : "sparkles")
+                    VStack(alignment: .leading, spacing: 10) {
+                        if message.source == .apple {
+                            Text("Apple Intelligence")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(Theme.accent)
                         }
-                    }
-                    .padding(10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 12))
-                }
-                Text(Self.markdown(MathSymbolBar.pretty(message.text)))
-                    .font(.body)
-                    .textSelection(.enabled)
-                if message.source == .apple {
-                    Text(DoitAppleAI.caution)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                }
-                if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
-                    ScrollView(.horizontal) {
-                        HStack(spacing: 8) {
-                            ForEach(message.suggestions, id: \.self) { suggestion in
-                                Button { Task { await assistant.send(suggestion) } } label: {
-                                    Text(suggestion)
+                        if !message.actions.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(message.actions, id: \.self) { action in
+                                    Label(action, systemImage: "checkmark.circle.fill")
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Theme.accent)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 7)
-                                        .background(Theme.accent.opacity(0.12), in: .capsule)
+                                        .foregroundStyle(Palette.success)
                                 }
-                                .buttonStyle(.plain)
-                                .disabled(assistant.isResponding)
                             }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 12))
+                        }
+                        Text(Self.markdown(MathSymbolBar.pretty(message.text)))
+                            .font(.body)
+                            .lineSpacing(3)
+                            .foregroundStyle(Palette.ink)
+                            .textSelection(.enabled)
+                        if message.source == .apple {
+                            Text(DoitAppleAI.caution)
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
                         }
                     }
-                    .scrollIndicators(.hidden)
-                    .padding(.top, 2)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20))
+                    .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                }
+                .padding(.trailing, 18)
+                if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
+                    suggestionChips(message.suggestions)
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: 20))
-            .padding(.trailing, 24)
         case .notice:
             Label(message.text, systemImage: "info.circle")
                 .font(.caption)
@@ -211,13 +174,27 @@ struct DoitAIView: View {
         }
     }
 
-    private var typing: some View {
-        HStack(spacing: 8) {
-            ProgressView().controlSize(.small)
-            Text(assistant.status.isEmpty ? "생각하는 중…" : assistant.status).font(.subheadline).foregroundStyle(.secondary)
+    private func suggestionChips(_ suggestions: [String]) -> some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                ForEach(suggestions, id: \.self) { suggestion in
+                    Button { Task { await assistant.send(suggestion) } } label: {
+                        Text(suggestion)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 8)
+                            .background(Color.white, in: .capsule)
+                            .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.25), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(assistant.isResponding)
+                }
+            }
+            .padding(.leading, 40)
+            .padding(.vertical, 2)
         }
-        .padding(14)
-        .glassEffect(.regular, in: .capsule)
+        .scrollIndicators(.hidden)
     }
 
     // MARK: 입력창
@@ -225,22 +202,24 @@ struct DoitAIView: View {
     private var inputBar: some View {
         VStack(spacing: 8) {
             if let attached {
-                HStack {
+                HStack(spacing: 10) {
                     Image(uiImage: attached)
                         .resizable()
                         .scaledToFill()
-                        .frame(width: 56, height: 56)
-                        .clipShape(.rect(cornerRadius: 10))
+                        .frame(width: 52, height: 52)
+                        .clipShape(.rect(cornerRadius: 12))
                     Text("사진 속 글자를 읽어서 정리해요").font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button { self.attached = nil } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                        Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 4)
+                .padding(8)
+                .background(Color.white, in: .rect(cornerRadius: 16))
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            HStack(alignment: .bottom, spacing: 10) {
+            HStack(alignment: .bottom, spacing: 8) {
                 Menu {
                     Button { showScanner = DocumentScanner.isSupported; showPhotoPicker = !DocumentScanner.isSupported } label: {
                         Label("문제 촬영", systemImage: "camera")
@@ -251,32 +230,38 @@ struct DoitAIView: View {
                 } label: {
                     Image(systemName: "plus")
                         .font(.headline)
-                        .frame(width: 40, height: 40)
+                        .foregroundStyle(Palette.ink)
+                        .frame(width: 42, height: 42)
                 }
                 .glassEffect(.regular.interactive(), in: .circle)
 
-                TextField("두잇 AI에게 부탁하기", text: $input, axis: .vertical)
-                    .onSubmit { submit() }
-                    .lineLimit(1...5)
-                    .focused($focused)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                HStack(alignment: .bottom, spacing: 6) {
+                    TextField("두잇 AI에게 물어보기", text: $input, axis: .vertical)
+                        .onSubmit { submit() }
+                        .lineLimit(1...5)
+                        .focused($focused)
+                        .padding(.leading, 16)
+                        .padding(.vertical, 11)
 
-                Button { submit() } label: {
-                    Image(systemName: "arrow.up")
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(.white)
-                        .frame(width: 40, height: 40)
-                        .background(canSend ? Theme.accent : Color.secondary.opacity(0.4), in: .circle)
+                    Button { submit() } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.subheadline.weight(.heavy))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(canSend ? Theme.accent : Color.secondary.opacity(0.35), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSend)
+                    .padding(.trailing, 5)
+                    .padding(.bottom, 5)
                 }
-                .buttonStyle(.plain)
-                .disabled(!canSend)
+                .glassEffect(.regular, in: .rect(cornerRadius: 22))
             }
         }
         .padding(.horizontal, 12)
         .padding(.top, 8)
         .padding(.bottom, 8)
+        .animation(.snappy, value: attached != nil)
     }
 
     /// **굵게** 같은 간단한 마크다운만 적용
@@ -291,10 +276,78 @@ struct DoitAIView: View {
         let image = attached
         input = ""
         attached = nil
+        Haptics.tap()
         Task { await assistant.send(text, image: image) }
     }
 
     private var canSend: Bool {
         !assistant.isResponding && (!input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || attached != nil)
+    }
+}
+
+// MARK: - 꾸밈
+
+/// 두잇 AI 아이콘: 테마 색 그라데이션 원 + 은은한 빛
+private struct AIOrb: View {
+    var size: CGFloat
+    var symbol = "sparkles"
+
+    var body: some View {
+        ZStack {
+            if size > 50 {
+                Circle()
+                    .fill(Theme.accent.opacity(0.2))
+                    .frame(width: size * 1.4, height: size * 1.4)
+                    .blur(radius: size * 0.2)
+            }
+            Circle()
+                .fill(AngularGradient(colors: [Theme.accent, Theme.accent.opacity(0.55), Color.white.opacity(0.9), Theme.accent],
+                                      center: .center))
+                .frame(width: size, height: size)
+            Circle()
+                .fill(LinearGradient(colors: [Color.white.opacity(0.45), .clear], startPoint: .top, endPoint: .center))
+                .frame(width: size, height: size)
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.42, weight: .bold))
+                .foregroundStyle(.white)
+                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+/// 답을 만드는 동안: 점 세 개가 차례로 튀는 표시 + 상태 문구
+private struct TypingIndicator: View {
+    var status: String
+    @State private var phase = 0
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            AIOrb(size: 30)
+            HStack(spacing: 10) {
+                HStack(spacing: 4) {
+                    ForEach(0..<3, id: \.self) { index in
+                        Circle()
+                            .fill(Theme.accent)
+                            .frame(width: 7, height: 7)
+                            .offset(y: phase == index ? -3 : 0)
+                            .opacity(phase == index ? 1 : 0.45)
+                    }
+                }
+                if !status.isEmpty {
+                    Text(status).font(.footnote).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(Color.white, in: .capsule)
+            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(320))
+                withAnimation(.easeInOut(duration: 0.25)) { phase = (phase + 1) % 3 }
+            }
+        }
     }
 }

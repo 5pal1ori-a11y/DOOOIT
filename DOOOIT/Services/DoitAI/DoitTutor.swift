@@ -221,8 +221,7 @@ enum DoitTutor {
     static func answer(_ question: String, subject: String? = nil, image: UIImage? = nil) async throws -> String {
         var text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         if let image {
-            let lines = (try? await OCRService.recognizeMath(image)) ?? []
-            let photoText = MathOCRFixer.fix(OCRService.printedText(from: lines))
+            let photoText = await OCRService.readMathProblem(image).text
             if !photoText.isEmpty { text += (text.isEmpty ? "" : "\n") + photoText }
         }
         guard !text.isEmpty else { throw TutorError.notEnough("사진에서 글자를 찾지 못했어요. 글자가 잘 보이게 다시 찍어주세요.") }

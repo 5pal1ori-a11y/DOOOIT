@@ -319,8 +319,7 @@ final class DoitAssistant {
 
     /// 사진 읽기: 문제·필기용(검은 글자 위주)과 단어장용(영어-뜻 짝)
     private func read(_ image: UIImage) async -> DoitEngine.PhotoContext {
-        let mathLines = (try? await OCRService.recognizeMath(image)) ?? []
-        let text = MathOCRFixer.fix(OCRService.printedText(from: mathLines))
+        let text = await OCRService.readMathProblem(image).text
         let wordLines = (try? await OCRService.recognize(image)) ?? []
         let words = WordParser.parse(wordLines)
         return DoitEngine.PhotoContext(image: image, text: text, words: words)
