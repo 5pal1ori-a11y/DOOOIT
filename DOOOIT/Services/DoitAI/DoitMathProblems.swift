@@ -110,7 +110,7 @@ enum MathSolver {
     private static func has(_ text: String, _ words: [String]) -> Bool { words.contains { text.contains($0) } }
 
     /// "y = x² − 4x + 1", "f(x) = …" 의 오른쪽 식
-    static func function(in text: String) -> P? {
+    static func function(in text: String) -> DoitMath.Poly? {
         for marker in ["f(x)=", "f(x) =", "y=", "y =", "g(x)=", "P(x)="] {
             guard let range = text.range(of: marker) else { continue }
             let rest = String(text[range.upperBound...])
@@ -122,7 +122,7 @@ enum MathSolver {
     }
 
     /// 방정식 "… = …" 을 (좌변 − 우변) 다항식으로
-    static func equationPoly(in text: String) -> P? {
+    static func equationPoly(in text: String) -> DoitMath.Poly? {
         let expression = DoitMath.extractExpression(text)
         let sides = expression.split(separator: "=", omittingEmptySubsequences: false).map(String.init)
         guard sides.count == 2, let left = DoitMath.polynomial(sides[0]), let right = DoitMath.polynomial(sides[1]) else { return nil }
