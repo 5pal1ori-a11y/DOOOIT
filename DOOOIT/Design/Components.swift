@@ -10,7 +10,7 @@ struct SectionHeader<Trailing: View>: View {
         HStack(spacing: 8) {
             Image(systemName: symbol)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.accent)
             Text(title)
                 .font(.headline)
             Spacer(minLength: 0)
@@ -52,7 +52,7 @@ struct EmptyStateView: View {
 /// 아이콘이 들어간 원형 배지
 struct IconBadge: View {
     let symbol: String
-    var color: Color = .accentColor
+    var color: Color = Theme.accent
     var size: CGFloat = 40
 
     var body: some View {
@@ -68,7 +68,7 @@ struct IconBadge: View {
 struct TagLabel: View {
     let text: String
     var symbol: String? = nil
-    var color: Color = .accentColor
+    var color: Color = Theme.accent
 
     var body: some View {
         HStack(spacing: 4) {
@@ -87,7 +87,7 @@ struct TagLabel: View {
 struct ProgressRing: View {
     let progress: Double
     var lineWidth: CGFloat = 8
-    var color: Color = .accentColor
+    var color: Color = Theme.accent
 
     var body: some View {
         ZStack {
@@ -137,7 +137,7 @@ struct NotePaperCard<Content: View>: View {
             .overlay(alignment: .top) {
                 // 테이프
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.accentColor.opacity(0.35))
+                    .fill(Theme.accent.opacity(0.35))
                     .frame(width: 86, height: 22)
                     .rotationEffect(.degrees(-3))
                     .offset(y: -10)
@@ -183,5 +183,44 @@ struct ProcessingOverlay: View {
             .glassEffect(.regular, in: .rect(cornerRadius: 26))
         }
         .transition(.opacity)
+    }
+}
+
+/// 테마 색 고르기 (연보라 / 연하늘 / 연두)
+struct ThemePicker: View {
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(ThemeColor.allCases) { theme in
+                let isOn = themeRaw == theme.rawValue
+                Button {
+                    withAnimation(.smooth) { themeRaw = theme.rawValue }
+                    Haptics.tap()
+                } label: {
+                    VStack(spacing: 8) {
+                        ZStack {
+                            Circle().fill(theme.soft)
+                            Circle().fill(theme.accent).padding(10)
+                            if isOn {
+                                Image(systemName: "checkmark")
+                                    .font(.subheadline.weight(.heavy))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .frame(width: 52, height: 52)
+                        .overlay { Circle().stroke(isOn ? theme.accent : Color.clear, lineWidth: 2.5).padding(-4) }
+                        Text(theme.title)
+                            .font(.footnote.weight(isOn ? .bold : .regular))
+                            .foregroundStyle(isOn ? Color.primary : Color.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(theme.title) 테마")
+                .accessibilityAddTraits(isOn ? .isSelected : [])
+            }
+        }
     }
 }

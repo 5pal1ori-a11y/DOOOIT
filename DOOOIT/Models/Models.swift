@@ -104,7 +104,7 @@ final class Plan {
         set { repeatRaw = newValue.rawValue }
     }
 
-    var color: Color { category?.color ?? .accentColor }
+    var color: Color { category?.color ?? Theme.accent }
     var symbol: String { category?.symbol ?? "circle.fill" }
     var isStudy: Bool { kind == .study }
 

@@ -108,7 +108,7 @@ struct MathNoteEditorView: View {
                         .scaledToFit()
                         .frame(width: width, height: imageHeight)
                     Rectangle()
-                        .fill(Color.accentColor.opacity(0.35))
+                        .fill(Theme.accent.opacity(0.35))
                         .frame(height: 2)
                 }
                 Text("풀이")
@@ -156,7 +156,7 @@ struct MathNoteEditorView: View {
             .foregroundStyle(Color(hex: annotation.colorHex))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(isDrawing && tool == .text ? Color.accentColor.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 6))
+            .background(isDrawing && tool == .text ? Theme.accent.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 6))
             .position(x: annotation.x, y: annotation.y)
             .onTapGesture {
                 guard isDrawing && tool == .text else { return }
@@ -227,7 +227,7 @@ struct MathNoteEditorView: View {
                             }
                             .frame(width: 46, height: 44)
                             .foregroundStyle(tool == item ? Color.white : Color.primary)
-                            .background(tool == item ? Color.accentColor : Color.clear, in: .rect(cornerRadius: 14))
+                            .background(tool == item ? Theme.accent : Color.clear, in: .rect(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
                     }

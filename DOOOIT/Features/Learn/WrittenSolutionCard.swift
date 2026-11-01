@@ -64,7 +64,7 @@ struct WrittenSolutionCard: View {
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 3)
-                                    .background(Color.accentColor, in: .rect(cornerRadius: 6))
+                                    .background(Theme.accent, in: .rect(cornerRadius: 6))
                                 Label(step.hint, systemImage: "lightbulb.fill")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -77,7 +77,7 @@ struct WrittenSolutionCard: View {
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.accentColor.opacity(0.08), in: .rect(cornerRadius: 16))
+                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
                     }
                     HStack {
                         Text("최종 답:").font(.headline)

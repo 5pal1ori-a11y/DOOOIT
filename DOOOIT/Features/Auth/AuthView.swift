@@ -248,6 +248,8 @@ struct EmailAuthView: View {
 /// Apple 로그인 시 이름을 받지 못한 경우 닉네임 설정
 struct NameSetupView: View {
     @Environment(AuthManager.self) private var auth
+    /// 테마를 고르면 이 화면의 강조 색도 바로 바뀌도록 구독
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
     @State private var name = ""
     @FocusState private var focused: Bool
 
@@ -267,6 +269,9 @@ struct NameSetupView: View {
                     .submitLabel(.done)
                     .onSubmit(save)
                     .glassField()
+                Text("좋아하는 테마 색").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    .padding(.top, 8)
+                ThemePicker()
                 Spacer()
                 Button(action: save) {
                     Text("시작하기")

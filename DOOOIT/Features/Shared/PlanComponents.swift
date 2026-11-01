@@ -32,7 +32,7 @@ struct DDayChip: View {
                 Text(title).foregroundStyle(.secondary)
                 Text(diff > 0 ? "D-\(diff)" : (diff == 0 ? "D-DAY" : "D+\(-diff)"))
                     .fontWeight(.heavy)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
             .font(.caption.weight(.semibold))
             .lineLimit(1)
@@ -65,13 +65,13 @@ struct WeekStrip: View {
                     VStack(spacing: 5) {
                         Text(day.kr("E"))
                             .font(.caption2.weight(.semibold))
-                            .foregroundStyle(i == 0 ? Palette.danger : (i == 6 ? Color.accentColor : Color.secondary))
+                            .foregroundStyle(i == 0 ? Palette.danger : (i == 6 ? Theme.accent : Color.secondary))
                         Text("\(cal.component(.day, from: day))")
                             .font(.callout.weight(.bold))
                             .monospacedDigit()
                             .frame(width: 34, height: 34)
-                            .foregroundStyle(isSelected ? Color.white : (isToday ? Color.accentColor : Color.primary))
-                            .background(isSelected ? Color.accentColor : Color.clear, in: .circle)
+                            .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.accent : Color.primary))
+                            .background(isSelected ? Theme.accent : Color.clear, in: .circle)
                         HStack(spacing: 3) {
                             ForEach(Array(plans.occurrences(on: day).prefix(3).enumerated()), id: \.offset) { _, o in
                                 Circle().fill(o.plan.color).frame(width: 5, height: 5)

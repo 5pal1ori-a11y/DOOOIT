@@ -140,8 +140,8 @@ struct UnitStudyView: View {
                         .font(.subheadline.weight(.semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .foregroundStyle(step == item ? Color.accentColor : Color.secondary)
-                        .background(step == item ? Color.accentColor.opacity(0.14) : Color.clear, in: .capsule)
+                        .foregroundStyle(step == item ? Theme.accent : Color.secondary)
+                        .background(step == item ? Theme.accent.opacity(0.14) : Color.clear, in: .capsule)
                     }
                     .buttonStyle(.plain)
                     if item != LearnStep.allCases.last {
@@ -272,7 +272,7 @@ struct ConceptStepView: View {
                                 .font(.caption.weight(.heavy))
                                 .foregroundStyle(.white)
                                 .frame(width: 24, height: 24)
-                                .background(Color.accentColor, in: .circle)
+                                .background(Theme.accent, in: .circle)
                             Text(point).font(.body).fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -518,7 +518,7 @@ struct ProblemStepView: View {
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 3)
-                                            .background(Color.accentColor, in: .rect(cornerRadius: 6))
+                                            .background(Theme.accent, in: .rect(cornerRadius: 6))
                                         Text(line).font(.subheadline).fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
@@ -529,7 +529,7 @@ struct ProblemStepView: View {
                             Label("단계별 풀이 보기", systemImage: "lightbulb.fill").font(.subheadline.weight(.bold))
                         }
                         .padding(14)
-                        .background(Color.accentColor.opacity(0.08), in: .rect(cornerRadius: 16))
+                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
 
                         primaryButton(index + 1 < set.items.count ? "다음 문제" : "결과 보기") {
                             showSteps = false
@@ -549,7 +549,7 @@ struct ProblemStepView: View {
     }
 
     private func choiceColor(_ number: Int, answer: Int) -> Color {
-        guard let picked else { return .accentColor }
+        guard let picked else { return Theme.accent }
         if number == answer { return Palette.success }
         if number == picked { return Palette.danger }
         return .clear
@@ -579,7 +579,7 @@ struct WeakStepView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(item.prompt).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                     if revealed.contains(item.id) {
-                        Text("정답: \(item.answer)").font(.subheadline.weight(.bold)).foregroundStyle(Color.accentColor)
+                        Text("정답: \(item.answer)").font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
                         if !item.explanation.isEmpty {
                             Text(item.explanation).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         }

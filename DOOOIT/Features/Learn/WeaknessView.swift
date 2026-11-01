@@ -97,10 +97,10 @@ struct WeaknessView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 TagLabel(text: item.subject, color: .secondary)
-                if item.total > 0 { TagLabel(text: "정답률 \(Int(item.accuracy * 100))%", color: .accentColor) }
+                if item.total > 0 { TagLabel(text: "정답률 \(Int(item.accuracy * 100))%", color: Theme.accent) }
                 if item.wrongNotes > 0 { TagLabel(text: "오답노트 \(item.wrongNotes)", color: Palette.danger) }
             }
-            Label(item.unit, systemImage: "sparkles").font(.headline).foregroundStyle(Color.accentColor)
+            Label(item.unit, systemImage: "sparkles").font(.headline).foregroundStyle(Theme.accent)
             Text("\(item.headline)\n\(item.plan)")
                 .font(.title3.weight(.bold))
                 .fixedSize(horizontal: false, vertical: true)
@@ -135,13 +135,13 @@ struct WeaknessView: View {
                 Spacer()
                 Label("예상 도달: \(labels[min(level + 1, 2)])", systemImage: "sparkles")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
             }
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.08))
-                    Capsule().fill(Color.accentColor.opacity(0.25)).frame(width: geo.size.width * target)
-                    Capsule().fill(Color.accentColor).frame(width: geo.size.width * current)
+                    Capsule().fill(Theme.accent.opacity(0.25)).frame(width: geo.size.width * target)
+                    Capsule().fill(Theme.accent).frame(width: geo.size.width * current)
                 }
             }
             .frame(height: 10)

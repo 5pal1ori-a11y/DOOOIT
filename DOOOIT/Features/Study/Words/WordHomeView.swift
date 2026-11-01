@@ -72,10 +72,10 @@ struct WordHomeView: View {
                 Spacer()
                 ZStack {
                     ProgressRing(progress: doneToday ? 1 : 0, lineWidth: 8,
-                                 color: doneToday ? Palette.success : .accentColor)
+                                 color: doneToday ? Palette.success : Theme.accent)
                     Image(systemName: doneToday ? "trophy.fill" : "target")
                         .font(.title2)
-                        .foregroundStyle(doneToday ? Palette.success : Color.accentColor)
+                        .foregroundStyle(doneToday ? Palette.success : Theme.accent)
                         .symbolEffect(.bounce, value: doneToday)
                 }
                 .frame(width: 70, height: 70)

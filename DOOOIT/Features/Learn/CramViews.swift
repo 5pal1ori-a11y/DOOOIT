@@ -59,7 +59,7 @@ struct CramListView: View {
             VStack(spacing: 0) {
                 Text(exam.dDay > 0 ? "D-\(exam.dDay)" : (exam.dDay == 0 ? "D-DAY" : "끝"))
                     .font(.title3.weight(.black))
-                    .foregroundStyle(exam.dDay <= 3 ? Palette.danger : Color.accentColor)
+                    .foregroundStyle(exam.dDay <= 3 ? Palette.danger : Theme.accent)
                 Text(exam.examDate.kr("M.d")).font(.caption2).foregroundStyle(.secondary)
             }
             .frame(width: 64)
@@ -70,7 +70,7 @@ struct CramListView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 ProgressView(value: Double(doneSteps), total: Double(max(totalSteps, 1)))
-                    .tint(Color.accentColor)
+                    .tint(Theme.accent)
             }
             Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
         }
@@ -210,8 +210,8 @@ struct CramDetailView: View {
                             .font(.subheadline.weight(.semibold))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
-                            .foregroundStyle(done ? Color.accentColor : Color.primary)
-                            .background(done ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05), in: .capsule)
+                            .foregroundStyle(done ? Theme.accent : Color.primary)
+                            .background(done ? Theme.accent.opacity(0.14) : Color.primary.opacity(0.05), in: .capsule)
                         }
                         .buttonStyle(.plain)
                         if step != LearnStep.allCases.last {
@@ -295,7 +295,7 @@ struct CramEditorView: View {
                                     }
                                     Spacer()
                                     Image(systemName: selected.contains(key) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(selected.contains(key) ? Color.accentColor : Color.secondary)
+                                        .foregroundStyle(selected.contains(key) ? Theme.accent : Color.secondary)
                                 }
                             }
                         }

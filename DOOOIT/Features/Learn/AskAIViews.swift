@@ -173,7 +173,7 @@ struct AIQuestionDetailView: View {
                 .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
 
                 HStack {
-                    Label("AI 선생님 답변", systemImage: "sparkles").font(.headline).foregroundStyle(Color.accentColor)
+                    Label("AI 선생님 답변", systemImage: "sparkles").font(.headline).foregroundStyle(Theme.accent)
                     Spacer()
                     Text("도움 되었나요?").font(.caption).foregroundStyle(.secondary)
                     Button { item.helpful = item.helpful == 1 ? 0 : 1 } label: {

@@ -102,11 +102,11 @@ struct StatsView: View {
                 } label: {
                     Text(item.title)
                         .font(.headline)
-                        .foregroundStyle(period == item ? Color.accentColor : Color.secondary)
+                        .foregroundStyle(period == item ? Theme.accent : Color.secondary)
                         .padding(.vertical, 10)
                         .overlay(alignment: .bottom) {
                             if period == item {
-                                Capsule().fill(Color.accentColor).frame(height: 3)
+                                Capsule().fill(Theme.accent).frame(height: 3)
                             }
                         }
                 }
@@ -120,7 +120,7 @@ struct StatsView: View {
     private func bigTime(_ seconds: Int) -> Text {
         let minutes = Int((Double(seconds) / 60).rounded())
         let big = Font.system(size: 36, weight: .black)
-        return Text("\(Text("\(minutes / 60)").font(big).foregroundStyle(Color.accentColor))\(Text("시간 ").foregroundStyle(Color.accentColor))\(Text("\(minutes % 60)").font(big).foregroundStyle(Color.accentColor))\(Text("분").foregroundStyle(Color.accentColor))")
+        return Text("\(Text("\(minutes / 60)").font(big).foregroundStyle(Theme.accent))\(Text("시간 ").foregroundStyle(Theme.accent))\(Text("\(minutes % 60)").font(big).foregroundStyle(Theme.accent))\(Text("분").foregroundStyle(Theme.accent))")
     }
 
     private func color(for name: String) -> Color {
@@ -191,14 +191,14 @@ struct StatsView: View {
             Chart(points) { point in
                 LineMark(x: .value("기간", point.label), y: .value("분", point.minutes))
                     .interpolationMethod(.monotone)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
                 PointMark(x: .value("기간", point.label), y: .value("분", point.minutes))
                     .symbolSize(point.isCurrent ? 110 : 55)
-                    .foregroundStyle(point.isCurrent ? Color.accentColor : Color.accentColor.opacity(0.55))
+                    .foregroundStyle(point.isCurrent ? Theme.accent : Theme.accent.opacity(0.55))
                     .annotation(position: .top, spacing: 6) {
                         Text(String(format: "%02d:%02d", point.minutes / 60, point.minutes % 60))
                             .font(.caption2.weight(point.isCurrent ? .heavy : .regular))
-                            .foregroundStyle(point.isCurrent ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(point.isCurrent ? Theme.accent : Color.secondary)
                     }
             }
             .chartYAxis(.hidden)
@@ -224,7 +224,7 @@ struct StatsView: View {
             HStack(spacing: 2) {
                 ForEach(0..<24, id: \.self) { hour in
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.accentColor.opacity(hours[hour] == 0 ? 0.08 : 0.25 + 0.75 * Double(hours[hour]) / Double(maxValue)))
+                        .fill(Theme.accent.opacity(hours[hour] == 0 ? 0.08 : 0.25 + 0.75 * Double(hours[hour]) / Double(maxValue)))
                 }
             }
             .frame(height: 34)

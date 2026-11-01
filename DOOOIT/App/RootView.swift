@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AuthManager.self) private var auth
-    @AppStorage(SettingsKey.appearance) private var appearance = "system"
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
     @State private var showSplash = true
 
     var body: some View {
@@ -13,6 +13,7 @@ struct RootView: View {
                         NameSetupView()
                     } else {
                         MainTabView()
+                            .id(themeRaw) // 테마를 바꾸면 탭 화면 전체를 새 색으로 다시 그림
                     }
                 } else {
                     AuthView()
@@ -28,25 +29,18 @@ struct RootView: View {
                 .zIndex(10)
             }
         }
-        .preferredColorScheme(colorScheme)
-    }
-
-    private var colorScheme: ColorScheme? {
-        switch appearance {
-        case "light": return .light
-        case "dark": return .dark
-        default: return nil
-        }
+        .tint(Theme.accent)
+        .preferredColorScheme(.light)
     }
 }
 
-enum AppTab: Hashable {
+enum AppTab: String, Hashable {
     case home, study, planner, account
 }
 
 struct MainTabView: View {
     @Environment(StudyTimer.self) private var studyTimer
-    @State private var tab: AppTab = .home
+    @AppStorage("selectedTab") private var tab: AppTab = .home
     @State private var plannerRouter = PlannerRouter()
 
     var body: some View {

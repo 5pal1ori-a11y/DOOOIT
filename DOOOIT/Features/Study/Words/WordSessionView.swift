@@ -142,7 +142,7 @@ struct WordSessionView: View {
 
             if step != .finished {
                 ProgressView(value: Double(index + (result != nil ? 1 : 0)), total: Double(max(queue.count, 1)))
-                    .tint(Color.accentColor)
+                    .tint(Theme.accent)
                     .animation(.smooth, value: index)
             }
         }

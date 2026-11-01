@@ -140,7 +140,7 @@ struct TimerView: View {
                                 .foregroundStyle(isOn ? Color.white : Color.primary)
                         }
                         .buttonStyle(.plain)
-                        .glassEffect(isOn ? .regular.tint(.accentColor).interactive() : .regular.interactive(), in: .capsule)
+                        .glassEffect(isOn ? .regular.tint(Theme.accent).interactive() : .regular.interactive(), in: .capsule)
                     }
                 }
             }
@@ -182,7 +182,7 @@ struct TimerView: View {
                 }
                 Image(systemName: studyTimer.symbol)
                     .font(.title2)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(Theme.accent)
                 Text(studyTimer.title)
                     .font(.title2.weight(.bold))
                     .multilineTextAlignment(.center)
@@ -195,7 +195,7 @@ struct TimerView: View {
 
                 ZStack {
                     ProgressRing(progress: progress, lineWidth: 14,
-                                 color: (target != nil && elapsed >= Double(target ?? 0)) ? Palette.success : .accentColor)
+                                 color: (target != nil && elapsed >= Double(target ?? 0)) ? Palette.success : Theme.accent)
 
                     VStack(spacing: 8) {
                         Text(TimeText.clock(elapsed))
@@ -248,7 +248,7 @@ struct TimerView: View {
                             .contentTransition(.symbolEffect(.replace))
                     }
                     .buttonStyle(.plain)
-                    .glassEffect(.regular.tint(.accentColor).interactive(), in: .circle)
+                    .glassEffect(.regular.tint(Theme.accent).interactive(), in: .circle)
                 }
             }
         }
@@ -292,7 +292,7 @@ struct TimerAccessoryView: View {
         HStack(spacing: 12) {
             Image(systemName: studyTimer.isActive ? studyTimer.symbol : "timer")
                 .font(.headline)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.accent)
                 .symbolEffect(.pulse, isActive: studyTimer.phase == .running)
 
             VStack(alignment: .leading, spacing: 1) {

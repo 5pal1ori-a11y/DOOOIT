@@ -433,7 +433,7 @@ struct CalendarGrid: View {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(index == 0 ? Palette.danger : (index == 6 ? Color.accentColor : Color.secondary))
+                        .foregroundStyle(index == 0 ? Palette.danger : (index == 6 ? Theme.accent : Color.secondary))
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -473,9 +473,9 @@ private struct DayCell: View {
                 .frame(width: 36, height: 36)
                 .background {
                     if isSelected {
-                        Circle().fill(Color.accentColor)
+                        Circle().fill(Theme.accent)
                     } else if isToday {
-                        Circle().stroke(Color.accentColor, lineWidth: 1.5)
+                        Circle().stroke(Theme.accent, lineWidth: 1.5)
                     }
                 }
 
@@ -494,9 +494,9 @@ private struct DayCell: View {
 
     private func textColor(weekday: Int) -> Color {
         if isSelected { return .white }
-        if isToday { return .accentColor }
+        if isToday { return Theme.accent }
         if weekday == 1 { return Palette.danger }
-        if weekday == 7 { return .accentColor }
+        if weekday == 7 { return Theme.accent }
         return .primary
     }
 }

@@ -34,11 +34,64 @@ enum Palette {
 
 // MARK: - Background
 
-/// 리퀴드 글라스가 잘 보이도록 은은한 메쉬 그라데이션 배경
+/// 포인트 색 테마 (연보라 / 연하늘 / 연두). 바탕은 눈부시지 않은 흰색으로 고정
+enum ThemeColor: String, CaseIterable, Identifiable {
+    case lavender, sky, mint
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .lavender: return "연보라"
+        case .sky: return "연하늘"
+        case .mint: return "연두"
+        }
+    }
+
+    /// 버튼·강조에 쓰는 색 (흰 글자가 읽히도록 살짝 진하게)
+    var accent: Color {
+        switch self {
+        case .lavender: return Color(hex: "#7B68EE")
+        case .sky: return Color(hex: "#3D9BE0")
+        case .mint: return Color(hex: "#4CAF63")
+        }
+    }
+
+    /// 배경에 은은하게 깔리는 색
+    var soft: Color {
+        switch self {
+        case .lavender: return Color(hex: "#ECE8FF")
+        case .sky: return Color(hex: "#E2F1FC")
+        case .mint: return Color(hex: "#E6F5E1")
+        }
+    }
+
+    var softer: Color {
+        switch self {
+        case .lavender: return Color(hex: "#F4F1FF")
+        case .sky: return Color(hex: "#EEF7FD")
+        case .mint: return Color(hex: "#F0F9EC")
+        }
+    }
+}
+
+enum Theme {
+    /// 눈부시지 않은 흰색 바탕
+    static let base = Color(hex: "#F7F7F9")
+
+    static var current: ThemeColor {
+        ThemeColor(rawValue: UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "") ?? .lavender
+    }
+
+    static var accent: Color { current.accent }
+}
+
+/// 흰 바탕 + 선택한 테마 색이 은은하게 깔리는 배경 (리퀴드 글라스가 잘 보이도록)
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var scheme
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
 
     var body: some View {
+        let theme = ThemeColor(rawValue: themeRaw) ?? .lavender
         MeshGradient(
             width: 3,
             height: 3,
@@ -47,22 +100,14 @@ struct AppBackground: View {
                 [0, 0.5], [0.55, 0.45], [1, 0.5],
                 [0, 1], [0.5, 1], [1, 1]
             ],
-            colors: scheme == .dark ? Self.dark : Self.light
+            colors: [
+                Theme.base, theme.softer, theme.soft,
+                Theme.base, Theme.base, theme.softer,
+                theme.softer, Theme.base, Theme.base
+            ]
         )
         .ignoresSafeArea()
     }
-
-    private static let dark: [Color] = [
-        .black, Color(hex: "#15122E"), .black,
-        Color(hex: "#0D1729"), Color(hex: "#1C1745"), Color(hex: "#09090F"),
-        .black, Color(hex: "#0F1A2B"), Color(hex: "#1A1033")
-    ]
-
-    private static let light: [Color] = [
-        Color(hex: "#F6F6FB"), Color(hex: "#E8E6FF"), Color(hex: "#F6F6FB"),
-        Color(hex: "#E2EFFF"), Color(hex: "#F1EEFF"), Color(hex: "#FFFFFF"),
-        Color(hex: "#F6F6FB"), Color(hex: "#E9F6FF"), Color(hex: "#F3ECFF")
-    ]
 }
 
 // MARK: - Glass helpers

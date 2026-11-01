@@ -35,7 +35,6 @@ struct HomeView: View {
                         focusPanel(now: now)
                         plansSection(now: now)
                         wordMemoCard(now: now)
-                        quickTools
                         weekSection(now: now)
                     }
                     .padding(.horizontal, 20)
@@ -136,15 +135,17 @@ struct HomeView: View {
                 .frame(width: 72, height: 72)
             }
 
-            HStack(spacing: 0) {
-                focusStat(symbol: "flame.fill", color: .orange, value: "\(streak(now: now))일", label: "연속 공부")
-                Divider().frame(height: 34)
-                focusStat(symbol: "checklist", color: .accentColor, value: "\(done)/\(occurrences.count)", label: "오늘 플랜")
-                Divider().frame(height: 34)
-                focusStat(symbol: "arrow.counterclockwise", color: Palette.danger, value: "\(unsolved)", label: "복습할 오답")
+            HStack(spacing: 14) {
+                Label("연속 \(streak(now: now))일", systemImage: "flame.fill")
+                Label("플랜 \(done)/\(occurrences.count)", systemImage: "checklist")
+                if unsolved > 0 {
+                    Label("복습 \(unsolved)", systemImage: "arrow.counterclockwise")
+                }
+                Spacer(minLength: 0)
             }
-            .padding(.top, 12)
-            .overlay(alignment: .top) { Divider() }
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .labelStyle(.titleAndIcon)
 
             Button {
                 studyTimer.isPresented = true
@@ -159,15 +160,6 @@ struct HomeView: View {
         }
         .padding(20)
         .glassEffect(.regular, in: .rect(cornerRadius: 30))
-    }
-
-    private func focusStat(symbol: String, color: Color, value: String, label: String) -> some View {
-        VStack(spacing: 3) {
-            Image(systemName: symbol).foregroundStyle(color)
-            Text(value).font(.headline).monospacedDigit()
-            Text(label).font(.caption2).foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: Plans (타임라인, 카드 없음)
@@ -247,7 +239,7 @@ struct HomeView: View {
             .clipShape(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 6, bottomTrailingRadius: 22, topTrailingRadius: 22))
             .overlay(alignment: .top) {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color.accentColor.opacity(0.35))
+                    .fill(Theme.accent.opacity(0.35))
                     .frame(width: 78, height: 20)
                     .rotationEffect(.degrees(-4))
                     .offset(y: -9)
@@ -256,36 +248,6 @@ struct HomeView: View {
             .rotationEffect(.degrees(-0.6))
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: Quick tools (원형 버튼, 카드 없음)
-
-    private var quickTools: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("바로가기").font(.title3.weight(.heavy))
-            GlassEffectContainer(spacing: 14) {
-                HStack(spacing: 0) {
-                    NavigationLink { WordHomeView() } label: { quickTool("character.book.closed.fill", "영어 단어") }
-                    NavigationLink { MathNoteListView() } label: { quickTool("function", "오답노트") }
-                    NavigationLink { MemoListView() } label: { quickTool("note.text", "메모") }
-                    NavigationLink { StatsView() } label: { quickTool("chart.pie.fill", "통계") }
-                }
-                .buttonStyle(.plain)
-            }
-        }
-    }
-
-    private func quickTool(_ symbol: String, _ title: String) -> some View {
-        VStack(spacing: 7) {
-            Image(systemName: symbol)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 58, height: 58)
-                .glassEffect(.regular.interactive(), in: .circle)
-            Text(title)
-                .font(.caption.weight(.semibold))
-        }
-        .frame(maxWidth: .infinity)
     }
 
     // MARK: Week chart (카드 없이)
@@ -320,7 +282,7 @@ struct HomeView: View {
             Chart(stats) { stat in
                 BarMark(x: .value("요일", stat.label), y: .value("분", stat.minutes))
                     .cornerRadius(7)
-                    .foregroundStyle(stat.isToday ? Color.accentColor : Color.accentColor.opacity(0.32))
+                    .foregroundStyle(stat.isToday ? Theme.accent : Theme.accent.opacity(0.32))
             }
             .chartYAxis { AxisMarks(position: .leading) }
             .chartYAxisLabel("분")

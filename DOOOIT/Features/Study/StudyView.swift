@@ -15,9 +15,8 @@ struct StudyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     wordsHero
-                    LearnHubSection()
                     toolList
-                    recentSection
+                    LearnHubSection()
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
@@ -98,7 +97,7 @@ struct StudyView: View {
             }
             Divider().padding(.leading, 68)
             NavigationLink { StatsView() } label: {
-                listRow(symbol: "chart.pie.fill", color: .accentColor, title: "공부 통계", subtitle: "과목별 시간과 변화 추이")
+                listRow(symbol: "chart.pie.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
             }
         }
         .buttonStyle(.plain)
@@ -120,40 +119,4 @@ struct StudyView: View {
         .contentShape(Rectangle())
     }
 
-    @ViewBuilder
-    private var recentSection: some View {
-        let memo = memos.first
-        let note = notes.first(where: { $0.status != .correct })
-        if memo != nil || note != nil {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("최근").font(.title3.weight(.heavy))
-                if let memo {
-                    NavigationLink { MemoEditorView(memo: memo) } label: {
-                        plainRow(symbol: "clock.arrow.circlepath", color: .secondary, caption: "최근 메모", title: memo.displayTitle)
-                    }
-                }
-                if let note {
-                    NavigationLink { MathNoteEditorView(note: note) } label: {
-                        plainRow(symbol: note.status.symbol, color: note.status.color, caption: "다시 풀어볼 문제", title: note.title)
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private func plainRow(symbol: String, color: Color, caption: String, title: String) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: symbol).foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(caption).font(.caption).foregroundStyle(.secondary)
-                Text(title).font(.subheadline.weight(.semibold)).lineLimit(1)
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
-        }
-        .padding(.vertical, 12)
-        .overlay(alignment: .bottom) { Divider() }
-        .contentShape(Rectangle())
-    }
 }

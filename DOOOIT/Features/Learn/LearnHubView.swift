@@ -39,34 +39,40 @@ struct LearnHubSection: View {
             }
             .buttonStyle(.plain)
 
-            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+            VStack(spacing: 0) {
                 NavigationLink { CurriculumView() } label: {
-                    tile(symbol: "square.stack.3d.up.fill", title: "단원별 AI 학습", subtitle: "개념 → 빈칸 → O/X → 문제", color: .accentColor)
+                    row(symbol: "square.stack.3d.up.fill", color: Theme.accent, title: "단원별 AI 학습", subtitle: "개념 → 빈칸 → O/X → 문제")
                 }
+                Divider().padding(.leading, 62)
                 NavigationLink { WeaknessView() } label: {
-                    tile(symbol: "scope", title: "취약 유형 맞춤", subtitle: "내 오답으로 찾은 약점", color: Palette.danger)
+                    row(symbol: "scope", color: Palette.danger, title: "취약 유형 맞춤", subtitle: "내 오답으로 찾은 약점")
                 }
+                Divider().padding(.leading, 62)
                 NavigationLink { AskAIListView() } label: {
-                    tile(symbol: "questionmark.bubble.fill", title: "AI에게 질문", subtitle: "사진으로 묻고 필기로 정리", color: Palette.success)
-                }
-                NavigationLink { MathNoteListView() } label: {
-                    tile(symbol: "list.number", title: "서술형 풀이", subtitle: "오답노트에서 단계별 풀이", color: Color(hex: "#A855F7"))
+                    row(symbol: "questionmark.bubble.fill", color: Palette.success, title: "AI에게 질문", subtitle: "사진으로 묻고 필기로 정리")
                 }
             }
             .buttonStyle(.plain)
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
         }
     }
 
-    private func tile(symbol: String, title: String, subtitle: String, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: symbol).font(.title3).foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 2) {
+    private func row(symbol: String, color: Color, title: String, subtitle: String) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.headline)
+                .foregroundStyle(color)
+                .frame(width: 34, height: 34)
+                .background(color.opacity(0.14), in: .rect(cornerRadius: 10))
+            VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.subheadline.weight(.bold))
-                Text(subtitle).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+                Text(subtitle).font(.caption).foregroundStyle(.secondary)
             }
+            Spacer()
+            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
         }
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
-        .padding(14)
-        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 20))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .contentShape(Rectangle())
     }
 }

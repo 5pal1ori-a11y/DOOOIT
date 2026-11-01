@@ -17,7 +17,6 @@ struct AccountView: View {
     @AppStorage(SettingsKey.reminderLeadMinutes) private var leadMinutes = 10
     @AppStorage(SettingsKey.liveActivityEnabled) private var liveActivityEnabled = true
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
-    @AppStorage(SettingsKey.appearance) private var appearance = "system"
     @AppStorage(SettingsKey.dDayTitle) private var dDayTitle = ""
     @AppStorage(SettingsKey.dDayDate) private var dDayDate: Double = 0
 
@@ -41,6 +40,14 @@ struct AccountView: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+
+                Section {
+                    ThemePicker()
+                } header: {
+                    Text("테마 색")
+                } footer: {
+                    Text("바탕은 흰색이고, 버튼과 강조 색이 바뀌어요.")
+                }
 
                 Section("학습 목표") {
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
@@ -94,16 +101,6 @@ struct AccountView: View {
                         StatsView()
                     } label: {
                         Label("공부 통계", systemImage: "chart.pie.fill")
-                    }
-                }
-
-                Section("화면") {
-                    Picker(selection: $appearance) {
-                        Text("시스템 설정").tag("system")
-                        Text("라이트").tag("light")
-                        Text("다크").tag("dark")
-                    } label: {
-                        Label("화면 모드", systemImage: "circle.lefthalf.filled")
                     }
                 }
 
@@ -179,7 +176,7 @@ struct AccountView: View {
                 .foregroundStyle(.white)
                 .frame(width: 68, height: 68)
                 .background(
-                    LinearGradient(colors: [Color.accentColor, Color.accentColor.opacity(0.6)],
+                    LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.6)],
                                    startPoint: .topLeading, endPoint: .bottomTrailing),
                     in: .circle
                 )

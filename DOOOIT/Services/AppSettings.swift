@@ -9,6 +9,7 @@ enum SettingsKey {
     static let liveActivityEnabled = "liveActivityEnabled"
     static let autoStartTimer = "autoStartTimer"
     static let appearance = "appearance"
+    static let themeColor = "themeColor"
     static let dDayTitle = "dDayTitle"
     static let dDayDate = "dDayDate"
 }

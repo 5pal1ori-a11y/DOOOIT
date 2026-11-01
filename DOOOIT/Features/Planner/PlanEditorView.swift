@@ -104,7 +104,7 @@ struct PlanEditorView: View {
                         LabeledContent(kind == .study ? "공부 시간" : "소요 시간") {
                             Text(TimeText.duration(minutes: durationMinutes))
                                 .fontWeight(.semibold)
-                                .foregroundStyle(Color.accentColor)
+                                .foregroundStyle(Theme.accent)
                         }
                     }
                 }
@@ -232,16 +232,16 @@ struct PlanEditorView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Image(systemName: item.symbol)
                             .font(.title3)
-                            .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(isOn ? Theme.accent : Color.secondary)
                         Text(item.title).font(.headline)
                         Text(item.subtitle).font(.caption).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
-                    .background(isOn ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
+                    .background(isOn ? Theme.accent.opacity(0.14) : Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
                     .overlay {
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(isOn ? Color.accentColor : Color.clear, lineWidth: 2)
+                            .stroke(isOn ? Theme.accent : Color.clear, lineWidth: 2)
                     }
                 }
                 .buttonStyle(.plain)
