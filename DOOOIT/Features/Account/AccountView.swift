@@ -44,7 +44,7 @@ struct AccountView: View {
                 Section {
                     ThemePicker()
                 } header: {
-                    Text("테마 색")
+                    Text("화면")
                 } footer: {
                     Text("바탕은 흰색이고, 버튼과 강조 색이 바뀌어요.")
                 }

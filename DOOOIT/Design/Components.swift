@@ -190,37 +190,21 @@ struct ProcessingOverlay: View {
 struct ThemePicker: View {
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
 
+    private var current: ThemeColor { ThemeColor(rawValue: themeRaw) ?? .lavender }
+
     var body: some View {
-        HStack(spacing: 12) {
+        Picker(selection: $themeRaw) {
             ForEach(ThemeColor.allCases) { theme in
-                let isOn = themeRaw == theme.rawValue
-                Button {
-                    withAnimation(.smooth) { themeRaw = theme.rawValue }
-                    Haptics.tap()
-                } label: {
-                    VStack(spacing: 8) {
-                        ZStack {
-                            Circle().fill(theme.soft)
-                            Circle().fill(theme.accent).padding(10)
-                            if isOn {
-                                Image(systemName: "checkmark")
-                                    .font(.subheadline.weight(.heavy))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                        .frame(width: 52, height: 52)
-                        .overlay { Circle().stroke(isOn ? theme.accent : Color.clear, lineWidth: 2.5).padding(-4) }
-                        Text(theme.title)
-                            .font(.footnote.weight(isOn ? .bold : .regular))
-                            .foregroundStyle(isOn ? Color.primary : Color.secondary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(theme.title) 테마")
-                .accessibilityAddTraits(isOn ? .isSelected : [])
+                Text(theme.title).tag(theme.rawValue)
+            }
+        } label: {
+            Label {
+                Text("테마 색")
+            } icon: {
+                Image(systemName: "circle.fill").foregroundStyle(current.accent)
             }
         }
+        .pickerStyle(.menu)
+        .onChange(of: themeRaw) { Haptics.tap() }
     }
 }

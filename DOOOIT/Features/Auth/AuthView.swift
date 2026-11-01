@@ -272,6 +272,8 @@ struct NameSetupView: View {
                 Text("좋아하는 테마 색").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     .padding(.top, 8)
                 ThemePicker()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .glassField()
                 Spacer()
                 Button(action: save) {
                     Text("시작하기")

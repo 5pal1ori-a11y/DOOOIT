@@ -159,69 +159,66 @@ struct WeaknessView: View {
     }
 }
 
-/// 단원별 학습 (2022 개정 단원 목록에서 고르기)
+/// AI 학습: 과목과 단원만 직접 입력
 struct CurriculumView: View {
-    @Query private var records: [QuizRecord]
-    @State private var subjectName = Curriculum.subjects.first?.name ?? ""
-    @State private var customSubject = ""
-    @State private var customUnit = ""
+    @State private var subject = ""
+    @State private var unit = ""
+    @FocusState private var focus: Field?
+
+    private enum Field { case subject, unit }
+
+    private var trimmedSubject: String { subject.trimmingCharacters(in: .whitespaces) }
+    private var trimmedUnit: String { unit.trimmingCharacters(in: .whitespaces) }
 
     var body: some View {
-        let subject = Curriculum.subjects.first { $0.name == subjectName } ?? Curriculum.subjects[0]
-        let chapters = subject.units.reduce(into: [String]()) { if !$0.contains($1.chapter) { $0.append($1.chapter) } }
-
-        List {
-            Section {
-                Picker("과목", selection: $subjectName) {
-                    ForEach(Curriculum.subjects) { Text($0.name).tag($0.name) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("무엇을 공부할까요?").font(.title2.weight(.heavy))
+                    Text("과목과 단원을 적으면 AI가 개념 → 빈칸 → O/X → 문제 순서로 자료를 만들어요.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
-                .pickerStyle(.segmented)
-                .listRowBackground(Color.clear)
-                .listRowInsets(EdgeInsets())
-            } footer: {
-                Text("2022 개정 교육과정 고1 공통과목 단원이에요. 개념 보기 → 빈칸 암기 → O/X → 문제 순서로 AI가 자료를 만들어요.")
-            }
 
-            ForEach(chapters, id: \.self) { chapter in
-                Section(chapter) {
-                    ForEach(subject.units.filter { $0.chapter == chapter }) { unit in
-                        NavigationLink {
-                            UnitStudyView(subject: subject.name, unit: unit.title)
-                        } label: {
-                            HStack {
-                                Text(unit.title)
-                                Spacer()
-                                if let rate = accuracy(subject.name, unit.title) {
-                                    Text("정답률 \(rate)%").font(.caption).foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                    }
+                VStack(spacing: 0) {
+                    field(title: "과목", placeholder: "예: 수학", text: $subject, field: .subject)
+                    Divider().padding(.leading, 16)
+                    field(title: "단원", placeholder: "예: 이차방정식과 이차함수", text: $unit, field: .unit)
                 }
-            }
+                .glassEffect(.regular, in: .rect(cornerRadius: 22))
 
-            Section("직접 입력") {
-                TextField("과목 (예: 통합과학)", text: $customSubject)
-                TextField("단원 (예: 원소의 주기성)", text: $customUnit)
                 NavigationLink {
-                    UnitStudyView(subject: customSubject.trimmingCharacters(in: .whitespaces),
-                                  unit: customUnit.trimmingCharacters(in: .whitespaces))
+                    UnitStudyView(subject: trimmedSubject, unit: trimmedUnit)
                 } label: {
-                    Label("이 단원 학습하기", systemImage: "sparkles")
+                    Label("학습 시작", systemImage: "sparkles")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
                 }
-                .disabled(customSubject.trimmingCharacters(in: .whitespaces).isEmpty || customUnit.trimmingCharacters(in: .whitespaces).isEmpty)
+                .buttonStyle(.glassProminent)
+                .disabled(trimmedSubject.isEmpty || trimmedUnit.isEmpty)
             }
+            .padding(20)
         }
-        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
         .background { AppBackground() }
-        .navigationTitle("단원별 AI 학습")
+        .navigationTitle("AI 학습")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { if subject.isEmpty { focus = .subject } }
     }
 
-    private func accuracy(_ subject: String, _ unit: String) -> Int? {
-        let list = records.filter { $0.subject == subject && $0.unit == unit }
-        let total = list.reduce(0) { $0 + $1.total }
-        guard total > 0 else { return nil }
-        return Int(Double(list.reduce(0) { $0 + $1.correct }) / Double(total) * 100)
+    private func field(title: String, placeholder: String, text: Binding<String>, field: Field) -> some View {
+        HStack(spacing: 14) {
+            Text(title)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, alignment: .leading)
+            TextField(placeholder, text: text)
+                .focused($focus, equals: field)
+                .submitLabel(field == .subject ? .next : .done)
+                .onSubmit { if field == .subject { focus = .unit } }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 15)
     }
 }

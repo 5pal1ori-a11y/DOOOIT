@@ -4,7 +4,6 @@ import SwiftUI
 /// 공부 탭: 큰 그라데이션 영역(영어 단어) → 목록형(오답노트·메모·통계) → 최근 항목
 struct StudyView: View {
     @Query(sort: \Word.createdAt) private var words: [Word]
-    @Query(sort: \MathNote.updatedAt, order: .reverse) private var notes: [MathNote]
     @Query(sort: \Memo.updatedAt, order: .reverse) private var memos: [Memo]
 
     @AppStorage(SettingsKey.dailyWordGoal) private var wordGoal = 20
@@ -51,7 +50,7 @@ struct StudyView: View {
                 }
                 VStack(alignment: .leading, spacing: 4) {
                     Text("영어 단어").font(.title.weight(.heavy))
-                    Text("단어장을 찍으면 자동으로 암기 노트를 만들어요")
+                    Text("단어장을 촬영하면 자동으로 암기노트를 만들어요.")
                         .font(.subheadline)
                         .opacity(0.85)
                 }
@@ -86,10 +85,9 @@ struct StudyView: View {
     }
 
     private var toolList: some View {
-        let unsolved = notes.filter { $0.status != .correct }.count
         return VStack(spacing: 0) {
             NavigationLink { MathNoteListView() } label: {
-                listRow(symbol: "function", color: Palette.success, title: "수학 오답노트", subtitle: "\(notes.count)문제 · 다시 풀 문제 \(unsolved)")
+                listRow(symbol: "function", color: Palette.success, title: "오답노트", subtitle: "AI의 피드백을 받아 오답을 정리하세요.")
             }
             Divider().padding(.leading, 68)
             NavigationLink { MemoListView() } label: {
