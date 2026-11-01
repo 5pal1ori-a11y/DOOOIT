@@ -1,9 +1,10 @@
 import Observation
 import UIKit
 
-/// 두잇 AI 대화 (직접 만든 규칙형 엔진, 외부 AI·API 없음)
-/// 사진은 기기 안 글자 인식(Vision)으로 읽고, 엔진이 문장을 분석해서 앱 기능을 실행
-/// 개념 검색(위키백과)과 영어 사전만 인터넷을 씀
+/// 두잇 AI 대화: 두잇 AI 엔진(직접 만든 규칙형) + Apple Intelligence(기기 안 모델) 병행
+/// - 앱 기능 실행, 수학 풀이, 내장 지식, 퀴즈는 두잇 AI 엔진
+/// - 엔진이 알아듣지 못한 자유 대화·질문은 Apple Intelligence (지원 기기에서만)
+/// 사진은 기기 안 글자 인식(Vision)으로 읽음. 인터넷은 영어 단어 사전만 씀
 @MainActor
 @Observable
 final class DoitAssistant {
@@ -17,6 +18,10 @@ final class DoitAssistant {
         var actions: [String] = []
         var suggestions: [String] = []
         var image: UIImage?
+        /// 누가 답했는지 (두잇 AI 엔진 / Apple Intelligence)
+        var source: Source = .doit
+
+        enum Source { case doit, apple }
     }
 
     /// 진행 중인 퀴즈
@@ -40,6 +45,8 @@ final class DoitAssistant {
     @ObservationIgnored private var lastMath: String?
     @ObservationIgnored private var quiz: QuizState?
     @ObservationIgnored private var lastQuizSource: DoitEngine.QuizSource?
+    /// Apple Intelligence 대화 (이전 대화를 기억)
+    @ObservationIgnored private let appleChat = DoitAppleAI.Chat()
 
     func reset() {
         messages = []
@@ -47,6 +54,7 @@ final class DoitAssistant {
         lastAnswer = nil
         lastMath = nil
         quiz = nil
+        appleChat.reset()
     }
 
     func send(_ text: String, image: UIImage? = nil) async {
@@ -77,7 +85,6 @@ final class DoitAssistant {
             messages.append(reply)
             return
         }
-        lastAnswer = nil
 
         var reply = DoitEngine.respond(to: question, photo: photo)
         // 사진으로 실제 작업을 했으면 그 사진은 더 쓰지 않음
@@ -88,6 +95,11 @@ final class DoitAssistant {
         case .quiz(let source):
             messages.append(await startQuiz(source))
             return
+        default:
+            break
+        }
+        lastAnswer = nil
+        switch reply.deferred {
         case .dictionary(let word):
             status = "영어 사전에서 찾는 중…"
             if let entry = await DoitEnglish.define(word) {
@@ -96,18 +108,29 @@ final class DoitAssistant {
                 reply.text = "'\(word)'을(를) 사전에서 찾지 못했어요. 철자를 확인하거나 인터넷 연결을 확인해 주세요."
             }
             reply.suggestions = reply.suggestions.filter { !$0.contains("영어 뜻 자세히") }
-        case nil:
+        case .quiz, nil:
             break
         }
         if reply.text.hasPrefix("**") && reply.suggestions.contains("비슷한 문제 내줘") { lastMath = question }
 
-        // 앱 명령이 아니면: 위키백과 검색 설명
+        // 두잇 AI 엔진이 알아듣지 못한 말: Apple Intelligence가 이어서 대답
         if !reply.understood {
-            status = "찾아보는 중…"
-            if let answer = try? await DoitTutor.answer(question) {
-                let topic = answer.components(separatedBy: "\n").first?.replacingOccurrences(of: "**", with: "") ?? ""
-                lastAnswer = (topic, answer)
-                reply = DoitEngine.Reply(text: answer, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘", "메모로 저장해줘"])
+            if DoitAppleAI.isAvailable {
+                status = "Apple Intelligence가 생각하는 중…"
+                var prompt = question
+                if let photo, !photo.text.isEmpty { prompt += "\n[사진에서 읽은 글자]\n\(String(photo.text.prefix(600)))" }
+                do {
+                    let answer = try await appleChat.reply(prompt, context: contextLine())
+                    let topic = String(question.prefix(40))
+                    lastAnswer = (topic, answer)
+                    reply = DoitEngine.Reply(text: answer, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘", "메모로 저장해줘"])
+                    messages.append(Message(role: .assistant, text: answer, actions: actions, suggestions: reply.suggestions, source: .apple))
+                    return
+                } catch {
+                    reply.text += "\n\n(\(error.localizedDescription))"
+                }
+            } else if let note = DoitAppleAI.unavailableMessage {
+                reply.text += "\n\n💡 \(note)"
             }
         } else if reply.suggestions.contains("더 자세히 알려줘") || reply.text.hasPrefix("**") {
             // 앱 안 지식으로 답한 것도 이어서 묻기·저장할 수 있게
@@ -122,7 +145,8 @@ final class DoitAssistant {
     private func followUp(_ question: String) async -> Message? {
         let q = question.replacingOccurrences(of: " ", with: "")
         if let math = lastMath, q.contains("비슷한문제") || q.contains("유사문제") || q.contains("비슷한거") {
-            if let made = try? DoitTutor.similar(to: math) {
+            status = "비슷한 문제를 만드는 중…"
+            if let made = try? await DoitTutor.similar(to: math) {
                 let lines = made.problems.enumerated().map { "\($0.offset + 1). \($0.element.question)" }
                 let answers = made.problems.enumerated().map { "\($0.offset + 1)) \($0.element.answer)" }.joined(separator: "  ")
                 return Message(role: .assistant, text: "**비슷한 문제 3개** (쉬움 → 어려움)\n" + lines.joined(separator: "\n") + "\n\n정답: \(answers)",
@@ -131,10 +155,18 @@ final class DoitAssistant {
         }
         guard let previous = lastAnswer else { return nil }
         if q.contains("더자세히") || q.contains("자세히알려") || q.contains("더알려") || q == "더" || q.contains("계속") {
-            status = "더 찾아보는 중…"
-            let more = (try? await DoitTutor.more(about: previous.topic)) ?? "더 찾은 내용이 없어요."
-            lastAnswer = (previous.topic, more)
-            return Message(role: .assistant, text: more, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
+            guard DoitAppleAI.isAvailable else {
+                return Message(role: .assistant, text: "더 자세한 설명은 Apple Intelligence가 만들어요.\n\(DoitAppleAI.unavailableMessage ?? "")",
+                               suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
+            }
+            status = "Apple Intelligence가 더 자세히 정리하는 중…"
+            do {
+                let more = try await DoitTutor.more(about: previous.topic, previous: previous.text)
+                lastAnswer = (previous.topic, more)
+                return Message(role: .assistant, text: more, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"], source: .apple)
+            } catch {
+                return Message(role: .assistant, text: error.localizedDescription)
+            }
         }
         if q.contains("메모") && (q.contains("저장") || q.contains("남겨")) {
             let result = DoitActions.shared.addMemo(previous.text.replacingOccurrences(of: "**", with: ""))
@@ -265,11 +297,24 @@ final class DoitAssistant {
                 return DoitQuizItem(question: "O/X 퀴즈: \(item.statement)", answers: item.isTrue ? ["O", "맞다", "맞아", "참", "ㅇ"] : ["X", "틀리다", "틀려", "아니", "거짓", "ㄴ"],
                                     explanation: item.explanation)
             }
+            // 내장 과학·사회 퀴즈 중 같은 주제
+            for item in [DoitScience.quiz(topic: topic), DoitSocial.quiz(topic: topic)].compactMap({ $0 })
+            where item.explanation.contains(topic) || item.answers.contains(where: { topic.contains($0) }) {
+                return item
+            }
             return nil
         case .any:
             let pool: [DoitEngine.QuizSource] = [.math(nil), .english(nil), .science(nil), .social(nil)]
             return await makeQuestion(pool.randomElement() ?? .math(nil))
         }
+    }
+
+    /// Apple Intelligence에게 알려줄 오늘 상황
+    private func contextLine() -> String {
+        let c = DoitActions.shared.chatContext()
+        var parts = ["오늘 공부 \(c.todayMinutes)분 / 목표 \(c.goalMinutes)분", "남은 플랜 \(c.remainingPlans)개"]
+        if let d = c.dDay { parts.append(d) }
+        return parts.joined(separator: ", ")
     }
 
     /// 사진 읽기: 문제·필기용(검은 글자 위주)과 단어장용(영어-뜻 짝)

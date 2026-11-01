@@ -1,8 +1,9 @@
 import UIKit
 
-/// 두잇 AI 선생님: 외부 AI 없이 위키백과 검색 + 직접 만든 수학 엔진으로 학습 자료를 만듦
-/// - 개념 정리 / 빈칸 / O·X / 객관식: 검색한 글의 문장을 골라 가공
-/// - 수학 계산 문제·풀이·비슷한 문제: 수학 엔진이 직접 만들고 풂
+/// 두잇 AI 선생님: 두잇 AI 엔진(직접 만든 수학·영어·과학·사회) + Apple Intelligence(기기 안 모델) 병행
+/// - 정확해야 하는 것(수학 계산·풀이, 내장 개념)은 두잇 AI 엔진이 먼저
+/// - 엔진에 없는 개념, 학습 자료 만들기, 자유 질문은 Apple Intelligence
+/// 인터넷 검색은 쓰지 않아요 (영어 단어 사전만 예외)
 enum DoitTutor {
     enum TutorError: LocalizedError {
         case cannotSolve(String)
@@ -26,26 +27,15 @@ enum DoitTutor {
             }
             return ConceptNote(title: math.title, keyPoints: Array(math.points.prefix(booster ? 4 : 8)), example: example)
         }
-        // 앱 안 지식(영어 문법, 과학·사회 개념)이 있으면 그것부터
-        if !isMath(subject: subject, unit: unit), let note = builtInNote(subject: subject, unit: unit, booster: booster) { return note }
-        let article: DoitSearch.Article
+        // 앱 안 지식(영어 문법, 과학·사회 개념)
+        if let note = builtInNote(subject: subject, unit: unit, booster: booster) { return note }
+        // 그 밖에는 Apple Intelligence
         do {
-            article = try await topicArticle(subject: subject, unit: unit)
+            return try await DoitAppleAI.concept(subject: subject, unit: unit, booster: booster)
         } catch {
             if let note = builtInNote(subject: subject, unit: unit, booster: booster, force: true) { return note }
-            throw error
+            throw notFound(unit, error)
         }
-        let sentences = article.sentences
-        guard !sentences.isEmpty else { throw TutorError.notEnough("'\(unit)' 자료가 너무 짧아요. 단원 이름을 조금 바꿔보세요.") }
-        let points = Array(sentences.prefix(booster ? 3 : 6))
-        var example = ""
-        if isMath(subject: subject, unit: unit), let problem = MathProblems.make(unit: unit, hard: false) {
-            example = "예제: \(problem.question)\n풀이: \(problem.steps.joined(separator: " → "))\n답: \(problem.finalAnswer)"
-        } else if sentences.count > points.count {
-            example = sentences[points.count]
-        }
-        example += (example.isEmpty ? "" : "\n\n") + article.source
-        return ConceptNote(title: article.title, keyPoints: points, example: example)
     }
 
     /// 영어·과학·사회 엔진에 들어 있는 설명으로 개념 정리 만들기
@@ -104,34 +94,58 @@ enum DoitTutor {
     // MARK: - 2. 빈칸 암기
 
     static func cloze(subject: String, unit: String, count: Int) async throws -> ClozeSet {
-        let (article, terms) = try await material(subject: subject, unit: unit)
-        var items: [ClozeItem] = []
-        var used = Set<String>()
-        for sentence in article.sentences where items.count < count {
-            guard let term = terms.first(where: { sentence.contains($0) && !used.contains($0 + sentence) }) else { continue }
-            used.insert(term + sentence)
-            let blanked = sentence.replacingOccurrences(of: term, with: "____")
-            items.append(ClozeItem(sentence: blanked, answer: term))
+        let builtIn = builtInPoints(subject: subject, unit: unit)
+        // 수학은 공식으로 직접 만든 빈칸이 충분하면 그것부터
+        if isMath(subject: subject, unit: unit), let set = clozeFromPoints(builtIn, count: count), set.items.count >= min(3, count) { return set }
+        do {
+            return try await DoitAppleAI.cloze(subject: subject, unit: unit, count: count)
+        } catch {
+            if let set = clozeFromPoints(builtIn, count: count) { return set }
+            throw notFound(unit, error)
         }
-        guard items.count >= 2 else { throw TutorError.notEnough("빈칸 문제를 만들 만한 문장이 부족해요. 다른 단원 이름으로 해보세요.") }
-        return ClozeSet(items: items)
+    }
+
+    /// 핵심 정리 문장에서 빈칸 만들기 ("A = B" 의 B, "용어: 설명" 의 용어)
+    private static func clozeFromPoints(_ points: [String], count: Int) -> ClozeSet? {
+        var items: [ClozeItem] = []
+        for point in points where items.count < count {
+            let first = point.components(separatedBy: CharacterSet(charactersIn: ",;")).first ?? point
+            if let range = first.range(of: " = ", options: .backwards) {
+                let answer = String(first[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+                guard (1...24).contains(answer.count) else { continue }
+                items.append(ClozeItem(sentence: first.replacingCharacters(in: range.upperBound..<first.endIndex, with: "____"), answer: answer))
+            } else if let colon = point.firstIndex(of: ":") {
+                let term = String(point[..<colon]).trimmingCharacters(in: .whitespaces)
+                guard (2...14).contains(term.count) else { continue }
+                items.append(ClozeItem(sentence: "____:" + point[point.index(after: colon)...], answer: term))
+            }
+        }
+        return items.count >= 2 ? ClozeSet(items: items) : nil
     }
 
     // MARK: - 3. O/X
 
     static func ox(subject: String, unit: String, count: Int) async throws -> OXSet {
-        let (article, terms) = try await material(subject: subject, unit: unit)
+        let builtIn = builtInPoints(subject: subject, unit: unit)
+        if isMath(subject: subject, unit: unit), let set = oxFromPoints(builtIn, count: count), set.items.count >= min(3, count) { return set }
+        do {
+            return try await DoitAppleAI.ox(subject: subject, unit: unit, count: count)
+        } catch {
+            if let set = oxFromPoints(builtIn, count: count) { return set }
+            throw notFound(unit, error)
+        }
+    }
+
+    private static func oxFromPoints(_ points: [String], count: Int) -> OXSet? {
         var items: [OXItem] = []
-        for (index, sentence) in article.sentences.enumerated() where items.count < count {
-            if index % 2 == 1, let falsified = falsify(sentence, terms: terms) {
-                items.append(OXItem(statement: falsified, isTrue: false,
-                                    explanation: "틀린 문장이에요. 바른 문장: \(sentence)"))
+        for (index, point) in points.enumerated() where items.count < count {
+            if index % 2 == 1, let falsified = falsify(point, terms: []) , falsified != point {
+                items.append(OXItem(statement: falsified, isTrue: false, explanation: "틀린 문장이에요. 바른 문장: \(point)"))
             } else {
-                items.append(OXItem(statement: sentence, isTrue: true, explanation: "맞는 문장이에요. (\(article.source))"))
+                items.append(OXItem(statement: point, isTrue: true, explanation: "맞는 문장이에요."))
             }
         }
-        guard items.count >= 2 else { throw TutorError.notEnough("O/X 문제를 만들 만한 문장이 부족해요.") }
-        return OXSet(items: items.shuffled())
+        return items.count >= 2 ? OXSet(items: items.shuffled()) : nil
     }
 
     /// 맞는 문장을 그럴듯하게 틀리게 바꿈 (반대말, 숫자, 다른 용어)
@@ -159,78 +173,60 @@ enum DoitTutor {
     // MARK: - 4. 객관식 문제
 
     static func problems(subject: String, unit: String, count: Int, hard: Bool) async throws -> ProblemSet {
-        // 수학 계산 단원은 직접 만든 계산 문제
+        // 수학 계산 단원은 직접 만든 계산 문제 (정답이 항상 맞음)
         if isMath(subject: subject, unit: unit) {
             let made = (0..<count).compactMap { _ in MathProblems.make(unit: unit, hard: hard) }
             if made.count >= max(1, count - 1) { return ProblemSet(items: made) }
         }
-        let (article, terms) = try await material(subject: subject, unit: unit)
-        var items: [Problem] = []
-        for sentence in article.sentences where items.count < count {
-            guard let term = terms.first(where: { sentence.contains($0) }) else { continue }
-            let distractors = terms.filter { $0 != term && !sentence.contains($0) }.shuffled().prefix(4)
-            guard distractors.count == 4 else { continue }
-            var choices = Array(distractors) + [term]
-            choices.shuffle()
-            let answer = (choices.firstIndex(of: term) ?? 0) + 1
-            items.append(Problem(
-                question: "다음 설명의 빈칸에 알맞은 것은?\n\(sentence.replacingOccurrences(of: term, with: "(   )"))",
-                choices: choices,
-                answerNumber: answer,
-                steps: ["설명 속 단서를 찾아요: \(clue(in: sentence, excluding: term))", "단서에 맞는 용어는 '\(term)'이에요."],
-                finalAnswer: "\(answer)번 \(term)"
-            ))
+        do {
+            return try await DoitAppleAI.problems(subject: subject, unit: unit, count: count, hard: hard)
+        } catch {
+            throw notFound(unit, error)
         }
-        guard !items.isEmpty else { throw TutorError.notEnough("문제를 만들 만한 자료가 부족해요. 다른 단원 이름으로 해보세요.") }
-        return ProblemSet(items: items)
-    }
-
-    private static func clue(in sentence: String, excluding term: String) -> String {
-        let words = sentence.replacingOccurrences(of: term, with: " ").split(separator: " ").map(String.init)
-        return words.filter { $0.count >= 3 }.prefix(4).joined(separator: ", ")
     }
 
     // MARK: - 5. 오답노트 단계별 풀이
 
     static func solution(for problem: String) async throws -> WrittenSolution {
-        guard let solved = MathSolver.solve(problem) else {
-            let concept = (try? await conceptLine(for: problem)) ?? ""
+        if let solved = MathSolver.solve(problem) {
+            return WrittenSolution(concept: solved.concept, steps: solved.steps, finalAnswer: solved.answer)
+        }
+        // 두잇 AI가 못 푸는 유형은 Apple Intelligence
+        do {
+            return try await DoitAppleAI.solution(for: problem)
+        } catch {
             throw TutorError.cannotSolve(
-                "이 문제는 아직 두잇 AI가 직접 풀 수 없는 유형이에요. 문제 글자가 정확히 읽혔는지 '문제 글' 탭에서 확인해 보세요.\n지금 풀 수 있는 유형: 방정식(일차·이차·고차·연립·절댓값), 부등식(이차·연립·절댓값), 인수분해, 이차함수 최대·최소, 근과 계수, 나머지정리, 복소수, 경우의 수, 좌표·직선·원, 집합, 합성·역함수, 유리·무리함수, 산술·기하평균, 미분·적분, 수열, 통계, 도형 공식"
-                + (concept.isEmpty ? "" : "\n\n관련 개념: \(concept)")
+                "이 문제는 두잇 AI가 직접 풀 수 없는 유형이에요. 문제 글자가 정확히 읽혔는지 '문제 글' 탭에서 확인해 보세요.\n두잇 AI가 푸는 유형: 방정식(일차·이차·고차·연립·절댓값), 부등식, 인수분해, 이차함수 최대·최소, 근과 계수, 나머지정리, 복소수, 경우의 수, 좌표·직선·원, 집합, 합성·역함수, 유리·무리함수, 산술·기하평균, 미분·적분, 수열, 통계, 도형 공식"
+                + "\n\n\(error.localizedDescription)"
             )
         }
-        var concept = solved.concept
-        if let line = try? await conceptLine(for: solved.topic) { concept += "\n" + line }
-        return WrittenSolution(concept: concept, steps: solved.steps, finalAnswer: solved.answer)
     }
 
     // MARK: - 6. 비슷한 문제
 
-    static func similar(to problem: String) throws -> SimilarProblemSet {
-        guard let kind = MathSolver.kind(of: problem) else {
-            throw TutorError.cannotSolve("이 문제의 유형을 알아보지 못했어요. 문제 글자를 확인해 주세요. (방정식·부등식·인수분해·이차함수·경우의 수·좌표·함수·미적분·수열 등에서 비슷한 문제를 만들 수 있어요)")
+    static func similar(to problem: String) async throws -> SimilarProblemSet {
+        if let kind = MathSolver.kind(of: problem), MathProblems.topic(for: kind) != nil {
+            let made = (0..<3).compactMap { level in MathProblems.similar(kind: kind, level: level) }
+            if made.count == 3 { return SimilarProblemSet(problems: made) }
         }
-        guard MathProblems.topic(for: kind) != nil else {
-            throw TutorError.cannotSolve("단순 계산 문제는 비슷한 문제를 만들지 않아요.")
+        do {
+            return try await DoitAppleAI.similar(to: problem)
+        } catch {
+            throw TutorError.cannotSolve("이 문제의 유형을 알아보지 못했어요. 문제 글자를 확인해 주세요. (방정식·부등식·인수분해·이차함수·경우의 수·좌표·함수·미적분·수열 등에서 비슷한 문제를 만들 수 있어요)\n\n\(error.localizedDescription)")
         }
-        let made = (0..<3).compactMap { level in MathProblems.similar(kind: kind, level: level) }
-        guard made.count == 3 else { throw TutorError.notEnough("비슷한 문제를 만들지 못했어요. 다시 시도해주세요.") }
-        return SimilarProblemSet(problems: made)
     }
 
     // MARK: - 7. 질문에 답하기 (AI에게 질문하기, 두잇 AI 대화)
 
     static func answer(_ question: String, subject: String? = nil, image: UIImage? = nil) async throws -> String {
         var text = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        var photoText = ""
         if let image {
             let lines = (try? await OCRService.recognizeMath(image)) ?? []
-            photoText = MathOCRFixer.fix(OCRService.printedText(from: lines))
+            let photoText = MathOCRFixer.fix(OCRService.printedText(from: lines))
             if !photoText.isEmpty { text += (text.isEmpty ? "" : "\n") + photoText }
         }
         guard !text.isEmpty else { throw TutorError.notEnough("사진에서 글자를 찾지 못했어요. 글자가 잘 보이게 다시 찍어주세요.") }
-        // 수학이면 직접 풀이
+        // 수학이면 두잇 AI가 직접 풀이
         if let solved = MathSolver.solve(text) {
             var lines = ["**\(solved.topic)**", "💡 " + solved.concept]
             lines += solved.steps.enumerated().map { "\($0.offset + 1). \($0.element.hint)" + ($0.element.work.isEmpty ? "" : " → \($0.element.work)") }
@@ -239,46 +235,27 @@ enum DoitTutor {
         }
         // 앱 안 지식: 영어 → 과학 → 사회
         if let known = DoitEnglish.answer(text) ?? DoitScience.answer(text) ?? DoitSocial.answer(text) { return known }
-        if let word = DoitEnglish.lookupWord(in: text), let entry = await DoitEnglish.define(word) {
+        if text.contains("뜻"), let word = DoitEnglish.lookupWord(in: text), let entry = await DoitEnglish.define(word) {
             return (DoitEnglish.koreanMeaning(of: word).map { "**\(word)**: \($0)\n\n" } ?? "") + entry
         }
-        // 그 밖에는 검색해서 설명
-        // 질문이 짧거나 없으면 사진 글자의 첫 줄로 검색
-        let asked = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        let query = keywords(from: asked.count >= 2 ? asked : photoText, subject: subject)
-        guard !query.isEmpty else {
-            throw TutorError.cannotSolve("무엇을 찾아야 할지 모르겠어요. 궁금한 개념 이름을 넣어서 다시 물어봐 주세요. 예: 광합성이 뭐야?")
+        // 그 밖에는 Apple Intelligence
+        let prompt = (subject.map { "[과목: \($0)]\n" } ?? "") + text
+        do {
+            return try await DoitAppleAI.answer(prompt)
+        } catch {
+            throw TutorError.cannotSolve("두잇 AI가 아직 모르는 내용이에요.\n\(error.localizedDescription)")
         }
-        let article = try await DoitSearch.bestArticle(for: query, intro: true)
-        let sentences = article.sentences.prefix(5)
-        guard !sentences.isEmpty else { throw DoitSearch.SearchError.notFound(query) }
-        return "**\(article.title)**\n" + sentences.joined(separator: "\n") + "\n\n" + article.source
     }
 
-    /// 같은 주제를 더 자세히 (본문 뒤쪽 문장들)
-    static func more(about topic: String) async throws -> String {
-        let article = try await DoitSearch.article(topic)
-        let sentences = Array(article.sentences.dropFirst(5).prefix(8))
-        guard !sentences.isEmpty else { throw DoitSearch.SearchError.notFound(topic) }
-        return "**\(article.title)** 더 알아보기\n" + sentences.joined(separator: "\n") + "\n\n" + article.source
-    }
+    /// 같은 주제를 더 자세히
+    static func more(about topic: String, previous: String) async throws -> String {
+        try await DoitAppleAI.answer("""
+            다음 설명을 고등학생이 이해하기 쉽게 더 자세히 풀어줘. 새로운 내용과 예시를 2~3개 더해.
+            주제: \(topic)
 
-    /// 질문에서 검색어만 남김 ("광합성이 뭐야?" → "광합성")
-    static func keywords(from text: String, subject: String? = nil) -> String {
-        var t = text.components(separatedBy: "\n").first ?? text
-        let remove = ["에 대해서", "에 대해", "에대해", "설명해줘", "설명해 줘", "설명", "알려줘", "알려 줘", "가르쳐줘", "뭐야", "뭔가요",
-                      "무엇인가요", "무엇", "이란", "란", "개념", "정의", "의미", "뜻이", "뜻", "궁금해", "어떻게", "왜", "?", "!", "좀", "해줘"]
-        for word in remove { t = t.replacingOccurrences(of: word, with: " ") }
-        let particles = ["은", "는", "이", "가", "을", "를", "의", "에", "이야", "야", "요"]
-        let words = t.split(separator: " ").map { word -> String in
-            var w = String(word)
-            for p in particles where w.count > p.count + 1 && w.hasSuffix(p) {
-                w.removeLast(p.count)
-                break
-            }
-            return w
-        }.filter { !$0.isEmpty }
-        return words.prefix(4).joined(separator: " ")
+            앞의 설명:
+            \(String(previous.prefix(900)))
+            """)
     }
 
     // MARK: - 공통
@@ -287,58 +264,14 @@ enum DoitTutor {
         subject.contains("수학") || MathProblems.topic(for: unit) != nil
     }
 
-    /// 단원에 맞는 글 (단원 이름 → 과목+단원 순서로 검색)
-    private static func topicArticle(subject: String, unit: String) async throws -> DoitSearch.Article {
-        do {
-            return try await DoitSearch.bestArticle(for: unit)
-        } catch DoitSearch.SearchError.notFound {
-            return try await DoitSearch.bestArticle(for: "\(subject) \(unit)")
-        }
+    /// 앱 안에 정리된 핵심 문장 (수학 개념 정리 또는 영어·과학·사회 노트)
+    private static func builtInPoints(subject: String, unit: String) -> [String] {
+        if isMath(subject: subject, unit: unit), let math = DoitMathConcepts.note(for: unit) { return math.points }
+        return builtInNote(subject: subject, unit: unit, booster: false, force: true)?.keyPoints
+            .map { $0.replacingOccurrences(of: #"^\[[^\]]*\]\s*"#, with: "", options: .regularExpression) } ?? []
     }
 
-    /// 글 + 빈칸·보기로 쓸 핵심 용어
-    private static func material(subject: String, unit: String) async throws -> (DoitSearch.Article, [String]) {
-        let article = try await topicArticle(subject: subject, unit: unit)
-        let related = (try? await DoitSearch.search(unit, limit: 10)) ?? []
-        var terms: [String] = [article.title]
-        terms += related.map(\.title).filter { $0 != article.title && $0.count <= 12 }
-        terms += frequentTerms(in: article.text)
-        var seen = Set<String>()
-        terms = terms.filter { term in
-            let key = term.replacingOccurrences(of: " ", with: "")
-            guard key.count >= 2, !seen.contains(key) else { return false }
-            seen.insert(key)
-            return true
-        }
-        // 긴 용어부터 (짧은 말이 긴 말 속에 들어가는 경우 방지)
-        return (article, terms.sorted { $0.count > $1.count })
-    }
-
-    /// 글에서 여러 번 나온 핵심 낱말 (조사 떼고, 흔한 말 제외)
-    private static func frequentTerms(in text: String) -> [String] {
-        let stop: Set<String> = ["있다", "한다", "된다", "것이", "이다", "또한", "그러나", "따라서", "경우", "때문", "이러한", "그리고",
-                                 "하는", "있는", "되는", "하여", "대한", "통해", "가장", "모든", "사이", "등의", "다른", "같은", "위해"]
-        var counts: [String: Int] = [:]
-        for raw in text.split(whereSeparator: { !$0.isLetter }) {
-            var word = String(raw)
-            guard word.range(of: "^[가-힣]+$", options: .regularExpression) != nil else { continue }
-            for p in ["으로", "에서", "에게", "이다", "은", "는", "이", "가", "을", "를", "의", "에", "와", "과", "로", "도"]
-            where word.count > p.count + 1 && word.hasSuffix(p) {
-                word.removeLast(p.count)
-                break
-            }
-            guard (2...8).contains(word.count), !stop.contains(word) else { continue }
-            counts[word, default: 0] += 1
-        }
-        return counts.filter { $0.value >= 2 }.sorted { $0.value > $1.value }.prefix(20).map(\.key)
-    }
-
-    /// 주제 낱말로 위키백과 첫 문장 (풀이 화면의 개념 설명용)
-    private static func conceptLine(for topic: String) async throws -> String {
-        let query = keywords(from: topic)
-        guard !query.isEmpty else { return "" }
-        let article = try await DoitSearch.bestArticle(for: String(query.prefix(30)), intro: true)
-        guard let first = article.sentences.first else { return "" }
-        return first + " (\(article.source))"
+    private static func notFound(_ unit: String, _ error: Error) -> TutorError {
+        .notEnough("'\(unit)'에 대한 자료가 두잇 AI에 없어요.\n\(error.localizedDescription)")
     }
 }

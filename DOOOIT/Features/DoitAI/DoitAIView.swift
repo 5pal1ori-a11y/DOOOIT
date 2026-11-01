@@ -117,7 +117,7 @@ struct DoitAIView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("두잇 AI는 외부 AI 없이 휴대폰 안에서 동작하고 무료예요. 개념 검색(위키백과)과 영어 사전만 인터넷을 써요.")
+            Text(DoitAppleAI.isAvailable ? "두잇 AI 엔진과 기기 안 Apple Intelligence가 함께 답해요. 대화는 휴대폰 밖으로 나가지 않아요." : "두잇 AI 엔진이 휴대폰 안에서 답해요. Apple Intelligence를 켜면 더 자유롭게 대화할 수 있어요.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -152,8 +152,10 @@ struct DoitAIView: View {
         case .assistant:
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
-                    Image(systemName: "sparkles").font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
-                    Text("두잇 AI").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    Image(systemName: message.source == .apple ? "apple.intelligence" : "sparkles")
+                        .font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
+                    Text(message.source == .apple ? "두잇 AI · Apple Intelligence" : "두잇 AI")
+                        .font(.caption.weight(.bold)).foregroundStyle(.secondary)
                 }
                 if !message.actions.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
@@ -170,6 +172,11 @@ struct DoitAIView: View {
                 Text(Self.markdown(MathSymbolBar.pretty(message.text)))
                     .font(.body)
                     .textSelection(.enabled)
+                if message.source == .apple {
+                    Text(DoitAppleAI.caution)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
                 if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {
