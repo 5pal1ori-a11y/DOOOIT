@@ -20,8 +20,8 @@ jobs:
       READER_KEY: ${{ secrets.DOOOIT_READER_KEY }}
       # 이 세 개를 넣으면 빌드할 때 Claude 서버(server/)를 Cloudflare에 자동 배포하고 앱에 연결
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
 
