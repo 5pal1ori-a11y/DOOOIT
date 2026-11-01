@@ -21,6 +21,8 @@ struct MathNoteListView: View {
     @State private var cropItem: CropItem?
     @State private var croppedPairs: [(original: UIImage, problem: UIImage)] = []
     @State private var openedNote: MathNote?
+    @State private var pendingPairs: [(original: UIImage, problem: UIImage)] = []
+    @State private var showCreditConfirm = false
     @State private var errorMessage: String?
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -103,6 +105,37 @@ struct MathNoteListView: View {
             MathNoteEditorView(note: note)
         }
         .errorAlert($errorMessage)
+        .alert(creditAlertTitle, isPresented: $showCreditConfirm) {
+            if credits.canAfford(pendingCost) {
+                Button("진행 (\(pendingCost) 크레딧)") { startCreate(useClaude: true) }
+            }
+            Button("기기 인식으로 무료로 읽기") { startCreate(useClaude: false) }
+            Button("취소", role: .cancel) { pendingPairs = [] }
+        } message: {
+            Text(creditAlertMessage)
+        }
+    }
+
+    // MARK: 크레딧 확인
+
+    private var pendingCost: Int { pendingPairs.count * CreditStore.costPerUse }
+
+    private var creditAlertTitle: String {
+        credits.canAfford(pendingCost) ? "크레딧이 사용돼요" : "크레딧이 부족해요"
+    }
+
+    private var creditAlertMessage: String {
+        let count = pendingPairs.count
+        if credits.canAfford(pendingCost) {
+            return "문제 \(count)개를 Claude로 정확하게 읽으면 \(pendingCost) 크레딧이 소모됩니다. 그래도 진행할까요?\n\n지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - pendingCost) 크레딧"
+        }
+        return "문제 \(count)개를 Claude로 읽으려면 \(pendingCost) 크레딧이 필요한데 지금 \(credits.balance) 크레딧이 있어요.\n기기 인식으로 무료로 읽을 수 있어요. (수식은 덜 정확해요)"
+    }
+
+    private func startCreate(useClaude: Bool) {
+        let pairs = pendingPairs
+        pendingPairs = []
+        Task { await create(from: pairs, useClaude: useClaude) }
     }
 
     private var emptyState: some View {
@@ -151,11 +184,17 @@ struct MathNoteListView: View {
         } else if !croppedPairs.isEmpty {
             let pairs = croppedPairs
             croppedPairs = []
-            Task { await create(from: pairs) }
+            if ClaudeReader.isConfigured {
+                // 크레딧이 드는 Claude 읽기 전에 먼저 물어봄
+                pendingPairs = pairs
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showCreditConfirm = true }
+            } else {
+                Task { await create(from: pairs, useClaude: false) }
+            }
         }
     }
 
-    private func create(from pairs: [(original: UIImage, problem: UIImage)]) async {
+    private func create(from pairs: [(original: UIImage, problem: UIImage)], useClaude: Bool) async {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
         for (i, pair) in pairs.enumerated() {
@@ -164,7 +203,7 @@ struct MathNoteListView: View {
             var claudeTitle = ""
             var claudeAnswer = ""
             // Claude 읽기는 문제 1개에 크레딧 차감, 모자라면 기기 안 인식(무료)
-            if ClaudeReader.isConfigured, credits.canAfford(), let result = try? await ClaudeReader.read(pair.problem) {
+            if useClaude, ClaudeReader.isConfigured, credits.canAfford(), let result = try? await ClaudeReader.read(pair.problem) {
                 text = result.text
                 claudeTitle = result.title
                 claudeAnswer = result.answer

@@ -16,6 +16,7 @@ struct WrittenSolutionCard: View {
     @State private var working = false
     @State private var error: String?
     @State private var myAnswers: [String] = []
+    @State private var confirmCredits = false
 
     private var solution: WrittenSolution? {
         note.solutionData.flatMap { try? JSONDecoder().decode(WrittenSolution.self, from: $0) }
@@ -56,6 +57,12 @@ struct WrittenSolutionCard: View {
         .padding(18)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
         .errorAlert($error)
+        .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
+            Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("AI 단계별 풀이를 만들면 \(CreditStore.costPerUse) 크레딧이 소모됩니다. 그래도 진행할까요?\n\n지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - CreditStore.costPerUse) 크레딧")
+        }
         .onAppear { myAnswers = note.stepAnswers }
         .onChange(of: myAnswers) { _, value in note.stepAnswers = value }
     }
@@ -80,7 +87,7 @@ struct WrittenSolutionCard: View {
             }
             Spacer()
             if solution != nil {
-                Button { Task { await generate() } } label: {
+                Button { confirmCredits = true } label: {
                     Image(systemName: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))
                         .frame(width: 34, height: 34)
@@ -100,7 +107,7 @@ struct WrittenSolutionCard: View {
                  : "생각할 점과 식을 단계별로 나눠서 정리해드려요. 먼저 직접 풀어보고 모범 답안과 비교해보세요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button { Task { await generate() } } label: {
+            Button { confirmCredits = true } label: {
                 Label("AI 단계별 풀이 만들기", systemImage: "sparkles")
                     .font(.body.weight(.bold))
                     .frame(maxWidth: .infinity)

@@ -61,6 +61,7 @@ struct AskAIComposer: View {
     @State private var showScanner = false
     @State private var working = false
     @State private var error: String?
+    @State private var confirmCredits = false
 
     private let subjects = ["국어", "영어", "수학", "과학", "사회", "기타"]
 
@@ -116,7 +117,7 @@ struct AskAIComposer: View {
                     Button { dismiss() } label: { Image(systemName: "xmark") }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("질문하기") { Task { await ask() } }
+                    Button("질문하기") { confirmCredits = true }
                         .fontWeight(.bold)
                         .disabled(working || !credits.canAfford() || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil))
                 }
@@ -125,6 +126,12 @@ struct AskAIComposer: View {
                 image = images.first
             }
             .overlay { if working { ProcessingOverlay(message: "AI 선생님이 답을 쓰고 있어요") } }
+            .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
+                Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await ask() } }
+                Button("취소", role: .cancel) {}
+            } message: {
+                Text("AI에게 질문하면 \(CreditStore.costPerUse) 크레딧이 소모됩니다. 그래도 진행할까요?\n\n지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - CreditStore.costPerUse) 크레딧")
+            }
             .errorAlert($error)
         }
     }

@@ -177,6 +177,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
     @Environment(CreditStore.self) private var credits
     @State private var value: T?
     @State private var needCredits = false
+    @State private var needConfirm = false
     @State private var loading = false
     @State private var error: String?
     @State private var startedAt = Date()
@@ -189,6 +190,8 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             } else if needCredits {
                 NotEnoughCreditsView()
                     .padding(.vertical, 20)
+            } else if needConfirm, let creditKey {
+                confirmCard(creditKey)
             } else if let error {
                 VStack(spacing: 12) {
                     Text(error).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -216,8 +219,44 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         .task { await load(force: false) }
         .onDisappear { generation?.cancel() }
         .onChange(of: credits.balance) {
-            if needCredits && credits.canAfford() { Task { await load(force: false) } }
+            if needCredits && credits.canAfford() {
+                needCredits = false
+                Task { await load(force: false) }
+            }
         }
+    }
+
+    /// 단원 첫 학습 전에 크레딧 사용을 물어봄
+    private func confirmCard(_ key: String) -> some View {
+        VStack(spacing: 14) {
+            Image(systemName: "bolt.circle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(Theme.accent)
+            VStack(spacing: 6) {
+                Text("크레딧이 사용돼요").font(.headline)
+                Text("이 단원을 AI로 학습하면 \(CreditStore.costPerUse) 크레딧이 소모됩니다. 그래도 진행할까요?")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                Text("지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - CreditStore.costPerUse) 크레딧\n같은 단원의 개념·빈칸·O/X·문제는 추가로 차감되지 않아요.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            Button {
+                credits.confirmUnit(key)
+                Task { await load(force: false) }
+            } label: {
+                Text("진행 (\(CreditStore.costPerUse) 크레딧)")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+            }
+            .buttonStyle(.glassProminent)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .padding(.vertical, 20)
     }
 
     private func load(force: Bool) async {
@@ -225,11 +264,17 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             value = cached
             return
         }
-        if let creditKey, !credits.isUnitPaid(creditKey), !credits.canAfford() {
-            needCredits = true
+        if let creditKey, !credits.isUnitConfirmed(creditKey) {
+            if credits.canAfford() {
+                needCredits = false
+                needConfirm = true
+            } else {
+                needCredits = true
+            }
             return
         }
         needCredits = false
+        needConfirm = false
         generation?.cancel()
         loading = true
         error = nil

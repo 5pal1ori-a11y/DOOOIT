@@ -94,6 +94,11 @@ final class CreditStore {
     /// 단원 학습은 단원마다 한 번만 차감
     func isUnitPaid(_ key: String) -> Bool { state.paidUnits.contains(key) }
 
+    /// 이번 실행에서 "진행"을 눌렀던 단원 (첫 자료가 만들어지는 동안 다른 단계에서 또 묻지 않게)
+    @ObservationIgnored private var confirmedUnits: Set<String> = []
+    func confirmUnit(_ key: String) { confirmedUnits.insert(key) }
+    func isUnitConfirmed(_ key: String) -> Bool { isUnitPaid(key) || confirmedUnits.contains(key) }
+
     func chargeUnit(_ key: String) {
         guard !isUnitPaid(key) else { return }
         state.paidUnits.append(key)
