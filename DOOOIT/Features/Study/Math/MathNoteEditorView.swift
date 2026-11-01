@@ -34,6 +34,7 @@ struct MathNoteEditorView: View {
                     infoCard
                     page(width: pageWidth)
                     gradingCard
+                    WrittenSolutionCard(note: note)
                     recognizedCard
                 }
                 .padding(16)

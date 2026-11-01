@@ -259,6 +259,15 @@ final class MathNote {
     var statusRaw: String = "unsolved"
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+    /// AI 서술형 단계별 풀이 (WrittenSolution JSON)
+    var solutionData: Data?
+    /// 내가 단계별로 적은 풀이
+    var stepAnswersData: Data?
+
+    var stepAnswers: [String] {
+        get { stepAnswersData.flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? [] }
+        set { stepAnswersData = try? JSONEncoder().encode(newValue) }
+    }
 
     init(title: String, imageData: Data?, thumbnailData: Data?, recognizedText: String, correctAnswer: String = "") {
         self.id = UUID()

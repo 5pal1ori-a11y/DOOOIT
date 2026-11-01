@@ -14,7 +14,8 @@ struct DOOOITApp: App {
     init() {
         do {
             container = try ModelContainer(
-                for: Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self
+                for: Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self,
+                ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self
             )
         } catch {
             fatalError("데이터 저장소를 열 수 없어요: \(error)")

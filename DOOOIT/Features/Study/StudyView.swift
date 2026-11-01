@@ -15,6 +15,7 @@ struct StudyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     wordsHero
+                    LearnHubSection()
                     toolList
                     recentSection
                 }
