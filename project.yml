@@ -14,6 +14,17 @@ settings:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
+packages:
+  # 두잇 AI 두뇌 (기기 안 오픈소스 언어 모델)
+  mlx-swift-lm:
+    url: https://github.com/ml-explore/mlx-swift-lm
+    minorVersion: 3.32.3
+  swift-huggingface:
+    url: https://github.com/huggingface/swift-huggingface
+    majorVersion: 1.0.0
+  swift-transformers:
+    url: https://github.com/huggingface/swift-transformers
+    minorVersion: 1.3.5
 targets:
   DOOOIT:
     type: application
@@ -35,6 +46,16 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     dependencies:
+      - package: mlx-swift-lm
+        product: MLXLLM
+      - package: mlx-swift-lm
+        product: MLXLMCommon
+      - package: mlx-swift-lm
+        product: MLXHuggingFace
+      - package: swift-huggingface
+        product: HuggingFace
+      - package: swift-transformers
+        product: Tokenizers
       - target: DOOOITWidgetsExtension
         embed: true
       - target: DOOOITActivityMonitor

@@ -216,6 +216,11 @@ enum MathSolver {
             let rest = String(t[range.upperBound...])
             var piece = String(rest.prefix(60))
             if let cut = piece.firstIndex(where: { $0 == "," || $0 == "\n" }) { piece = String(piece[..<cut]) }
+            // 식은 한글이 나오기 전까지 ("x³ 를 x − 3로 나눈"에서 나누는 식을 f(x)로 잘못 잡지 않게)
+            if let cut = piece.firstIndex(where: { ("가"..."힣").contains($0) }), piece.distance(from: piece.startIndex, to: cut) > 0 {
+                let head = String(piece[..<cut])
+                if head.contains("x") { piece = head }
+            }
             let expression = DoitMath.extractExpression(piece)
             let lhs = expression.split(separator: "=").first.map(String.init) ?? expression
             if let poly = DoitMath.polynomial(lhs), poly.degree >= 1 { return poly }

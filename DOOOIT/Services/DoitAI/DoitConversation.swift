@@ -11,6 +11,8 @@ enum DoitConversation {
         var suggestions: [String] = []
         /// 대화 주제 (이어 말하기용)
         var topic: String?
+        /// 날짜 계산·주사위·이름 기억처럼 정확해야 하는 도구 답 (두뇌가 바꾸지 않음)
+        var isTool = false
     }
 
     // MARK: - 기억
@@ -28,18 +30,26 @@ enum DoitConversation {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         let t = DoitChat.squash(text)
 
-        if let a = memory(text, t) { return a }
-        if let a = tools(text, t, now: now) { return a }
+        if var a = memory(text, t) { a.isTool = true; return a }
+        if var a = tools(text, t, now: now) { a.isTool = true; return a }
         if let a = followUp(t, previousTopic: previousTopic) { return a }
         if let a = smallTalk(t) { return a }
         // 지식 사전에서 비슷한 개념
         if let best = DoitKnowledge.search(text, limit: 3).first, best.score >= 0.32 {
             let others = DoitKnowledge.search(text, limit: 3).dropFirst().filter { $0.score >= 0.28 }.map(\.entry.title)
-            var answer = "혹시 **\(best.entry.title)**(\(best.entry.subject))에 대해 묻는 건가요?\n\(best.entry.body)"
+            var answer = "혹시 **\(best.entry.title)**(\(best.entry.label))에 대해 묻는 건가요?\n\(best.entry.body)"
             if !others.isEmpty { answer += "\n\n비슷한 개념: " + others.joined(separator: ", ") }
             return Answer(text: answer, suggestions: ["\(best.entry.title) 퀴즈 내줘"] + others.prefix(2).map { "\($0) 설명해줘" }, topic: best.entry.title)
         }
         return fallback(text, t)
+    }
+
+    /// 정확해야 하는 도구 답만 (날짜 계산·주사위·이름 기억 등). 없으면 nil
+    static func toolAnswer(_ raw: String, now: Date = Date()) -> Answer? {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let t = DoitChat.squash(text)
+        if var a = memory(text, t) ?? tools(text, t, now: now) { a.isTool = true; return a }
+        return nil
     }
 
     // MARK: - 이름 기억
@@ -353,7 +363,7 @@ enum DoitConversation {
     private static func fallback(_ text: String, _ t: String) -> Answer {
         let isQuestion = text.contains("?") || has(t, ["뭐야", "뭐지", "누구", "언제", "어디", "왜", "어떻게", "얼마", "몇", "뭔가", "인가요", "일까", "알아?", "알아", "이유", "원리", "궁금"])
         if isQuestion {
-            return Answer(text: personalize("그건 아직 제가 잘 몰라요 😅 저는 앱 안에 있는 지식으로만 답해서, 최신 소식이나 아주 넓은 상식은 부족해요.\n대신 수학 풀이, 영어 문법·단어, 과학 계산과 개념, 사회·역사, 공부 계획과 상담은 자신 있어요!"),
+            return Answer(text: personalize("그건 아직 제가 잘 몰라요 😅 설정의 '두잇 AI 두뇌'를 내려받으면 인터넷에서 찾아 읽고 제 말로 정리해 드릴 수 있어요.\n지금도 수학 풀이, 영어 문법·단어, 과학 계산과 개념, 사회·역사, 공부 계획과 상담은 자신 있어요!"),
                           suggestions: ["뭐 할 수 있어?", "수학 퀴즈 내줘"])
         }
         if has(t, positive) {

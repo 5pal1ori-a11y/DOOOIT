@@ -123,7 +123,14 @@ enum Curriculum {
         list.flatMap { chapter, titles in titles.map { CurriculumUnit(chapter: chapter, title: $0) } }
     }
 
-    static let subjects: [CurriculumSubject] = [
+    /// AI 학습에서 고를 수 있는 모든 과목: 고1 공통과목 + 초등 ~ 대학교 국·영·수·과·사
+    static let subjects: [CurriculumSubject] = highSchoolCommon + DoitCurriculum.studySubjects.map { item in
+        let symbols = ["국어": "book.fill", "영어": "character.book.closed.fill", "수학": "function", "과학": "atom", "사회": "globe.asia.australia.fill"]
+        return CurriculumSubject(name: item.name, symbol: symbols[item.subject] ?? "book",
+                                 units: item.units.map { CurriculumUnit(chapter: item.name, title: $0) })
+    }
+
+    static let highSchoolCommon: [CurriculumSubject] = [
         CurriculumSubject(name: "공통수학1", symbol: "function", units: make([
             ("다항식", ["다항식의 연산", "항등식과 나머지정리", "인수분해"]),
             ("방정식과 부등식", ["복소수와 이차방정식", "이차방정식과 이차함수", "여러 가지 방정식과 부등식"]),

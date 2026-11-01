@@ -1,9 +1,10 @@
 import Observation
 import UIKit
 
-/// 두잇 AI 대화: 직접 만든 엔진만으로 동작 (외부 AI·서버 없음)
-/// - 앱 기능 실행, 수학 풀이, 내장 지식, 퀴즈, 자유 대화, 사진 분석
-/// 사진은 기기 안 글자 인식(Vision)으로 읽음. 인터넷은 영어 단어 사전만 씀
+/// 두잇 AI 대화 (외부 AI·서버 없음)
+/// - 규칙형 엔진: 앱 기능 실행, 수학 풀이, 계산, 퀴즈, 사진 분석 (정확해야 하는 일)
+/// - 두잇 AI 두뇌(기기 안 언어 모델, 받아 두었을 때): 설명·대화를 근거(앱 지식·배운 기억·인터넷)를 읽고 자기 말로
+/// 사진은 기기 안 글자 인식(Vision)으로 읽음
 @MainActor
 @Observable
 final class DoitAssistant {
@@ -17,6 +18,14 @@ final class DoitAssistant {
         var actions: [String] = []
         var suggestions: [String] = []
         var image: UIImage?
+        /// 두뇌가 참고한 자료 (앱 지식, 배운 내용, 위키백과)
+        var sources: [String] = []
+        /// 👍/👎를 받을 주제 (두뇌가 만든 답만)
+        var learnTopic: String?
+        /// 1 = 👍, -1 = 👎
+        var rating = 0
+        /// 두뇌가 아직 쓰는 중
+        var isStreaming = false
     }
 
     /// 진행 중인 퀴즈
@@ -50,6 +59,15 @@ final class DoitAssistant {
         DoitEngine.conversationTopic = nil
     }
 
+    /// 답 평가 (👍는 그 설명을 기억, 👎는 다음에 인터넷에서 다시 찾아봄)
+    func rate(_ id: UUID, good: Bool) {
+        guard let index = messages.firstIndex(where: { $0.id == id }), let topic = messages[index].learnTopic,
+              messages[index].rating == 0 else { return }
+        messages[index].rating = good ? 1 : -1
+        DoitMemory.shared.feedback(topic: topic, answer: messages[index].text, good: good)
+        if !good { messages[index].suggestions = ["\(topic) 인터넷에서 다시 찾아줘"] + messages[index].suggestions.prefix(1) }
+    }
+
     func send(_ text: String, image: UIImage? = nil) async {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isResponding, !question.isEmpty || image != nil else { return }
@@ -73,13 +91,23 @@ final class DoitAssistant {
             return
         }
 
-        // 2) 바로 전 답에 이어서
+        // 2) 기억해 달라는 말, 틀렸다고 고쳐 주는 말
+        if image == nil, let reply = await memoryCommand(question) {
+            messages.append(reply)
+            return
+        }
+
+        // 3) 바로 전 답에 이어서 (두뇌가 있으면 두뇌가 더 자세히·쉽게)
+        if image == nil, let previous = lastAnswer, DoitMind.isAvailable, let request = brainFollowUp(question, topic: previous.topic) {
+            await think(question: request, draft: previous.text, origin: .knowledge, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
+            return
+        }
         if image == nil, let reply = await followUp(question) {
             messages.append(reply)
             return
         }
 
-        // 3) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
+        // 4) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
         if let image, let analyzed = await analyzePhoto(image, question: question, photo: photo) {
             messages.append(analyzed)
             return
@@ -112,6 +140,13 @@ final class DoitAssistant {
         }
         if reply.text.hasPrefix("**") && reply.suggestions.contains("비슷한 문제 내줘") { lastMath = question }
 
+        // 설명·대화는 두뇌가 근거를 읽고 자기 말로 (앱 기능·계산·수학 풀이는 엔진 답 그대로)
+        if image == nil, actions.isEmpty, shouldThink(reply, question: question) {
+            await think(question: question, draft: reply.origin == .conversation && !reply.text.hasPrefix("혹시") ? nil : reply.text,
+                        origin: reply.origin, suggestions: reply.suggestions, fallback: reply.text)
+            return
+        }
+
         if reply.suggestions.contains("더 자세히 알려줘") || reply.text.hasPrefix("**") {
             // 앱 안 지식으로 답한 것도 이어서 묻기·저장할 수 있게
             let firstLine = reply.text.components(separatedBy: "\n").first ?? ""
@@ -121,6 +156,129 @@ final class DoitAssistant {
             DoitEngine.conversationTopic = topic
         }
         messages.append(Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions))
+    }
+
+    // MARK: - 두뇌
+
+    private func shouldThink(_ reply: DoitEngine.Reply, question: String) -> Bool {
+        guard DoitMind.isAvailable, reply.deferred == nil else { return false }
+        switch reply.origin {
+        case .command, .math: return false
+        // 과목 엔진의 계산(전압·전류 등)은 숫자가 정확해야 해서 그대로
+        case .subject: return !question.contains(where: \.isNumber)
+        case .chat, .knowledge, .conversation: return true
+        }
+    }
+
+    /// "더 자세히" / "쉽게" / "요약" → 두뇌에게 줄 부탁
+    private func brainFollowUp(_ question: String, topic: String) -> String? {
+        let q = question.replacingOccurrences(of: " ", with: "")
+        if q.contains("더자세히") || q.contains("자세히알려") || q.contains("더알려") || q == "더" || q.contains("계속") {
+            return "\(topic)에 대해 앞에서 말한 것보다 더 깊이, 예시를 들어 자세히 알려줘"
+        }
+        if q.contains("쉽게") || q.contains("요약") || q.contains("한줄") || q.contains("간단히") {
+            return "\(topic)을(를) 초등학생도 알 수 있게 아주 쉽고 짧게 정리해줘"
+        }
+        if q.contains("예시") || q.contains("예를") {
+            return "\(topic)의 쉬운 예시를 두세 개 들어줘"
+        }
+        return nil
+    }
+
+    /// 근거를 모으고, 두뇌가 쓰는 답을 조금씩 보여줌. 답이 이상하면 엔진 답(fallback)으로 바꿈
+    private func think(question: String, draft: String?, origin: DoitEngine.Origin, suggestions: [String], fallback: String? = nil) async {
+        let history = messages.dropLast().suffix(6).compactMap { message -> DoitMind.Turn? in
+            switch message.role {
+            case .user: return message.text.isEmpty ? nil : DoitMind.Turn(fromUser: true, text: message.text)
+            case .assistant: return message.text.isEmpty ? nil : DoitMind.Turn(fromUser: false, text: message.text)
+            case .notice: return nil
+            }
+        }
+        let wantsWeb = origin != .chat
+        status = wantsWeb ? "자료를 찾아 읽는 중…" : "생각하는 중…"
+        let context = await DoitMind.gather(question: question, draft: draft, app: origin == .chat ? appSituation() : nil, allowWeb: wantsWeb)
+        status = context.web.isEmpty ? "생각하는 중…" : "찾은 자료를 정리하는 중…"
+        messages.append(Message(role: .assistant, text: "", isStreaming: true))
+        let index = messages.count - 1
+        let id = messages[index].id
+        var raw = ""
+        do {
+            for try await chunk in DoitBrain.shared.stream(system: DoitMind.persona,
+                                                           prompt: DoitMind.answerPrompt(question: question, context: context, history: Array(history)),
+                                                           temperature: origin == .chat || origin == .conversation ? 0.7 : 0.5) {
+                raw += chunk
+                if messages.indices.contains(index), messages[index].id == id { messages[index].text = DoitMind.clean(raw) }
+            }
+        } catch {
+            raw = ""
+        }
+        guard messages.indices.contains(index), messages[index].id == id else { return }
+        let text = DoitMind.clean(raw)
+        messages[index].isStreaming = false
+        guard DoitMind.isUsable(text) else {
+            // 두뇌 답이 비었거나 이상하면 엔진 답으로
+            messages[index].text = fallback ?? draft ?? "답을 만들지 못했어요. 다시 한 번 물어봐 줄래요?"
+            messages[index].suggestions = suggestions
+            return
+        }
+        let topic = DoitMind.topic(for: question, context: context)
+        messages[index].text = text
+        messages[index].sources = context.sourceLabels
+        messages[index].suggestions = suggestions
+        if origin != .chat {
+            messages[index].learnTopic = topic
+            lastAnswer = (topic, text)
+            DoitEngine.conversationTopic = topic
+        }
+        DoitMind.learn(question: question, answer: text, context: context)
+    }
+
+    /// 일상 대화에 쓰는 오늘 상황
+    private func appSituation() -> String {
+        let c = DoitActions.shared.chatContext()
+        var lines = ["오늘 공부 \(c.todayMinutes)분 (목표 \(c.goalMinutes)분)", "남은 일정 \(c.remainingPlans)개"]
+        if let dDay = c.dDay { lines.append(dDay) }
+        if let name = DoitConversation.userName { lines.append("학생 이름: \(name)") }
+        return lines.joined(separator: "\n")
+    }
+
+    // MARK: - 기억
+
+    /// "기억해줘: …", "배운 거 보여줘", 바로 전 답을 "아니야, …"로 고쳐 주기
+    private func memoryCommand(_ question: String) async -> Message? {
+        let q = question.replacingOccurrences(of: " ", with: "")
+        if let m = question.firstMatch(of: #/^(?:기억해\s*줘|기억해|외워\s*둬|기억할래)\s*[:：]?\s*(.{2,})$/#) ?? question.firstMatch(of: #/^(.{4,}?)\s*(?:라고|이라고)?\s*기억해\s*줘[.!]?$/#) {
+            let fact = String(m.1).trimmingCharacters(in: .whitespacesAndNewlines)
+            let topic = DoitWeb.searchQuery(from: fact)
+            DoitMemory.shared.remember(topic: topic.isEmpty ? String(fact.prefix(20)) : topic, summary: fact, kind: .userFact)
+            return Message(role: .assistant, text: "기억해 둘게요! 다음에 관련된 이야기를 하면 이 내용을 떠올릴게요.\n• \(fact)",
+                           suggestions: ["배운 거 보여줘"])
+        }
+        if ["배운거보여", "배운것보여", "기억한거보여", "기억목록", "뭘배웠어", "뭐배웠어", "배운내용"].contains(where: { q.contains($0) }) {
+            let notes = DoitMemory.shared.notes.sorted { $0.updatedAt > $1.updatedAt }.prefix(8)
+            guard !notes.isEmpty else {
+                return Message(role: .assistant, text: "아직 따로 배운 내용이 없어요. 궁금한 걸 물어보거나 \"기억해줘: …\"라고 알려주면 차곡차곡 배울게요.")
+            }
+            let lines = notes.map { note -> String in
+                let mark = note.kind == .learned ? "📘" : (note.kind == .correction ? "✏️" : "📝")
+                return "\(mark) **\(note.topic)**: \(DoitMemory.trimmed(note.summary.replacingOccurrences(of: "\n", with: " "), max: 60))"
+            }
+            return Message(role: .assistant, text: "**두잇 AI가 배운 내용** (\(DoitMemory.shared.notes.count)개)\n" + lines.joined(separator: "\n") + "\n\n설정 > 두잇 AI 두뇌에서 관리할 수 있어요.")
+        }
+        // "아니야 괜찮아", "아니 됐어" 같은 말은 고쳐 주는 말이 아님
+        let casual = ["괜찮", "됐어", "고마워", "그냥", "아무것도", "몰라", "ㅋㅋ", "알겠어", "아니야아니야"]
+        if let previous = lastAnswer, q.count >= 9, !casual.contains(where: { q.contains($0) }),
+           ["아니야", "아니에요", "틀렸어", "틀렸어요", "그게아니라", "잘못알고", "사실은"].contains(where: { q.hasPrefix($0) }) {
+            DoitMemory.shared.remember(topic: previous.topic, summary: question, kind: .correction)
+            if DoitMind.isAvailable {
+                await think(question: "학생이 앞의 설명을 이렇게 고쳐 줬어요: \"\(question)\". 고쳐 준 내용이 맞는지 생각해 보고 \(previous.topic)을(를) 다시 설명해줘",
+                            draft: previous.text, origin: .knowledge, suggestions: ["이걸로 퀴즈 내줘"])
+                // think가 넣은 답을 꺼내 돌려줌 (send가 다시 넣음)
+                return messages.popLast()
+            }
+            return Message(role: .assistant, text: "알려줘서 고마워요! '\(previous.topic)'에 대해 고쳐 준 내용을 기억해 둘게요.")
+        }
+        return nil
     }
 
     // MARK: - 이어서 하기

@@ -47,6 +47,10 @@ let chatCases: [ChatCase] = [
     ChatCase(name: "연습 문제", inputs: ["인수분해 연습 문제"], expect: ["퀴즈 1번", "인수분해"]),
     ChatCase(name: "문제 없이 풀어줘", inputs: ["이 문제 풀어줘"], expect: ["풀 문제를 보내주세요"]),
     ChatCase(name: "그만 (퀴즈 없음)", inputs: ["그만"], expect: ["알겠어요"]),
+    ChatCase(name: "기억해줘", inputs: ["기억해줘: 내 목표 대학은 서울대"], expect: ["기억해 둘게요", "서울대"]),
+    ChatCase(name: "배운 거 보여줘", inputs: ["기억해줘: 수학 시험은 금요일", "배운 거 보여줘"], expect: ["배운 내용", "금요일"]),
+    ChatCase(name: "고쳐 주기", inputs: ["광합성이 뭐야?", "아니야, 광합성은 잎에서만 일어나는 게 아니야"], expect: ["기억해 둘게요"]),
+    ChatCase(name: "아니야 괜찮아는 고치기 아님", inputs: ["광합성이 뭐야?", "아니야 괜찮아 고마워"], reject: ["기억해 둘게요"]),
     // 수학
     ChatCase(name: "일차방정식", inputs: ["2x+3=11"], expect: ["x = 4"]),
     ChatCase(name: "이차방정식", inputs: ["x²-5x+6=0 풀어줘"], expect: ["x = 2 또는 x = 3"]),
@@ -94,7 +98,8 @@ let chatCases: [ChatCase] = [
     ChatCase(name: "남은 날", inputs: ["크리스마스까지 며칠 남았어?"], expect: ["크리스마스까지"]),
     ChatCase(name: "나이", inputs: ["2009년생 몇 살이야"], expect: ["2009년생"]),
     ChatCase(name: "글자 수", inputs: ["글자수 세줘: 오늘은 수학을 공부했다"], expect: ["공백 포함 **12자**", "공백 빼고 **10자**"]),
-    ChatCase(name: "모르는 질문은 솔직하게", inputs: ["블랙홀 안에는 뭐가 있어?"], expect: ["몰라요"]),
+    ChatCase(name: "모르는 질문은 솔직하게", inputs: ["우리 동네 떡볶이집 사장님 이름이 뭐야?"], expect: ["몰라요"]),
+    ChatCase(name: "블랙홀 (교육과정 지식)", inputs: ["블랙홀이 뭐야?"], expect: ["블랙홀", "빛"]),
     ChatCase(name: "영어 인사", inputs: ["How are you?"], expect: ["(저는"]),
     ChatCase(name: "자기소개", inputs: ["너 누구야?"], expect: ["두잇 AI"], reject: ["Apple"]),
     ChatCase(name: "공부 싫다", inputs: ["공부하기 너무 싫다"], expectAny: ["5분", "의욕", "1%"]),
@@ -246,6 +251,129 @@ func runKnowledge() {
     check("지식 사전 크기", DoitKnowledge.entries.count >= 150, "\(DoitKnowledge.entries.count)개")
 }
 
+// MARK: - 두뇌 (기기 안 언어 모델) 주변 — 모델 없이 검사할 수 있는 부분
+
+@MainActor
+func runBrain() {
+    // 생각 과정 거르기: 조각으로 나뉘어 와도
+    var filter = ThinkFilter()
+    let pieces = ["<thi", "nk>속으로 생각</th", "ink>\n\n광합성은 ", "빛으로 양분을 만드는 <", "일이에요."]
+    let streamed = pieces.map { filter.feed($0) }.joined()
+    check("생각 과정 거르기", streamed.trimmingCharacters(in: .whitespacesAndNewlines) == "광합성은 빛으로 양분을 만드는 <일이에요.", streamed)
+    var plain = ThinkFilter()
+    check("생각 태그 없을 때 그대로", plain.feed("a < b 이고 ") + plain.feed("b > c") == "a < b 이고 b > c")
+
+    // 답 다듬기·검사
+    check("답 다듬기", DoitMind.clean("<think>\n</think>\n\n두잇: ### 핵심\n- 하나\n- 둘") == "**핵심**\n• 하나\n• 둘", DoitMind.clean("<think>\n</think>\n\n두잇: ### 핵심\n- 하나\n- 둘"))
+    check("한자로 샌 답은 버림", !DoitMind.isUsable("光合作用是植物利用光能的过程，这个很重要。"))
+    check("되풀이하는 답은 버림", !DoitMind.isUsable("좋아요 정말 좋아요. 좋아요 정말 좋아요. 좋아요 정말 좋아요. 끝"))
+    check("정상 답은 통과", DoitMind.isUsable("광합성은 식물이 빛 에너지로 포도당을 만드는 과정이에요."))
+
+    // 검색어 만들기
+    check("검색어: 뭐야", DoitWeb.searchQuery(from: "광합성이 뭐야?") == "광합성", DoitWeb.searchQuery(from: "광합성이 뭐야?"))
+    check("검색어: 왜", DoitWeb.searchQuery(from: "임진왜란은 왜 일어났어") == "임진왜란 원인", DoitWeb.searchQuery(from: "임진왜란은 왜 일어났어"))
+    check("검색어: 인터넷에서 찾아줘", DoitWeb.searchQuery(from: "블랙홀 인터넷에서 찾아줘") == "블랙홀", DoitWeb.searchQuery(from: "블랙홀 인터넷에서 찾아줘"))
+
+    // 인터넷을 찾아볼지
+    check("모르는 질문은 인터넷", DoitMind.shouldSearchWeb(question: "양자 얽힘이 뭐야?", bestKnowledgeScore: 0.2, hasMemory: false, disliked: false))
+    check("아는 개념은 인터넷 안 감", !DoitMind.shouldSearchWeb(question: "광합성이 뭐야?", bestKnowledgeScore: 0.9, hasMemory: false, disliked: false))
+    check("인사는 인터넷 안 감", !DoitMind.shouldSearchWeb(question: "안녕 뭐해?", bestKnowledgeScore: 0, hasMemory: false, disliked: false))
+    check("찾아달라면 인터넷", DoitMind.shouldSearchWeb(question: "광합성 검색해줘", bestKnowledgeScore: 0.9, hasMemory: true, disliked: false))
+    check("👎 받은 주제는 다시 찾음", DoitMind.shouldSearchWeb(question: "광합성", bestKnowledgeScore: 0.9, hasMemory: true, disliked: true))
+
+    // 근거가 프롬프트에 들어가는지
+    var context = DoitMind.Context()
+    context.knowledge = DoitKnowledge.search("광합성", limit: 1).map(\.entry)
+    context.web = [DoitWeb.Source(title: "광합성", url: "https://ko.wikipedia.org/wiki/광합성", text: "광합성은 빛 에너지를 화학 에너지로 바꾸는 과정이다.", language: "ko")]
+    let prompt = DoitMind.answerPrompt(question: "광합성이 뭐야?", context: context, history: [DoitMind.Turn(fromUser: true, text: "안녕")])
+    check("프롬프트: 참고 자료·이전 대화·질문", prompt.contains("[참고 자료]") && prompt.contains("위키백과") && prompt.contains("학생: 안녕") && prompt.contains("[질문]\n광합성이 뭐야?"), prompt)
+    check("출처 표시", context.sourceLabels.contains { $0.contains("위키백과(한국어) 「광합성」") }, "\(context.sourceLabels)")
+
+    // AI 학습 형식 읽기
+    let concept = DoitMind.parseConcept("""
+    제목: 광합성
+    - 식물이 빛 에너지로 양분을 만드는 과정이에요.
+    - 엽록체에서 일어나요.
+    - 이산화 탄소와 물이 필요해요.
+    예시: 햇빛을 받은 잎에서 녹말이 만들어져요.
+    """, fallbackTitle: "x")
+    check("개념 정리 읽기", concept?.title == "광합성" && concept?.keyPoints.count == 3 && concept?.example.contains("녹말") == true, "\(String(describing: concept))")
+    check("개념 정리: 형식이 틀리면 버림", DoitMind.parseConcept("광합성은 좋은 것이에요.", fallbackTitle: "x") == nil)
+
+    let ox = DoitMind.parseOX("""
+    1. O | 광합성은 엽록체에서 일어난다. | 맞아요.
+    X | 광합성에는 산소가 원료로 필요하다. | 산소는 만들어지는 물질이에요.
+    아무 말
+    """)
+    check("O/X 읽기", ox?.items.count == 2 && ox?.items.first?.isTrue == true && ox?.items.last?.isTrue == false, "\(String(describing: ox))")
+
+    let cloze = DoitMind.parseCloze("""
+    광합성은 (   )에서 일어나요. | 엽록체
+    광합성의 결과 산소가 나와요. | 산소
+    정답이 그대로 남은 엽록체 문장 (   ) | 엽록체
+    """)
+    check("빈칸 읽기", cloze?.items.count == 2 && cloze?.items[1].sentence == "광합성의 결과 (   )가 나와요.", "\(String(describing: cloze))")
+
+    let problems = DoitMind.parseProblems("""
+    문제: 광합성이 일어나는 곳은?
+    1) 미토콘드리아
+    2) 엽록체
+    3) 핵
+    4) 리보솜
+    5) 세포막
+    정답: 2
+    해설: 엽록체에 엽록소가 있어요.
+
+    문제: 보기가 모자란 문제
+    1) 가
+    2) 나
+    정답: 1
+    """)
+    check("객관식 읽기 (모자란 문제는 버림)", problems?.items.count == 1 && problems?.items.first?.answerNumber == 2 && problems?.items.first?.finalAnswer == "2번 엽록체", "\(String(describing: problems))")
+
+    // 기억 떠올리기
+    let notes = [
+        DoitMemory.Note(kind: .learned, topic: "블랙홀", summary: "중력이 아주 커서 빛도 빠져나오지 못하는 천체예요."),
+        DoitMemory.Note(kind: .userFact, topic: "내 시험 범위", summary: "기말고사 범위는 3단원부터 5단원까지"),
+        DoitMemory.Note(kind: .learned, topic: "광합성", summary: "식물이 빛으로 양분을 만드는 과정", score: -2)
+    ]
+    check("기억: 비슷한 주제", DoitMemory.rank(notes, for: "블랙홀이 뭐야?").first?.topic == "블랙홀")
+    check("기억: 사용자 사실", DoitMemory.rank(notes, for: "내 시험 범위 알려줘").first?.topic == "내 시험 범위")
+    check("기억: 👎 많이 받은 건 안 씀", DoitMemory.rank(notes, for: "광합성").isEmpty)
+    check("기억 자르기", DoitMemory.trimmed(String(repeating: "가나다라요. ", count: 50), max: 40).hasSuffix("요."))
+
+    // 두뇌가 없을 때는 규칙형 엔진 그대로 (테스트 환경)
+    check("테스트 환경에서는 두뇌 꺼짐", !DoitBrain.shared.isAvailable)
+}
+
+// MARK: - 교육과정 단원 (AI 학습) — 두뇌 없이도 모든 단원에서 자료가 나오는지
+
+func runCurriculum() async {
+    var units = 0
+    var failures: [String] = []
+    for item in DoitCurriculum.studySubjects {
+        for unit in item.units {
+            units += 1
+            let subject = item.name
+            do {
+                let note = try await DoitTutor.concept(subject: subject, unit: unit, booster: false)
+                if note.keyPoints.isEmpty { failures.append("\(item.name)/\(unit): 개념 비어 있음") }
+            } catch { failures.append("\(item.name)/\(unit): 개념 \(error.localizedDescription.prefix(30))") }
+            if (try? await DoitTutor.ox(subject: subject, unit: unit, count: 4))?.items.isEmpty ?? true { failures.append("\(item.name)/\(unit): O/X") }
+            if (try? await DoitTutor.cloze(subject: subject, unit: unit, count: 4))?.items.isEmpty ?? true { failures.append("\(item.name)/\(unit): 빈칸") }
+            if let set = try? await DoitTutor.problems(subject: subject, unit: unit, count: 3, hard: false) {
+                if set.items.contains(where: { !(1...$0.choices.count).contains($0.answerNumber) }) { failures.append("\(item.name)/\(unit): 정답 번호") }
+            } else { failures.append("\(item.name)/\(unit): 객관식") }
+        }
+    }
+    check("교육과정 단원 수", units >= 150, "\(units)개")
+    check("모든 단원에서 학습 자료 생성", failures.isEmpty, "\(failures.count)곳 실패: " + failures.prefix(12).joined(separator: " | "))
+    let levels = Set(DoitCurriculum.studySubjects.map(\.level))
+    let mixed = DoitKnowledge.entries(inUnit: "문장의 짜임", subject: "초등 국어").filter { $0.level != .elementary }
+    check("같은 단원 이름이라도 학교급 구분", mixed.isEmpty && !DoitKnowledge.entries(inUnit: "문장의 짜임", subject: "초등 국어").isEmpty, "\(mixed.map(\.title))")
+    check("초등~대학교 모두 있음", levels.count == SchoolLevel.allCases.count, "\(levels)")
+}
+
 // MARK: - 실행
 
 await runChat()
@@ -254,6 +382,8 @@ runGenerators()
 runWorkChecker()
 runOCRFixer()
 runKnowledge()
+runBrain()
+await runCurriculum()
 
 print("두잇 AI 테스트: \(passed)개 통과, \(failed.count)개 실패")
 for f in failed { print(f) }

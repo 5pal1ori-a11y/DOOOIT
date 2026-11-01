@@ -11,6 +11,23 @@ enum DoitEngine {
         var understood = true
         /// 시간이 걸리는 일 (사전 검색, 퀴즈 내기)은 DoitAssistant가 이어서 처리
         var deferred: Deferred? = nil
+        /// 어디서 나온 답인지 (두뇌가 다시 설명해도 되는 답인지 고를 때 씀)
+        var origin: Origin = .command
+    }
+
+    enum Origin {
+        /// 앱 기능 실행·도구·계산처럼 정확해야 하는 답 (그대로 씀)
+        case command
+        /// 수학 풀이 (그대로 씀)
+        case math
+        /// 과목 엔진의 설명 (두뇌가 자기 말로 다시 설명)
+        case subject
+        /// 일상 대화·응원 (두뇌가 자연스럽게)
+        case chat
+        /// 지식 사전에서 찾은 개념
+        case knowledge
+        /// 자유 대화 (모르는 질문 포함)
+        case conversation
     }
 
     enum Deferred {
@@ -124,9 +141,9 @@ enum DoitEngine {
            looksLikeMathQuestion(text) || ![.expression, .calc, .linear, .quadraticEquation, .higherEquation].contains(solved.kind) {
             return mathReply(solved)
         }
-        if let english = DoitEnglish.answer(text) { return Reply(text: english, suggestions: ["영어 퀴즈 내줘", "더 자세히 알려줘"]) }
-        if let science = DoitScience.answer(text) { return Reply(text: science, suggestions: ["과학 퀴즈 내줘"]) }
-        if let social = DoitSocial.answer(text) { return Reply(text: social, suggestions: ["사회 퀴즈 내줘"]) }
+        if let english = DoitEnglish.answer(text) { return Reply(text: english, suggestions: ["영어 퀴즈 내줘", "더 자세히 알려줘"], origin: .subject) }
+        if let science = DoitScience.answer(text) { return Reply(text: science, suggestions: ["과학 퀴즈 내줘"], origin: .subject) }
+        if let social = DoitSocial.answer(text) { return Reply(text: social, suggestions: ["사회 퀴즈 내줘"], origin: .subject) }
 
         // "3시에 학원 가야 돼" → 일정으로 넣을지 물어봄
         if let time = findTime(in: text), has(t, ["가야", "해야", "있어", "약속", "만나", "가기로", "하기로"]), !has(t, ["?", "뭐", "어떻게"]) {
@@ -145,18 +162,22 @@ enum DoitEngine {
 
         // 일상 대화
         if let chat = DoitChat.reply(text, context: DoitActions.shared.chatContext()) {
-            return Reply(text: chat.text, suggestions: chat.suggestions)
+            return Reply(text: chat.text, suggestions: chat.suggestions, origin: DoitChat.isCrisis(text) ? .command : .chat)
         }
         if findDate(in: text) != nil && findTime(in: text) != nil { return addPlan(text) }
 
+        // 날짜 계산·주사위 같은 도구는 지식 사전보다 먼저 ("30일 뒤 무슨 요일"이 '요일' 개념으로 가지 않게)
+        if let tool = DoitConversation.toolAnswer(text) {
+            return Reply(text: tool.text, suggestions: tool.suggestions)
+        }
         // 내장 지식 사전에서 비슷한 개념 (이름이 정확히 안 맞아도)
         if let known = DoitKnowledge.answer(text) {
-            return Reply(text: known, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"])
+            return Reply(text: known, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"], origin: .knowledge)
         }
         // 자유 대화
         let talk = DoitConversation.reply(text, previousTopic: conversationTopic)
         if let topic = talk.topic { conversationTopic = topic }
-        return Reply(text: talk.text, suggestions: talk.suggestions)
+        return Reply(text: talk.text, suggestions: talk.suggestions, origin: talk.isTool ? .command : .conversation)
     }
 
     // MARK: 공부 질문 판별

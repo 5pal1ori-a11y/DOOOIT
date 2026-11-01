@@ -7,7 +7,12 @@ enum DoitKnowledge {
         let subject: String
         let names: [String]
         let body: String
+        /// 교육과정 사전에서 온 개념이면 학교급·단원
+        var level: SchoolLevel? = nil
+        var unit: String? = nil
         var title: String { names.first ?? "" }
+        /// 화면에 보여줄 과목 표시 (예: "중학교 수학")
+        var label: String { level.map { "\($0.rawValue) \(subject)" } ?? subject }
     }
 
     struct Match {
@@ -21,6 +26,15 @@ enum DoitKnowledge {
         list += DoitScience.knowledgeEntries.map { Entry(subject: "과학", names: $0.names, body: $0.body) }
         list += DoitSocial.knowledgeEntries.map { Entry(subject: "사회", names: $0.names, body: $0.body) }
         list += DoitEnglish.knowledgeEntries.map { Entry(subject: "영어", names: $0.names, body: $0.body) }
+        // 초등 ~ 대학교 교육과정 사전 (같은 이름이 이미 있으면 앞의 설명을 남기고 건너뜀)
+        var seen = Set(list.map { $0.title.lowercased().filter { !$0.isWhitespace } })
+        for (subject, items) in DoitCurriculum.bySubject {
+            for item in items {
+                let key = (item.names.first ?? "").lowercased().filter { !$0.isWhitespace }
+                guard !key.isEmpty, seen.insert(key).inserted else { continue }
+                list.append(Entry(subject: subject, names: item.names, body: item.body, level: item.level, unit: item.unit))
+            }
+        }
         return list.filter { !$0.names.isEmpty && !$0.body.isEmpty }
     }()
 
@@ -35,7 +49,7 @@ enum DoitKnowledge {
         return t.filter { !$0.isWhitespace && !"?!.,~'\"()".contains($0) }
     }
 
-    private static func bigrams(_ text: String) -> [String: Double] {
+    static func bigrams(_ text: String) -> [String: Double] {
         let chars = Array(text)
         guard chars.count >= 2 else { return chars.isEmpty ? [:] : [String(chars): 1] }
         var result: [String: Double] = [:]
@@ -43,7 +57,7 @@ enum DoitKnowledge {
         return result
     }
 
-    private static func cosine(_ a: [String: Double], _ b: [String: Double]) -> Double {
+    static func cosine(_ a: [String: Double], _ b: [String: Double]) -> Double {
         var dot = 0.0
         for (k, v) in a { if let w = b[k] { dot += v * w } }
         let na = sqrt(a.values.reduce(0) { $0 + $1 * $1 }), nb = sqrt(b.values.reduce(0) { $0 + $1 * $1 })
@@ -84,11 +98,35 @@ enum DoitKnowledge {
     /// 확실한 답이 있으면 보기 좋게 (없으면 nil)
     static func answer(_ query: String) -> String? {
         guard let best = search(query, limit: 3).first, best.score >= 0.45 else { return nil }
-        var text = "**\(best.entry.title)** (\(best.entry.subject))\n\(best.entry.body)"
+        var text = "**\(best.entry.title)** (\(best.entry.label))\n\(best.entry.body)"
         let others = search(query, limit: 4).dropFirst().filter { $0.score >= 0.35 }.map(\.entry.title)
         if !others.isEmpty { text += "\n\n함께 보면 좋아요: " + others.joined(separator: ", ") }
         return text
     }
+
+    /// 교육과정 단원에 들어 있는 개념들 (AI 학습에서 단원을 골랐을 때)
+    /// (검색 사전에서는 이름이 겹쳐 빠진 개념도, 단원 목록에는 모두 들어 있음)
+    /// subject에는 "국어" 같은 과목 이름이나 "초등 국어" 같은 AI 학습 과목 이름을 넣어도 돼요 (학교급이 있으면 그 학교급만)
+    static func entries(inUnit unit: String, subject: String? = nil) -> [Entry] {
+        let key = unit.filter { !$0.isWhitespace }
+        let level = subject.flatMap { name in SchoolLevel.allCases.first { name.hasPrefix($0.rawValue) } }
+        let subjectKey = subject.flatMap { name in DoitCurriculum.bySubject.map(\.subject).first { name.contains($0) } }
+        return (unitIndex[key] ?? []).filter { entry in
+            (subjectKey.map { entry.subject == $0 } ?? true) && (level.map { entry.level == $0 } ?? true)
+        }
+    }
+
+    /// 단원 → 그 단원의 교육과정 개념 전체
+    private static let unitIndex: [String: [Entry]] = {
+        var index: [String: [Entry]] = [:]
+        for (subject, items) in DoitCurriculum.bySubject {
+            for item in items where !item.names.isEmpty && !item.body.isEmpty {
+                index[item.unit.filter { !$0.isWhitespace }, default: []]
+                    .append(Entry(subject: subject, names: item.names, body: item.body, level: item.level, unit: item.unit))
+            }
+        }
+        return index
+    }()
 
     /// 이름이 정확히 같은 개념
     static func entry(named topic: String) -> Entry? {

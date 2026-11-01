@@ -25,7 +25,7 @@ struct DoitAIView: View {
                                     .id(message.id)
                                     .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                             }
-                            if assistant.isResponding {
+                            if assistant.isResponding && !isStreamingText {
                                 TypingIndicator(status: assistant.status).id("typing")
                             }
                         }
@@ -42,6 +42,10 @@ struct DoitAIView: View {
                     .onChange(of: assistant.isResponding) { _, responding in
                         if responding { withAnimation { proxy.scrollTo("typing", anchor: .bottom) } }
                     }
+                    // 두뇌가 쓰는 글이 길어지면 따라 내려감
+                    .onChange(of: assistant.messages.last?.text.count ?? 0) {
+                        if assistant.messages.last?.isStreaming == true { proxy.scrollTo(assistant.messages.last?.id, anchor: .bottom) }
+                    }
                 }
                 inputBar
             }
@@ -49,6 +53,14 @@ struct DoitAIView: View {
             .navigationTitle("두잇 AI")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    NavigationLink {
+                        BrainSettingsView()
+                    } label: {
+                        Image(systemName: "brain.head.profile")
+                    }
+                    .accessibilityLabel("두잇 AI 두뇌")
+                }
                 if !assistant.messages.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button { withAnimation { assistant.reset() } } label: {
@@ -80,6 +92,8 @@ struct DoitAIView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
+            BrainBanner()
+                .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
@@ -132,11 +146,27 @@ struct DoitAIView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 12))
                         }
-                        Text(Self.markdown(MathSymbolBar.pretty(message.text)))
-                            .font(.body)
-                            .lineSpacing(3)
-                            .foregroundStyle(Palette.ink)
-                            .textSelection(.enabled)
+                        if message.isStreaming && message.text.isEmpty {
+                            Text(assistant.status.isEmpty ? "생각하는 중…" : assistant.status)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text(Self.markdown(MathSymbolBar.pretty(message.text)))
+                                .font(.body)
+                                .lineSpacing(3)
+                                .foregroundStyle(Palette.ink)
+                                .textSelection(.enabled)
+                                .contentTransition(.opacity)
+                        }
+                        if !message.sources.isEmpty && !message.isStreaming {
+                            Label(message.sources.joined(separator: " · "), systemImage: "books.vertical")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                        }
+                        if message.learnTopic != nil && !message.isStreaming {
+                            feedbackButtons(message)
+                        }
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -155,6 +185,35 @@ struct DoitAIView: View {
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
         }
+    }
+
+    /// 👍 / 👎 (두뇌가 만든 답에만)
+    private func feedbackButtons(_ message: DoitAssistant.Message) -> some View {
+        HStack(spacing: 14) {
+            if message.rating == 0 {
+                Button { Haptics.tap(); assistant.rate(message.id, good: true) } label: {
+                    Image(systemName: "hand.thumbsup")
+                }
+                .accessibilityLabel("좋은 답이에요")
+                Button { Haptics.tap(); assistant.rate(message.id, good: false) } label: {
+                    Image(systemName: "hand.thumbsdown")
+                }
+                .accessibilityLabel("별로예요")
+            } else {
+                Label(message.rating > 0 ? "기억해 둘게요" : "다음엔 더 잘 찾아볼게요",
+                      systemImage: message.rating > 0 ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .buttonStyle(.plain)
+        .animation(.snappy, value: message.rating)
+    }
+
+    private var isStreamingText: Bool {
+        guard let last = assistant.messages.last else { return false }
+        return last.isStreaming
     }
 
     private func suggestionChips(_ suggestions: [String]) -> some View {

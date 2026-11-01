@@ -93,6 +93,18 @@ struct AccountView: View {
                     Text("공부 카테고리 일정이 다가오면 다이나믹 아일랜드에 남은 시간을 보여주고, 시작 시간이 되면 타이머를 자동으로 실행해요.")
                 }
 
+                Section {
+                    NavigationLink {
+                        BrainSettingsView()
+                    } label: {
+                        Label("두잇 AI 두뇌", systemImage: "brain.head.profile")
+                    }
+                } header: {
+                    Text("두잇 AI")
+                } footer: {
+                    Text("폰 안에서 도는 AI를 내려받고, 두잇 AI가 배운 내용을 관리해요.")
+                }
+
                 Section("플래너 · 통계") {
                     NavigationLink {
                         CategoryManagerView()

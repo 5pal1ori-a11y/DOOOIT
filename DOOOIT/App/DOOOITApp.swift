@@ -26,6 +26,8 @@ struct DOOOITApp: App {
         studyTimer.attach(context: context)
         PlanScheduler.shared.start(context: context, timer: studyTimer)
         DoitActions.shared.context = context
+        // 두잇 AI가 배운 내용도 계정마다 따로 (로그인 전에는 저장하지 않음)
+        DoitMemory.shared.attach(folder: auth.currentUser.map { AccountStore.folder(for: $0.id) })
         WidgetSync.update(context: context)
     }
 

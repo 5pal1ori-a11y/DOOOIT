@@ -1,7 +1,8 @@
 import UIKit
 
-/// 두잇 AI 선생님: 직접 만든 수학·영어·과학·사회 엔진과 지식 사전으로 학습 자료를 만듦 (외부 AI 없음)
-/// 인터넷은 쓰지 않아요 (영어 단어 사전만 예외)
+/// 두잇 AI 선생님: 학습 자료(개념 정리·빈칸·O/X·객관식)를 만듦
+/// - 두뇌(기기 안 언어 모델)를 받아 두었으면: 교육과정 지식 + 배운 기억 + 인터넷 자료를 근거로 새로 만듦 (DoitMind)
+/// - 두뇌가 없거나 만든 결과가 형식 검사를 통과하지 못하면: 직접 만든 엔진과 지식 사전으로 만듦
 enum DoitTutor {
     enum TutorError: LocalizedError {
         case cannotSolve(String)
@@ -17,8 +18,9 @@ enum DoitTutor {
     // MARK: - 1. 개념 정리
 
     static func concept(subject: String, unit: String, booster: Bool) async throws -> ConceptNote {
+        if let made = await DoitMind.makeConcept(subject: subject, unit: unit, booster: booster) { return made }
         // 수학은 직접 정리한 교과서 핵심 + 예제
-        if isMath(subject: subject, unit: unit), let math = DoitMathConcepts.note(for: unit) {
+        if isMath(subject: subject, unit: unit), DoitKnowledge.entries(inUnit: unit).count < 2, let math = DoitMathConcepts.note(for: unit) {
             var example = ""
             if let problem = MathProblems.make(unit: unit, hard: false) {
                 example = "예제: \(problem.question)\n풀이: \(problem.steps.joined(separator: " → "))\n답: \(problem.finalAnswer)"
@@ -46,13 +48,16 @@ enum DoitTutor {
 
     /// 단원 이름으로 지식 사전에서 찾은 관련 개념들 (가장 가까운 것부터)
     private static func knowledgeSet(subject: String, unit: String) -> [DoitKnowledge.Entry] {
-        let subjectKey = ["수학", "과학", "사회", "영어"].first { subject.contains($0) } ?? (subject.contains("역사") || subject.contains("한국사") ? "사회" : nil)
+        let subjectKey = ["수학", "과학", "사회", "영어", "국어"].first { subject.contains($0) } ?? (subject.contains("역사") || subject.contains("한국사") ? "사회" : nil)
+        // 교육과정 단원 이름 그대로면 그 단원의 개념 전체 (같은 단원 이름이 여러 학교급에 있으면 고른 학교급만)
+        let inUnit = DoitKnowledge.entries(inUnit: unit, subject: subject)
+        if inUnit.count >= 2 { return inUnit.shuffled() }
         var matches = DoitKnowledge.search(unit, limit: 10).filter { $0.score >= 0.3 }
         if let subjectKey {
             let same = matches.filter { $0.entry.subject == subjectKey }
             if !same.isEmpty { matches = same }
         }
-        return matches.map(\.entry)
+        return inUnit + matches.map(\.entry).filter { m in !inUnit.contains { $0.title == m.title } }
     }
 
     /// 영어·과학·사회 엔진에 들어 있는 설명으로 개념 정리 만들기
@@ -114,6 +119,7 @@ enum DoitTutor {
         let builtIn = builtInPoints(subject: subject, unit: unit)
         // 수학은 공식으로 직접 만든 빈칸이 충분하면 그것부터
         if isMath(subject: subject, unit: unit), let set = clozeFromPoints(builtIn, count: count), set.items.count >= min(3, count) { return set }
+        if let made = await DoitMind.makeCloze(subject: subject, unit: unit, count: count) { return made }
         // 관련 개념들의 설명에서 개념 이름을 가린 빈칸
         var items = termCloze(knowledgeSet(subject: subject, unit: unit), count: count)
         if items.count < count, let more = clozeFromPoints(builtIn, count: count - items.count) { items += more.items }
@@ -157,6 +163,7 @@ enum DoitTutor {
     // MARK: - 3. O/X
 
     static func ox(subject: String, unit: String, count: Int) async throws -> OXSet {
+        if let made = await DoitMind.makeOX(subject: subject, unit: unit, count: count) { return made }
         let builtIn = builtInPoints(subject: subject, unit: unit)
         if isMath(subject: subject, unit: unit), let set = oxFromPoints(builtIn, count: count), set.items.count >= min(3, count) { return set }
         // 관련 개념: 맞는 설명 / 다른 개념 이름으로 바꾼 틀린 설명
@@ -214,11 +221,13 @@ enum DoitTutor {
     // MARK: - 4. 객관식 문제
 
     static func problems(subject: String, unit: String, count: Int, hard: Bool) async throws -> ProblemSet {
-        // 수학 계산 단원은 직접 만든 계산 문제 (정답이 항상 맞음)
-        if isMath(subject: subject, unit: unit) {
+        // 수학 계산 단원은 직접 만든 계산 문제 (정답이 항상 맞음). 문제 생성기가 없는 단원은 개념 문제로
+        if isMath(subject: subject, unit: unit), MathProblems.topic(for: unit) != nil {
             let made = (0..<count).compactMap { _ in MathProblems.make(unit: unit, hard: hard) }
             if made.count >= max(1, count - 1) { return ProblemSet(items: made) }
         }
+        // 두뇌가 새로 만든 문제
+        if let made = await DoitMind.makeProblems(subject: subject, unit: unit, count: count, hard: hard) { return made }
         // 관련 개념으로 "알맞은 용어 고르기" 문제
         let entries = knowledgeSet(subject: subject, unit: unit)
         var items: [Problem] = []
@@ -277,7 +286,13 @@ enum DoitTutor {
             return lines.joined(separator: "\n")
         }
         // 앱 안 지식: 영어 → 과학 → 사회
-        if let known = DoitEnglish.answer(text) ?? DoitScience.answer(text) ?? DoitSocial.answer(text) { return known }
+        let builtIn = DoitEnglish.answer(text) ?? DoitScience.answer(text) ?? DoitSocial.answer(text)
+        // 두뇌가 있으면 근거(앱 지식·기억·인터넷)를 읽고 자기 말로 설명 (숫자 계산 질문은 엔진 답 그대로)
+        if !text.contains(where: \.isNumber) || builtIn == nil,
+           let thought = await DoitMind.reply(question: text, draft: builtIn ?? DoitKnowledge.answer(text)) {
+            return thought.text + (thought.sources.isEmpty ? "" : "\n\n출처: " + thought.sources.joined(separator: ", "))
+        }
+        if let known = builtIn { return known }
         if text.contains("뜻"), let word = DoitEnglish.lookupWord(in: text), let entry = await DoitEnglish.define(word) {
             return (DoitEnglish.koreanMeaning(of: word).map { "**\(word)**: \($0)\n\n" } ?? "") + entry
         }
@@ -320,7 +335,7 @@ enum DoitTutor {
 
     /// 앱 안에 정리된 핵심 문장 (수학 개념 정리 또는 영어·과학·사회 노트)
     private static func builtInPoints(subject: String, unit: String) -> [String] {
-        if isMath(subject: subject, unit: unit), let math = DoitMathConcepts.note(for: unit) { return math.points }
+        if isMath(subject: subject, unit: unit), DoitKnowledge.entries(inUnit: unit).count < 2, let math = DoitMathConcepts.note(for: unit) { return math.points }
         return builtInNote(subject: subject, unit: unit, booster: false, force: true)?.keyPoints
             .map { $0.replacingOccurrences(of: #"^\[[^\]]*\]\s*"#, with: "", options: .regularExpression) } ?? []
     }

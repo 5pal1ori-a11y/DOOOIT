@@ -31,7 +31,7 @@ enum DoitChat {
         let t = squash(text)
 
         // 0) 위기 신호는 가장 먼저, 진지하게
-        if has(t, ["죽고싶", "자살", "자해", "죽어버리", "살기싫", "사라지고싶", "목숨", "극단적선택"]) { return crisis() }
+        if isCrisis(raw) { return crisis() }
 
         if let special = specialCases(text, t, context) { return special }
         for rule in rules where rule.matches(t, text) {
@@ -46,11 +46,13 @@ enum DoitChat {
         var words: [String]
         var maxLength: Int = 60
         var exclude: [String] = []
+        /// 이 말로 시작할 때만 (예: "이름이 뭐야" — "사장님 이름이 뭐야"는 아님)
+        var prefixes: [String] = []
         var make: (String, String, Context) -> Answer
 
         func matches(_ t: String, _ original: String) -> Bool {
             guard t.count <= maxLength, !exclude.contains(where: { t.contains($0) }) else { return false }
-            return words.contains { t.contains($0) }
+            return words.contains { t.contains($0) } || prefixes.contains { t.hasPrefix($0) }
         }
     }
 
@@ -82,8 +84,8 @@ enum DoitChat {
             Answer(text: pick(["저도 당신과 공부하는 시간이 좋아요! 오늘도 같이 힘내요.", "고마워요 😊 그 마음으로 오늘 목표까지 같이 가봐요!"]))
         },
         // 두잇 AI 자신
-        Rule(words: ["너누구", "넌누구", "너는누구", "이름이뭐", "이름뭐", "넌뭐야", "너뭐야", "자기소개", "누가만들", "누가만든", "whoareyou"], maxLength: 24,
-             exclude: ["내이름", "제이름", "나이름"]) { _, _, _ in
+        Rule(words: ["너누구", "넌누구", "너는누구", "너이름", "니이름", "네이름", "너의이름", "당신이름", "넌이름", "너는이름", "넌뭐야", "너뭐야", "자기소개", "너누가만", "넌누가만", "두잇누가만", "whoareyou"], maxLength: 24,
+             exclude: ["내이름", "제이름", "나이름"], prefixes: ["이름이뭐", "이름뭐", "누가만들었", "누가만든", "누가널", "누가너"]) { _, _, _ in
             Answer(text: "저는 **두잇 AI**예요. DOOOIT 안에서 일정·타이머·단어·메모를 관리하고, 수학 풀이와 영어·과학·사회 개념 설명, 퀴즈를 도와드려요.\n외부 AI 없이 앱 안에서 직접 만든 엔진으로 대화하고, 사진 속 문제·그래프·도형도 읽어요. 대화는 휴대폰 밖으로 나가지 않아요.",
                    suggestions: ["뭐 할 수 있어?", "퀴즈 내줘"])
         },
@@ -462,6 +464,12 @@ enum DoitChat {
         let ratio = c.goalMinutes > 0 ? Double(c.todayMinutes) / Double(c.goalMinutes) : 0
         let comment = ratio >= 1 ? "오늘 목표를 달성했어요! 정말 대단해요 🎉" : ratio >= 0.5 ? "목표의 절반을 넘었어요. 이 페이스 좋아요!" : "시작이 반이에요. 조금만 더 가봐요!"
         return Answer(text: "오늘 \(duration(c.todayMinutes)) 공부했어요. \(comment)", suggestions: ["오늘 공부 통계"])
+    }
+
+    /// 위기 신호 (이 답은 두뇌가 바꾸지 않고 상담 번호를 그대로 알려줌)
+    static func isCrisis(_ text: String) -> Bool {
+        let t = squash(text)
+        return ["죽고싶", "자살", "자해", "죽어버리", "살기싫", "사라지고싶", "목숨", "극단적선택"].contains { t.contains($0) }
     }
 
     private static func crisis() -> Answer {
