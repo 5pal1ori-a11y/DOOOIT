@@ -12,7 +12,8 @@ struct OCRLine {
 }
 
 enum OCRService {
-    static func recognize(_ image: UIImage, languageCorrection: Bool = true) async throws -> [OCRLine] {
+    static func recognize(_ image: UIImage, languageCorrection: Bool = true,
+                          languages: [String] = ["ko-KR", "en-US"]) async throws -> [OCRLine] {
         let prepared = image.preparedForOCR()
         guard let cgImage = prepared.cgImage else { return [] }
 
@@ -21,7 +22,7 @@ enum OCRService {
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .accurate
                 request.usesLanguageCorrection = languageCorrection
-                request.recognitionLanguages = ["ko-KR", "en-US"]
+                request.recognitionLanguages = languages
 
                 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
                 do {
@@ -40,7 +41,7 @@ enum OCRService {
     }
 
     /// 같은 사진을 세 가지 방법으로 읽은 결과 (AI가 비교해서 문장을 복원할 때 사용)
-    /// 1) 기본  2) 철자 자동교정 끔(수식·기호 보존)  3) 흑백·고대비·확대
+    /// 1) 기본  2) 철자 자동교정 끔(수식·기호 보존)  3) 흑백·고대비·확대  4) 영어 전용(수식의 x, a, b, y)
     static func multiPassRead(_ image: UIImage) async -> [String] {
         var results: [String] = []
         if let lines = try? await recognize(image) {
@@ -51,6 +52,10 @@ enum OCRService {
         }
         if let enhanced = enhancedForText(image), let lines = try? await recognize(enhanced, languageCorrection: false) {
             results.append(printedText(from: lines))
+        }
+        if let lines = try? await recognize(image, languageCorrection: false, languages: ["en-US"]) {
+            let text = plainText(from: lines.filter { $0.confidence >= 0.3 })
+            if !text.isEmpty { results.append("[영어 전용 읽기 · 수식 참고용]\n" + text) }
         }
         return results.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
