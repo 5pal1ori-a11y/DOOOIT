@@ -202,7 +202,7 @@ struct TimerView: View {
                     .font(.title2)
                     .foregroundStyle(Theme.accent)
                 Text(studyTimer.title)
-                    .font(.title2.weight(.heavy))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .multilineTextAlignment(.center)
             }
@@ -296,7 +296,7 @@ struct TimerView: View {
                 .symbolEffect(.bounce, value: seconds)
             VStack(spacing: 6) {
                 Text(seconds >= 10 ? "수고했어요!" : "기록이 너무 짧아요")
-                    .font(.title.weight(.heavy))
+                    .font(.title.weight(.bold))
                     .foregroundStyle(Palette.ink)
                 Text(seconds >= 10 ? "\(TimeText.clock(TimeInterval(seconds))) 공부를 기록했어요." : "10초 이상 공부해야 기록돼요.")
                     .foregroundStyle(.secondary)

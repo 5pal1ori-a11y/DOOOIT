@@ -14,7 +14,7 @@ struct FlowHeader: View {
     var body: some View {
         HStack(spacing: 10) {
             Text("\(number)")
-                .font(.caption.weight(.heavy))
+                .font(.caption.weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: 24, height: 24)
                 .background(AccentGradient.linear, in: .circle)
@@ -367,7 +367,7 @@ struct MistakeAnalysisCard: View {
                            trailingColor: analysis.certainty == .confirmed ? Palette.success : (analysis.certainty == .estimated ? Palette.warning : .secondary))
                 HStack(spacing: 8) {
                     Text(analysis.cause.rawValue)
-                        .font(.title3.weight(.heavy))
+                        .font(.title3.weight(.bold))
                         .foregroundStyle(analysis.cause == .unknown ? .secondary : Palette.danger)
                     if analysis.certainty == .estimated { Text("(추정)").font(.caption).foregroundStyle(.secondary) }
                 }

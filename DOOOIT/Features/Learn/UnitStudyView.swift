@@ -134,7 +134,7 @@ struct UnitStudyView: View {
                     } label: {
                         HStack(spacing: 4) {
                             if doneSteps.contains(item.rawValue) {
-                                Image(systemName: "checkmark").font(.caption2.weight(.heavy))
+                                Image(systemName: "checkmark").font(.caption2.weight(.bold))
                                     .transition(.scale.combined(with: .opacity))
                             }
                             Text(item.longTitle)
@@ -221,7 +221,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                         .foregroundStyle(.white)
                         .frame(width: 72, height: 72)
                         .background(AccentGradient.linear, in: .circle)
-                        .shadow(color: Theme.accent.opacity(0.35), radius: 14, y: 6)
+                        .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
                         .symbolEffect(.pulse, options: .repeating)
                     Text("두잇 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -368,7 +368,7 @@ struct ConceptStepView: View {
                     ForEach(Array(note.keyPoints.enumerated()), id: \.offset) { index, point in
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(index + 1)")
-                                .font(.caption.weight(.heavy))
+                                .font(.caption.weight(.bold))
                                 .foregroundStyle(.white)
                                 .frame(width: 24, height: 24)
                                 .background(AccentGradient.linear, in: .circle)
@@ -821,7 +821,7 @@ struct ResultSummaryCard: View {
             ZStack {
                 ProgressRing(progress: shown, lineWidth: 9, color: ratio >= 0.7 ? Palette.success : Theme.accent)
                 VStack(spacing: 0) {
-                    AnimatedNumberText(value: Int((shown * 100).rounded()), suffix: "%", font: .headline.weight(.heavy))
+                    AnimatedNumberText(value: Int((shown * 100).rounded()), suffix: "%", font: .headline.weight(.bold))
                 }
             }
             .frame(width: 76, height: 76)

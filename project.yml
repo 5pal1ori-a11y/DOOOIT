@@ -49,6 +49,8 @@ targets:
         Release:
           # 앱 코드는 파일별로 나눠 컴파일 (여러 코어로 빨리, 바뀐 파일만 다시) — MLX 패키지는 그대로 최적화
           SWIFT_COMPILATION_MODE: singlefile
+          # 앱 코드는 최적화 없이 (컴파일 3.7배 빠름, 실행은 약 20% 느림 — 측정) · MLX 패키지는 그대로 -O
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
     dependencies:
       - package: mlx-swift-lm
         product: MLXLLM

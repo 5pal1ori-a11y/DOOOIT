@@ -58,7 +58,7 @@ struct CramListView: View {
         return HStack(spacing: 16) {
             VStack(spacing: 0) {
                 Text(exam.dDay > 0 ? "D-\(exam.dDay)" : (exam.dDay == 0 ? "D-DAY" : "끝"))
-                    .font(.title3.weight(.black))
+                    .font(.title3.weight(.bold))
                     .foregroundStyle(exam.dDay <= 3 ? Palette.danger : Theme.accent)
                 Text(exam.examDate.kr("M.d")).font(.caption2).foregroundStyle(.secondary)
             }
@@ -126,7 +126,7 @@ struct CramDetailView: View {
                     .scrollIndicators(.hidden)
                 }
 
-                Text("학습 범위").font(.title3.weight(.heavy))
+                Text("학습 범위").font(.title3.weight(.bold))
                 ForEach(chapters, id: \.self) { chapter in
                     VStack(alignment: .leading, spacing: 10) {
                         Text(chapter).font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
@@ -157,7 +157,7 @@ struct CramDetailView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(exam.name).font(.title2.weight(.heavy))
+                Text(exam.name).font(.title2.weight(.bold))
                 Text("\(exam.examDate.kr("M월 d일 (E)")) 시험").font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
@@ -204,7 +204,7 @@ struct CramDetailView: View {
                         let done = unit.done.contains(step.rawValue)
                         Button { openUnit = OpenUnit(unitID: unit.id, step: step) } label: {
                             HStack(spacing: 4) {
-                                if done { Image(systemName: "checkmark").font(.caption2.weight(.heavy)) }
+                                if done { Image(systemName: "checkmark").font(.caption2.weight(.bold)) }
                                 Text(step.title)
                             }
                             .font(.subheadline.weight(.semibold))

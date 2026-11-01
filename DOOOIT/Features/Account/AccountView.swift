@@ -171,56 +171,45 @@ struct AccountView: View {
 
     // MARK: Profile
 
+    /// 프로필 카드 (흰 카드 · 동그란 이니셜 · 이름 · 로그인 방식)
     private var profileHeader: some View {
         let user = auth.currentUser
         return HStack(spacing: 16) {
             Text(String(user?.name.prefix(1) ?? "D"))
-                .font(.system(size: 30, weight: .heavy))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 68, height: 68)
-                .background(Color.white, in: .circle)
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: 3).padding(-4))
+                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+                .frame(width: 60, height: 60)
+                .background(Theme.accent, in: .circle)
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(user?.name ?? "")
-                        .font(.title2.weight(.heavy))
-                        .foregroundStyle(.white)
-                    Button {
-                        nameDraft = user?.name ?? ""
-                        showNameEdit = true
-                    } label: {
-                        Image(systemName: "pencil.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(.white.opacity(0.8))
-                    }
-                    .buttonStyle(.plain)
-                }
+                Text(user?.name ?? "")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Palette.ink)
                 if let email = user?.email, !email.isEmpty {
                     Text(email)
                         .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 if let provider = user?.provider {
-                    TagLabel(text: provider.title, symbol: provider.symbol, color: .white)
+                    TagLabel(text: provider.title, symbol: provider.symbol, color: .secondary)
                 }
             }
             Spacer(minLength: 0)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack(alignment: .topTrailing) {
-                AccentGradient.linear
-                Circle()
-                    .fill(Color.white.opacity(0.12))
-                    .frame(width: 150, height: 150)
-                    .offset(x: 50, y: -60)
+            Button {
+                nameDraft = user?.name ?? ""
+                showNameEdit = true
+            } label: {
+                Text("편집")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Color.primary.opacity(0.06), in: .capsule)
             }
-            .clipShape(.rect(cornerRadius: 26))
+            .buttonStyle(.plain)
+            .foregroundStyle(Palette.ink)
         }
-        .shadow(color: Theme.accent.opacity(0.28), radius: 14, y: 8)
-        .padding(.bottom, 6)
+        .softCard(cornerRadius: 22, padding: 18)
     }
 
     private var statsRow: some View {
@@ -240,7 +229,7 @@ struct AccountView: View {
         VStack(spacing: 4) {
             Text(value)
                 .font(.headline.monospacedDigit())
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(Palette.ink)
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

@@ -242,3 +242,129 @@ struct ThemePicker: View {
         .onChange(of: themeRaw) { Haptics.tap() }
     }
 }
+
+// MARK: - 화면 공통 부품 (토스·애플 건강 앱처럼: 흰 카드, 큰 숫자, 목록 줄, 한 가지 강조색)
+
+/// 구역 제목 + 오른쪽 작은 버튼 ("오늘의 플랜 · 전체 보기")
+struct SectionTitle<Trailing: View>: View {
+    let title: String
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Palette.ink)
+            Spacer(minLength: 8)
+            trailing
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
+extension SectionTitle where Trailing == EmptyView {
+    init(_ title: String) {
+        self.init(title: title) { EmptyView() }
+    }
+}
+
+/// 목록 한 줄: 아이콘 · 제목 · 설명 · 오른쪽 값 · 꺾쇠
+struct RowLabel: View {
+    let symbol: String
+    var color: Color = Theme.accent
+    let title: String
+    var subtitle: String? = nil
+    var value: String? = nil
+    var chevron = true
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 40, height: 40)
+                .background(color.opacity(0.12), in: .rect(cornerRadius: 12))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
+                if let subtitle {
+                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                }
+            }
+            Spacer(minLength: 8)
+            if let value {
+                Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+            }
+            if chevron {
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+}
+
+/// 카드 안 줄 사이 구분선 (아이콘 너비만큼 들여씀)
+struct RowDivider: View {
+    var body: some View { Divider().padding(.leading, 70) }
+}
+
+/// 큰 숫자 + 작은 설명 (요약 카드 아래 칸)
+struct StatColumn: View {
+    let value: String
+    let label: String
+    var color: Color = Palette.ink
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(color)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// 가로 진행 막대 (둥근 끝)
+struct LinearProgressBar: View {
+    let value: Double
+    var color: Color = Theme.accent
+    var height: CGFloat = 8
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(color.opacity(0.14))
+                Capsule().fill(color).frame(width: max(height, geo.size.width * min(max(value, 0), 1)))
+            }
+        }
+        .frame(height: height)
+        .animation(.smooth, value: value)
+    }
+}
+
+/// 꽉 찬 강조 버튼 (화면에서 가장 중요한 동작 하나)
+struct PrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.bold))
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Theme.accent, in: .rect(cornerRadius: 16))
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PrimaryButtonStyle {
+    static var primaryFill: PrimaryButtonStyle { PrimaryButtonStyle() }
+}

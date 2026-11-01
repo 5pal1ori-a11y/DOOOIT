@@ -101,7 +101,7 @@ struct PlannerView: View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(spacing: 10) {
                 Text(month.kr("yyyy년 M월"))
-                    .font(.title2.weight(.heavy))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .contentTransition(.numericText())
                 Spacer()
@@ -168,7 +168,7 @@ struct PlannerView: View {
         let occurrences = plans.occurrences(on: selected)
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(selected.kr("M월 d일 EEEE")).font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
+                Text(selected.kr("M월 d일 EEEE")).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
                 if selected.isSameDay(as: Date()) { TagLabel(text: "오늘") }
                 Spacer()
                 Button("타임라인으로 보기") {
@@ -228,7 +228,7 @@ struct PlannerView: View {
                     .accessibilityLabel("다음 주")
             }
             Text(router.selectedDate.kr("M월 d일 EEEE"))
-                .font(.title3.weight(.heavy))
+                .font(.title3.weight(.bold))
                 .foregroundStyle(Palette.ink)
             DayTimelineView(day: router.selectedDate, plans: plans) { plan in
                 editorTarget = .edit(plan)

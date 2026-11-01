@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 공부 탭: 큰 그라데이션 영역(영어 단어) → 목록형(오답노트·메모·통계) → 최근 항목
+/// 공부 탭: 영어 단어 요약 카드 → 공부 도구 목록 → AI 학습
 struct StudyView: View {
     @Query(sort: \Word.createdAt) private var words: [Word]
     @Query(sort: \Memo.updatedAt, order: .reverse) private var memos: [Memo]
@@ -15,8 +15,8 @@ struct StudyView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     wordsHero
                         .appearAnimation()
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("공부 도구").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
+                    VStack(alignment: .leading, spacing: 10) {
+                        SectionTitle("공부 도구")
                         toolList
                     }
                     .appearAnimation(delay: 0.08)
@@ -32,6 +32,7 @@ struct StudyView: View {
         }
     }
 
+    /// 영어 단어 요약 카드: 제목 → 오늘 진행 막대 → 세 칸 숫자
     private var wordsHero: some View {
         let unlearned = words.filter { !$0.isLearned }.count
         let done = wordGoalDoneKey == Date().dayKey
@@ -39,94 +40,51 @@ struct StudyView: View {
         let wrong = words.filter { $0.wrongCount > 0 }.count
 
         return NavigationLink { WordHomeView() } label: {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack(spacing: 12) {
                     Image(systemName: "character.book.closed.fill")
-                        .font(.title3)
-                        .frame(width: 46, height: 46)
-                        .background(.white.opacity(0.18), in: .circle)
-                        .symbolEffect(.bounce, value: done)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 44, height: 44)
+                        .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 13))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("영어 단어").font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
+                        Text("단어장을 찍으면 암기 노트가 돼요").font(.subheadline).foregroundStyle(.secondary)
+                    }
                     Spacer()
                     if done {
-                        Label("오늘 목표 성공", systemImage: "checkmark")
-                            .font(.caption.weight(.bold))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.white.opacity(0.2), in: .capsule)
+                        TagLabel(text: "오늘 목표 성공", symbol: "checkmark", color: Palette.success)
+                    } else {
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                     }
                 }
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("영어 단어").font(.title.weight(.heavy))
-                    Text("단어장을 촬영하면 자동으로 암기노트를 만들어요.")
-                        .font(.subheadline)
-                        .opacity(0.85)
-                }
+                LinearProgressBar(value: Double(max(0, wordGoal - remaining)) / Double(max(wordGoal, 1)), color: done ? Palette.success : Theme.accent)
                 HStack(spacing: 0) {
-                    heroStat("\(remaining)", "오늘 외울 단어")
-                    heroStat("\(words.count - unlearned)", "외운 단어")
-                    heroStat("\(wrong)", "틀린 단어")
-                }
-                .padding(.top, 14)
-                .overlay(alignment: .top) { Rectangle().fill(.white.opacity(0.22)).frame(height: 1) }
-            }
-            .foregroundStyle(.white)
-            .padding(22)
-            .background {
-                ZStack(alignment: .topTrailing) {
-                    LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                    RadialGradient(colors: [Color.white.opacity(0.28), .clear], center: .topTrailing, startRadius: 0, endRadius: 240)
-                    Circle()
-                        .fill(Color.white.opacity(0.1))
-                        .frame(width: 160, height: 160)
-                        .offset(x: 50, y: -60)
+                    StatColumn(value: "\(remaining)", label: "오늘 외울 단어")
+                    StatColumn(value: "\(words.count - unlearned)", label: "외운 단어")
+                    StatColumn(value: "\(wrong)", label: "틀린 단어", color: wrong > 0 ? Palette.danger : Palette.ink)
                 }
             }
-            .clipShape(.rect(cornerRadius: 28))
-            .shadow(color: Theme.accent.opacity(0.32), radius: 18, y: 10)
+            .softCard(cornerRadius: 24, padding: 20)
         }
         .buttonStyle(.pressable)
-    }
-
-    private func heroStat(_ value: String, _ label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.title2.weight(.black)).monospacedDigit()
-                .contentTransition(.numericText())
-            Text(label).font(.caption2).opacity(0.8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var toolList: some View {
-        return VStack(spacing: 0) {
+        VStack(spacing: 0) {
             NavigationLink { MathNoteListView() } label: {
-                listRow(symbol: "function", color: Palette.success, title: "오답노트", subtitle: "AI의 피드백을 받아 오답을 정리하세요.")
+                RowLabel(symbol: "function", color: Palette.success, title: "오답노트", subtitle: "찍으면 채점·원인 분석·유사 문제까지")
             }
-            Divider().padding(.leading, 68)
+            RowDivider()
             NavigationLink { MemoListView() } label: {
-                listRow(symbol: "note.text", color: Palette.warning, title: "메모장", subtitle: "\(memos.count)개의 메모")
+                RowLabel(symbol: "note.text", color: Palette.warning, title: "메모장", value: "\(memos.count)")
             }
-            Divider().padding(.leading, 68)
+            RowDivider()
             NavigationLink { StatsView() } label: {
-                listRow(symbol: "chart.pie.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
+                RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
             }
         }
         .buttonStyle(.pressable)
-        .softCardBackground(cornerRadius: 22)
+        .softCardBackground(cornerRadius: 20)
     }
-
-    private func listRow(symbol: String, color: Color, title: String, subtitle: String) -> some View {
-        HStack(spacing: 14) {
-            IconBadge(symbol: symbol, color: color, size: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.headline).foregroundStyle(Palette.ink)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-    }
-
 }

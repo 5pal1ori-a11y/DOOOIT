@@ -217,7 +217,7 @@ struct CurriculumView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("무엇을 공부할까요?").font(.title2.weight(.heavy)).foregroundStyle(Palette.ink)
+                    Text("무엇을 공부할까요?").font(.title2.weight(.bold)).foregroundStyle(Palette.ink)
                     Text("단원을 고르거나 직접 적으면 AI가 개념 → 빈칸 → O/X → 문제 순서로 자료를 만들어요.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)

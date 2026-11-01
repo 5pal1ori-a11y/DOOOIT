@@ -213,7 +213,7 @@ struct StatsView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("언제 집중했나요").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
+                Text("언제 집중했나요").font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
                 Spacer()
                 Text("가장 많이 공부한 시간 \(best)시")
                     .font(.caption)

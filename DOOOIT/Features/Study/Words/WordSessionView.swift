@@ -423,7 +423,7 @@ struct WordSessionView: View {
 
             VStack(spacing: 8) {
                 Text(kind == .daily ? "오늘의 단어목표 성공!" : (kind == .review ? "복습 완료!" : "학습 완료!"))
-                    .font(.title.weight(.heavy))
+                    .font(.title.weight(.bold))
                 Text("\(words.count)개 단어를 모두 통과했어요 · 오답 \(totalWrong)회")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

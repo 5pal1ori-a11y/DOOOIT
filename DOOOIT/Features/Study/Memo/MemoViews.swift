@@ -111,7 +111,7 @@ struct MemoEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TextField("제목", text: $memo.title)
-                .font(.title2.weight(.heavy))
+                .font(.title2.weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .focused($focus, equals: .title)
                 .submitLabel(.next)

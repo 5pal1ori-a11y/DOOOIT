@@ -195,7 +195,7 @@ struct MathNoteEditorView: View {
         }
         .frame(width: width, height: height)
         .clipShape(.rect(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.15), radius: 14, y: 8)
+        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
     }
 
     private func annotationView(_ annotation: TextAnnotation) -> some View {

@@ -83,7 +83,7 @@ struct DoitAIView: View {
             AIOrb(size: 96)
             VStack(spacing: 8) {
                 Text("무엇을 도와드릴까요?")
-                    .font(.title2.weight(.heavy))
+                    .font(.title2.weight(.bold))
                     .foregroundStyle(Palette.ink)
                 Text("두잇 AI로 공부 계획부터 문제 풀이까지 편하게 물어보세요.")
                     .font(.subheadline)
@@ -118,11 +118,7 @@ struct DoitAIView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 10)
-                        .background(
-                            LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.78)], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20)
-                        )
-                        .shadow(color: Theme.accent.opacity(0.25), radius: 8, y: 4)
+                        .background(Theme.accent, in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -169,7 +165,9 @@ struct DoitAIView: View {
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.white, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20))
-                    .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                    .overlay(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20)
+                        .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
+                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                 }
                 .padding(.trailing, 18)
                 if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
@@ -303,7 +301,7 @@ struct DoitAIView: View {
 
                     Button { submit() } label: {
                         Image(systemName: "arrow.up")
-                            .font(.subheadline.weight(.heavy))
+                            .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white)
                             .frame(width: 32, height: 32)
                             .background(canSend ? Theme.accent : Color.secondary.opacity(0.35), in: .circle)

@@ -6,51 +6,45 @@ struct LearnHubSection: View {
     @State private var sparkle = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("AI 학습").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
+        VStack(alignment: .leading, spacing: 10) {
+            SectionTitle("AI 학습")
 
-            // 큰 카드: 단원별 AI 학습
+            // 단원별 AI 학습 (가장 많이 쓰는 기능은 위에 큰 줄로)
             NavigationLink { CurriculumView() } label: {
-                HStack(alignment: .center, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label("AI 학습", systemImage: "sparkles")
-                            .font(.caption.weight(.heavy))
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.white.opacity(0.22), in: .capsule)
-                        Text("단원만 고르면\n학습 자료가 뚝딱")
-                            .font(.title3.weight(.heavy))
-                            .fixedSize(horizontal: false, vertical: true)
-                        Text("개념 → 빈칸 → O/X → 문제 순서로 공부해요")
-                            .font(.caption)
-                            .opacity(0.85)
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack(spacing: 12) {
+                        Image(systemName: "sparkles")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 44, height: 44)
+                            .background(AccentGradient.linear, in: .rect(cornerRadius: 13))
+                            .symbolEffect(.bounce, value: sparkle)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("단원별 AI 학습").font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("단원만 고르면 개념 → 빈칸 → O/X → 문제").font(.subheadline).foregroundStyle(.secondary)
+                        }
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                     }
-                    Spacer(minLength: 0)
-                    Image(systemName: "square.stack.3d.up.fill")
-                        .font(.system(size: 44, weight: .semibold))
-                        .symbolEffect(.bounce, value: sparkle)
-                        .opacity(0.9)
+                    HStack(spacing: 6) {
+                        ForEach(["초등", "중학교", "고등학교", "대학교"], id: \.self) { level in
+                            Text(level)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Theme.accent)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(Theme.accent.opacity(0.1), in: .capsule)
+                        }
+                    }
                 }
-                .foregroundStyle(.white)
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(AccentGradient.linear, in: .rect(cornerRadius: 24))
-                .overlay(alignment: .topTrailing) {
-                    Circle()
-                        .fill(Color.white.opacity(0.12))
-                        .frame(width: 120, height: 120)
-                        .offset(x: 40, y: -50)
-                        .allowsHitTesting(false)
-                }
-                .clipShape(.rect(cornerRadius: 24))
-                .shadow(color: Theme.accent.opacity(0.3), radius: 14, y: 8)
+                .softCard(cornerRadius: 24, padding: 20)
             }
             .buttonStyle(.pressable)
             .appearAnimation()
 
             HStack(spacing: 12) {
                 NavigationLink { WeaknessView() } label: {
-                    tile(symbol: "scope", color: Palette.danger, title: "취약 유형 학습", subtitle: "내 오답으로 찾은 약점")
+                    tile(symbol: "scope", color: Palette.danger, title: "취약 유형 학습", subtitle: "오답으로 찾은 약점")
                 }
                 .buttonStyle(.pressable)
                 .appearAnimation(delay: 0.06)

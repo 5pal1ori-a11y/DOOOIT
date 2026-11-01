@@ -281,7 +281,7 @@ private struct ReportView: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
                 Image(systemName: symbol(line.mark))
-                    .font(.caption.weight(.heavy))
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
                     .background(color(line.mark), in: .circle)

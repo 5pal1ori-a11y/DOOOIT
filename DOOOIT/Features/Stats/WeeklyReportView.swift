@@ -88,7 +88,7 @@ struct WeeklyReportView: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AccentGradient.linear, in: .rect(cornerRadius: 26))
-        .shadow(color: Theme.accent.opacity(0.3), radius: 14, y: 8)
+        .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
     }
 
     // MARK: 날마다
@@ -198,7 +198,7 @@ struct WeeklyReportView: View {
                 }
             }
             Text(title).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.title3.weight(.heavy)).foregroundStyle(Palette.ink).contentTransition(.numericText())
+            Text(value).font(.title3.weight(.bold)).foregroundStyle(Palette.ink).contentTransition(.numericText())
             Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
         }
         .softCard(cornerRadius: 20, padding: 14)
@@ -258,7 +258,7 @@ struct WeeklyReportView: View {
             }
             Spacer()
             Text("\(Int((unit.rate * 100).rounded()))%")
-                .font(.subheadline.weight(.heavy))
+                .font(.subheadline.weight(.bold))
                 .foregroundStyle(weak ? Palette.danger : Palette.success)
             Text(weak ? "보완" : "탄탄")
                 .font(.caption2.weight(.bold))
@@ -277,7 +277,7 @@ struct WeeklyReportView: View {
             ForEach(Array(r.advice.enumerated()), id: \.offset) { index, line in
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
-                        .font(.caption.weight(.heavy))
+                        .font(.caption.weight(.bold))
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
                         .background(AccentGradient.linear, in: .circle)
@@ -295,7 +295,7 @@ struct WeeklyReportView: View {
                 HStack(spacing: 12) {
                     VStack(spacing: 2) {
                         Text(item.dayText.replacingOccurrences(of: "다음 주 ", with: "").replacingOccurrences(of: "요일", with: ""))
-                            .font(.headline.weight(.heavy))
+                            .font(.headline.weight(.bold))
                             .foregroundStyle(Theme.accent)
                         Text(item.timeText).font(.caption2).foregroundStyle(.secondary)
                     }

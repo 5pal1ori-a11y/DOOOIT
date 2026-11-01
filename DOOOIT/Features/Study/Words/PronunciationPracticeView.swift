@@ -15,7 +15,7 @@ private struct GameResultView: View {
                 .font(.system(size: 64, weight: .bold))
                 .foregroundStyle(Theme.accent)
                 .symbolEffect(.bounce, value: title)
-            Text(title).font(.title.weight(.heavy))
+            Text(title).font(.title.weight(.bold))
             Text(detail).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button(action: again) {
                 Label("다시 하기", systemImage: "arrow.counterclockwise")

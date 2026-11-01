@@ -115,7 +115,7 @@ struct WrittenSolutionCard: View {
     private func stepMarker(_ index: Int, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             Text("\(index + 1)")
-                .font(.subheadline.weight(.heavy))
+                .font(.subheadline.weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
                 .background(AccentGradient.linear, in: .circle)
@@ -229,13 +229,13 @@ struct WrittenSolutionCard: View {
                     .symbolEffect(.bounce, value: tab)
                 Spacer()
                 Text(MathSymbolBar.pretty(solution.finalAnswer))
-                    .font(.title3.weight(.heavy))
+                    .font(.title3.weight(.bold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
             .background(AccentGradient.linear, in: .capsule)
-            .shadow(color: Theme.accent.opacity(0.3), radius: 10, y: 5)
+            .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
             .appearAnimation(delay: 0.25)
 
             if note.correctAnswer.isEmpty {
