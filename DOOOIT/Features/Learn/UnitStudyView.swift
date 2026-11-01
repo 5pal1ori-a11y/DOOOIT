@@ -168,11 +168,15 @@ struct UnitStudyView: View {
 
 struct AIContentLoader<T: Codable, Content: View>: View {
     let cacheKey: String
+    /// 크레딧을 받는 단위 (단원). 같은 단원의 다른 단계는 추가 차감 없음
+    var creditKey: String? = nil
     let make: () async throws -> T
     @ViewBuilder var content: (T, _ regenerate: @escaping () -> Void) -> Content
 
     @Environment(\.modelContext) private var context
+    @Environment(CreditStore.self) private var credits
     @State private var value: T?
+    @State private var needCredits = false
     @State private var loading = false
     @State private var error: String?
     @State private var startedAt = Date()
@@ -182,6 +186,9 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         Group {
             if let value {
                 content(value) { Task { await load(force: true) } }
+            } else if needCredits {
+                NotEnoughCreditsView()
+                    .padding(.vertical, 20)
             } else if let error {
                 VStack(spacing: 12) {
                     Text(error).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -208,6 +215,9 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         }
         .task { await load(force: false) }
         .onDisappear { generation?.cancel() }
+        .onChange(of: credits.balance) {
+            if needCredits && credits.canAfford() { Task { await load(force: false) } }
+        }
     }
 
     private func load(force: Bool) async {
@@ -215,6 +225,11 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             value = cached
             return
         }
+        if let creditKey, !credits.isUnitPaid(creditKey), !credits.canAfford() {
+            needCredits = true
+            return
+        }
+        needCredits = false
         generation?.cancel()
         loading = true
         error = nil
@@ -226,6 +241,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 let made = try await make()
                 guard !Task.isCancelled else { return }
                 ContentCache.save(made, key: cacheKey, context: context)
+                if let creditKey { credits.chargeUnit(creditKey) }
                 value = made
             } catch {
                 guard !Task.isCancelled else { return }
@@ -285,7 +301,7 @@ struct ConceptStepView: View {
     var onDone: (LearnStep) -> Void
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "concept", booster: booster)) {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "concept", booster: booster), creditKey: "\(subject)|\(unit)") {
             try await AITutor.generate(ConceptNote.self, prompt: AITutor.conceptPrompt(subject: subject, unit: unit, booster: booster))
         } content: { note, regenerate in
             VStack(alignment: .leading, spacing: 16) {
@@ -334,7 +350,7 @@ struct ClozeStepView: View {
     @State private var checked = false
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "cloze", booster: booster)) {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "cloze", booster: booster), creditKey: "\(subject)|\(unit)") {
             try await AITutor.generate(ClozeSet.self, prompt: AITutor.clozePrompt(subject: subject, unit: unit, count: booster ? 4 : 6))
         } content: { set, regenerate in
             VStack(alignment: .leading, spacing: 14) {
@@ -397,7 +413,7 @@ struct OXStepView: View {
     @State private var finished = false
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "ox", booster: booster)) {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "ox", booster: booster), creditKey: "\(subject)|\(unit)") {
             try await AITutor.generate(OXSet.self, prompt: AITutor.oxPrompt(subject: subject, unit: unit, count: booster ? 4 : 6))
         } content: { set, regenerate in
             if finished || set.items.isEmpty {
@@ -496,7 +512,7 @@ struct ProblemStepView: View {
     @State private var showSteps = false
 
     var body: some View {
-        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "problem", booster: booster)) {
+        AIContentLoader(cacheKey: ContentCache.key(subject, unit, "problem", booster: booster), creditKey: "\(subject)|\(unit)") {
             try await AITutor.generate(ProblemSet.self, prompt: AITutor.problemPrompt(subject: subject, unit: unit, count: booster ? 3 : 4, hard: !booster))
         } content: { set, regenerate in
             if finished || set.items.isEmpty {

@@ -50,6 +50,7 @@ struct AskAIListView: View {
 /// 질문 작성 → AI 답변 생성 → 저장
 struct AskAIComposer: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(CreditStore.self) private var credits
     @Environment(\.modelContext) private var context
 
     @State private var subject = "수학"
@@ -93,6 +94,20 @@ struct AskAIComposer: View {
                 } footer: {
                     Text("사진의 글자는 기기 안에서 읽어서 질문과 함께 AI에게 보내요. 답변은 기기 안 AI가 만들어서 틀릴 수 있어요.")
                 }
+
+                if credits.canAfford() {
+                    Section {
+                        Label("질문 1개에 \(CreditStore.costPerUse) 크레딧 · 지금 \(credits.balance) 크레딧", systemImage: "bolt.circle.fill")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Section {
+                        NotEnoughCreditsView()
+                            .listRowBackground(Color.clear)
+                            .listRowInsets(EdgeInsets())
+                    }
+                }
             }
             .navigationTitle("새 질문")
             .navigationBarTitleDisplayMode(.inline)
@@ -103,7 +118,7 @@ struct AskAIComposer: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("질문하기") { Task { await ask() } }
                         .fontWeight(.bold)
-                        .disabled(working || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil))
+                        .disabled(working || !credits.canAfford() || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && image == nil))
                 }
             }
             .imageInput(showScanner: $showScanner, showPhotoPicker: $showPicker, photoItems: $photoItems, maxPhotos: 1) { images in
@@ -115,6 +130,7 @@ struct AskAIComposer: View {
     }
 
     private func ask() async {
+        guard credits.canAfford() else { return }
         working = true
         defer { working = false }
         var problemText = ""
@@ -137,6 +153,7 @@ struct AskAIComposer: View {
             item.answer = answer
             context.insert(item)
             try? context.save()
+            credits.charge(.askAI)
             dismiss()
         } catch {
             self.error = error.localizedDescription

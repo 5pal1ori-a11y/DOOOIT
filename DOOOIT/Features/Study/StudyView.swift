@@ -23,6 +23,9 @@ struct StudyView: View {
             .scrollIndicators(.hidden)
             .background { AppBackground() }
             .navigationTitle("공부")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) { CreditChip() }
+            }
         }
     }
 

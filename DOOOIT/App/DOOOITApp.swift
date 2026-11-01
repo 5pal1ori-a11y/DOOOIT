@@ -8,6 +8,7 @@ struct DOOOITApp: App {
 
     @State private var auth = AuthManager()
     @State private var studyTimer = StudyTimer.shared
+    @State private var credits = CreditStore.shared
 
     let container: ModelContainer
 
@@ -27,17 +28,21 @@ struct DOOOITApp: App {
             RootView()
                 .environment(auth)
                 .environment(studyTimer)
+                .environment(credits)
                 .task {
                     let context = container.mainContext
                     SeedData.seedIfNeeded(context)
                     studyTimer.attach(context: context)
                     PlanScheduler.shared.start(context: context, timer: studyTimer)
+                    credits.grantDailyIfNeeded()
+                    RewardedAdManager.shared.start()
                     await auth.verifyAppleCredential()
                 }
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
+                credits.grantDailyIfNeeded()
                 PlanScheduler.shared.tick()
                 PlanScheduler.shared.rescheduleNotifications()
             }

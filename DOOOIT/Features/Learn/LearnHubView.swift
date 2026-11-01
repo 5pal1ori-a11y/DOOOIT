@@ -8,7 +8,7 @@ struct LearnHubSection: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("AI 학습").font(.title3.weight(.heavy))
                 Spacer()
-                Text("기기 안 AI로 만들어요").font(.caption).foregroundStyle(.secondary)
+                Text("AI 한 번 \(CreditStore.costPerUse) 크레딧").font(.caption).foregroundStyle(.secondary)
             }
 
             VStack(spacing: 0) {

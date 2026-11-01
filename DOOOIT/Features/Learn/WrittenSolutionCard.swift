@@ -5,6 +5,7 @@ import SwiftUI
 struct WrittenSolutionCard: View {
     @Bindable var note: MathNote
     @Environment(\.modelContext) private var context
+    @Environment(CreditStore.self) private var credits
 
     enum Tab: String, CaseIterable, Identifiable {
         case problem = "직접 풀기", concept = "개념", answer = "모범 답안"
@@ -86,8 +87,8 @@ struct WrittenSolutionCard: View {
                         .background(Color.primary.opacity(0.06), in: .circle)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("다시 만들기")
-                .disabled(working)
+                .accessibilityLabel("다시 만들기 (\(CreditStore.costPerUse) 크레딧)")
+                .disabled(working || !credits.canAfford())
             }
         }
     }
@@ -106,7 +107,15 @@ struct WrittenSolutionCard: View {
                     .frame(height: 36)
             }
             .buttonStyle(.glassProminent)
-            .disabled(note.recognizedText.isEmpty)
+            .disabled(note.recognizedText.isEmpty || !credits.canAfford())
+
+            if credits.canAfford() {
+                Label("\(CreditStore.costPerUse) 크레딧 사용 · 지금 \(credits.balance) 크레딧", systemImage: "bolt.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                NotEnoughCreditsView()
+            }
         }
     }
 
@@ -235,12 +244,17 @@ struct WrittenSolutionCard: View {
     }
 
     private func generate() async {
+        guard credits.canAfford() else {
+            error = "크레딧이 부족해요. 공부 탭의 크레딧에서 광고를 보고 받을 수 있어요."
+            return
+        }
         working = true
         defer { working = false }
         do {
             let result = try await AITutor.generate(WrittenSolution.self, prompt: AITutor.solutionPrompt(problem: note.recognizedText))
             note.solutionData = try? JSONEncoder().encode(result)
             try? context.save()
+            credits.charge(.solution)
             tab = .problem
         } catch {
             self.error = error.localizedDescription

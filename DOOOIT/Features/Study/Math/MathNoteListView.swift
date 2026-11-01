@@ -9,6 +9,7 @@ struct MathNoteListView: View {
     }
 
     @Environment(\.modelContext) private var context
+    @Environment(CreditStore.self) private var credits
     @Query(sort: \MathNote.createdAt, order: .reverse) private var notes: [MathNote]
 
     @State private var filter: Filter = .all
@@ -162,10 +163,12 @@ struct MathNoteListView: View {
             var text = ""
             var claudeTitle = ""
             var claudeAnswer = ""
-            if ClaudeReader.isConfigured, let result = try? await ClaudeReader.read(pair.problem) {
+            // Claude 읽기는 문제 1개에 크레딧 차감, 모자라면 기기 안 인식(무료)
+            if ClaudeReader.isConfigured, credits.canAfford(), let result = try? await ClaudeReader.read(pair.problem) {
                 text = result.text
                 claudeTitle = result.title
                 claudeAnswer = result.answer
+                credits.charge(.readProblem)
             } else {
                 let lines = (try? await OCRService.recognizeMath(pair.problem)) ?? []
                 text = MathOCRFixer.fix(OCRService.printedText(from: lines))

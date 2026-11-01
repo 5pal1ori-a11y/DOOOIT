@@ -7,6 +7,7 @@ struct MathNoteEditorView: View {
     @Bindable var note: MathNote
 
     @Environment(\.modelContext) private var context
+    @Environment(CreditStore.self) private var credits
 
     @State private var image: UIImage?
     @State private var isDrawing = false
@@ -445,9 +446,10 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
-        if ClaudeReader.isConfigured {
+        if ClaudeReader.isConfigured, credits.canAfford() {
             withAnimation { textMessage = "Claude가 사진을 읽는 중이에요… (10~20초)" }
             if let result = try? await ClaudeReader.read(problem) {
+                credits.charge(.readProblem)
                 if note.correctAnswer.isEmpty, !result.answer.isEmpty { note.correctAnswer = result.answer }
                 apply(result.text, message: "Claude가 선택한 영역을 읽었어요.")
                 return
