@@ -32,7 +32,13 @@ enum DoitMathTopics {
     // MARK: - 1. 공학용 계산 (sin, cos, tan, log, ln, √, !, π, e)
 
     static func calculate(_ text: String) -> Solved? {
-        let t = DoitAlgebra.normalize(text).lowercased()
+        var t = DoitAlgebra.normalize(text).lowercased()
+        // "2의 10제곱" → 2^10, "5 제곱" → 5^2, "제곱근 50" → √50, "세제곱" → ^3
+        t = t.replacingOccurrences(of: #"(\d+(?:\.\d+)?)\s*의\s*(\d+)\s*제곱"#, with: "$1^$2", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(\d+(?:\.\d+)?)\s*(?:의\s*)?세제곱(?!근)"#, with: "$1^3", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(\d+(?:\.\d+)?)\s*(?:의\s*)?제곱(?!근)"#, with: "$1^2", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?:제곱근|루트)\s*(\d+(?:\.\d+)?)"#, with: "√$1", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(\d+(?:\.\d+)?)\s*의\s*제곱근"#, with: "√$1", options: .regularExpression)
         let functionWords = ["sin", "cos", "tan", "log", "ln", "π", "pi", "!", "√", "sqrt", "^", "%"]
         guard has(t, functionWords) || t.range(of: #"\d\s*[+\-*/]\s*\d"#, options: .regularExpression) != nil else { return nil }
         guard !t.contains("x"), !t.contains("="), !has(t, ["i)", "i ", "복소수"]) || has(t, ["sin", "pi"]) else { return nil }
@@ -64,8 +70,11 @@ enum DoitMathTopics {
         guard trimmed.count >= 2, trimmed.contains(where: \.isNumber) || trimmed.contains("π") || trimmed.contains("pi") else { return nil }
         var parser = CalcParser(chars: Array(trimmed.replacingOccurrences(of: " ", with: "")))
         guard let value = parser.expression(), parser.i == parser.chars.count, value.isFinite else { return nil }
-        let answer: String
-        if abs(value - value.rounded()) < 1e-9 && abs(value) < 1e15 {
+        var answer: String
+        if let m = trimmed.firstMatch(of: #/^√\s*(\d+)$/#), let n = Int(String(m.1)), n > 0, value != value.rounded() {
+            // √50 → 5√2 (≈ 7.0711)
+            answer = "\(DoitAlgebra.sqrtText(Double(n))) (≈ \(DoitMath.format(value, digits: 6)))"
+        } else if abs(value - value.rounded()) < 1e-9 && abs(value) < 1e15 {
             answer = String(Int(value.rounded()))
         } else {
             let frac = f(value)

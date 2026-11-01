@@ -129,7 +129,7 @@ enum DoitConversation {
             }
         }
         // 남은 날: "12월 25일까지 며칠", "크리스마스까지"
-        if has(t, ["며칠남", "며칠이야", "몇일남", "며칠뒤야", "까지며칠", "까지몇일", "남았어", "디데이계산"]), !has(t, ["시험", "공부"]) || t.contains("까지") {
+        if has(t, ["며칠남", "며칠이야", "몇일남", "며칠뒤야", "까지며칠", "까지몇일", "남았어", "디데이계산", "며칠"]), t.contains("까지") || !has(t, ["시험", "공부"]) {
             var target: Date?
             var label = ""
             if let m = text.firstMatch(of: #/(\d{1,2})\s*월\s*(\d{1,2})\s*일/#), let month = Int(String(m.1)), let day = Int(String(m.2)) {
@@ -141,6 +141,16 @@ enum DoitConversation {
                     target = nextDate(month: month, day: day, from: now)
                     label = name
                 }
+            }
+            // D-Day로 정해 둔 시험 ("수능까지 며칠", "기말고사까지")
+            if target == nil, let title = UserDefaults.standard.string(forKey: "dDayTitle"), !title.isEmpty,
+               t.contains(title.replacingOccurrences(of: " ", with: "").lowercased()) || has(t, ["시험까지", "디데이까지", "d-day까지"]) {
+                let stamp = UserDefaults.standard.double(forKey: "dDayDate")
+                if stamp > 0 { target = Date(timeIntervalSince1970: stamp); label = title }
+            }
+            if target == nil, has(t, ["수능", "중간고사", "기말고사", "모의고사"]) {
+                return Answer(text: "그 시험 날짜를 아직 몰라요. \"수능 D-Day 11월 OO일로 설정해줘\"처럼 시험 날짜를 알려주면 매일 남은 날을 계산해 드릴게요.",
+                              suggestions: ["기말고사 D-Day 12월 10일로 설정해줘"])
             }
             if let target {
                 let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: target)).day ?? 0
@@ -249,7 +259,7 @@ enum DoitConversation {
              replies: ["좋아요! 오늘부터 공부 친구예요 🤝 힘들 때나 심심할 때 언제든 말 걸어줘요."]),
         Talk(patterns: ["보고싶었어", "오랜만이야", "오랜만", "왔어"],
              replies: ["저도 보고 싶었어요! 오늘은 어떤 공부를 해볼까요?", "반가워요! 다시 와줘서 고마워요 😊"], chips: ["오늘 할 일 알려줘"]),
-        Talk(patterns: ["재밌는얘기해줘", "이야기해줘", "썰풀어줘", "재미있는사실", "신기한사실", "tmi"],
+        Talk(patterns: ["재밌는얘기해줘", "이야기해줘", "썰풀어줘", "재미있는사실", "재밌는사실", "신기한사실", "재밌는거알려", "신기한거알려", "tmi"],
              replies: ["신기한 사실! 문어는 심장이 3개예요 🐙", "꿀은 상하지 않아서 수천 년 된 꿀도 먹을 수 있대요 🍯", "번개는 태양 표면보다 약 5배 뜨거워요 ⚡",
                        "바나나는 식물학적으로 베리(장과)예요. 딸기는 아니고요! 🍌", "사람 몸의 혈관을 한 줄로 이으면 지구를 두 바퀴 넘게 감을 수 있대요 🌍",
                        "0을 숫자로 처음 쓴 건 인도 수학자들이에요. 0 덕분에 지금의 계산법이 생겼어요."], chips: ["하나 더 알려줘"]),
@@ -341,7 +351,7 @@ enum DoitConversation {
     private static let negative = ["싫어", "짜증", "슬퍼", "우울", "힘들", "피곤", "아파", "속상", "걱정", "망했", "화나", "외로"]
 
     private static func fallback(_ text: String, _ t: String) -> Answer {
-        let isQuestion = text.contains("?") || has(t, ["뭐야", "뭐지", "누구", "언제", "어디", "왜", "어떻게", "얼마", "몇", "뭔가", "인가요", "일까", "알아?", "알아"])
+        let isQuestion = text.contains("?") || has(t, ["뭐야", "뭐지", "누구", "언제", "어디", "왜", "어떻게", "얼마", "몇", "뭔가", "인가요", "일까", "알아?", "알아", "이유", "원리", "궁금"])
         if isQuestion {
             return Answer(text: personalize("그건 아직 제가 잘 몰라요 😅 저는 앱 안에 있는 지식으로만 답해서, 최신 소식이나 아주 넓은 상식은 부족해요.\n대신 수학 풀이, 영어 문법·단어, 과학 계산과 개념, 사회·역사, 공부 계획과 상담은 자신 있어요!"),
                           suggestions: ["뭐 할 수 있어?", "수학 퀴즈 내줘"])

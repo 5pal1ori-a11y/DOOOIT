@@ -167,7 +167,8 @@ enum DoitChat {
         Rule(words: ["몇시야", "몇시예요", "지금몇시", "현재시간", "지금시간"], maxLength: 16) { _, _, c in
             Answer(text: "지금은 \(format(c.now, "a h시 m분"))이에요." + (c.remainingPlans > 0 ? " 오늘 남은 플랜이 \(c.remainingPlans)개 있어요." : ""))
         },
-        Rule(words: ["오늘며칠", "오늘몇일", "오늘날짜", "무슨요일", "오늘요일", "몇월며칠"], maxLength: 16) { _, _, c in
+        Rule(words: ["오늘며칠", "오늘몇일", "오늘날짜", "무슨요일", "오늘요일", "몇월며칠"], maxLength: 16,
+             exclude: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "뒤", "후에", "전에", "까지"]) { _, _, c in
             Answer(text: "오늘은 \(format(c.now, "yyyy년 M월 d일 EEEE"))이에요." + (c.dDay.map { " (\($0))" } ?? ""))
         },
         Rule(words: ["날씨"], maxLength: 20) { _, _, _ in
@@ -182,7 +183,7 @@ enum DoitChat {
         Rule(words: ["명언", "좋은말", "힘이되는말", "응원해줘", "응원좀", "격려", "한마디해줘"], maxLength: 20) { _, _, _ in
             Answer(text: pick(quotes), suggestions: ["하나 더", "오늘 할 일 알려줘"])
         },
-        Rule(words: ["하나더", "또해줘", "또알려줘", "한개더", "더해줘"], maxLength: 10) { _, _, _ in
+        Rule(words: ["하나더", "또해줘", "한개더", "더해줘"], maxLength: 5) { _, _, _ in
             Answer(text: Bool.random() ? pick(jokes) : pick(quotes), suggestions: ["하나 더"])
         },
         Rule(words: ["노래추천", "공부음악", "공부할때들을", "백색소음", "집중음악"], maxLength: 24) { _, _, _ in
@@ -234,6 +235,10 @@ enum DoitChat {
                 line += "\n타이머로 재면 기록에 자동으로 남아서 통계에서 확인할 수 있어요."
             }
             return Answer(text: "\(duration(minutes)) 공부했군요. \(line)", suggestions: ["오늘 공부 통계", "내일 할 일 알려줘"])
+        }
+        // "공부하기 너무 싫다", "공부 진짜 하기 싫어"
+        if t.contains("공부") && has(t, ["싫", "하기싫", "안하고싶", "때려치", "귀찮"]) && !has(t, ["추가", "일정"]) {
+            return motivation(c)
         }
         // "수학 50점 받았어", "영어 92점"
         if let m = t.firstMatch(of: #/(\d{1,3})점/#), let score = Int(String(m.1)), score <= 100,

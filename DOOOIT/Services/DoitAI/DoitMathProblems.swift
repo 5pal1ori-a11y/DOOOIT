@@ -26,6 +26,10 @@ enum MathSolver {
         let text = DoitAlgebra.normalize(raw)
         let t = text
 
+        // 0) 문자 a, b, c로 쓴 식의 전개: (a+b)² → 여러 문자 다항식으로 계산
+        if has(t, ["전개", "정리", "곱셈 공식", "곱셈공식"]), !t.contains(where: { "xyz".contains($0) }),
+           t.range(of: #"[abc]"#, options: .regularExpression) != nil, let s = expandLetters(t) { return s }
+
         // 1) 키워드가 분명한 유형부터
         if let s = DoitMathTopics.sets(t) { return s }
         if let s = DoitMathTopics.functionGraph(t) { return s }
@@ -80,6 +84,23 @@ enum MathSolver {
     }
 
     // MARK: 유형별
+
+    /// a, b, c 를 x, y, z 로 바꿔 계산하고 다시 a, b, c 로 보여줌
+    private static func expandLetters(_ text: String) -> Solved? {
+        let swapped = String(text.map { c -> Character in
+            switch c { case "a": return "x"; case "b": return "y"; case "c": return "z"; default: return c }
+        })
+        let expression = DoitAlgebra.extract(swapped)
+        guard expression.count >= 3, !expression.contains("="), let poly = DoitAlgebra.parse(expression), poly.degree >= 2 else { return nil }
+        func back(_ s: String) -> String {
+            String(s.map { c -> Character in
+                switch c { case "x": return "a"; case "y": return "b"; case "z": return "c"; default: return c }
+            })
+        }
+        return Solved(kind: .expression, topic: "식의 전개", concept: "곱셈 공식: (a ± b)² = a² ± 2ab + b², (a + b)(a − b) = a² − b², (a + b)³ = a³ + 3a²b + 3ab² + b³",
+                      steps: [SolutionStep(hint: "분배법칙으로 전개해서 같은 항끼리 모으면", work: back(expression).replacingOccurrences(of: "*", with: "×"))],
+                      answer: back(DoitAlgebra.describe(poly)))
+    }
 
     private static func equation(_ poly: P, result: DoitMath.Result) -> Solved {
         let isLinear = poly.degree == 1
