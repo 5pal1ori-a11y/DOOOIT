@@ -11,42 +11,41 @@ import MLXLMCommon
 import Tokenizers
 #endif
 
-/// 두잇 AI 두뇌: 휴대폰 안에서 돌아가는 오픈소스 언어 모델 (Qwen3, Apache-2.0)
-/// - 처음 한 번만 내려받으면 인터넷 없이도 돌아가요. 질문·대화 내용은 기기 밖으로 나가지 않아요.
-/// - 규칙형 엔진이 정확하게 할 수 있는 일(앱 기능, 수학 풀이, 계산)은 그대로 두고,
-///   설명·대화·학습 자료 만들기처럼 "자기 말로" 해야 하는 일을 맡아요.
+/// 두잇 AI 모델 관리: DOOOIT 1 · DOOOIT 2 (휴대폰 안에서 돌아가는 언어 모델)
+/// - 고른 모델을 처음 한 번만 다운로드하면 인터넷 없이도 돌아가요.
+/// - 앱 기능, 수학 풀이, 계산처럼 정확해야 하는 일은 규칙형 엔진이 그대로 맡고,
+///   설명·대화·학습 자료 만들기처럼 "자기 말로" 해야 하는 일을 모델이 맡아요.
+/// (DOOOIT 1 = Qwen3 0.6B, DOOOIT 2 = Qwen3 1.7B — Apache-2.0 오픈소스 모델을 바탕으로 함)
 @MainActor
 @Observable
 final class DoitBrain {
     static let shared = DoitBrain()
 
-    enum Size: String, CaseIterable, Identifiable {
-        /// Qwen3 1.7B (약 1GB) — 기본
-        case standard
-        /// Qwen3 0.6B (약 0.4GB) — 메모리가 적은 기기
-        case light
+    enum Model: String, CaseIterable, Identifiable {
+        case dooit1, dooit2
 
         var id: String { rawValue }
-        var title: String { self == .standard ? "표준 두뇌" : "가벼운 두뇌" }
-        var detail: String { self == .standard ? "더 똑똑해요 · 약 1GB" : "더 빠르고 작아요 · 약 0.4GB" }
-        var repository: String { self == .standard ? "mlx-community/Qwen3-1.7B-4bit" : "mlx-community/Qwen3-0.6B-4bit" }
+        var title: String { self == .dooit1 ? "DOOOIT 1" : "DOOOIT 2" }
+        var detail: String { self == .dooit1 ? "빠르고 가벼워요" : "더 똑똑하고 자세해요" }
+        var sizeText: String { self == .dooit1 ? "약 0.4GB" : "약 1GB" }
+        var repository: String { self == .dooit1 ? "mlx-community/Qwen3-0.6B-4bit" : "mlx-community/Qwen3-1.7B-4bit" }
 
-        /// 기기 메모리에 맞는 크기 (6GB 미만이면 가벼운 두뇌)
-        static var recommended: Size {
-            ProcessInfo.processInfo.physicalMemory >= 5_500_000_000 ? .standard : .light
+        /// 기기 메모리에 맞는 모델 (6GB 미만이면 DOOOIT 1)
+        static var recommended: Model {
+            ProcessInfo.processInfo.physicalMemory >= 5_500_000_000 ? .dooit2 : .dooit1
         }
     }
 
     enum Phase: Equatable {
-        /// 아직 내려받지 않음
+        /// 고른 모델이 없거나 아직 다운로드하지 않음
         case notInstalled
-        /// 내려받는 중 (0~1)
+        /// 다운로드 중 (0~1)
         case downloading(Double)
         /// 메모리에 올리는 중
         case loading
         /// 바로 답할 수 있음
         case ready
-        /// 내려받았지만 메모리에서 내려 둠 (다음에 쓸 때 다시 올림)
+        /// 다운로드했지만 메모리에서 내려 둠 (다음에 쓸 때 다시 올림)
         case sleeping
         case failed(String)
     }
@@ -55,32 +54,29 @@ final class DoitBrain {
         case notReady, busy, unsupported
         var errorDescription: String? {
             switch self {
-            case .notReady: return "두잇 AI 두뇌가 아직 준비되지 않았어요."
+            case .notReady: return "모델이 아직 준비되지 않았어요."
             case .busy: return "다른 답을 만드는 중이에요."
-            case .unsupported: return "이 기기에서는 두뇌를 쓸 수 없어요."
+            case .unsupported: return "이 기기에서는 모델을 쓸 수 없어요."
             }
         }
     }
 
     private(set) var phase: Phase = .notInstalled
-    private(set) var size: Size
+    /// 지금 쓰는 모델 (nil = 기본 모드, 모델 없이 규칙형 엔진만)
+    private(set) var selected: Model?
+    /// 다운로드 중인 모델
+    private(set) var downloading: Model?
+    /// 다운로드해 둔 모델들
+    private(set) var installed: Set<Model> = []
 
-    private let installedKey = "doitBrain.installed"
-    private let sizeKey = "doitBrain.size"
-    private let enabledKey = "doitBrain.enabled"
+    private let selectedKey = "doitModel.selected"
+    private func installedKey(_ model: Model) -> String { "doitModel.installed.\(model.rawValue)" }
 
-    /// 사용자가 두뇌를 켜 두었는지 (꺼 두면 규칙형 엔진만 씀)
-    var isEnabled: Bool {
-        get { access(keyPath: \.isEnabled); return UserDefaults.standard.object(forKey: enabledKey) as? Bool ?? true }
-        set { withMutation(keyPath: \.isEnabled) { UserDefaults.standard.set(newValue, forKey: enabledKey) } }
-    }
+    func isInstalled(_ model: Model) -> Bool { installed.contains(model) }
 
-    /// 내려받아 두었는지
-    var isInstalled: Bool { UserDefaults.standard.string(forKey: installedKey) != nil }
-
-    /// 질문에 쓸 수 있는지 (내려받았고 켜 둠 — 메모리에 없으면 쓸 때 올림)
+    /// 질문에 쓸 수 있는지 (고른 모델을 다운로드해 둠 — 메모리에 없으면 쓸 때 올림)
     var isAvailable: Bool {
-        guard Self.isSupported, isEnabled, isInstalled else { return false }
+        guard Self.isSupported, let selected, installed.contains(selected) else { return false }
         switch phase {
         case .ready, .sleeping, .loading: return true
         default: return false
@@ -100,13 +96,23 @@ final class DoitBrain {
 
     @ObservationIgnored private var generating = false
     @ObservationIgnored private var loadTask: Task<Bool, Never>?
+    @ObservationIgnored private var loadedModel: Model?
     #if canImport(MLXLLM)
     @ObservationIgnored private var container: ModelContainer?
     #endif
 
     private init() {
-        size = Size(rawValue: UserDefaults.standard.string(forKey: sizeKey) ?? "") ?? Size.recommended
-        if isInstalled { phase = .sleeping }
+        let defaults = UserDefaults.standard
+        // 예전 버전(모델 하나)의 설정을 이어받음
+        if let oldRepo = defaults.string(forKey: "doitBrain.installed") {
+            let model: Model = oldRepo.contains("1.7B") ? .dooit2 : .dooit1
+            defaults.set(true, forKey: installedKey(model))
+            if defaults.object(forKey: "doitBrain.enabled") as? Bool ?? true { defaults.set(model.rawValue, forKey: selectedKey) }
+            for key in ["doitBrain.installed", "doitBrain.enabled", "doitBrain.size"] { defaults.removeObject(forKey: key) }
+        }
+        installed = Set(Model.allCases.filter { defaults.bool(forKey: installedKey($0)) })
+        selected = defaults.string(forKey: selectedKey).flatMap(Model.init(rawValue:)).flatMap { installed.contains($0) ? $0 : nil }
+        if selected != nil { phase = .sleeping }
         #if canImport(UIKit)
         NotificationCenter.default.addObserver(forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: .main) { _ in
             Task { @MainActor in DoitBrain.shared.sleep() }
@@ -114,38 +120,67 @@ final class DoitBrain {
         #endif
     }
 
-    // MARK: 설치·불러오기
+    // MARK: 고르기·다운로드·삭제
 
-    /// 내려받고 메모리에 올림 (이미 받았으면 바로 올림)
-    @discardableResult
-    func install(_ size: Size? = nil) async -> Bool {
-        if let size, size != self.size {
-            remove()
-            self.size = size
-            UserDefaults.standard.set(size.rawValue, forKey: sizeKey)
-        }
-        isEnabled = true
-        return await load(downloading: true)
+    /// 모델 고르기 (nil = 기본 모드). 다운로드하지 않은 모델은 download로
+    func select(_ model: Model?) {
+        guard model != selected else { return }
+        if let model, !installed.contains(model) { return }
+        unload()
+        selected = model
+        UserDefaults.standard.set(model?.rawValue, forKey: selectedKey)
+        phase = model == nil ? .notInstalled : .sleeping
     }
 
-    /// 쓸 준비 (메모리에 없으면 올림). 내려받지 않았으면 false
+    /// 다운로드하고 그 모델로 바꿈 (이미 받았으면 바로 바꿈)
+    @discardableResult
+    func download(_ model: Model) async -> Bool {
+        guard Self.isSupported else { phase = .failed(BrainError.unsupported.localizedDescription); return false }
+        if installed.contains(model) { select(model); return await prepare() }
+        guard downloading == nil else { return false }
+        unload()
+        selected = model
+        UserDefaults.standard.set(model.rawValue, forKey: selectedKey)
+        return await load(model, downloading: true)
+    }
+
+    /// 다운로드한 모델 지우기
+    func delete(_ model: Model) {
+        if loadedModel == model { unload() }
+        #if canImport(MLXLLM)
+        if let repo = Repo.ID(rawValue: model.repository) {
+            try? FileManager.default.removeItem(at: HubCache.default.repoDirectory(repo: repo, kind: .model))
+        }
+        #endif
+        installed.remove(model)
+        UserDefaults.standard.removeObject(forKey: installedKey(model))
+        if selected == model {
+            // 다른 모델이 있으면 그걸로, 없으면 기본 모드
+            selected = installed.first
+            UserDefaults.standard.set(selected?.rawValue, forKey: selectedKey)
+            phase = selected == nil ? .notInstalled : .sleeping
+        }
+    }
+
+    /// 쓸 준비 (메모리에 없으면 올림). 다운로드하지 않았으면 false
     @discardableResult
     func prepare() async -> Bool {
-        guard Self.isSupported, isEnabled, isInstalled else { return false }
-        if phase == .ready { return true }
-        return await load(downloading: false)
+        guard Self.isSupported, let selected, installed.contains(selected) else { return false }
+        if phase == .ready, loadedModel == selected { return true }
+        return await load(selected, downloading: false)
     }
 
-    private func load(downloading: Bool) async -> Bool {
-        // 받지 않은 두뇌는 사용자가 직접 "내려받기"를 눌렀을 때만 받음 (데이터 요금 방지)
-        guard downloading || isInstalled else { return false }
-        guard Self.isSupported else { phase = .failed(BrainError.unsupported.localizedDescription); return false }
+    private func load(_ model: Model, downloading isDownload: Bool) async -> Bool {
+        // 받지 않은 모델은 사용자가 직접 "다운로드"를 눌렀을 때만 받음 (데이터 요금 방지)
+        guard isDownload || installed.contains(model) else { return false }
         if let loadTask { return await loadTask.value }
         let task = Task { @MainActor () -> Bool in
-            defer { self.loadTask = nil }
+            defer { self.loadTask = nil; self.downloading = nil }
             #if canImport(MLXLLM)
-            let configuration = self.size == .standard ? LLMRegistry.qwen3_1_7b_4bit : LLMRegistry.qwen3_0_6b_4bit
-            self.phase = self.isInstalled ? .loading : .downloading(0)
+            let configuration = model == .dooit2 ? LLMRegistry.qwen3_1_7b_4bit : LLMRegistry.qwen3_0_6b_4bit
+            let fresh = !self.installed.contains(model)
+            if fresh { self.downloading = model }
+            self.phase = fresh ? .downloading(0) : .loading
             do {
                 let loaded = try await #huggingFaceLoadModelContainer(configuration: configuration, progressHandler: { progress in
                     let fraction = progress.fractionCompleted
@@ -156,15 +191,21 @@ final class DoitBrain {
                     }
                 })
                 self.container = loaded
-                UserDefaults.standard.set(self.size.repository, forKey: self.installedKey)
-                self.phase = .ready
-                return true
+                self.loadedModel = model
+                self.installed.insert(model)
+                UserDefaults.standard.set(true, forKey: self.installedKey(model))
+                // 받는 동안 다른 모델로 바꿨으면 그 모델을 그대로 둠
+                if self.selected == model { self.phase = .ready } else { self.unload() }
+                return self.selected == model
             } catch {
                 self.container = nil
-                self.phase = self.isInstalled ? .failed("두뇌를 불러오지 못했어요. 다시 시도해 주세요.") : .failed("두뇌를 내려받지 못했어요. 와이파이 연결과 저장 공간을 확인해 주세요.")
+                self.loadedModel = nil
+                self.phase = fresh ? .failed("\(model.title)을(를) 다운로드하지 못했어요. 와이파이와 저장 공간을 확인해 주세요.")
+                                   : .failed("\(model.title)을(를) 불러오지 못했어요. 다시 시도해 주세요.")
                 return false
             }
             #else
+            _ = model
             return false
             #endif
         }
@@ -172,27 +213,18 @@ final class DoitBrain {
         return await task.value
     }
 
+    private func unload() {
+        #if canImport(MLXLLM)
+        container = nil
+        #endif
+        loadedModel = nil
+    }
+
     /// 메모리에서 내림 (기기 메모리가 부족할 때)
     func sleep() {
         guard !generating else { return }
-        #if canImport(MLXLLM)
-        container = nil
-        #endif
+        unload()
         if phase == .ready { phase = .sleeping }
-    }
-
-    /// 내려받은 두뇌 지우기
-    func remove() {
-        #if canImport(MLXLLM)
-        container = nil
-        for size in Size.allCases {
-            if let repo = Repo.ID(rawValue: size.repository) {
-                try? FileManager.default.removeItem(at: HubCache.default.repoDirectory(repo: repo, kind: .model))
-            }
-        }
-        #endif
-        UserDefaults.standard.removeObject(forKey: installedKey)
-        phase = .notInstalled
     }
 
     // MARK: 답 만들기

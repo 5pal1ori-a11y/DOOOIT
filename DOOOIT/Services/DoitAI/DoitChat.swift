@@ -466,7 +466,7 @@ enum DoitChat {
         return Answer(text: "오늘 \(duration(c.todayMinutes)) 공부했어요. \(comment)", suggestions: ["오늘 공부 통계"])
     }
 
-    /// 위기 신호 (이 답은 두뇌가 바꾸지 않고 상담 번호를 그대로 알려줌)
+    /// 위기 신호 (이 답은 모델이 바꾸지 않고 상담 번호를 그대로 알려줌)
     static func isCrisis(_ text: String) -> Bool {
         let t = squash(text)
         return ["죽고싶", "자살", "자해", "죽어버리", "살기싫", "사라지고싶", "목숨", "극단적선택"].contains { t.contains($0) }

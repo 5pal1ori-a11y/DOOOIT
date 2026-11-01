@@ -1,6 +1,6 @@
 import Foundation
 
-/// 두잇 AI 생각 정리: 근거(앱 지식 · 내 기억 · 인터넷 자료)를 모아 두뇌(언어 모델)에게 주고,
+/// 두잇 AI 생각 정리: 근거(앱 지식 · 내 기억 · 인터넷 자료)를 모아 모델(언어 모델)에게 주고,
 /// 그대로 베끼지 않고 자기 말로 설명하게 함. 만든 답은 검사해서 이상하면 버리고 규칙형 엔진 답을 씀.
 /// AI 학습(개념 정리·빈칸·O/X·객관식)도 같은 방식으로 새로 만들어요.
 enum DoitMind {
@@ -58,7 +58,7 @@ enum DoitMind {
 
     // MARK: - 대화 답
 
-    /// 두뇌에게 줄 글 (질문 + 근거 + 이전 대화)
+    /// 모델에게 줄 글 (질문 + 근거 + 이전 대화)
     static func answerPrompt(question: String, context: Context, history: [Turn]) -> String {
         var parts: [String] = []
         let references = referenceText(context)
@@ -88,12 +88,12 @@ enum DoitMind {
             lines.append("(인터넷 · \(source.label)) " + DoitMemory.trimmed(source.text, max: maxEach + 200))
         }
         if let draft = context.draft?.trimmingCharacters(in: .whitespacesAndNewlines), !draft.isEmpty {
-            lines.append("(두잇 기본 답) " + DoitMemory.trimmed(draft.replacingOccurrences(of: "**", with: ""), max: maxEach))
+            lines.append("(참고) " + DoitMemory.trimmed(draft.replacingOccurrences(of: "**", with: ""), max: maxEach))
         }
         return lines.joined(separator: "\n")
     }
 
-    /// 두뇌가 만든 글 다듬기
+    /// 모델이 만든 글 다듬기
     static func clean(_ raw: String) -> String {
         var t = raw
         t = t.replacingOccurrences(of: #"(?s)<think>.*?</think>"#, with: "", options: .regularExpression)
@@ -137,42 +137,6 @@ enum DoitMind {
     static func studyReference(subject: String, unit: String, context: Context) -> String {
         let refs = referenceText(context, maxEach: 450)
         return "[과목] \(subject)\n[단원] \(unit)" + (refs.isEmpty ? "" : "\n[참고 자료]\n" + refs)
-    }
-
-    static func conceptPrompt(subject: String, unit: String, context: Context, booster: Bool) -> String {
-        """
-        \(studyReference(subject: subject, unit: unit, context: context))
-
-        위 단원의 개념 정리 노트를 만들어 주세요. 참고 자료를 그대로 베끼지 말고 학생이 이해하기 쉽게 자기 말로 정리해요.
-        반드시 아래 형식으로만 써요.
-        제목: (단원 제목)
-        - (핵심 1)
-        - (핵심 2)
-        (핵심은 \(booster ? "4" : "6")개, 한 줄에 하나씩, 해요체)
-        예시: (이해를 돕는 예시 한두 문장)
-        """
-    }
-
-    static func parseConcept(_ raw: String, fallbackTitle: String) -> ConceptNote? {
-        let lines = clean(raw).components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        var title = fallbackTitle
-        var points: [String] = []
-        var example = ""
-        for line in lines {
-            let l = line.replacingOccurrences(of: "**", with: "")
-            if l.hasPrefix("제목:") || l.hasPrefix("제목 :") {
-                let value = l.components(separatedBy: ":").dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
-                if !value.isEmpty { title = value }
-            } else if l.hasPrefix("예시:") || l.hasPrefix("예:") || l.hasPrefix("예시 :") {
-                example = l.components(separatedBy: ":").dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces)
-            } else if let point = bullet(l) {
-                if point.count >= 6 { points.append(point) }
-            } else if !example.isEmpty, example.count < 200 {
-                example += " " + l
-            }
-        }
-        guard points.count >= 3, points.allSatisfy(isUsable) else { return nil }
-        return ConceptNote(title: title, keyPoints: Array(points.prefix(8)), example: example)
     }
 
     static func oxPrompt(subject: String, unit: String, context: Context, count: Int) -> String {
@@ -305,11 +269,11 @@ enum DoitMind {
     }
 }
 
-// MARK: - 실제로 근거 모으고 두뇌 쓰기 (앱에서)
+// MARK: - 실제로 근거 모으고 모델 쓰기 (앱에서)
 
 @MainActor
 extension DoitMind {
-    /// 두뇌를 쓸 수 있는지 (내려받았고 켜 둠)
+    /// 모델을 쓸 수 있는지 (내려받았고 켜 둠)
     static var isAvailable: Bool { DoitBrain.shared.isAvailable }
 
     /// 질문에 필요한 근거 모으기 (필요하면 인터넷 검색)
@@ -333,60 +297,11 @@ extension DoitMind {
         DoitMemory.shared.remember(topic: topic(for: question, context: context), summary: answer,
                                    sources: context.web.map(\.label), kind: .learned)
     }
-
-    /// 학습 자료용 근거: 교육과정 단원 개념 + 기억 + (모자라면) 인터넷
-    static func studyContext(subject: String, unit: String) async -> Context {
-        var context = Context()
-        var entries = DoitKnowledge.entries(inUnit: unit, subject: subject)
-        if entries.count < 2 {
-            entries += DoitKnowledge.search(unit, limit: 4).filter { $0.score >= 0.35 }.map(\.entry)
-                .filter { e in !entries.contains { $0.title == e.title } }
-        }
-        context.knowledge = Array(entries.shuffled().prefix(3))
-        context.memories = DoitMemory.shared.recall(unit, limit: 2)
-        if context.knowledge.count < 2 && context.memories.isEmpty {
-            context.web = await DoitWeb.research("\(unit) \(subject.components(separatedBy: " ").last ?? "")", limit: 2)
-        }
-        return context
-    }
-
-    static func makeConcept(subject: String, unit: String, booster: Bool) async -> ConceptNote? {
-        guard isAvailable else { return nil }
-        let context = await studyContext(subject: subject, unit: unit)
-        guard let raw = try? await DoitBrain.shared.complete(system: persona, prompt: conceptPrompt(subject: subject, unit: unit, context: context, booster: booster), maxTokens: 700),
-              let note = parseConcept(raw, fallbackTitle: unit) else { return nil }
-        // 인터넷에서 찾아 정리한 단원은 기억해 두고 다음에 씀
-        if !context.web.isEmpty {
-            DoitMemory.shared.remember(topic: unit, summary: note.keyPoints.joined(separator: "\n"), sources: context.web.map(\.label))
-        }
-        return note
-    }
-
-    static func makeOX(subject: String, unit: String, count: Int) async -> OXSet? {
-        guard isAvailable else { return nil }
-        let context = await studyContext(subject: subject, unit: unit)
-        guard let raw = try? await DoitBrain.shared.complete(system: persona, prompt: oxPrompt(subject: subject, unit: unit, context: context, count: count), maxTokens: 600, temperature: 0.7) else { return nil }
-        return parseOX(raw).map { OXSet(items: Array($0.items.prefix(count))) }
-    }
-
-    static func makeCloze(subject: String, unit: String, count: Int) async -> ClozeSet? {
-        guard isAvailable else { return nil }
-        let context = await studyContext(subject: subject, unit: unit)
-        guard let raw = try? await DoitBrain.shared.complete(system: persona, prompt: clozePrompt(subject: subject, unit: unit, context: context, count: count), maxTokens: 500, temperature: 0.7) else { return nil }
-        return parseCloze(raw).map { ClozeSet(items: Array($0.items.prefix(count))) }
-    }
-
-    static func makeProblems(subject: String, unit: String, count: Int, hard: Bool) async -> ProblemSet? {
-        guard isAvailable else { return nil }
-        let context = await studyContext(subject: subject, unit: unit)
-        guard let raw = try? await DoitBrain.shared.complete(system: persona, prompt: problemPrompt(subject: subject, unit: unit, context: context, count: count, hard: hard), maxTokens: 900, temperature: 0.7) else { return nil }
-        return parseProblems(raw).map { ProblemSet(items: Array($0.items.prefix(count))) }
-    }
 }
 
 @MainActor
 extension DoitMind {
-    /// 한 번에 답 만들기 (AI에게 질문하기 화면용). 두뇌가 없거나 답이 이상하면 nil
+    /// 한 번에 답 만들기 (AI에게 질문하기 화면용). 모델이 없거나 답이 이상하면 nil
     static func reply(question: String, draft: String?, history: [Turn] = []) async -> (text: String, sources: [String])? {
         guard isAvailable else { return nil }
         let context = await gather(question: question, draft: draft)

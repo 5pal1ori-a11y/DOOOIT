@@ -3,7 +3,7 @@ import UIKit
 
 /// 두잇 AI 대화 (외부 AI·서버 없음)
 /// - 규칙형 엔진: 앱 기능 실행, 수학 풀이, 계산, 퀴즈, 사진 분석 (정확해야 하는 일)
-/// - 두잇 AI 두뇌(기기 안 언어 모델, 받아 두었을 때): 설명·대화를 근거(앱 지식·배운 기억·인터넷)를 읽고 자기 말로
+/// - 모델(기기 안 언어 모델, 받아 두었을 때): 설명·대화를 근거(앱 지식·배운 기억·인터넷)를 읽고 자기 말로
 /// 사진은 기기 안 글자 인식(Vision)으로 읽음
 @MainActor
 @Observable
@@ -18,13 +18,13 @@ final class DoitAssistant {
         var actions: [String] = []
         var suggestions: [String] = []
         var image: UIImage?
-        /// 두뇌가 참고한 자료 (앱 지식, 배운 내용, 위키백과)
+        /// 모델이 참고한 자료 (앱 지식, 배운 내용, 위키백과)
         var sources: [String] = []
-        /// 👍/👎를 받을 주제 (두뇌가 만든 답만)
+        /// 👍/👎를 받을 주제 (모델이 만든 답만)
         var learnTopic: String?
         /// 1 = 👍, -1 = 👎
         var rating = 0
-        /// 두뇌가 아직 쓰는 중
+        /// 모델이 아직 쓰는 중
         var isStreaming = false
     }
 
@@ -97,7 +97,7 @@ final class DoitAssistant {
             return
         }
 
-        // 3) 바로 전 답에 이어서 (두뇌가 있으면 두뇌가 더 자세히·쉽게)
+        // 3) 바로 전 답에 이어서 (모델이 있으면 모델이 더 자세히·쉽게)
         if image == nil, let previous = lastAnswer, DoitMind.isAvailable, let request = brainFollowUp(question, topic: previous.topic) {
             await think(question: request, draft: previous.text, origin: .knowledge, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
             return
@@ -140,7 +140,7 @@ final class DoitAssistant {
         }
         if reply.text.hasPrefix("**") && reply.suggestions.contains("비슷한 문제 내줘") { lastMath = question }
 
-        // 설명·대화는 두뇌가 근거를 읽고 자기 말로 (앱 기능·계산·수학 풀이는 엔진 답 그대로)
+        // 설명·대화는 모델이 근거를 읽고 자기 말로 (앱 기능·계산·수학 풀이는 엔진 답 그대로)
         if image == nil, actions.isEmpty, shouldThink(reply, question: question) {
             await think(question: question, draft: reply.origin == .conversation && !reply.text.hasPrefix("혹시") ? nil : reply.text,
                         origin: reply.origin, suggestions: reply.suggestions, fallback: reply.text)
@@ -158,7 +158,7 @@ final class DoitAssistant {
         messages.append(Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions))
     }
 
-    // MARK: - 두뇌
+    // MARK: - 모델
 
     private func shouldThink(_ reply: DoitEngine.Reply, question: String) -> Bool {
         guard DoitMind.isAvailable, reply.deferred == nil else { return false }
@@ -170,7 +170,7 @@ final class DoitAssistant {
         }
     }
 
-    /// "더 자세히" / "쉽게" / "요약" → 두뇌에게 줄 부탁
+    /// "더 자세히" / "쉽게" / "요약" → 모델에게 줄 부탁
     private func brainFollowUp(_ question: String, topic: String) -> String? {
         let q = question.replacingOccurrences(of: " ", with: "")
         if q.contains("더자세히") || q.contains("자세히알려") || q.contains("더알려") || q == "더" || q.contains("계속") {
@@ -185,7 +185,7 @@ final class DoitAssistant {
         return nil
     }
 
-    /// 근거를 모으고, 두뇌가 쓰는 답을 조금씩 보여줌. 답이 이상하면 엔진 답(fallback)으로 바꿈
+    /// 근거를 모으고, 모델이 쓰는 답을 조금씩 보여줌. 답이 이상하면 엔진 답(fallback)으로 바꿈
     private func think(question: String, draft: String?, origin: DoitEngine.Origin, suggestions: [String], fallback: String? = nil) async {
         let history = messages.dropLast().suffix(6).compactMap { message -> DoitMind.Turn? in
             switch message.role {
@@ -216,7 +216,7 @@ final class DoitAssistant {
         let text = DoitMind.clean(raw)
         messages[index].isStreaming = false
         guard DoitMind.isUsable(text) else {
-            // 두뇌 답이 비었거나 이상하면 엔진 답으로
+            // 모델 답이 비었거나 이상하면 엔진 답으로
             messages[index].text = fallback ?? draft ?? "답을 만들지 못했어요. 다시 한 번 물어봐 줄래요?"
             messages[index].suggestions = suggestions
             return
@@ -263,7 +263,7 @@ final class DoitAssistant {
                 let mark = note.kind == .learned ? "📘" : (note.kind == .correction ? "✏️" : "📝")
                 return "\(mark) **\(note.topic)**: \(DoitMemory.trimmed(note.summary.replacingOccurrences(of: "\n", with: " "), max: 60))"
             }
-            return Message(role: .assistant, text: "**두잇 AI가 배운 내용** (\(DoitMemory.shared.notes.count)개)\n" + lines.joined(separator: "\n") + "\n\n설정 > 두잇 AI 두뇌에서 관리할 수 있어요.")
+            return Message(role: .assistant, text: "**두잇 AI가 배운 내용** (\(DoitMemory.shared.notes.count)개)\n" + lines.joined(separator: "\n") + "\n\n위쪽 모델 메뉴 > 배운 내용에서 관리할 수 있어요.")
         }
         // "아니야 괜찮아", "아니 됐어" 같은 말은 고쳐 주는 말이 아님
         let casual = ["괜찮", "됐어", "고마워", "그냥", "아무것도", "몰라", "ㅋㅋ", "알겠어", "아니야아니야"]
@@ -429,7 +429,7 @@ final class DoitAssistant {
             return DoitSocial.quiz(topic: topic)
         case .lastTopic:
             guard let topic = lastAnswer?.topic, !topic.isEmpty else { return nil }
-            if let set = try? await DoitTutor.ox(subject: "", unit: topic, count: 4), let item = set.items.randomElement() {
+            if let item = DoitStudy.quickOX(topic: topic) {
                 return DoitQuizItem(question: "O/X 퀴즈: \(item.statement)", answers: item.isTrue ? ["O", "맞다", "맞아", "참", "ㅇ"] : ["X", "틀리다", "틀려", "아니", "거짓", "ㄴ"],
                                     explanation: item.explanation)
             }

@@ -130,27 +130,9 @@ enum Curriculum {
                                  units: item.units.map { CurriculumUnit(chapter: item.name, title: $0) })
     }
 
-    static let highSchoolCommon: [CurriculumSubject] = [
-        CurriculumSubject(name: "공통수학1", symbol: "function", units: make([
-            ("다항식", ["다항식의 연산", "항등식과 나머지정리", "인수분해"]),
-            ("방정식과 부등식", ["복소수와 이차방정식", "이차방정식과 이차함수", "여러 가지 방정식과 부등식"]),
-            ("경우의 수", ["합의 법칙과 곱의 법칙", "순열과 조합"]),
-            ("행렬", ["행렬과 그 연산"])
-        ])),
-        CurriculumSubject(name: "공통수학2", symbol: "function", units: make([
-            ("도형의 방정식", ["선분의 내분", "두 직선의 평행과 수직", "원의 방정식", "도형의 이동"]),
-            ("집합과 명제", ["집합의 연산", "명제와 조건", "절대부등식"]),
-            ("함수와 그래프", ["합성함수와 역함수", "유리함수", "무리함수"])
-        ])),
-        CurriculumSubject(name: "공통국어", symbol: "book.fill", units: make([
-            ("문학", ["현대시", "고전시가", "현대소설", "고전소설"]),
-            ("문법", ["음운의 변동", "품사와 문장 성분", "문장의 짜임"]),
-            ("독서", ["비문학 독해 전략", "논증 분석"])
-        ])),
-        CurriculumSubject(name: "공통영어", symbol: "character.book.closed.fill", units: make([
-            ("어법", ["시제와 태", "관계사", "분사와 분사구문", "가정법"]),
-            ("독해", ["주제·요지 파악", "빈칸 추론", "글의 순서와 문장 삽입"]),
-            ("어휘", ["필수 어휘와 어구"])
-        ]))
-    ]
+    /// 고1 공통과목 (단원 목록은 DoitStudy.commonSubjects 한 곳에서 관리)
+    static let highSchoolCommon: [CurriculumSubject] = DoitStudy.commonSubjects.map { common in
+        let symbols = ["국어": "book.fill", "영어": "character.book.closed.fill", "수학": "function"]
+        return CurriculumSubject(name: common.name, symbol: symbols[common.subject] ?? "book", units: make(common.chapters))
+    }
 }

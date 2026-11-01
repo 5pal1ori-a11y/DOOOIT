@@ -4,7 +4,7 @@ import FoundationNetworking
 #endif
 
 /// 두잇 AI 인터넷 검색: 일반 웹 검색(DoitWebSearch, DuckDuckGo) → 모자라면 위키백과(한국어 → 영어)
-/// 가져온 글은 그대로 보여주지 않고, 두잇 AI 두뇌(언어 모델)가 읽고 자기 말로 정리하는 '재료'로만 써요.
+/// 가져온 글은 그대로 보여주지 않고, 모델(언어 모델)가 읽고 자기 말로 정리하는 '재료'로만 써요.
 enum DoitWeb {
     struct Source: Codable, Hashable {
         let title: String

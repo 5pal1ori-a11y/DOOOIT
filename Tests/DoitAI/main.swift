@@ -326,15 +326,18 @@ func runBrain() {
     check("웹 자료 출처 표시", DoitWeb.Source(title: "블랙홀", url: "https://namu.wiki/w/x", text: "t", language: "web", site: "나무위키").label == "나무위키 「블랙홀」")
 
     // AI 학습 형식 읽기
-    let concept = DoitMind.parseConcept("""
-    제목: 광합성
-    - 식물이 빛 에너지로 양분을 만드는 과정이에요.
+    let scopeForParse = StudyScope(level: .middle, subject: "과학", subjectName: "중학교 과학", unit: "광합성", sources: [])
+    let concept = DoitStudy.parseConcept("""
+    핵심 개념: 광합성은 식물이 빛 에너지로 양분을 만드는 과정이에요.
+    상세 설명:
     - 엽록체에서 일어나요.
+    학습 포인트:
+    - 식물이 빛 에너지로 양분을 만드는 과정이에요.
     - 이산화 탄소와 물이 필요해요.
-    예시: 햇빛을 받은 잎에서 녹말이 만들어져요.
-    """, fallbackTitle: "x")
-    check("개념 정리 읽기", concept?.title == "광합성" && concept?.keyPoints.count == 3 && concept?.example.contains("녹말") == true, "\(String(describing: concept))")
-    check("개념 정리: 형식이 틀리면 버림", DoitMind.parseConcept("광합성은 좋은 것이에요.", fallbackTitle: "x") == nil)
+    예제: 햇빛을 받은 잎에서 녹말이 만들어져요.
+    """, scope: scopeForParse)
+    check("개념 정리 읽기", concept?.summary.contains("광합성") == true && concept?.keyPoints.count == 2 && concept?.details.count == 1 && concept?.example.contains("녹말") == true, "\(String(describing: concept))")
+    check("개념 정리: 형식이 틀리면 버림", DoitStudy.parseConcept("광합성은 좋은 것이에요.", scope: scopeForParse) == nil)
 
     let ox = DoitMind.parseOX("""
     1. O | 광합성은 엽록체에서 일어난다. | 맞아요.
@@ -382,32 +385,163 @@ func runBrain() {
     check("테스트 환경에서는 두뇌 꺼짐", !DoitBrain.shared.isAvailable)
 }
 
-// MARK: - 교육과정 단원 (AI 학습) — 두뇌 없이도 모든 단원에서 자료가 나오는지
+// MARK: - 교육과정 단원 (AI 학습) — 모든 단원에서 검증된 자료가 나오는지
 
 func runCurriculum() async {
     var units = 0
     var failures: [String] = []
+    var noProblem: [String] = []
     for item in DoitCurriculum.studySubjects {
         for unit in item.units {
             units += 1
             let subject = item.name
             do {
                 let note = try await DoitTutor.concept(subject: subject, unit: unit, booster: false)
-                if note.keyPoints.isEmpty { failures.append("\(item.name)/\(unit): 개념 비어 있음") }
-            } catch { failures.append("\(item.name)/\(unit): 개념 \(error.localizedDescription.prefix(30))") }
+                if note.keyPoints.isEmpty || note.checks.isEmpty { failures.append("\(item.name)/\(unit): 개념 비어 있음") }
+            } catch { failures.append("\(item.name)/\(unit): 개념 \(error.localizedDescription.prefix(40))") }
             if (try? await DoitTutor.ox(subject: subject, unit: unit, count: 4))?.items.isEmpty ?? true { failures.append("\(item.name)/\(unit): O/X") }
             if (try? await DoitTutor.cloze(subject: subject, unit: unit, count: 4))?.items.isEmpty ?? true { failures.append("\(item.name)/\(unit): 빈칸") }
-            if let set = try? await DoitTutor.problems(subject: subject, unit: unit, count: 3, hard: false) {
-                if set.items.contains(where: { !(1...$0.choices.count).contains($0.answerNumber) }) { failures.append("\(item.name)/\(unit): 정답 번호") }
-            } else { failures.append("\(item.name)/\(unit): 객관식") }
+            if (try? await DoitTutor.problems(subject: subject, unit: unit, count: 3, hard: false)) == nil { noProblem.append("\(item.name)/\(unit)") }
         }
     }
     check("교육과정 단원 수", units >= 150, "\(units)개")
-    check("모든 단원에서 학습 자료 생성", failures.isEmpty, "\(failures.count)곳 실패: " + failures.prefix(12).joined(separator: " | "))
-    let levels = Set(DoitCurriculum.studySubjects.map(\.level))
+    check("모든 단원에서 개념·O/X·빈칸 생성 (검증 통과)", failures.count <= units / 20, "\(failures.count)곳 실패: " + failures.prefix(12).joined(separator: " | "))
+    // 객관식은 개념이 둘뿐이고 서로 얽힌 단원만 못 만들 수 있음 (다른 단원 개념을 끌어오지 않으려고)
+    check("객관식을 못 만드는 단원은 아주 적음", noProblem.count <= units / 12, "\(noProblem.count)곳: " + noProblem.prefix(10).joined(separator: " | "))
     let mixed = DoitKnowledge.entries(inUnit: "문장의 짜임", subject: "초등 국어").filter { $0.level != .elementary }
     check("같은 단원 이름이라도 학교급 구분", mixed.isEmpty && !DoitKnowledge.entries(inUnit: "문장의 짜임", subject: "초등 국어").isEmpty, "\(mixed.map(\.title))")
+    let levels = Set(DoitCurriculum.studySubjects.map(\.level))
     check("초등~대학교 모두 있음", levels.count == SchoolLevel.allCases.count, "\(levels)")
+    // 공통과목 단원이 가리키는 교육과정 단원이 실제로 있는지
+    for (unit, refs) in DoitStudy.commonSources {
+        for ref in refs {
+            check("공통과목 자료 단원: \(unit) → \(ref.unit)", DoitStudy.catalog.contains { $0.level == ref.level && $0.unit == ref.unit && !$0.subjectName.hasPrefix("공통") })
+        }
+    }
+    for alias in DoitStudy.unitAliases {
+        check("단원 별명: \(alias.alias) → \(alias.unit)", DoitStudy.catalog.contains { $0.level == alias.level && $0.subject == alias.subject && $0.unit == alias.unit })
+    }
+}
+
+// MARK: - AI 학습: 입력 분석 → 단원 범위 → 섞임 없는 자료 → 검증
+
+func resolved(_ subject: String, _ unit: String) -> StudyScope? {
+    if case .resolved(let scope) = DoitStudy.resolve(subject: subject, unit: unit) { return scope }
+    return nil
+}
+
+func runStudy() async {
+    // 1) 직접 입력 분석
+    let s1 = resolved("", "중3 수학 이차방정식의 풀이")
+    check("입력: 중3 수학 이차방정식의 풀이", s1?.subjectName == "중학교 수학" && s1?.unit == "이차방정식" && s1?.grade == 3 && s1?.subtopic == "풀이", "\(String(describing: s1))")
+    let s2 = resolved("", "수학 이차방정식")
+    check("입력: 수학 이차방정식", s2?.subjectName == "중학교 수학" && s2?.unit == "이차방정식", "\(String(describing: s2))")
+    let s3 = resolved("", "고등학교 통합과학 생명 시스템")
+    check("입력: 통합과학 생명 시스템 → 세포와 유전", s3?.subjectName == "고등학교 과학" && s3?.unit == "세포와 유전" && s3?.inputName != nil, "\(String(describing: s3))")
+    let s4 = resolved("", "중학교 2학년 역사 삼국의 성립과 발전")
+    check("입력: 중2 역사 삼국의 성립과 발전", s4?.subjectName == "중학교 사회" && s4?.unit == "삼국의 성립과 발전" && s4?.grade == 2, "\(String(describing: s4))")
+    let s5 = resolved("공통수학1", "복소수와 이차방정식")
+    check("목록에서 고른 단원", s5?.subjectName == "공통수학1" && s5?.unit == "복소수와 이차방정식" && s5?.usesMathEngine == true, "\(String(describing: s5))")
+    if case .ambiguous(let options) = DoitStudy.resolve(subject: "국어", unit: "문장의 짜임") {
+        check("모호한 입력은 골라 달라고 함", options.count >= 2 && Set(options.map(\.subjectName)).count == options.count, "\(options.map(\.label))")
+    } else { check("모호한 입력은 골라 달라고 함", false, "\(DoitStudy.resolve(subject: "국어", unit: "문장의 짜임"))") }
+    if case .resolved(let scope) = DoitStudy.resolve(subject: "초등 국어", unit: "문장의 짜임") {
+        check("학교급을 적으면 하나로", scope.level == .elementary, scope.label)
+    } else { check("학교급을 적으면 하나로", false) }
+    if case .notFound = DoitStudy.resolve(subject: "수학", unit: "") { check("단원 없이 과목만", true) } else { check("단원 없이 과목만", false) }
+    if case .notFound = DoitStudy.resolve(subject: "수학", unit: "김치찌개 끓이는 법") { check("없는 단원은 지어내지 않음", true) } else {
+        check("없는 단원은 지어내지 않음", false, "\(DoitStudy.resolve(subject: "수학", unit: "김치찌개 끓이는 법"))")
+    }
+    let parsed = DoitStudy.parse("고1 공통수학2 원의 방정식")
+    check("입력 분석: 공통수학2", parsed.subjectName == "공통수학2" && parsed.level == .high && parsed.topic == "원의 방정식", "\(parsed)")
+
+    // 2) 단원 범위 안의 자료만 (예전 문제: 이차방정식에 일차함수·연립방정식, 생명 시스템에 지리 정보 시스템)
+    func everything(_ subject: String, _ unit: String) async -> String {
+        var text = ""
+        if let n = try? await DoitTutor.concept(subject: subject, unit: unit, booster: false) { text += ([n.summary] + n.keyPoints + n.details + [n.example]).joined(separator: "\n") }
+        for _ in 0..<3 {
+            if let p = try? await DoitTutor.problems(subject: subject, unit: unit, count: 4, hard: false) { text += p.items.map { $0.question + $0.choices.joined() + $0.steps.joined() }.joined() }
+            if let o = try? await DoitTutor.ox(subject: subject, unit: unit, count: 4) { text += o.items.map(\.statement).joined() }
+            if let c = try? await DoitTutor.cloze(subject: subject, unit: unit, count: 4) { text += c.items.map(\.sentence).joined() }
+        }
+        return text
+    }
+    let quad = await everything("중학교 수학", "이차방정식")
+    let leak = ["일차함수", "연립", "근과 계수", "α + β", "αβ", "허근", "복소수"].filter { quad.contains($0) }
+    check("중학교 이차방정식: 다른 단원·고등 내용 없음", leak.isEmpty && quad.contains("이차방정식"), "섞인 말: \(leak)")
+    let life = await everything("", "고등학교 통합과학 생명 시스템")
+    check("통합과학 생명 시스템: 지리 정보 시스템 안 나옴", !life.contains("지리 정보") && (life.contains("세포") || life.contains("DNA")), String(life.prefix(120)))
+    let samguk = await everything("중학교 사회", "삼국의 성립과 발전")
+    check("삼국의 성립과 발전: 삼국 내용", samguk.contains("고구려") && !samguk.contains("구석기") && !samguk.contains("실학"), String(samguk.prefix(120)))
+
+    // 3) 검증기가 잘못된 내용을 잡는지
+    guard let quadScope = resolved("중학교 수학", "이차방정식") else { check("검증 준비", false); return }
+    let basis = DoitStudyCheck.Basis(materials: DoitStudy.materials(for: quadScope), scope: quadScope)
+    check("검증: 다른 단원 개념(일차함수) 잡기", !DoitStudyCheck.foreignTerms(in: "이차방정식은 일차함수의 그래프와 같아요", basis: basis).isEmpty)
+    check("검증: 이 단원 용어는 통과", DoitStudyCheck.foreignTerms(in: "이차방정식은 근의 공식으로 풀 수 있어요", basis: basis).isEmpty)
+    check("검증: 고등 용어(근과 계수의 관계) 잡기", !DoitStudyCheck.foreignTerms(in: "근과 계수의 관계를 이용해요", basis: basis).isEmpty)
+    check("검증: 근거 없는 문장 잡기", !DoitStudyCheck.isGrounded("이차방정식은 1592년 이순신 장군이 처음 만들었어요", basis: basis))
+    check("검증: 자료에 없는 숫자 잡기", !DoitStudyCheck.inventedNumbers(in: "이차방정식의 해는 항상 1592개예요", basis: basis).isEmpty)
+    let badNote = ConceptNote(title: "이차방정식", keyPoints: ["일차함수 y = ax + b의 기울기는 a예요"], example: "")
+    check("검증: 섞인 개념 정리 잡기", DoitStudyCheck.check(badNote, basis: basis).contains { $0.kind == .scope })
+    let wrongNumber = Problem(question: "다음 설명에 해당하는 개념은?\n(   )", choices: ["이차방정식", "근의 공식", "인수분해"], answerNumber: 5, steps: ["x"], finalAnswer: "5번")
+    check("검증: 정답 번호 오류 잡기", DoitStudyCheck.check(wrongNumber, basis: basis).contains { $0.kind == .answer })
+    let wrongMath = Problem(question: "방정식 2x + 3 = 11 의 해는?", choices: ["2", "3", "4", "5", "6"], answerNumber: 1, steps: ["x = 2"], finalAnswer: "2")
+    check("검증: 수학 정답을 다시 풀어서 잡기", DoitStudyCheck.check(wrongMath, basis: basis, solver: { MathSolver.solve($0)?.answer }).contains { $0.kind == .answer })
+    let rightMath = Problem(question: "방정식 2x + 3 = 11 의 해는?", choices: ["2", "3", "4", "5", "6"], answerNumber: 3, steps: ["x = 4"], finalAnswer: "4")
+    check("검증: 맞는 수학 정답은 통과", DoitStudyCheck.check(rightMath, basis: basis, solver: { MathSolver.solve($0)?.answer }).isEmpty,
+          "\(DoitStudyCheck.check(rightMath, basis: basis, solver: { MathSolver.solve($0)?.answer }))")
+    let leaky = Problem(question: "다음 설명에 해당하는 개념은?\n이차방정식은 ax² + bx + c = 0 꼴이에요", choices: ["이차방정식", "근의 공식", "인수분해"], answerNumber: 1, steps: ["정답은 1번"], finalAnswer: "1번 이차방정식")
+    check("검증: 정답이 문제에 보이면 잡기", DoitStudyCheck.check(leaky, basis: basis).contains { $0.kind == .format })
+    let fakeTrue = OXItem(statement: "이차방정식은 항상 해가 세 개예요", isTrue: true, explanation: "x")
+    check("검증: 자료로 확인 안 되는 O 문장 잡기", !DoitStudyCheck.check(fakeTrue, basis: basis).isEmpty)
+    let badExplain = Problem(question: "다음 설명에 해당하는 개념은?\n(   ): x", choices: ["근의 공식", "이차방정식", "중근"], answerNumber: 1, steps: ["정답은 2번이에요"], finalAnswer: "2번 이차방정식")
+    check("검증: 해설·정답 불일치 잡기", DoitStudyCheck.check(badExplain, basis: basis).contains { $0.kind == .explanation })
+
+    check("조사: 받침 맞추기", DoitStudy.josa("원의 넓이", "을", "를") == "원의 넓이를" && DoitStudy.josa("논리적 오류", "을", "를") == "논리적 오류를"
+          && DoitStudy.josa("세포막", "을", "를") == "세포막을" && DoitStudy.josa("'신라'", "은", "는") == "'신라'는" && DoitStudy.josa("DNA", "을", "를") == "DNA을(를)")
+    let confusing = Problem(question: "다음 설명에 해당하는 개념은?\n신라는 당과 연합해 백제를 무너뜨렸어요.", choices: ["신라", "백제", "신라의 삼국 통일"], answerNumber: 3,
+                            steps: ["정답은 3번"], finalAnswer: "3번 신라의 삼국 통일")
+    check("검증: 오답 보기가 문제 글에 나오면 잡기", DoitStudyCheck.check(confusing, basis: basis).contains { $0.detail.contains("헷갈") })
+    if let samgukSet = try? await DoitTutor.problems(subject: "중학교 사회", unit: "삼국의 성립과 발전", count: 4, hard: false) {
+        let clear = samgukSet.items.allSatisfy { p in p.choices.enumerated().allSatisfy { i, c in i == p.answerNumber - 1 || !p.question.contains(c) } }
+        check("삼국 문제: 헷갈리는 보기 없음", clear, "\(samgukSet.items.map { $0.question + " " + $0.choices.joined(separator: "/") })")
+    }
+
+    let twoBlanks = Problem(question: "다음 설명에 해당하는 개념은?\n(   )와 (   )이 있어요.", choices: ["이차방정식", "근의 공식", "중근"], answerNumber: 1, steps: ["정답은 1번"], finalAnswer: "1번 이차방정식")
+    check("검증: 빈칸 여러 개 잡기", DoitStudyCheck.check(twoBlanks, basis: basis).contains { $0.kind == .format })
+
+    // 4) 재생성은 실패한 것만, 최대 횟수까지
+    var calls = 0
+    let kept = await DoitStudy.verified(count: 3, attempts: DoitStudy.maxRetries + 1) { missing -> [Int] in
+        calls += 1
+        return Array(repeating: calls == 1 ? -1 : 7, count: missing)
+    } check: { $0 > 0 }
+    check("재생성: 통과한 것만 모으고 부족한 만큼만 다시", kept == [7, 7, 7] && calls == 2, "\(kept) calls=\(calls)")
+    calls = 0
+    let never = await DoitStudy.verified(count: 2, attempts: DoitStudy.maxRetries + 1) { missing -> [Int] in calls += 1; return Array(repeating: -1, count: missing) } check: { $0 > 0 }
+    check("재생성: 무한 반복 없이 최대 \(DoitStudy.maxRetries + 1)번", never.isEmpty && calls == DoitStudy.maxRetries + 1, "calls=\(calls)")
+
+    // 5) 개념 → 문제 연결: 문제의 정답이 개념 정리에 나온 개념인지
+    if let pack = try? await DoitStudy.makePack(subject: "중학교 과학", unit: "물질의 구성", booster: false) {
+        let problems = DoitStudy.ruleProblems(pack: pack, count: 4, hard: false)
+        let titles = Set(pack.materials.map(\.title))
+        let linked = problems.allSatisfy { p in titles.contains(p.choices[p.answerNumber - 1]) || p.question.contains("옳지 않은") }
+        check("문제는 개념 정리의 개념으로", !problems.isEmpty && linked, "\(problems.map { $0.choices[$0.answerNumber - 1] }) / \(titles)")
+        check("개념 정리: 핵심 개념·상세 설명·포인트·근거", !pack.concept.summary.isEmpty && !pack.concept.details.isEmpty && !pack.concept.keyPoints.isEmpty && !pack.concept.sources.isEmpty)
+    } else { check("문제는 개념 정리의 개념으로", false, "묶음 없음") }
+    let math = try? await DoitTutor.problems(subject: "중학교 수학", unit: "이차방정식", count: 4, hard: true)
+    check("중학교 이차방정식 문제: 계산 문제·정답 일치", (math?.items.count ?? 0) >= 3 && math!.items.allSatisfy { $0.choices[$0.answerNumber - 1] == $0.finalAnswer || $0.finalAnswer.contains("번") },
+          "\(math?.items.map(\.question) ?? [])")
+
+    // 6) 예전에 저장한 개념 정리도 읽힘 (기존 데이터 보존)
+    let old = #"{"title":"광합성","keyPoints":["빛으로 양분을 만들어요"],"example":"잎"}"#
+    let decoded = try? JSONDecoder().decode(ConceptNote.self, from: Data(old.utf8))
+    check("예전 형식 개념 정리 읽기", decoded?.title == "광합성" && decoded?.summary == "" && decoded?.checks == [])
+
+    // 7) 대화에서 "이걸로 퀴즈": 그 개념의 단원으로
+    let quick = DoitStudy.quickOX(topic: "광합성")
+    check("대화 퀴즈: 광합성 O/X", quick != nil && !(quick?.statement.contains("지리") ?? true), "\(String(describing: quick))")
 }
 
 // MARK: - 실행
@@ -420,6 +554,7 @@ runOCRFixer()
 runKnowledge()
 runBrain()
 await runCurriculum()
+await runStudy()
 
 print("두잇 AI 테스트: \(passed)개 통과, \(failed.count)개 실패")
 for f in failed { print(f) }

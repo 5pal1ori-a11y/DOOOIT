@@ -182,6 +182,18 @@ struct CurriculumView: View {
     @State private var pickedSubject: String?
     @FocusState private var focus: Field?
     @Query private var records: [QuizRecord]
+    /// 직접 입력을 분석한 결과
+    @State private var target: StudyTarget?
+    @State private var choices: [StudyScope] = []
+    @State private var choicesMessage = ""
+    @State private var notFound: String?
+
+    /// 학습할 단원 (교육과정 이름 그대로)
+    struct StudyTarget: Hashable, Identifiable {
+        let subject: String
+        let unit: String
+        var id: String { subject + "|" + unit }
+    }
 
     private enum Field { case subject, unit }
 
@@ -210,22 +222,23 @@ struct CurriculumView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("직접 입력").font(.headline).foregroundStyle(Palette.ink)
                     VStack(spacing: 0) {
-                        field(title: "과목", placeholder: "예: 수학", text: $subject, field: .subject)
+                        field(title: "과목", placeholder: "예: 중3 수학 (비워도 돼요)", text: $subject, field: .subject)
                         Divider().padding(.leading, 16)
-                        field(title: "단원", placeholder: "예: 이차방정식과 이차함수", text: $unit, field: .unit)
+                        field(title: "단원", placeholder: "예: 이차방정식의 풀이", text: $unit, field: .unit)
                     }
                     .softCardBackground(cornerRadius: 20)
+                    Text("\"중학교 2학년 역사 삼국의 성립과 발전\"처럼 한 칸에 모두 적어도 돼요. 두잇 AI가 과목·학년·단원을 알아내고, 여러 단원으로 해석되면 골라 달라고 물어봐요.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-                    NavigationLink {
-                        UnitStudyView(subject: trimmedSubject, unit: trimmedUnit)
-                    } label: {
+                    Button(action: startTyped) {
                         Label("학습 시작", systemImage: "sparkles")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
                     }
                     .buttonStyle(.glassProminent)
-                    .disabled(trimmedSubject.isEmpty || trimmedUnit.isEmpty)
+                    .disabled(trimmedSubject.isEmpty && trimmedUnit.isEmpty)
                 }
                 .appearAnimation(delay: 0.1)
             }
@@ -236,6 +249,46 @@ struct CurriculumView: View {
         .background { AppBackground() }
         .navigationTitle("AI 학습")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(item: $target) { item in
+            UnitStudyView(subject: item.subject, unit: item.unit)
+        }
+        .confirmationDialog("어느 단원을 공부할까요?", isPresented: Binding(get: { !choices.isEmpty }, set: { if !$0 { choices = [] } }),
+                            titleVisibility: .visible) {
+            ForEach(choices, id: \.key) { option in
+                Button(option.label) { open(option) }
+            }
+        } message: {
+            Text(choicesMessage)
+        }
+        .alert("단원을 찾지 못했어요", isPresented: Binding(get: { notFound != nil }, set: { if !$0 { notFound = nil } })) {
+            Button("확인", role: .cancel) { notFound = nil }
+        } message: {
+            Text(notFound ?? "")
+        }
+    }
+
+    /// 직접 적은 말 → 과목·학년·단원 분석 → 바로 시작 / 골라 달라고 묻기 / 없다고 알려주기
+    private func startTyped() {
+        focus = nil
+        switch DoitStudy.resolve(subject: trimmedSubject, unit: trimmedUnit) {
+        case .resolved(let scope):
+            open(scope)
+        case .ambiguous(let options):
+            choicesMessage = "'\(trimmedUnit.isEmpty ? trimmedSubject : trimmedUnit)'은(는) 여러 단원으로 해석돼요. 임의로 고르지 않을게요."
+            choices = options
+        case .notFound(let message, let suggestions):
+            if suggestions.isEmpty {
+                notFound = message
+            } else {
+                choicesMessage = message
+                choices = suggestions
+            }
+        }
+    }
+
+    private func open(_ scope: StudyScope) {
+        Haptics.tap()
+        target = StudyTarget(subject: scope.subjectName, unit: scope.unit)
     }
 
     /// 교과 과목 카드 (가로로 넘김)

@@ -11,7 +11,7 @@ enum DoitEngine {
         var understood = true
         /// 시간이 걸리는 일 (사전 검색, 퀴즈 내기)은 DoitAssistant가 이어서 처리
         var deferred: Deferred? = nil
-        /// 어디서 나온 답인지 (두뇌가 다시 설명해도 되는 답인지 고를 때 씀)
+        /// 어디서 나온 답인지 (모델이 다시 설명해도 되는 답인지 고를 때 씀)
         var origin: Origin = .command
     }
 
@@ -20,9 +20,9 @@ enum DoitEngine {
         case command
         /// 수학 풀이 (그대로 씀)
         case math
-        /// 과목 엔진의 설명 (두뇌가 자기 말로 다시 설명)
+        /// 과목 엔진의 설명 (모델이 자기 말로 다시 설명)
         case subject
-        /// 일상 대화·응원 (두뇌가 자연스럽게)
+        /// 일상 대화·응원 (모델이 자연스럽게)
         case chat
         /// 지식 사전에서 찾은 개념
         case knowledge

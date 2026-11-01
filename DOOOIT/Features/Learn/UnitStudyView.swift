@@ -48,8 +48,12 @@ struct WeakItem: Codable, Identifiable, Hashable {
 /// AI가 만든 자료를 SwiftData에 저장해 두고 재사용
 @MainActor
 enum ContentCache {
+    /// 학습 자료 형식 버전: 검증 단계를 추가하면서 v2로 (예전 자료는 지우지 않고 새로 만듦, 취약 복습 목록은 그대로)
+    static let version = "v2"
+
     static func key(_ subject: String, _ unit: String, _ kind: String, booster: Bool = false) -> String {
-        "\(subject)|\(unit)|\(kind)|\(booster ? "b" : "s")"
+        let base = "\(subject)|\(unit)|\(kind)|\(booster ? "b" : "s")"
+        return kind == "weak" ? base : base + "|" + version
     }
 
     static func load<T: Codable>(_ type: T.Type, key: String, context: ModelContext) -> T? {
@@ -101,7 +105,7 @@ struct UnitStudyView: View {
                     .id(step)
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                             removal: .move(edge: .leading).combined(with: .opacity)))
-                    Text("AI가 만든 자료는 틀릴 수 있어요. 교과서와 함께 확인하세요.")
+                    Text("고른 단원의 교육과정 자료로 만들고, 단원 일치·근거·정답을 검증한 내용만 보여줘요. 그래도 교과서와 함께 확인하세요.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -316,13 +320,50 @@ struct ConceptStepView: View {
         } content: { note, regenerate in
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Label("\(subject) · \(note.title)", systemImage: "book.pages")
+                    Label(note.scope.isEmpty ? "\(subject) · \(note.title)" : note.scope, systemImage: "book.pages")
                         .font(.headline)
                         .foregroundStyle(Palette.ink)
                     Spacer()
                     Button(action: regenerate) { Image(systemName: "arrow.clockwise") }
                         .accessibilityLabel("다시 만들기")
                 }
+                if !note.checks.isEmpty {
+                    // 통과한 검증
+                    HStack(spacing: 6) {
+                        ForEach(note.checks, id: \.self) { check in
+                            Label(check, systemImage: "checkmark.seal.fill")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(Palette.success)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Palette.success.opacity(0.1), in: .capsule)
+                        }
+                    }
+                }
+                if !note.summary.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("핵심 개념", systemImage: "star.fill").font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
+                        Text(note.summary).font(.body).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                }
+                if !note.details.isEmpty {
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(Array(note.details.enumerated()), id: \.offset) { _, detail in
+                                Text(detail).font(.subheadline).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .padding(.top, 8)
+                    } label: {
+                        Label("자세히 알아보기", systemImage: "text.book.closed").font(.subheadline.weight(.bold))
+                    }
+                    .padding(14)
+                    .background(Color.white, in: .rect(cornerRadius: 16))
+                }
+                Text("핵심 학습 포인트").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(Array(note.keyPoints.enumerated()), id: \.offset) { index, point in
                         HStack(alignment: .top, spacing: 12) {
@@ -341,14 +382,21 @@ struct ConceptStepView: View {
                     }
                 }
                 .softCard()
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("예시", systemImage: "lightbulb.fill").font(.subheadline.weight(.bold)).foregroundStyle(Palette.warning)
-                    Text(note.example).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                if !note.example.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("예제", systemImage: "lightbulb.fill").font(.subheadline.weight(.bold)).foregroundStyle(Palette.warning)
+                        Text(note.example).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
+                    .appearAnimation(delay: 0.3)
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
-                .appearAnimation(delay: 0.3)
+                if !note.sources.isEmpty {
+                    Label("근거: " + note.sources.joined(separator: " · "), systemImage: "books.vertical")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
 
                 primaryButton("다 읽었어요 · 빈칸 암기로") { onDone(.concept) }
             }

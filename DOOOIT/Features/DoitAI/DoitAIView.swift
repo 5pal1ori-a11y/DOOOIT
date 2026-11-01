@@ -10,6 +10,7 @@ struct DoitAIView: View {
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
     @FocusState private var focused: Bool
+    @State private var showNotes = false
 
     var body: some View {
         NavigationStack {
@@ -42,7 +43,7 @@ struct DoitAIView: View {
                     .onChange(of: assistant.isResponding) { _, responding in
                         if responding { withAnimation { proxy.scrollTo("typing", anchor: .bottom) } }
                     }
-                    // 두뇌가 쓰는 글이 길어지면 따라 내려감
+                    // 모델이 쓰는 글이 길어지면 따라 내려감
                     .onChange(of: assistant.messages.last?.text.count ?? 0) {
                         if assistant.messages.last?.isStreaming == true { proxy.scrollTo(assistant.messages.last?.id, anchor: .bottom) }
                     }
@@ -52,14 +53,11 @@ struct DoitAIView: View {
             .background { AppBackground() }
             .navigationTitle("두잇 AI")
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showNotes) { LearnedNotesSheet() }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink {
-                        BrainSettingsView()
-                    } label: {
-                        Image(systemName: "brain.head.profile")
-                    }
-                    .accessibilityLabel("두잇 AI 두뇌")
+                // ChatGPT·Gemini처럼 위쪽에서 모델 고르기
+                ToolbarItem(placement: .principal) {
+                    ModelMenu(showNotes: $showNotes)
                 }
                 if !assistant.messages.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
@@ -92,7 +90,7 @@ struct DoitAIView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            BrainBanner()
+            ModelDownloadCard()
                 .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
@@ -187,7 +185,7 @@ struct DoitAIView: View {
         }
     }
 
-    /// 👍 / 👎 (두뇌가 만든 답에만)
+    /// 👍 / 👎 (모델이 만든 답에만)
     private func feedbackButtons(_ message: DoitAssistant.Message) -> some View {
         HStack(spacing: 14) {
             if message.rating == 0 {

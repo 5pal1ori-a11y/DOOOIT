@@ -11,7 +11,7 @@ enum DoitConversation {
         var suggestions: [String] = []
         /// 대화 주제 (이어 말하기용)
         var topic: String?
-        /// 날짜 계산·주사위·이름 기억처럼 정확해야 하는 도구 답 (두뇌가 바꾸지 않음)
+        /// 날짜 계산·주사위·이름 기억처럼 정확해야 하는 도구 답 (모델이 바꾸지 않음)
         var isTool = false
     }
 
@@ -363,7 +363,7 @@ enum DoitConversation {
     private static func fallback(_ text: String, _ t: String) -> Answer {
         let isQuestion = text.contains("?") || has(t, ["뭐야", "뭐지", "누구", "언제", "어디", "왜", "어떻게", "얼마", "몇", "뭔가", "인가요", "일까", "알아?", "알아", "이유", "원리", "궁금"])
         if isQuestion {
-            return Answer(text: personalize("그건 아직 제가 잘 몰라요 😅 설정의 '두잇 AI 두뇌'를 내려받으면 인터넷에서 찾아 읽고 제 말로 정리해 드릴 수 있어요.\n지금도 수학 풀이, 영어 문법·단어, 과학 계산과 개념, 사회·역사, 공부 계획과 상담은 자신 있어요!"),
+            return Answer(text: personalize("그건 아직 제가 잘 몰라요 😅 위쪽 메뉴에서 DOOOIT 모델을 다운로드하면 인터넷에서 찾아 읽고 제 말로 정리해 드릴 수 있어요.\n지금도 수학 풀이, 영어 문법·단어, 과학 계산과 개념, 사회·역사, 공부 계획과 상담은 자신 있어요!"),
                           suggestions: ["뭐 할 수 있어?", "수학 퀴즈 내줘"])
         }
         if has(t, positive) {

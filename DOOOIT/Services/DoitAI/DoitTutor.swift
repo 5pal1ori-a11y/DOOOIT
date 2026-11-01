@@ -1,8 +1,6 @@
 import UIKit
 
-/// 두잇 AI 선생님: 학습 자료(개념 정리·빈칸·O/X·객관식)를 만듦
-/// - 두뇌(기기 안 언어 모델)를 받아 두었으면: 교육과정 지식 + 배운 기억 + 인터넷 자료를 근거로 새로 만듦 (DoitMind)
-/// - 두뇌가 없거나 만든 결과가 형식 검사를 통과하지 못하면: 직접 만든 엔진과 지식 사전으로 만듦
+/// 두잇 AI 선생님: AI 학습 자료(DoitStudy), 오답노트 풀이, 비슷한 문제, 질문 답하기
 enum DoitTutor {
     enum TutorError: LocalizedError {
         case cannotSolve(String)
@@ -15,237 +13,23 @@ enum DoitTutor {
         }
     }
 
-    // MARK: - 1. 개념 정리
+    // MARK: - 1~4. AI 학습 (개념 → 빈칸 → O/X → 문제)
+    // 고른 단원의 자료만으로 만들고 따로 검증해요 (자세한 순서는 DoitStudy)
 
     static func concept(subject: String, unit: String, booster: Bool) async throws -> ConceptNote {
-        if let made = await DoitMind.makeConcept(subject: subject, unit: unit, booster: booster) { return made }
-        // 수학은 직접 정리한 교과서 핵심 + 예제
-        if isMath(subject: subject, unit: unit), DoitKnowledge.entries(inUnit: unit).count < 2, let math = DoitMathConcepts.note(for: unit) {
-            var example = ""
-            if let problem = MathProblems.make(unit: unit, hard: false) {
-                example = "예제: \(problem.question)\n풀이: \(problem.steps.joined(separator: " → "))\n답: \(problem.finalAnswer)"
-            }
-            return ConceptNote(title: math.title, keyPoints: Array(math.points.prefix(booster ? 4 : 8)), example: example)
-        }
-        // 앱 안 지식(영어 문법, 과학·사회 개념)
-        if let note = builtInNote(subject: subject, unit: unit, booster: booster) { return note }
-        if let note = builtInNote(subject: subject, unit: unit, booster: booster, force: true) { return note }
-        // 이름이 정확히 안 맞아도 지식 사전에서 비슷한 개념
-        let related = knowledgeSet(subject: subject, unit: unit)
-        guard let first = related.first else { throw notFound(unit) }
-        var points = first.body.components(separatedBy: "\n").map { line -> String in
-            var l = line.trimmingCharacters(in: .whitespaces)
-            for bullet in ["• ", "- ", "· "] where l.hasPrefix(bullet) { l.removeFirst(bullet.count) }
-            return l
-        }.filter { !$0.isEmpty && !$0.hasPrefix("예") }
-        // 함께 보면 좋은 개념의 첫 문장도 덧붙임
-        for entry in related.dropFirst().prefix(booster ? 1 : 3) {
-            if let line = entry.body.components(separatedBy: "\n").first { points.append("[\(entry.title)] " + line) }
-        }
-        let example = first.body.components(separatedBy: "\n").first(where: { $0.hasPrefix("예") }) ?? ""
-        return ConceptNote(title: first.title, keyPoints: Array(points.prefix(booster ? 4 : 8)), example: example)
+        try await DoitStudy.makePack(subject: subject, unit: unit, booster: booster).concept
     }
-
-    /// 단원 이름으로 지식 사전에서 찾은 관련 개념들 (가장 가까운 것부터)
-    private static func knowledgeSet(subject: String, unit: String) -> [DoitKnowledge.Entry] {
-        let subjectKey = ["수학", "과학", "사회", "영어", "국어"].first { subject.contains($0) } ?? (subject.contains("역사") || subject.contains("한국사") ? "사회" : nil)
-        // 교육과정 단원 이름 그대로면 그 단원의 개념 전체 (같은 단원 이름이 여러 학교급에 있으면 고른 학교급만)
-        let inUnit = DoitKnowledge.entries(inUnit: unit, subject: subject)
-        if inUnit.count >= 2 { return inUnit.shuffled() }
-        var matches = DoitKnowledge.search(unit, limit: 10).filter { $0.score >= 0.3 }
-        if let subjectKey {
-            let same = matches.filter { $0.entry.subject == subjectKey }
-            if !same.isEmpty { matches = same }
-        }
-        return inUnit + matches.map(\.entry).filter { m in !inUnit.contains { $0.title == m.title } }
-    }
-
-    /// 영어·과학·사회 엔진에 들어 있는 설명으로 개념 정리 만들기
-    private static func builtInNote(subject: String, unit: String, booster: Bool, force: Bool = false) -> ConceptNote? {
-        // 교과서 단원 이름이 여러 개념을 묶은 경우 (예: 시제와 태 → 시제 + 수동태)
-        let combined: [String: [String]] = [
-            "시제와 태": ["12시제", "현재완료", "수동태"], "분사와 분사구문": ["분사", "분사구문"],
-            "관계사": ["관계대명사", "관계부사"], "가정법": ["가정법 과거", "가정법 과거완료"]
-        ]
-        let topics = combined[unit] ?? [unit]
-        let useEnglish = subject.contains("영어") || force
-        var title = ""
-        var points: [String] = []
-        var examples: [String] = []
-        for topic in topics {
-            let question = "\(topic) 설명해줘"
-            guard let text = (useEnglish ? DoitEnglish.answer(question) : nil) ?? DoitScience.answer(question) ?? DoitSocial.answer(question) else { continue }
-            var lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "**", with: "") }
-                .filter { !$0.isEmpty }
-            let heading = lines.first ?? topic
-            if !lines.isEmpty { lines.removeFirst() }
-            title = title.isEmpty ? heading : title
-            // 예문(1) …, 예: …)은 예시로, 나머지는 핵심 정리로
-            let isExample: (String) -> Bool = { line in
-                line.hasPrefix("예:") || line.hasPrefix("예)") || line.range(of: #"^\d\)"#, options: .regularExpression) != nil
-            }
-            var part = lines.filter { !isExample($0) && $0 != "예문" && !$0.hasPrefix("※") }.map { line -> String in
-                var l = line
-                for bullet in ["• ", "- ", "· "] where l.hasPrefix(bullet) { l.removeFirst(bullet.count) }
-                return l
-            }
-            // 한 문단짜리 설명은 문장으로 나눔
-            if part.count < 2 {
-                part = part.flatMap { $0.components(separatedBy: "요. ").map { $0.hasSuffix(".") || $0.hasSuffix("요") ? $0 : $0 + "요." } }
-                    .filter { $0.count > 3 }
-            }
-            if topics.count > 1 { part = part.map { "[\(heading)] " + $0 } }
-            points += part.prefix(topics.count > 1 ? 4 : 8)
-            examples += lines.filter(isExample).prefix(topics.count > 1 ? 1 : 2)
-        }
-        guard !points.isEmpty else { return nil }
-        if topics.count > 1 { title = unit }
-        let limit = booster ? 4 : 8
-        return ConceptNote(title: title, keyPoints: Array(points.prefix(limit)),
-                           example: examples.isEmpty ? (points.count > limit ? points[limit] : "") : numbered(examples))
-    }
-
-    /// 예문 번호를 1), 2), 3) 순서로 다시 매김
-    private static func numbered(_ lines: [String]) -> String {
-        lines.enumerated().map { index, line in
-            let body = line.replacingOccurrences(of: #"^\d\)\s*"#, with: "", options: .regularExpression)
-            return body.hasPrefix("예") ? body : "\(index + 1)) \(body)"
-        }.joined(separator: "\n")
-    }
-
-    // MARK: - 2. 빈칸 암기
 
     static func cloze(subject: String, unit: String, count: Int) async throws -> ClozeSet {
-        let builtIn = builtInPoints(subject: subject, unit: unit)
-        // 수학은 공식으로 직접 만든 빈칸이 충분하면 그것부터
-        if isMath(subject: subject, unit: unit), let set = clozeFromPoints(builtIn, count: count), set.items.count >= min(3, count) { return set }
-        if let made = await DoitMind.makeCloze(subject: subject, unit: unit, count: count) { return made }
-        // 관련 개념들의 설명에서 개념 이름을 가린 빈칸
-        var items = termCloze(knowledgeSet(subject: subject, unit: unit), count: count)
-        if items.count < count, let more = clozeFromPoints(builtIn, count: count - items.count) { items += more.items }
-        guard items.count >= 2 else { throw notFound(unit) }
-        return ClozeSet(items: Array(items.prefix(count)))
+        try await DoitStudy.cloze(subject: subject, unit: unit, count: count)
     }
-
-    private static func termCloze(_ entries: [DoitKnowledge.Entry], count: Int) -> [ClozeItem] {
-        var items: [ClozeItem] = []
-        for entry in entries where items.count < count {
-            guard var line = entry.body.components(separatedBy: "\n").first(where: { $0.count >= 12 }) else { continue }
-            var hidden = false
-            for name in entry.names.sorted(by: { $0.count > $1.count }) where name.count >= 2 && line.contains(name) {
-                line = line.replacingOccurrences(of: name, with: "____")
-                hidden = true
-            }
-            if hidden { items.append(ClozeItem(sentence: line, answer: entry.title)) }
-            else { items.append(ClozeItem(sentence: "____: " + line, answer: entry.title)) }
-        }
-        return items
-    }
-
-    /// 핵심 정리 문장에서 빈칸 만들기 ("A = B" 의 B, "용어: 설명" 의 용어)
-    private static func clozeFromPoints(_ points: [String], count: Int) -> ClozeSet? {
-        var items: [ClozeItem] = []
-        for point in points where items.count < count {
-            let first = point.components(separatedBy: CharacterSet(charactersIn: ",;")).first ?? point
-            if let range = first.range(of: " = ", options: .backwards) {
-                let answer = String(first[range.upperBound...]).trimmingCharacters(in: .whitespaces)
-                guard (1...24).contains(answer.count) else { continue }
-                items.append(ClozeItem(sentence: first.replacingCharacters(in: range.upperBound..<first.endIndex, with: "____"), answer: answer))
-            } else if let colon = point.firstIndex(of: ":") {
-                let term = String(point[..<colon]).trimmingCharacters(in: .whitespaces)
-                guard (2...14).contains(term.count) else { continue }
-                items.append(ClozeItem(sentence: "____:" + point[point.index(after: colon)...], answer: term))
-            }
-        }
-        return items.count >= 2 ? ClozeSet(items: items) : nil
-    }
-
-    // MARK: - 3. O/X
 
     static func ox(subject: String, unit: String, count: Int) async throws -> OXSet {
-        if let made = await DoitMind.makeOX(subject: subject, unit: unit, count: count) { return made }
-        let builtIn = builtInPoints(subject: subject, unit: unit)
-        if isMath(subject: subject, unit: unit), let set = oxFromPoints(builtIn, count: count), set.items.count >= min(3, count) { return set }
-        // 관련 개념: 맞는 설명 / 다른 개념 이름으로 바꾼 틀린 설명
-        let entries = knowledgeSet(subject: subject, unit: unit)
-        var items: [OXItem] = []
-        for (index, entry) in entries.enumerated() where items.count < count {
-            guard let line = entry.body.components(separatedBy: "\n").first(where: { $0.count >= 12 }) else { continue }
-            let statement = line.contains(entry.title) ? line : "\(entry.title): \(line)"
-            if index % 2 == 1, let other = entries.first(where: { $0.title != entry.title && !line.contains($0.title) }) {
-                let wrong = statement.replacingOccurrences(of: entry.title, with: other.title)
-                items.append(OXItem(statement: wrong, isTrue: false, explanation: "틀린 문장이에요. '\(entry.title)'에 대한 설명이에요."))
-            } else {
-                items.append(OXItem(statement: statement, isTrue: true, explanation: "맞는 문장이에요."))
-            }
-        }
-        if items.count < count, let more = oxFromPoints(builtIn, count: count - items.count) { items += more.items }
-        guard items.count >= 2 else { throw notFound(unit) }
-        return OXSet(items: Array(items.prefix(count)).shuffled())
+        try await DoitStudy.ox(subject: subject, unit: unit, count: count)
     }
-
-    private static func oxFromPoints(_ points: [String], count: Int) -> OXSet? {
-        var items: [OXItem] = []
-        for (index, point) in points.enumerated() where items.count < count {
-            if index % 2 == 1, let falsified = falsify(point, terms: []) , falsified != point {
-                items.append(OXItem(statement: falsified, isTrue: false, explanation: "틀린 문장이에요. 바른 문장: \(point)"))
-            } else {
-                items.append(OXItem(statement: point, isTrue: true, explanation: "맞는 문장이에요."))
-            }
-        }
-        return items.count >= 2 ? OXSet(items: items.shuffled()) : nil
-    }
-
-    /// 맞는 문장을 그럴듯하게 틀리게 바꿈 (반대말, 숫자, 다른 용어)
-    private static func falsify(_ sentence: String, terms: [String]) -> String? {
-        let opposites: [(String, String)] = [
-            ("증가", "감소"), ("크다", "작다"), ("많다", "적다"), ("높다", "낮다"), ("있다", "없다"), ("같다", "다르다"),
-            ("양수", "음수"), ("최대", "최소"), ("최댓값", "최솟값"), ("위로", "아래로"), ("가능", "불가능"),
-            ("포함", "제외"), ("이전", "이후"), ("내부", "외부"), ("직접", "간접"), ("유리수", "무리수"), ("실수", "허수")
-        ]
-        for (a, b) in opposites {
-            if sentence.contains(a) { return sentence.replacingOccurrences(of: a, with: b) }
-            if sentence.contains(b) { return sentence.replacingOccurrences(of: b, with: a) }
-        }
-        if let range = sentence.range(of: #"\d+"#, options: .regularExpression), let number = Int(sentence[range]) {
-            let changed = number >= 10 ? number + (number / 10 + 1) * 3 : number + 2
-            return sentence.replacingCharacters(in: range, with: String(changed))
-        }
-        if let term = terms.first(where: { sentence.contains($0) }),
-           let other = terms.first(where: { $0 != term && !sentence.contains($0) }) {
-            return sentence.replacingOccurrences(of: term, with: other)
-        }
-        return nil
-    }
-
-    // MARK: - 4. 객관식 문제
 
     static func problems(subject: String, unit: String, count: Int, hard: Bool) async throws -> ProblemSet {
-        // 수학 계산 단원은 직접 만든 계산 문제 (정답이 항상 맞음). 문제 생성기가 없는 단원은 개념 문제로
-        if isMath(subject: subject, unit: unit), MathProblems.topic(for: unit) != nil {
-            let made = (0..<count).compactMap { _ in MathProblems.make(unit: unit, hard: hard) }
-            if made.count >= max(1, count - 1) { return ProblemSet(items: made) }
-        }
-        // 두뇌가 새로 만든 문제
-        if let made = await DoitMind.makeProblems(subject: subject, unit: unit, count: count, hard: hard) { return made }
-        // 관련 개념으로 "알맞은 용어 고르기" 문제
-        let entries = knowledgeSet(subject: subject, unit: unit)
-        var items: [Problem] = []
-        for entry in entries where items.count < count {
-            guard var line = entry.body.components(separatedBy: "\n").first(where: { $0.count >= 12 }) else { continue }
-            for name in entry.names where name.count >= 2 { line = line.replacingOccurrences(of: name, with: "(   )") }
-            var others = entries.map(\.title).filter { $0 != entry.title }
-            others += DoitKnowledge.entries.filter { $0.subject == entry.subject && $0.title != entry.title }.shuffled().prefix(6).map(\.title)
-            var seen = Set<String>()
-            let distractors = others.filter { seen.insert($0).inserted }.prefix(4)
-            guard distractors.count == 4 else { continue }
-            let choices = (Array(distractors) + [entry.title]).shuffled()
-            let number = (choices.firstIndex(of: entry.title) ?? 0) + 1
-            items.append(Problem(question: "다음 설명에 알맞은 것은?\n\(line)", choices: choices, answerNumber: number,
-                                 steps: ["설명의 핵심 단서를 찾아요", "알맞은 개념은 '\(entry.title)'이에요"], finalAnswer: "\(number)번 \(entry.title)"))
-        }
-        guard !items.isEmpty else { throw notFound(unit) }
-        return ProblemSet(items: items)
+        try await DoitStudy.problems(subject: subject, unit: unit, count: count, hard: hard)
     }
 
     // MARK: - 5. 오답노트 단계별 풀이
@@ -287,7 +71,7 @@ enum DoitTutor {
         }
         // 앱 안 지식: 영어 → 과학 → 사회
         let builtIn = DoitEnglish.answer(text) ?? DoitScience.answer(text) ?? DoitSocial.answer(text)
-        // 두뇌가 있으면 근거(앱 지식·기억·인터넷)를 읽고 자기 말로 설명 (숫자 계산 질문은 엔진 답 그대로)
+        // 모델이 있으면 근거(앱 지식·기억·인터넷)를 읽고 자기 말로 설명 (숫자 계산 질문은 엔진 답 그대로)
         if !text.contains(where: \.isNumber) || builtIn == nil,
            let thought = await DoitMind.reply(question: text, draft: builtIn ?? DoitKnowledge.answer(text)) {
             return thought.text + (thought.sources.isEmpty ? "" : "\n\n출처: " + thought.sources.joined(separator: ", "))
@@ -325,22 +109,5 @@ enum DoitTutor {
             lines.append("이 주제는 제가 아는 내용을 이미 다 알려드렸어요. 퀴즈로 확인해 볼까요?")
         }
         return lines.joined(separator: "\n")
-    }
-
-    // MARK: - 공통
-
-    private static func isMath(subject: String, unit: String) -> Bool {
-        subject.contains("수학") || MathProblems.topic(for: unit) != nil
-    }
-
-    /// 앱 안에 정리된 핵심 문장 (수학 개념 정리 또는 영어·과학·사회 노트)
-    private static func builtInPoints(subject: String, unit: String) -> [String] {
-        if isMath(subject: subject, unit: unit), DoitKnowledge.entries(inUnit: unit).count < 2, let math = DoitMathConcepts.note(for: unit) { return math.points }
-        return builtInNote(subject: subject, unit: unit, booster: false, force: true)?.keyPoints
-            .map { $0.replacingOccurrences(of: #"^\[[^\]]*\]\s*"#, with: "", options: .regularExpression) } ?? []
-    }
-
-    private static func notFound(_ unit: String) -> TutorError {
-        .notEnough("'\(unit)'에 대한 자료가 두잇 AI에 아직 없어요. 단원 이름을 조금 다르게 써보세요.\n예: 이차방정식, 인수분해, 광합성, 뉴턴 운동 법칙, 임진왜란, 수요와 공급, 현재완료, 관계대명사")
     }
 }
