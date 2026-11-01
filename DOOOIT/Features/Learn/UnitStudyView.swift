@@ -220,12 +220,14 @@ struct AIContentLoader<T: Codable, Content: View>: View {
     }
 }
 
+@MainActor
 private func record(_ context: ModelContext, subject: String, unit: String, step: LearnStep, correct: Int, total: Int) {
     guard total > 0 else { return }
     context.insert(QuizRecord(subject: subject, unit: unit, step: step.rawValue, correct: correct, total: total))
     try? context.save()
 }
 
+@MainActor
 private func saveWeak(_ items: [WeakItem], subject: String, unit: String, context: ModelContext) {
     let key = ContentCache.key(subject, unit, "weak")
     var existing = ContentCache.load([WeakItem].self, key: key, context: context) ?? []
@@ -235,6 +237,7 @@ private func saveWeak(_ items: [WeakItem], subject: String, unit: String, contex
     ContentCache.save(existing, key: key, context: context)
 }
 
+@MainActor
 private func primaryButton(_ title: String, symbol: String = "arrow.right", action: @escaping () -> Void) -> some View {
     Button(action: action) {
         Label(title, systemImage: symbol)
