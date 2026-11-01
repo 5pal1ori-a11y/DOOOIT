@@ -18,7 +18,7 @@ enum DoitTutor {
 
     static func concept(subject: String, unit: String, booster: Bool) async throws -> ConceptNote {
         // 수학은 직접 정리한 교과서 핵심 + 예제
-        if isMath(subject: subject, unit: unit), let math = DoitMathConcepts.note(for: unit) {
+        if isMath(subject: subject, unit: unit), DoitKnowledge.entries(inUnit: unit).count < 2, let math = DoitMathConcepts.note(for: unit) {
             var example = ""
             if let problem = MathProblems.make(unit: unit, hard: false) {
                 example = "예제: \(problem.question)\n풀이: \(problem.steps.joined(separator: " → "))\n답: \(problem.finalAnswer)"
@@ -47,12 +47,15 @@ enum DoitTutor {
     /// 단원 이름으로 지식 사전에서 찾은 관련 개념들 (가장 가까운 것부터)
     private static func knowledgeSet(subject: String, unit: String) -> [DoitKnowledge.Entry] {
         let subjectKey = ["수학", "과학", "사회", "영어"].first { subject.contains($0) } ?? (subject.contains("역사") || subject.contains("한국사") ? "사회" : nil)
+        // 교육과정 단원 이름 그대로면 그 단원의 개념 전체
+        let inUnit = DoitKnowledge.entries(inUnit: unit, subject: subjectKey)
+        if inUnit.count >= 2 { return inUnit.shuffled() }
         var matches = DoitKnowledge.search(unit, limit: 10).filter { $0.score >= 0.3 }
         if let subjectKey {
             let same = matches.filter { $0.entry.subject == subjectKey }
             if !same.isEmpty { matches = same }
         }
-        return matches.map(\.entry)
+        return inUnit + matches.map(\.entry).filter { m in !inUnit.contains { $0.title == m.title } }
     }
 
     /// 영어·과학·사회 엔진에 들어 있는 설명으로 개념 정리 만들기
@@ -214,8 +217,8 @@ enum DoitTutor {
     // MARK: - 4. 객관식 문제
 
     static func problems(subject: String, unit: String, count: Int, hard: Bool) async throws -> ProblemSet {
-        // 수학 계산 단원은 직접 만든 계산 문제 (정답이 항상 맞음)
-        if isMath(subject: subject, unit: unit) {
+        // 수학 계산 단원은 직접 만든 계산 문제 (정답이 항상 맞음). 문제 생성기가 없는 단원은 개념 문제로
+        if isMath(subject: subject, unit: unit), MathProblems.topic(for: unit) != nil {
             let made = (0..<count).compactMap { _ in MathProblems.make(unit: unit, hard: hard) }
             if made.count >= max(1, count - 1) { return ProblemSet(items: made) }
         }
@@ -320,7 +323,7 @@ enum DoitTutor {
 
     /// 앱 안에 정리된 핵심 문장 (수학 개념 정리 또는 영어·과학·사회 노트)
     private static func builtInPoints(subject: String, unit: String) -> [String] {
-        if isMath(subject: subject, unit: unit), let math = DoitMathConcepts.note(for: unit) { return math.points }
+        if isMath(subject: subject, unit: unit), DoitKnowledge.entries(inUnit: unit).count < 2, let math = DoitMathConcepts.note(for: unit) { return math.points }
         return builtInNote(subject: subject, unit: unit, booster: false, force: true)?.keyPoints
             .map { $0.replacingOccurrences(of: #"^\[[^\]]*\]\s*"#, with: "", options: .regularExpression) } ?? []
     }

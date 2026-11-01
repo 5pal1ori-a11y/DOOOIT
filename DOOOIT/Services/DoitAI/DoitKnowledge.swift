@@ -7,7 +7,12 @@ enum DoitKnowledge {
         let subject: String
         let names: [String]
         let body: String
+        /// 교육과정 사전에서 온 개념이면 학교급·단원
+        var level: SchoolLevel? = nil
+        var unit: String? = nil
         var title: String { names.first ?? "" }
+        /// 화면에 보여줄 과목 표시 (예: "중학교 수학")
+        var label: String { level.map { "\($0.rawValue) \(subject)" } ?? subject }
     }
 
     struct Match {
@@ -21,6 +26,15 @@ enum DoitKnowledge {
         list += DoitScience.knowledgeEntries.map { Entry(subject: "과학", names: $0.names, body: $0.body) }
         list += DoitSocial.knowledgeEntries.map { Entry(subject: "사회", names: $0.names, body: $0.body) }
         list += DoitEnglish.knowledgeEntries.map { Entry(subject: "영어", names: $0.names, body: $0.body) }
+        // 초등 ~ 대학교 교육과정 사전 (같은 이름이 이미 있으면 앞의 설명을 남기고 건너뜀)
+        var seen = Set(list.map { $0.title.lowercased().filter { !$0.isWhitespace } })
+        for (subject, items) in DoitCurriculum.bySubject {
+            for item in items {
+                let key = (item.names.first ?? "").lowercased().filter { !$0.isWhitespace }
+                guard !key.isEmpty, seen.insert(key).inserted else { continue }
+                list.append(Entry(subject: subject, names: item.names, body: item.body, level: item.level, unit: item.unit))
+            }
+        }
         return list.filter { !$0.names.isEmpty && !$0.body.isEmpty }
     }()
 
@@ -84,10 +98,19 @@ enum DoitKnowledge {
     /// 확실한 답이 있으면 보기 좋게 (없으면 nil)
     static func answer(_ query: String) -> String? {
         guard let best = search(query, limit: 3).first, best.score >= 0.45 else { return nil }
-        var text = "**\(best.entry.title)** (\(best.entry.subject))\n\(best.entry.body)"
+        var text = "**\(best.entry.title)** (\(best.entry.label))\n\(best.entry.body)"
         let others = search(query, limit: 4).dropFirst().filter { $0.score >= 0.35 }.map(\.entry.title)
         if !others.isEmpty { text += "\n\n함께 보면 좋아요: " + others.joined(separator: ", ") }
         return text
+    }
+
+    /// 교육과정 단원에 들어 있는 개념들 (AI 학습에서 단원을 골랐을 때)
+    static func entries(inUnit unit: String, subject: String? = nil) -> [Entry] {
+        let key = unit.filter { !$0.isWhitespace }
+        return entries.filter { entry in
+            guard let u = entry.unit, u.filter({ !$0.isWhitespace }) == key else { return false }
+            return subject.map { entry.subject == $0 } ?? true
+        }
     }
 
     /// 이름이 정확히 같은 개념

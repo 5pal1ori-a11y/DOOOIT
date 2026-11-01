@@ -35,7 +35,7 @@ enum DoitConversation {
         // 지식 사전에서 비슷한 개념
         if let best = DoitKnowledge.search(text, limit: 3).first, best.score >= 0.32 {
             let others = DoitKnowledge.search(text, limit: 3).dropFirst().filter { $0.score >= 0.28 }.map(\.entry.title)
-            var answer = "혹시 **\(best.entry.title)**(\(best.entry.subject))에 대해 묻는 건가요?\n\(best.entry.body)"
+            var answer = "혹시 **\(best.entry.title)**(\(best.entry.label))에 대해 묻는 건가요?\n\(best.entry.body)"
             if !others.isEmpty { answer += "\n\n비슷한 개념: " + others.joined(separator: ", ") }
             return Answer(text: answer, suggestions: ["\(best.entry.title) 퀴즈 내줘"] + others.prefix(2).map { "\($0) 설명해줘" }, topic: best.entry.title)
         }
