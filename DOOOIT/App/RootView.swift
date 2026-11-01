@@ -14,7 +14,8 @@ struct RootView: View {
                         NameSetupView()
                     } else {
                         MainTabView()
-                            .id(themeRaw) // 테마를 바꾸면 탭 화면 전체를 새 색으로 다시 그림
+                            // 테마를 바꾸거나 계정이 바뀌면 탭 화면 전체를 다시 그림 (새 색, 그 계정의 저장소)
+                            .id("\(themeRaw)-\(user.id)")
                     }
                 } else {
                     AuthView()

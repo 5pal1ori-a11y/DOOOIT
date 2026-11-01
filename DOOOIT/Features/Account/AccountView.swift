@@ -300,6 +300,8 @@ struct AccountView: View {
         }
         DoitAssistant.shared.reset()
         WidgetSync.update(context: context)
+        // 이 계정의 저장소 폴더는 다른 저장소로 바꾼 뒤 지움
+        if let id = auth.currentUser?.id { AccountStore.scheduleRemoval(of: id) }
         auth.deleteAccount()
     }
 }
