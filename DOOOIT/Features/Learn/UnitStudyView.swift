@@ -234,10 +234,10 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 .foregroundStyle(Theme.accent)
             VStack(spacing: 6) {
                 Text("크레딧이 사용돼요").font(.headline)
-                Text("이 단원을 AI로 학습하면 \(CreditStore.costPerUse) 크레딧이 소모됩니다. 그래도 진행할까요?")
+                Text(credits.confirmText("이 단원을 AI로 학습하면"))
                     .font(.subheadline)
                     .multilineTextAlignment(.center)
-                Text("지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - CreditStore.costPerUse) 크레딧\n같은 단원의 개념·빈칸·O/X·문제는 추가로 차감되지 않아요.")
+                Text("같은 단원의 개념·빈칸·O/X·문제는 추가로 차감되지 않아요.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -246,7 +246,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 credits.confirmUnit(key)
                 Task { await load(force: false) }
             } label: {
-                Text("진행 (\(CreditStore.costPerUse) 크레딧)")
+                Text(credits.isUnlimited ? "진행" : "진행 (\(CreditStore.costPerUse) 크레딧)")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)

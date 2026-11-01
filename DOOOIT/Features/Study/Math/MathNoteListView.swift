@@ -107,7 +107,7 @@ struct MathNoteListView: View {
         .errorAlert($errorMessage)
         .alert(creditAlertTitle, isPresented: $showCreditConfirm) {
             if credits.canAfford(pendingCost) {
-                Button("진행 (\(pendingCost) 크레딧)") { startCreate(useClaude: true) }
+                Button(credits.isUnlimited ? "진행" : "진행 (\(pendingCost) 크레딧)") { startCreate(useClaude: true) }
             }
             Button("기기 인식으로 무료로 읽기") { startCreate(useClaude: false) }
             Button("취소", role: .cancel) { pendingPairs = [] }
@@ -127,7 +127,7 @@ struct MathNoteListView: View {
     private var creditAlertMessage: String {
         let count = pendingPairs.count
         if credits.canAfford(pendingCost) {
-            return "문제 \(count)개를 Claude로 정확하게 읽으면 \(pendingCost) 크레딧이 소모됩니다. 그래도 진행할까요?\n\n지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - pendingCost) 크레딧"
+            return credits.confirmText("문제 \(count)개를 Claude로 정확하게 읽으면", cost: pendingCost)
         }
         return "문제 \(count)개를 Claude로 읽으려면 \(pendingCost) 크레딧이 필요한데 지금 \(credits.balance) 크레딧이 있어요.\n기기 인식으로 무료로 읽을 수 있어요. (수식은 덜 정확해요)"
     }

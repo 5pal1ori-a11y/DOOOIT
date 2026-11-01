@@ -45,10 +45,10 @@ struct SimilarProblemsCard: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
         .errorAlert($error)
         .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-            Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
+            Button(credits.isUnlimited ? "진행" : "진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("비슷한 문제 3개를 만들면 \(CreditStore.costPerUse) 크레딧이 소모됩니다. 그래도 진행할까요?\n\n지금 \(credits.balance) 크레딧 → 진행 후 \(credits.balance - CreditStore.costPerUse) 크레딧")
+            Text(credits.confirmText("비슷한 문제 3개를 만들면"))
         }
         .onAppear {
             if problemSet == nil { problemSet = ContentCache.load(SimilarProblemSet.self, key: cacheKey, context: context) }

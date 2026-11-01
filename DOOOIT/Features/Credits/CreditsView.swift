@@ -1,11 +1,15 @@
+import StoreKit
 import SwiftUI
 
-/// 크레딧 얻기: 잔액, 오늘의 무료 크레딧, 광고 보고 받기, 사용 요금, 내역
+/// 크레딧: 잔액, 광고 보고 받기, 공부로 받기, 크레딧 상점(충전·플랜), 최근 내역
 struct CreditsView: View {
     @Environment(CreditStore.self) private var credits
     @State private var ads = RewardedAdManager.shared
+    @State private var store = StoreManager.shared
     @State private var message: String?
     @State private var bump = 0
+    @State private var showHistory = false
+    @State private var showManageSubscription = false
 
     var body: some View {
         ScrollView {
@@ -13,7 +17,7 @@ struct CreditsView: View {
                 balanceCard
                 adCard
                 studyCard
-                priceCard
+                shopSection
                 historyCard
             }
             .padding(20)
@@ -26,6 +30,13 @@ struct CreditsView: View {
         .onAppear {
             credits.grantDailyIfNeeded()
             ads.start()
+            store.start()
+        }
+        .manageSubscriptionsSheet(isPresented: $showManageSubscription)
+        .alert("크레딧 상점", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(store.message ?? "")
         }
     }
 
@@ -48,13 +59,13 @@ struct CreditsView: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("내 크레딧").font(.subheadline).opacity(0.85)
-                Text("\(credits.balance)")
+                Text(credits.isUnlimited ? "무제한" : "\(credits.balance)")
                     .font(.system(size: 46, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText())
                     .scaleEffect(1)
                     .animation(.snappy, value: bump)
-                Text("AI 한 번 = \(CreditStore.costPerUse) 크레딧 · 매일 \(CreditStore.dailyGrant) 크레딧 무료")
+                Text(credits.plan.map { "\($0.title) 이용 중" } ?? "AI 한 번 = \(CreditStore.costPerUse) 크레딧 · 매일 \(CreditStore.dailyGrant) 크레딧 무료")
                     .font(.caption)
                     .opacity(0.85)
             }
@@ -169,27 +180,149 @@ struct CreditsView: View {
         .glassCard()
     }
 
-    // MARK: 요금
+    // MARK: 크레딧 상점
 
-    private var priceCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("크레딧이 드는 기능").font(.headline)
-            ForEach([CreditStore.Use.readProblem, .solution, .similar, .askAI, .unitStudy], id: \.self) { use in
-                HStack(spacing: 12) {
-                    Image(systemName: use.symbol)
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 30, height: 30)
-                        .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 9))
-                    Text(use.title).font(.subheadline)
-                    Spacer()
-                    Text("\(CreditStore.costPerUse)").font(.subheadline.weight(.bold)).monospacedDigit()
+    private var shopSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("크레딧 상점").font(.title3.weight(.heavy))
+                Spacer()
+                Button("구매 복원") { Task { await store.restore() } }
+                    .font(.caption.weight(.semibold))
+            }
+
+            if credits.canUseFirstPurchaseDeal {
+                firstDealCard
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(StoreManager.ID.packs.enumerated()), id: \.offset) { index, id in
+                    if index > 0 { Divider().padding(.leading, 60) }
+                    packRow(id)
                 }
             }
-            Text("AI가 실패하면 크레딧은 차감되지 않아요. 크레딧이 모자라면 문제 사진은 기기 안 인식으로 무료로 읽어요.")
-                .font(.caption)
+            .glassEffect(.regular, in: .rect(cornerRadius: 22))
+
+            Text("플랜").font(.headline).padding(.top, 6)
+            planCard(id: StoreManager.ID.unlimited, title: "크레딧 무제한 플랜", symbol: "infinity",
+                     detail: "모든 AI 기능을 크레딧 차감 없이 마음껏", color: Theme.accent)
+            planCard(id: StoreManager.ID.daily, title: "매일 지급 플랜", symbol: "calendar.badge.plus",
+                     detail: "매일 \(CreditStore.dailyPlanGrant) 크레딧 추가 지급 (무료 \(CreditStore.dailyGrant)과 별도)", color: Palette.success)
+
+            if store.activePlanID != nil {
+                Button("구독 관리 · 해지") { showManageSubscription = true }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+            }
+
+            Text("구독은 매월 자동 갱신되며, 갱신 24시간 전까지 App Store 계정 설정에서 해지할 수 있어요. 구매한 크레딧은 이 기기의 DOOOIT에서 쓸 수 있어요.")
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
-        .glassCard()
+    }
+
+    private var firstDealCard: some View {
+        let id = StoreManager.ID.firstPack
+        return Button { Task { await store.purchase(id) } } label: {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("첫 구매 특가 · 50% 할인")
+                        .font(.caption.weight(.heavy))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(.white.opacity(0.25), in: .capsule)
+                    Text("1,000 크레딧").font(.title2.weight(.black))
+                    Text("100크레딧당 125원 · 한 번만 살 수 있어요").font(.caption).opacity(0.9)
+                }
+                Spacer()
+                buyLabel(id, onDark: true)
+            }
+            .foregroundStyle(.white)
+            .padding(18)
+            .background(
+                LinearGradient(colors: [Color(hex: "#FF8A3D"), Color(hex: "#F5536B")], startPoint: .topLeading, endPoint: .bottomTrailing),
+                in: .rect(cornerRadius: 22)
+            )
+            .shadow(color: Color(hex: "#F5536B").opacity(0.3), radius: 14, y: 8)
+        }
+        .buttonStyle(.plain)
+        .disabled(store.purchasingID != nil)
+    }
+
+    private func packRow(_ id: String) -> some View {
+        let amount = StoreManager.credits[id] ?? 0
+        return Button { Task { await store.purchase(id) } } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "bolt.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(amount.formatted()) 크레딧").font(.headline)
+                    Text("100크레딧당 250원 · AI \(amount / CreditStore.costPerUse)번").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                buyLabel(id, onDark: false)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(store.purchasingID != nil)
+    }
+
+    private func planCard(id: String, title: String, symbol: String, detail: String, color: Color) -> some View {
+        let isActive = store.activePlanID == id
+        return Button { Task { await store.purchase(id) } } label: {
+            HStack(spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .background(color.gradient, in: .rect(cornerRadius: 14))
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(title).font(.headline)
+                        if isActive {
+                            Text("이용 중")
+                                .font(.caption2.weight(.heavy))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(color, in: .capsule)
+                        }
+                    }
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                    Text("\(store.price(id)) / 월").font(.subheadline.weight(.bold)).foregroundStyle(color)
+                }
+                Spacer(minLength: 0)
+                if !isActive {
+                    Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                }
+            }
+            .glassCard(interactive: !isActive)
+            .overlay {
+                if isActive { RoundedRectangle(cornerRadius: 26).stroke(color, lineWidth: 2) }
+            }
+        }
+        .buttonStyle(.plain)
+        .disabled(isActive || store.purchasingID != nil)
+    }
+
+    @ViewBuilder
+    private func buyLabel(_ id: String, onDark: Bool) -> some View {
+        if store.purchasingID == id {
+            ProgressView().tint(onDark ? .white : Theme.accent)
+                .frame(minWidth: 70)
+        } else {
+            Text(store.price(id))
+                .font(.subheadline.weight(.heavy))
+                .foregroundStyle(onDark ? Color(hex: "#F5536B") : .white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(onDark ? Color.white : Theme.accent, in: .capsule)
+        }
     }
 
     // MARK: 내역
@@ -198,8 +331,23 @@ struct CreditsView: View {
     private var historyCard: some View {
         if !credits.history.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Text("최근 내역").font(.headline)
-                ForEach(credits.history.prefix(15)) { entry in
+                Button {
+                    withAnimation(.snappy) { showHistory.toggle() }
+                } label: {
+                    HStack {
+                        Label("최근 내역", systemImage: "clock.arrow.circlepath").font(.headline)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(showHistory ? 180 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if showHistory {
+                ForEach(credits.history.prefix(30)) { entry in
                     HStack {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(entry.title).font(.subheadline)
@@ -211,6 +359,8 @@ struct CreditsView: View {
                             .monospacedDigit()
                             .foregroundStyle(entry.amount > 0 ? Palette.success : Color.secondary)
                     }
+                    .transition(.opacity)
+                }
                 }
             }
             .glassCard()
