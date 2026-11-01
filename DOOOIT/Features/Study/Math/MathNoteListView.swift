@@ -158,26 +158,16 @@ struct MathNoteListView: View {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
         for (i, pair) in pairs.enumerated() {
-            // 서버가 연결되어 있으면 Claude가 직접 읽고, 실패하거나 없으면 기기 안 글자 인식
-            var text = ""
-            var claudeTitle = ""
-            var claudeAnswer = ""
-            if ClaudeReader.isConfigured, let result = try? await ClaudeReader.read(pair.problem) {
-                text = result.text
-                claudeTitle = result.title
-                claudeAnswer = result.answer
-            } else {
-                let lines = (try? await OCRService.recognize(pair.problem)) ?? []
-                text = MathOCRFixer.fix(OCRService.printedText(from: lines))
-            }
+            let lines = (try? await OCRService.recognize(pair.problem)) ?? []
+            let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
             let firstLine = text.split(separator: "\n").first.map(String.init) ?? ""
-            let title = !claudeTitle.isEmpty ? claudeTitle : (firstLine.isEmpty ? "오답 \(notes.count + i + 1)" : String(firstLine.prefix(24)))
+            let title = firstLine.isEmpty ? "오답 \(notes.count + i + 1)" : String(firstLine.prefix(24))
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
                 thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
                 recognizedText: text,
-                correctAnswer: claudeAnswer.isEmpty ? (MathGrader.extractAnswer(from: text) ?? "") : claudeAnswer
+                correctAnswer: MathGrader.extractAnswer(from: text) ?? ""
             )
             note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
             context.insert(note)

@@ -15,9 +15,6 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       ASC_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-      # 선택: Claude 문제 읽기 서버 (server/README.md). 비어 있으면 기기 안 인식만 사용
-      READER_URL: ${{ secrets.DOOOIT_READER_URL }}
-      READER_KEY: ${{ secrets.DOOOIT_READER_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -110,8 +107,6 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            DOOOIT_READER_URL="$READER_URL" \
-            DOOOIT_READER_KEY="$READER_KEY" \
             CODE_SIGN_STYLE=Automatic 2>&1 | tee "$RUNNER_TEMP/archive.log"
           }
           # 처음 빌드 때는 Apple에서 프로비저닝 프로필을 새로 만들면서 실패할 수 있어 한 번 더 시도

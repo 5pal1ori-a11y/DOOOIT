@@ -185,31 +185,58 @@ enum AITutor {
         "\(subject) '\(unit)' 단원의 \(hard ? "응용·실전" : "기본") 5지선다 문제 \(count)개를 만들어줘. 정답이 하나뿐이도록 하고, 단계별 풀이를 꼭 검산해."
     }
 
-    static func reconstructPrompt(readings: [String], current: String) -> String {
-        var text = """
-        같은 수학 문제 사진을 글자 인식으로 여러 번 읽은 결과야. 읽을 때마다 틀린 곳이 조금씩 달라.
-        결과들을 서로 비교해서 사진에 인쇄된 원래 문제 문장과 보기를 복원해줘.
-        - 손글씨 풀이 흔적, 출처 표시, 의미 없는 숫자·기호는 지워.
-        - 수식은 x³, x², √, a/b, ① 같은 형태로 바로잡아.
-        - 여러 결과에 공통으로 있는 숫자를 믿고, 확실하지 않은 부분은 [?]로 표시해.
-        글자 인식은 수식을 이렇게 자주 깨뜨려. 문맥을 보고 되돌려:
-        - 루트 기호 √ 가 V, v, J, /, ✓ 로 읽힘 (예: 2-V5 → 2-√5, V3x → √(3x))
-        - 지수가 그냥 숫자로 붙음 (예: x3 → x³, x2+1 → x²+1, 22 가 x² 인 경우도 있음)
-        - 분수의 가로선이 사라져 분자와 분모가 위아래 다른 줄로 나뉘거나 '-' 로 읽힘 → (분자)/(분모) 로 합침
-        - 기울어진(이탤릭) 수식 문자를 숫자로 읽음: x → 2, a → 0 또는 o, b → 6, y → J 또는 V
-          (예: "2축" → "x축", "실수 0, 6" → "실수 a, b", "3J=" → "y=", "202" → "x²")
-        - 한글 문장은 한국어 읽기 결과에서, 수식 부분은 [영어 전용 읽기] 결과에서 가져와 합쳐
-        - "1차함수"처럼 읽혔어도 이차식(x²)이 있으면 "이차함수"일 가능성이 커
-        - x 가 ×, χ 로, = 가 -, 二 로, 1 이 l, I 로 읽힘
-        - 분수는 (a+b)/(c+d), 루트는 √(…) 처럼 괄호로 범위를 분명히 써
-        - 문제를 풀거나 없는 내용을 지어내지 마.
-        복원한 문제 텍스트만 답해.
-        """
+    /// 글자 인식 결과 복원 전용 지시문: 수학 문제에서 자주 나오는 잘못 읽기 경우를 전부 알려줌
+    static let ocrInstructions = """
+    너는 수학 문제 사진의 글자 인식 결과를 원래 인쇄된 문제로 되돌리는 교정자야.
+    문제를 풀지 말고, 없는 내용을 지어내지 말고, 복원한 문제 텍스트만 답해.
+    여러 읽기 결과가 있으면 서로 비교해 공통된 부분을 믿어. 끝까지 모르겠으면 [?]로 표시해.
+    손글씨 풀이, 채점 표시, 낙서, 쪽 번호, 출처 문구는 지워. 배점 [3점] [4점]은 남겨.
+    한글 문장은 한국어 읽기 결과에서, 수식은 [영어 전용 읽기] 결과에서 가져와 합쳐.
+
+    자주 틀리는 경우 (문맥을 보고 되돌려):
+    [기울어진 변수] x→2, ×, X, χ, ㅈ / y→J, V, v, u, ν / a→0, o, α, d, ㅁ / b→6, h, ㅂ / n→ㅁ, r / k→K, 片 / t→十, + / f(x)→「(x), F(x), ƒ / m→rn
+     예: 2축→x축, J축→y축, J=2²→y=x², 실수 0, 6→실수 a, b, 0+6의 값→a+b의 값, 2+J→x+y, 2²→x², 22+1→x²+1
+    [지수] 변수 바로 뒤 2·3은 대부분 지수: x2→x², x3→x³, (x+1)2→(x+1)², 2^→², 10의 n제곱 10n→10ⁿ
+    [첨자] 수열 an→aₙ, a1→a₁, an+1→aₙ₊₁, Sn→Sₙ, log2 8→log₂8
+    [루트] √→V, v, J, /, ✓, ~, ㄷ: 2-V5→2-√5, V3x→√(3x), 3V2→3√2
+    [분수] 가로선이 사라져 분자·분모가 다른 줄로 나뉘거나 -, —, _ 로 읽힘 → (분자)/(분모)
+    [기호] ±→+, 土 / ×→x / ÷→+ / ≤→<, ≦, s / ≥→>, ≧ / ≠→= / =→-, 二, == / π→T, n, 元, 兀 / ∠→<, L / △→A, Δ / °→o, 0 / |x|→lxl, 1x1, Ix / ∞→oo, 00 / ∑→E, Σ, 2 / ∫→J, f, S / lim→Iim, 1im / sin→sln, s1n / cos→c0s / log→l0g, 1og / ≡→三
+    [숫자·글자] 1↔l, I, | / 0↔O, o / 5↔S / 8↔B / 9↔g, q / 7↔T / 4↔A / ,↔. / -↔~
+    [보기·선택지] ①→®, (1), O1, 0 / ②→©, (2) / ③→(3) / ④→(4) / ⑤→(5), @ / 보기 ㄱ. ㄴ. ㄷ.→7. L. C. 또는 ᄀ. ᄂ. ᄃ.  선택지는 한 줄에 하나씩
+    [한글] 이차함수→1차함수, 0|차함수 / 값→갔, 갑 / 의→으| / 이→0|, 01 / 는→늗 / 좌표→좌포 / 꼭짓점→꼭지점 / 최댓값→최대값 (식에 x²가 있으면 이차함수)
+    [괄호] (→C, ( / )→), J / [ ]→I I / { }→( )
+    표기는 x², √(…), (분자)/(분모), aₙ, ×, ÷, ≤, ≥, π, ①~⑤ 로 통일하고 범위는 괄호로 분명히 써.
+    """
+
+    /// 여러 번 읽은 결과를 기기 AI가 비교해 원래 문제로 복원. 길면 읽기 수를 줄여 다시 시도
+    static func reconstruct(readings: [String], current: String) async throws -> String {
+        if let message = unavailableMessage { throw AITutorError.unavailable(message) }
+        let cleaned = readings.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        var attempts: [(count: Int, limit: Int)] = [(4, 450), (2, 600), (1, 900)]
+        attempts = attempts.filter { $0.count <= max(cleaned.count, 1) || $0.count == 1 }
+        var lastError: Error?
+        for attempt in attempts {
+            let prompt = reconstructPrompt(readings: Array(cleaned.prefix(attempt.count)), current: current, limit: attempt.limit)
+            let session = LanguageModelSession(instructions: ocrInstructions)
+            do {
+                let result = try await session.respond(to: prompt).content
+                return MathOCRFixer.fix(result.trimmingCharacters(in: .whitespacesAndNewlines))
+            } catch {
+                print("AI 복원 실패(\(attempt.count)개): \(error)")
+                lastError = error
+                guard String(describing: error).contains("exceededContext") else { break }
+            }
+        }
+        throw AITutorError.describe(lastError ?? AITutorError.failed("알 수 없는 오류"))
+    }
+
+    static func reconstructPrompt(readings: [String], current: String, limit: Int) -> String {
+        var text = "같은 문제 사진을 글자 인식으로 읽은 결과야. 원래 인쇄된 문제로 복원해줘."
         for (index, reading) in readings.enumerated() {
-            text += "\n\n[읽기 \(index + 1)]\n\(String(reading.prefix(1500)))"
+            text += "\n\n[읽기 \(index + 1)]\n\(String(reading.prefix(limit)))"
         }
         if !current.isEmpty && !readings.contains(current) {
-            text += "\n\n[지금 저장된 텍스트]\n\(String(current.prefix(1500)))"
+            text += "\n\n[지금 저장된 텍스트]\n\(String(current.prefix(limit)))"
         }
         return text
     }
