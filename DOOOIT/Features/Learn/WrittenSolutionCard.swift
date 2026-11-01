@@ -25,16 +25,17 @@ struct WrittenSolutionCard: View {
             header
 
             if let solution {
-                Picker("보기", selection: $tab.animation(.snappy)) {
-                    ForEach(Tab.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                PillSegmentedControl(items: Tab.allCases, selection: $tab) { $0.rawValue }
 
-                switch tab {
-                case .problem: practice(solution)
-                case .concept: concept(solution)
-                case .answer: modelAnswer(solution)
+                Group {
+                    switch tab {
+                    case .problem: practice(solution)
+                    case .concept: concept(solution)
+                    case .answer: modelAnswer(solution)
+                    }
                 }
+                .id(tab)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
 
                 Label("AI 풀이는 틀릴 수 있어요. 정답과 꼭 비교해보세요.", systemImage: "exclamationmark.circle")
                     .font(.caption2)
@@ -117,7 +118,8 @@ struct WrittenSolutionCard: View {
                 .font(.subheadline.weight(.heavy))
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
-                .background(Theme.accent, in: .circle)
+                .background(AccentGradient.linear, in: .circle)
+                .shadow(color: Theme.accent.opacity(0.3), radius: 4, y: 2)
             if !isLast {
                 Rectangle()
                     .fill(Theme.accent.opacity(0.25))
@@ -146,9 +148,10 @@ struct WrittenSolutionCard: View {
                     }
                     .padding(.bottom, 18)
                 }
+                .appearAnimation(delay: Double(index) * 0.06)
             }
             Button {
-                withAnimation(.snappy) { tab = .answer }
+                withAnimation(Motion.spring) { tab = .answer }
             } label: {
                 Label("다 풀었어요 · 모범 답안과 비교", systemImage: "arrow.right.circle.fill")
                     .font(.subheadline.weight(.bold))
@@ -196,11 +199,13 @@ struct WrittenSolutionCard: View {
                     }
                     .padding(.bottom, 18)
                 }
+                .appearAnimation(delay: Double(index) * 0.08)
             }
 
             HStack {
                 Label("최종 답", systemImage: "checkmark.seal.fill")
                     .font(.subheadline.weight(.bold))
+                    .symbolEffect(.bounce, value: tab)
                 Spacer()
                 Text(MathSymbolBar.pretty(solution.finalAnswer))
                     .font(.title3.weight(.heavy))
@@ -208,7 +213,9 @@ struct WrittenSolutionCard: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
-            .background(Theme.accent, in: .capsule)
+            .background(AccentGradient.linear, in: .capsule)
+            .shadow(color: Theme.accent.opacity(0.3), radius: 10, y: 5)
+            .appearAnimation(delay: 0.25)
 
             if note.correctAnswer.isEmpty {
                 Button {

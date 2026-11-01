@@ -135,6 +135,8 @@ struct SimilarProblemsCard: View {
                       systemImage: result ? "checkmark.circle.fill" : "xmark.circle.fill")
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(result ? Palette.success : Palette.danger)
+                    .symbolEffect(.bounce, value: result)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             Button {
@@ -157,19 +159,22 @@ struct SimilarProblemsCard: View {
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 12))
-                .transition(.opacity)
+                .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .padding(14)
         .background(Color.white, in: .rect(cornerRadius: 18))
         .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+        .feedbackGlow(result, cornerRadius: 18)
+        .shake(trigger: result == false)
+        .appearAnimation(delay: Double(index) * 0.06)
     }
 
     // MARK: Actions
 
     private func check(_ index: Int, problem: SimilarProblem) {
         let ok = MathGrader.grade(myAnswer: answers[index], correctAnswer: problem.answer) ?? false
-        withAnimation(.snappy) { results[index] = ok }
+        withAnimation(Motion.spring) { results[index] = ok }
         if ok { Haptics.success() } else { Haptics.error() }
     }
 

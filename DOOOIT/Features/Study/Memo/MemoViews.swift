@@ -36,6 +36,7 @@ struct MemoListView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .animation(Motion.spring, value: memos.count)
         .background { AppBackground() }
         .searchable(text: $search, prompt: "메모 검색")
         .navigationTitle("메모장")

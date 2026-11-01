@@ -99,12 +99,15 @@ struct UnitStudyView: View {
                         }
                     }
                     .id(step)
+                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
+                                            removal: .move(edge: .leading).combined(with: .opacity)))
                     Text("AI가 만든 자료는 틀릴 수 있어요. 교과서와 함께 확인하세요.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 .padding(20)
                 .padding(.bottom, 40)
+                .animation(Motion.spring, value: step)
             }
             .scrollDismissesKeyboard(.interactively)
         }
@@ -122,11 +125,13 @@ struct UnitStudyView: View {
             HStack(spacing: 6) {
                 ForEach(LearnStep.allCases) { item in
                     Button {
-                        withAnimation(.snappy) { step = item }
+                        withAnimation(Motion.spring) { step = item }
+                        Haptics.tap()
                     } label: {
                         HStack(spacing: 4) {
                             if doneSteps.contains(item.rawValue) {
                                 Image(systemName: "checkmark").font(.caption2.weight(.heavy))
+                                    .transition(.scale.combined(with: .opacity))
                             }
                             Text(item.longTitle)
                         }
@@ -147,13 +152,27 @@ struct UnitStudyView: View {
             .padding(.vertical, 10)
         }
         .scrollIndicators(.hidden)
+        .overlay(alignment: .bottom) { stepProgress }
+    }
+
+    /// 지금 단계까지 채워지는 얇은 진행 막대
+    private var stepProgress: some View {
+        GeometryReader { proxy in
+            let index = CGFloat((LearnStep.allCases.firstIndex(of: step) ?? 0) + 1)
+            let fraction = index / CGFloat(LearnStep.allCases.count)
+            Capsule()
+                .fill(AccentGradient.linear)
+                .frame(width: proxy.size.width * fraction, height: 3)
+                .animation(Motion.spring, value: step)
+        }
+        .frame(height: 3)
     }
 
     private func finish(_ finished: LearnStep) {
         doneSteps.insert(finished.rawValue)
         onStepDone?(finished)
         if let index = LearnStep.allCases.firstIndex(of: finished), index + 1 < LearnStep.allCases.count {
-            withAnimation(.snappy) { step = LearnStep.allCases[index + 1] }
+            withAnimation(Motion.spring) { step = LearnStep.allCases[index + 1] }
         }
     }
 }
@@ -176,8 +195,14 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         Group {
             if let value {
                 content(value) { Task { await load(force: true) } }
+                    .transition(.opacity.combined(with: .scale(scale: 0.98)))
             } else if let error {
                 VStack(spacing: 12) {
+                    Image(systemName: "exclamationmark.bubble")
+                        .font(.system(size: 30, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 64, height: 64)
+                        .background(Theme.accent.opacity(0.12), in: .circle)
                     Text(error).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     Button("다시 시도") { Task { await load(force: true) } }
                         .buttonStyle(.glass)
@@ -187,8 +212,14 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             } else {
                 // 처음부터 이 화면을 보여줘야 .task가 실행됨 (빈 화면이면 시작되지 않음)
                 VStack(spacing: 12) {
-                    ProgressView().controlSize(.large)
-                    Text("두잇 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold))
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 72, height: 72)
+                        .background(AccentGradient.linear, in: .circle)
+                        .shadow(color: Theme.accent.opacity(0.35), radius: 14, y: 6)
+                        .symbolEffect(.pulse, options: .repeating)
+                    Text("두잇 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요" : "준비 중")
                             .font(.caption)
@@ -200,6 +231,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 .padding(.vertical, 50)
             }
         }
+        .animation(Motion.spring, value: value == nil)
         .task { await load(force: false) }
         .onDisappear { generation?.cancel() }
     }
@@ -305,6 +337,7 @@ struct ConceptStepView: View {
                                 .lineSpacing(2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        .appearAnimation(delay: Double(index) * 0.06)
                     }
                 }
                 .softCard()
@@ -315,6 +348,7 @@ struct ConceptStepView: View {
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
+                .appearAnimation(delay: 0.3)
 
                 primaryButton("다 읽었어요 · 빈칸 암기로") { onDone(.concept) }
             }
@@ -356,10 +390,14 @@ struct ClozeStepView: View {
                             if checked {
                                 Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .foregroundStyle(ok ? Palette.success : Palette.danger)
+                                    .symbolEffect(.bounce, value: checked)
+                                    .transition(.scale.combined(with: .opacity))
                             }
                         }
                         .padding(12)
                         .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12))
+                        .feedbackGlow(checked ? ok : nil, cornerRadius: 12)
+                        .shake(trigger: checked && !ok)
                         if checked && !ok {
                             Text("정답: \(item.answer)").font(.caption.weight(.semibold)).foregroundStyle(Palette.danger)
                         }
@@ -367,11 +405,11 @@ struct ClozeStepView: View {
                 }
                 if checked {
                     let score = set.items.indices.filter { AnswerChecker.checkMeaning(answers[$0] ?? "", answer: set.items[$0].answer) }.count
-                    Text("\(set.items.count)문제 중 \(score)개 맞았어요").font(.headline)
+                    ResultSummaryCard(correct: score, total: set.items.count)
                     primaryButton("O/X 문제로") { onDone(.cloze) }
                 } else {
                     primaryButton("채점하기", symbol: "checkmark") {
-                        checked = true
+                        withAnimation(Motion.spring) { checked = true }
                         let wrong = set.items.indices.filter { !AnswerChecker.checkMeaning(answers[$0] ?? "", answer: set.items[$0].answer) }
                         record(context, subject: subject, unit: unit, step: .cloze, correct: set.items.count - wrong.count, total: set.items.count)
                         saveWeak(wrong.map { WeakItem(prompt: set.items[$0].sentence, answer: set.items[$0].answer, explanation: "") }, subject: subject, unit: unit, context: context)
@@ -412,6 +450,10 @@ struct OXStepView: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(Palette.ink)
                         .softCard(cornerRadius: 22, padding: 20)
+                        .feedbackGlow(picked.map { $0 == item.isTrue }, cornerRadius: 22)
+                        .shake(trigger: picked != nil && picked != item.isTrue)
+                        .id(index)
+                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
                     HStack(spacing: 14) {
                         oxButton(true, item: item)
                         oxButton(false, item: item)
@@ -422,17 +464,21 @@ struct OXStepView: View {
                             Label(ok ? "맞았어요!" : "틀렸어요 · 정답은 \(item.isTrue ? "O" : "X")", systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .font(.headline)
                                 .foregroundStyle(ok ? Palette.success : Palette.danger)
+                                .symbolEffect(.bounce, value: picked)
                             Text(item.explanation).font(.subheadline).fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background((ok ? Palette.success : Palette.danger).opacity(0.12), in: .rect(cornerRadius: 16))
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                         primaryButton(index + 1 < set.items.count ? "다음" : "결과 보기") {
                             if index + 1 < set.items.count {
-                                index += 1
-                                self.picked = nil
+                                withAnimation(Motion.spring) {
+                                    index += 1
+                                    self.picked = nil
+                                }
                             } else {
-                                finished = true
+                                withAnimation(Motion.spring) { finished = true }
                                 record(context, subject: subject, unit: unit, step: .ox, correct: correct, total: set.items.count)
                                 saveWeak(wrongs, subject: subject, unit: unit, context: context)
                             }
@@ -446,7 +492,7 @@ struct OXStepView: View {
     private func oxButton(_ value: Bool, item: OXItem) -> some View {
         Button {
             guard picked == nil else { return }
-            picked = value
+            withAnimation(Motion.bouncy) { picked = value }
             if value == item.isTrue {
                 correct += 1
                 Haptics.success()
@@ -466,11 +512,13 @@ struct OXStepView: View {
         .background(Color.white, in: .rect(cornerRadius: 22))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         .opacity(picked == nil || picked == value ? 1 : 0.4)
+        .scaleEffect(picked == value ? 1.04 : 1)
+        .animation(Motion.bouncy, value: picked)
     }
 
     private func resultView(total: Int, retry: @escaping () -> Void) -> some View {
         VStack(spacing: 14) {
-            Text("\(total)문제 중 \(correct)개 맞았어요").font(.title3.weight(.bold))
+            ResultSummaryCard(correct: correct, total: total)
             if !wrongs.isEmpty {
                 Text("틀린 \(wrongs.count)문제는 취약 복습에 모아뒀어요").font(.subheadline).foregroundStyle(.secondary)
             }
@@ -503,7 +551,7 @@ struct ProblemStepView: View {
         } content: { set, regenerate in
             if finished || set.items.isEmpty {
                 VStack(spacing: 14) {
-                    Text("\(set.items.count)문제 중 \(correct)개 맞았어요").font(.title3.weight(.bold))
+                    ResultSummaryCard(correct: correct, total: set.items.count)
                     primaryButton("취약 복습으로") { onDone(.problem) }
                     Button("새 문제 받기") { index = 0; correct = 0; wrongs = []; picked = nil; finished = false; regenerate() }
                         .font(.subheadline)
@@ -513,12 +561,19 @@ struct ProblemStepView: View {
                 let item = set.items[min(index, set.items.count - 1)]
                 VStack(alignment: .leading, spacing: 14) {
                     Text("문제 \(index + 1) / \(set.items.count)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                    Text(item.question).font(.body.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                    Text(item.question)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .softCard(cornerRadius: 20, padding: 16)
+                        .shake(trigger: picked != nil && picked != item.answerNumber)
+                        .id(index)
+                        .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
                     ForEach(Array(item.choices.prefix(5).enumerated()), id: \.offset) { choiceIndex, choice in
                         let number = choiceIndex + 1
                         Button {
                             guard picked == nil else { return }
-                            picked = number
+                            withAnimation(Motion.bouncy) { picked = number }
                             if number == item.answerNumber { correct += 1; Haptics.success() } else {
                                 Haptics.error()
                                 wrongs.append(WeakItem(prompt: item.question, answer: "\(item.answerNumber)번 · \(item.finalAnswer)", explanation: item.steps.joined(separator: "\n")))
@@ -529,19 +584,31 @@ struct ProblemStepView: View {
                                     .font(.subheadline.weight(.bold))
                                     .frame(width: 28, height: 28)
                                     .background(choiceColor(number, answer: item.answerNumber).opacity(0.18), in: .circle)
-                                Text(choice).multilineTextAlignment(.leading)
+                                Text(choice).multilineTextAlignment(.leading).foregroundStyle(Palette.ink)
                                 Spacer(minLength: 0)
+                                if picked != nil && number == item.answerNumber {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Palette.success)
+                                        .transition(.scale.combined(with: .opacity))
+                                } else if picked == number {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundStyle(Palette.danger)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
                             }
                             .padding(12)
-                            .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 14))
+                            .background(Color.white, in: .rect(cornerRadius: 14))
+                            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
+                            .scaleEffect(picked == number ? 1.02 : 1)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 14).stroke(choiceColor(number, answer: item.answerNumber), lineWidth: picked == nil ? 0 : 1.5)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
+                        .appearAnimation(delay: Double(choiceIndex) * 0.04)
                     }
                     if picked != nil {
-                        DisclosureGroup(isExpanded: $showSteps) {
+                        DisclosureGroup(isExpanded: $showSteps.animation(Motion.spring)) {
                             VStack(alignment: .leading, spacing: 10) {
                                 ForEach(Array(item.steps.enumerated()), id: \.offset) { stepIndex, line in
                                     VStack(alignment: .leading, spacing: 4) {
@@ -566,10 +633,12 @@ struct ProblemStepView: View {
                         primaryButton(index + 1 < set.items.count ? "다음 문제" : "결과 보기") {
                             showSteps = false
                             if index + 1 < set.items.count {
-                                index += 1
-                                picked = nil
+                                withAnimation(Motion.spring) {
+                                    index += 1
+                                    picked = nil
+                                }
                             } else {
-                                finished = true
+                                withAnimation(Motion.spring) { finished = true }
                                 record(context, subject: subject, unit: unit, step: .problem, correct: correct, total: set.items.count)
                                 saveWeak(wrongs, subject: subject, unit: unit, context: context)
                             }
@@ -617,12 +686,20 @@ struct WeakStepView: View {
                         }
                         Button("이제 알아요 · 목록에서 빼기") { remove(item) }.font(.caption.weight(.semibold))
                     } else {
-                        Button("정답 확인") { revealed.insert(item.id) }.font(.caption.weight(.semibold))
+                        Button("정답 확인") { _ = withAnimation(Motion.spring) { revealed.insert(item.id) } }.font(.caption.weight(.semibold))
                     }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.danger.opacity(0.07), in: .rect(cornerRadius: 16))
+                .background(Color.white, in: .rect(cornerRadius: 16))
+                .overlay(alignment: .leading) {
+                    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
+                        .fill(Palette.danger.opacity(0.7))
+                        .frame(width: 4)
+                }
+                .clipShape(.rect(cornerRadius: 16))
+                .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+                .transition(.asymmetric(insertion: .opacity, removal: .move(edge: .trailing).combined(with: .opacity)))
             }
             primaryButton("이 단원 학습 완료", symbol: "checkmark") { onDone(.weak) }
         }
@@ -632,5 +709,56 @@ struct WeakStepView: View {
     private func remove(_ item: WeakItem) {
         items.removeAll { $0.id == item.id }
         ContentCache.save(items, key: ContentCache.key(subject, unit, "weak"), context: context)
+    }
+}
+
+
+// MARK: - 결과 요약 카드 (링이 채워지고 숫자가 올라감)
+
+struct ResultSummaryCard: View {
+    let correct: Int
+    let total: Int
+    @State private var shown = 0.0
+
+    init(correct: Int, total: Int) {
+        self.correct = correct
+        self.total = total
+    }
+
+    private var ratio: Double { total > 0 ? Double(correct) / Double(total) : 0 }
+
+    private var message: String {
+        switch ratio {
+        case 1: return "완벽해요! 🎉"
+        case 0.7...: return "잘했어요! 조금만 더 다듬어요"
+        case 0.4...: return "절반 넘게 맞혔어요. 틀린 건 복습해요"
+        default: return "괜찮아요, 틀린 문제가 실력이 돼요"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 18) {
+            ZStack {
+                ProgressRing(progress: shown, lineWidth: 9, color: ratio >= 0.7 ? Palette.success : Theme.accent)
+                VStack(spacing: 0) {
+                    AnimatedNumberText(value: Int((shown * 100).rounded()), suffix: "%", font: .headline.weight(.heavy))
+                }
+            }
+            .frame(width: 76, height: 76)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(total)문제 중 \(correct)개 정답")
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .softCard(cornerRadius: 22, padding: 18)
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.9).delay(0.15)) { shown = ratio }
+        }
+        .sensoryFeedback(.success, trigger: shown > 0 && ratio >= 0.7)
     }
 }

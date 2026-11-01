@@ -36,10 +36,7 @@ struct MathNoteListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Picker("필터", selection: $filter) {
-                    ForEach(Filter.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                PillSegmentedControl(items: Filter.allCases, selection: $filter) { $0.rawValue }
 
                 if notes.isEmpty {
                     emptyState
@@ -48,11 +45,13 @@ struct MathNoteListView: View {
                         .softCard()
                 } else {
                     LazyVGrid(columns: columns, spacing: 14) {
-                        ForEach(filtered) { note in
+                        ForEach(Array(filtered.enumerated()), id: \.element.id) { index, note in
                             Button { openedNote = note } label: {
                                 MathNoteCard(note: note)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
+                            .appearAnimation(delay: Double(min(index, 8)) * 0.04)
+                            .transition(.scale(scale: 0.9).combined(with: .opacity))
                             .contextMenu {
                                 Button(role: .destructive) {
                                     context.delete(note)
@@ -67,6 +66,8 @@ struct MathNoteListView: View {
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 32)
+            .animation(Motion.spring, value: filter)
+            .animation(Motion.spring, value: notes.count)
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }

@@ -18,15 +18,18 @@ struct AskAIListView: View {
             }
             ForEach(questions) { item in
                 NavigationLink { AIQuestionDetailView(item: item) } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            TagLabel(text: item.subject.isEmpty ? "질문" : item.subject)
-                            Text(item.createdAt.kr("M.d")).font(.caption).foregroundStyle(.secondary)
-                            if item.imageData != nil { Image(systemName: "photo").font(.caption).foregroundStyle(.secondary) }
+                    HStack(spacing: 12) {
+                        IconBadge(symbol: item.imageData != nil ? "photo.fill" : "questionmark.bubble.fill",
+                                  color: item.helpful > 0 ? Palette.success : Theme.accent, size: 38)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                TagLabel(text: item.subject.isEmpty ? "질문" : item.subject)
+                                Text(item.createdAt.kr("M.d")).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Text(item.question).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
                         }
-                        Text(item.question).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
                     }
-                    .padding(.vertical, 2)
+                    .padding(.vertical, 4)
                 }
             }
             .onDelete { offsets in
@@ -35,6 +38,7 @@ struct AskAIListView: View {
             }
         }
         .scrollContentBackground(.hidden)
+        .animation(Motion.spring, value: questions.count)
         .background { AppBackground() }
         .navigationTitle("AI에게 질문하기")
         .toolbar {

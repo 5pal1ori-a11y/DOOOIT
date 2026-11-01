@@ -138,7 +138,7 @@ struct WordHomeView: View {
             }
             .softCard()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     // MARK: Add
@@ -169,7 +169,7 @@ struct WordHomeView: View {
             .background(Theme.accent.opacity(0.09), in: .rect(cornerRadius: 18))
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private func openScanner() {
@@ -199,7 +199,7 @@ struct WordHomeView: View {
             }
             .softCard()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     // MARK: Goal
@@ -232,7 +232,7 @@ struct WordHomeView: View {
             }
             .softCard()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 }
 

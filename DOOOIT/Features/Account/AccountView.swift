@@ -31,12 +31,14 @@ struct AccountView: View {
             List {
                 Section {
                     profileHeader
+                        .appearAnimation()
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
 
                 Section {
                     statsRow
+                        .appearAnimation(delay: 0.08)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -239,6 +241,7 @@ struct AccountView: View {
             Text(value)
                 .font(.headline.monospacedDigit())
                 .foregroundStyle(Theme.accent)
+                .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)

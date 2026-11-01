@@ -30,18 +30,18 @@ struct PlannerView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        Picker("보기", selection: $router.mode.animation(.smooth)) {
-                            ForEach(PlannerMode.allCases) { mode in
-                                Label(mode.title, systemImage: mode.symbol).tag(mode)
+                        PillSegmentedControl(items: PlannerMode.allCases, selection: $router.mode) { $0.title }
+
+                        Group {
+                            if router.mode == .month {
+                                monthContent
+                                    .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))
+                            } else {
+                                dayContent
+                                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
                             }
                         }
-                        .pickerStyle(.segmented)
-
-                        if router.mode == .month {
-                            monthContent
-                        } else {
-                            dayContent
-                        }
+                        .animation(Motion.spring, value: router.mode)
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 110)
