@@ -110,7 +110,7 @@ jobs:
       - uses: actions/setup-node@v4
         if: env.ANTHROPIC_API_KEY != '' && env.CLOUDFLARE_API_TOKEN != ''
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Deploy Claude reader server
         if: env.ANTHROPIC_API_KEY != '' && env.CLOUDFLARE_API_TOKEN != ''
