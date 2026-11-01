@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 
 struct RootView: View {
@@ -38,13 +39,24 @@ enum AppTab: String, Hashable {
     case home, study, ai, planner, account
 }
 
+/// 알림·위젯에서 특정 화면을 바로 여는 요청 (앱이 꺼져 있다가 켜져도 유지됨)
+@MainActor
+@Observable
+final class AppRouter {
+    static let shared = AppRouter()
+    /// 주간 AI 리포트 열기
+    var showWeeklyReport = false
+}
+
 struct MainTabView: View {
     @Environment(StudyTimer.self) private var studyTimer
     @AppStorage("selectedTab") private var tab: AppTab = .home
     @State private var plannerRouter = PlannerRouter()
+    @State private var router = AppRouter.shared
 
     var body: some View {
         @Bindable var studyTimer = studyTimer
+        @Bindable var router = router
 
         TabView(selection: $tab) {
             Tab("홈", systemImage: "house.fill", value: AppTab.home) {
@@ -71,6 +83,18 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $studyTimer.isPresented) {
             TimerView()
         }
+        // 주간 리포트 알림을 누르면 어느 화면에서든 리포트를 바로 보여줌
+        .sheet(isPresented: $router.showWeeklyReport) {
+            NavigationStack {
+                WeeklyReportView()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button { router.showWeeklyReport = false } label: { Image(systemName: "xmark") }
+                                .accessibilityLabel("닫기")
+                        }
+                    }
+            }
+        }
         // 홈 화면 위젯을 누르면 해당 탭으로
         .onOpenURL { url in
             switch url.host() {
@@ -79,6 +103,7 @@ struct MainTabView: View {
                 tab = .planner
             case "words": tab = .study
             case "home": tab = .home
+            case "weekly-report": router.showWeeklyReport = true
             default: break
             }
         }

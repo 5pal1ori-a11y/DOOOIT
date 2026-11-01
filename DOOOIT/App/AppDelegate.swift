@@ -26,6 +26,12 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let info = response.notification.request.content.userInfo
+        // 주간 리포트 알림 → 리포트 화면 열기
+        if info["weeklyReport"] as? Bool == true || response.notification.request.identifier == "weekly.report" {
+            Task { @MainActor in
+                AppRouter.shared.showWeeklyReport = true
+            }
+        }
         if let idString = info["planID"] as? String,
            let planID = UUID(uuidString: idString),
            let isStudy = info["isStudy"] as? Bool, isStudy {
