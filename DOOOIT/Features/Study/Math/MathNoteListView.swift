@@ -16,6 +16,9 @@ struct MathNoteListView: View {
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var isProcessing = false
+    @State private var cropQueue: [UIImage] = []
+    @State private var cropItem: CropItem?
+    @State private var croppedPairs: [(original: UIImage, problem: UIImage)] = []
     @State private var openedNote: MathNote?
     @State private var errorMessage: String?
 
@@ -80,7 +83,17 @@ struct MathNoteListView: View {
             }
         }
         .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 10) { images in
-            Task { await create(from: images) }
+            cropQueue = images
+            croppedPairs = []
+            nextCrop()
+        }
+        .sheet(item: $cropItem, onDismiss: nextCrop) { item in
+            ProblemCropView(image: item.image) { problem in
+                croppedPairs.append((original: item.image, problem: problem))
+                cropItem = nil
+            } onCancel: {
+                cropItem = nil
+            }
         }
         .overlay {
             if isProcessing { ProcessingOverlay(message: "문제를 분석하고 있어요") }
@@ -128,18 +141,31 @@ struct MathNoteListView: View {
         openedNote = note
     }
 
-    private func create(from images: [UIImage]) async {
+    /// 사진마다 문제 영역을 고른 뒤, 다 고르면 한꺼번에 노트로 만듦
+    private func nextCrop() {
+        guard cropItem == nil else { return }
+        if !cropQueue.isEmpty {
+            let next = cropQueue.removeFirst()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { cropItem = CropItem(image: next) }
+        } else if !croppedPairs.isEmpty {
+            let pairs = croppedPairs
+            croppedPairs = []
+            Task { await create(from: pairs) }
+        }
+    }
+
+    private func create(from pairs: [(original: UIImage, problem: UIImage)]) async {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
-        for (i, image) in images.enumerated() {
-            let lines = (try? await OCRService.recognize(image)) ?? []
-            let text = OCRService.plainText(from: lines)
+        for (i, pair) in pairs.enumerated() {
+            let lines = (try? await OCRService.recognize(pair.problem)) ?? []
+            let text = OCRService.printedText(from: lines)
             let firstLine = text.split(separator: "\n").first.map(String.init) ?? ""
             let title = firstLine.isEmpty ? "오답 \(notes.count + i + 1)" : String(firstLine.prefix(24))
             let note = MathNote(
                 title: title,
-                imageData: image.jpegForStorage(maxDimension: 2000),
-                thumbnailData: image.jpegForStorage(maxDimension: 400, quality: 0.6),
+                imageData: pair.original.jpegForStorage(maxDimension: 2000),
+                thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
                 recognizedText: text,
                 correctAnswer: MathGrader.extractAnswer(from: text) ?? ""
             )

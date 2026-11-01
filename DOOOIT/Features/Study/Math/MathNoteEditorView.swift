@@ -22,6 +22,15 @@ struct MathNoteEditorView: View {
     @State private var showTextAlert = false
     @State private var gradeMessage: String?
     @State private var isRecognizing = false
+    @State private var tab: EditorTab = .note
+    @State private var cropItem: CropItem?
+    @State private var previousText: String?
+    @State private var textMessage: String?
+
+    enum EditorTab: String, CaseIterable, Identifiable {
+        case note = "필기", grade = "채점 · 풀이", text = "문제 텍스트"
+        var id: String { rawValue }
+    }
 
     private let inkColors: [Color] = [.black, Color(hex: "#2563EB"), Color(hex: "#DC2626"), Color(hex: "#16A34A"), Color(hex: "#F59E0B")]
     private let writingAreaHeight: CGFloat = 760
@@ -30,12 +39,22 @@ struct MathNoteEditorView: View {
         GeometryReader { geo in
             let pageWidth = max(geo.size.width - 32, 100)
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 16) {
                     infoCard
-                    page(width: pageWidth)
-                    gradingCard
-                    WrittenSolutionCard(note: note)
-                    recognizedCard
+                    Picker("보기", selection: $tab.animation(.snappy)) {
+                        ForEach(EditorTab.allCases) { Text($0.rawValue).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+
+                    switch tab {
+                    case .note:
+                        page(width: pageWidth)
+                    case .grade:
+                        gradingCard
+                        WrittenSolutionCard(note: note)
+                    case .text:
+                        recognizedCard
+                    }
                 }
                 .padding(16)
                 .padding(.bottom, isDrawing ? 150 : 40)
@@ -48,10 +67,12 @@ struct MathNoteEditorView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isDrawing.toggle() }
-                } label: {
-                    Label(isDrawing ? "완료" : "필기", systemImage: isDrawing ? "checkmark" : "pencil.tip.crop.circle")
+                if tab == .note {
+                    Button {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isDrawing.toggle() }
+                    } label: {
+                        Label(isDrawing ? "완료" : "필기", systemImage: isDrawing ? "checkmark" : "pencil.tip.crop.circle")
+                    }
                 }
             }
         }
@@ -75,6 +96,17 @@ struct MathNoteEditorView: View {
             }
             Button("확인") { commitText() }
         }
+        .onChange(of: tab) { _, newTab in
+            if newTab != .note { isDrawing = false }
+        }
+        .sheet(item: $cropItem) { item in
+            ProblemCropView(image: item.image) { problem in
+                cropItem = nil
+                Task { await recognize(problem) }
+            } onCancel: {
+                cropItem = nil
+            }
+        }
         .onAppear(perform: load)
         .onDisappear(perform: save)
     }
@@ -82,14 +114,17 @@ struct MathNoteEditorView: View {
     // MARK: Info
 
     private var infoCard: some View {
-        VStack(spacing: 10) {
-            TextField("제목", text: $note.title)
-                .font(.headline)
-            Divider()
-            TextField("단원 / 메모 (예: 이차함수, 계산 실수)", text: $note.unit)
-                .font(.subheadline)
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                TextField("제목", text: $note.title)
+                    .font(.headline)
+                TextField("단원 (예: 이차함수, 계산 실수)", text: $note.unit)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            TagLabel(text: note.status.title, symbol: note.status.symbol, color: note.status.color)
         }
-        .glassCard(cornerRadius: 20, padding: 16)
+        .padding(.horizontal, 4)
     }
 
     // MARK: Page
@@ -340,43 +375,93 @@ struct MathNoteEditorView: View {
     // MARK: Recognized text
 
     private var recognizedCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(title: "인식된 문제 텍스트", symbol: "text.viewfinder") {
-                if image != nil {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "인식된 문제", symbol: "text.viewfinder") {
+                if isRecognizing { ProgressView() }
+            }
+            Text("잘못 읽힌 글자는 직접 고칠 수 있어요. 이 텍스트로 AI 풀이를 만들어요.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            TextEditor(text: $note.recognizedText)
+                .font(.body)
+                .frame(minHeight: 180)
+                .scrollContentBackground(.hidden)
+                .padding(10)
+                .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14))
+
+            if let textMessage {
+                Text(textMessage).font(.caption).foregroundStyle(.secondary)
+            }
+
+            VStack(spacing: 10) {
+                if let image {
                     Button {
-                        Task { await recognizeAgain() }
+                        cropItem = CropItem(image: image)
                     } label: {
-                        if isRecognizing {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
+                        Label("문제 영역 다시 골라서 읽기", systemImage: "crop")
+                            .frame(maxWidth: .infinity)
                     }
-                    .disabled(isRecognizing)
+                    .buttonStyle(.glass)
+                }
+                Button {
+                    Task { await tidyWithAI() }
+                } label: {
+                    Label("AI로 문제 문장 다듬기", systemImage: "sparkles")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.glass)
+                .disabled(isRecognizing || note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                if previousText != nil {
+                    Button("다듬기 전으로 되돌리기") {
+                        if let previousText { note.recognizedText = previousText }
+                        previousText = nil
+                    }
+                    .font(.caption.weight(.semibold))
                 }
             }
-            if note.recognizedText.isEmpty {
-                Text("인식된 텍스트가 없어요.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text(note.recognizedText)
-                    .font(.subheadline)
-                    .textSelection(.enabled)
-            }
+            .disabled(isRecognizing)
         }
         .glassCard()
     }
 
-    private func recognizeAgain() async {
-        guard let image else { return }
+    private func recognize(_ problem: UIImage) async {
         isRecognizing = true
-        let lines = (try? await OCRService.recognize(image)) ?? []
-        note.recognizedText = OCRService.plainText(from: lines)
-        if note.correctAnswer.isEmpty, let answer = MathGrader.extractAnswer(from: note.recognizedText) {
+        defer { isRecognizing = false }
+        let lines = (try? await OCRService.recognize(problem)) ?? []
+        let text = OCRService.printedText(from: lines)
+        previousText = note.recognizedText
+        note.recognizedText = text
+        if note.correctAnswer.isEmpty, let answer = MathGrader.extractAnswer(from: text) {
             note.correctAnswer = answer
         }
-        isRecognizing = false
+        note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
+        textMessage = text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요."
+    }
+
+    /// 사진에서 읽은 글자를 AI가 문제 문장으로 정리 (풀지 않음)
+    private func tidyWithAI() async {
+        isRecognizing = true
+        defer { isRecognizing = false }
+        let original = note.recognizedText
+        let prompt = """
+        다음은 수학 문제 사진에서 글자 인식으로 읽은 텍스트야.
+        인쇄된 문제 문장과 보기만 남기고, 손글씨 풀이 흔적이나 의미 없는 숫자·기호는 지워.
+        깨진 수식은 x³, x², √, a/b 같은 형태로 바로잡아. 문제를 풀거나 내용을 새로 지어내지 마.
+        정리한 문제 텍스트만 답해.
+
+        \(original)
+        """
+        do {
+            let tidy = try await AITutor.answer(prompt).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !tidy.isEmpty else { return }
+            previousText = original
+            note.recognizedText = tidy
+            textMessage = "AI가 정리했어요. 숫자와 기호가 사진과 같은지 꼭 확인하세요."
+        } catch {
+            textMessage = error.localizedDescription
+        }
     }
 
     // MARK: Text annotations
