@@ -5,11 +5,9 @@ import SwiftUI
 struct CreditsView: View {
     @Environment(CreditStore.self) private var credits
     @State private var ads = RewardedAdManager.shared
-    @State private var store = StoreManager.shared
     @State private var message: String?
     @State private var bump = 0
     @State private var showHistory = false
-    @State private var showManageSubscription = false
 
     var body: some View {
         ScrollView {
@@ -17,7 +15,7 @@ struct CreditsView: View {
                 balanceCard
                 adCard
                 studyCard
-                shopSection
+                shopLink
                 historyCard
             }
             .padding(20)
@@ -30,13 +28,6 @@ struct CreditsView: View {
         .onAppear {
             credits.grantDailyIfNeeded()
             ads.start()
-            store.start()
-        }
-        .manageSubscriptionsSheet(isPresented: $showManageSubscription)
-        .alert("크레딧 상점", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
-            Button("확인", role: .cancel) {}
-        } message: {
-            Text(store.message ?? "")
         }
     }
 
@@ -180,16 +171,170 @@ struct CreditsView: View {
         .glassCard()
     }
 
-    // MARK: 크레딧 상점
+    // MARK: 크레딧 상점 (누르면 상점 화면)
+
+    private var shopLink: some View {
+        NavigationLink { CreditShopView() } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "cart.fill")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 46, height: 46)
+                    .background(
+                        LinearGradient(colors: [Color(hex: "#FF8A3D"), Color(hex: "#F5536B")], startPoint: .topLeading, endPoint: .bottomTrailing),
+                        in: .rect(cornerRadius: 14)
+                    )
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("크레딧 상점").font(.headline)
+                    Text(credits.canUseFirstPurchaseDeal ? "첫 구매 특가 · 100크레딧당 125원" : "크레딧 충전 · 무제한 / 매일 지급 플랜")
+                        .font(.caption)
+                        .foregroundStyle(credits.canUseFirstPurchaseDeal ? Color(hex: "#F5536B") : .secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+            }
+            .glassCard(interactive: true)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: 내역
+
+    @ViewBuilder
+    private var historyCard: some View {
+        if !credits.history.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Button {
+                    withAnimation(.snappy) { showHistory.toggle() }
+                } label: {
+                    HStack {
+                        Label("최근 내역", systemImage: "clock.arrow.circlepath").font(.headline)
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.footnote.weight(.bold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(showHistory ? 180 : 0))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if showHistory {
+                ForEach(credits.history.prefix(30)) { entry in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(entry.title).font(.subheadline)
+                            Text(entry.date.kr("M월 d일 a h:mm")).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Text(entry.amount > 0 ? "+\(entry.amount)" : "\(entry.amount)")
+                            .font(.subheadline.weight(.bold))
+                            .monospacedDigit()
+                            .foregroundStyle(entry.amount > 0 ? Palette.success : Color.secondary)
+                    }
+                    .transition(.opacity)
+                }
+                }
+            }
+            .glassCard()
+        }
+    }
+}
+
+/// 어디서나 쓰는 작은 크레딧 표시 (누르면 크레딧 화면)
+struct CreditChip: View {
+    @Environment(CreditStore.self) private var credits
+
+    var body: some View {
+        NavigationLink { CreditsView() } label: {
+            Label("\(credits.balance)", systemImage: "bolt.circle.fill")
+                .font(.subheadline.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(Theme.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Theme.accent.opacity(0.12), in: .capsule)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("크레딧 \(credits.balance)")
+    }
+}
+
+/// 크레딧이 모자랄 때 보여주는 안내
+struct NotEnoughCreditsView: View {
+    @Environment(CreditStore.self) private var credits
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "bolt.slash.circle.fill")
+                .font(.system(size: 44))
+                .foregroundStyle(Palette.warning)
+            VStack(spacing: 4) {
+                Text("크레딧이 부족해요").font(.headline)
+                Text("AI 한 번에 \(CreditStore.costPerUse) 크레딧이 필요해요. 지금 \(credits.balance) 크레딧이 있어요.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            NavigationLink { CreditsView() } label: {
+                Label("크레딧 얻기", systemImage: "play.rectangle.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 40)
+            }
+            .buttonStyle(.glassProminent)
+            NavigationLink { CreditShopView() } label: {
+                Label("크레딧 상점에서 충전하기", systemImage: "cart.fill")
+                    .font(.subheadline.weight(.semibold))
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity)
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+    }
+}
+
+/// 크레딧 상점: 첫 구매 특가, 충전, 플랜
+struct CreditShopView: View {
+    @Environment(CreditStore.self) private var credits
+    @State private var store = StoreManager.shared
+    @State private var showManageSubscription = false
+
+    var body: some View {
+        ScrollView {
+            shopSection
+                .padding(20)
+                .padding(.bottom, 30)
+        }
+        .scrollIndicators(.hidden)
+        .background { AppBackground() }
+        .navigationTitle("크레딧 상점")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("구매 복원") { Task { await store.restore() } }
+            }
+        }
+        .onAppear { store.start() }
+        .manageSubscriptionsSheet(isPresented: $showManageSubscription)
+        .alert("크레딧 상점", isPresented: Binding(get: { store.message != nil }, set: { if !$0 { store.message = nil } })) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text(store.message ?? "")
+        }
+    }
 
     private var shopSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("크레딧 상점").font(.title3.weight(.heavy))
-                Spacer()
-                Button("구매 복원") { Task { await store.restore() } }
-                    .font(.caption.weight(.semibold))
+            HStack(spacing: 8) {
+                Image(systemName: "bolt.circle.fill").foregroundStyle(Theme.accent)
+                Text(credits.isUnlimited ? "무제한 플랜 이용 중" : "내 크레딧 \(credits.balance)")
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Theme.accent.opacity(0.12), in: .capsule)
 
             if credits.canUseFirstPurchaseDeal {
                 firstDealCard
@@ -323,96 +468,5 @@ struct CreditsView: View {
                 .padding(.vertical, 8)
                 .background(onDark ? Color.white : Theme.accent, in: .capsule)
         }
-    }
-
-    // MARK: 내역
-
-    @ViewBuilder
-    private var historyCard: some View {
-        if !credits.history.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                Button {
-                    withAnimation(.snappy) { showHistory.toggle() }
-                } label: {
-                    HStack {
-                        Label("최근 내역", systemImage: "clock.arrow.circlepath").font(.headline)
-                        Spacer()
-                        Image(systemName: "chevron.down")
-                            .font(.footnote.weight(.bold))
-                            .foregroundStyle(.secondary)
-                            .rotationEffect(.degrees(showHistory ? 180 : 0))
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-
-                if showHistory {
-                ForEach(credits.history.prefix(30)) { entry in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text(entry.title).font(.subheadline)
-                            Text(entry.date.kr("M월 d일 a h:mm")).font(.caption2).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Text(entry.amount > 0 ? "+\(entry.amount)" : "\(entry.amount)")
-                            .font(.subheadline.weight(.bold))
-                            .monospacedDigit()
-                            .foregroundStyle(entry.amount > 0 ? Palette.success : Color.secondary)
-                    }
-                    .transition(.opacity)
-                }
-                }
-            }
-            .glassCard()
-        }
-    }
-}
-
-/// 어디서나 쓰는 작은 크레딧 표시 (누르면 크레딧 화면)
-struct CreditChip: View {
-    @Environment(CreditStore.self) private var credits
-
-    var body: some View {
-        NavigationLink { CreditsView() } label: {
-            Label("\(credits.balance)", systemImage: "bolt.circle.fill")
-                .font(.subheadline.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(Theme.accent)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Theme.accent.opacity(0.12), in: .capsule)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("크레딧 \(credits.balance)")
-    }
-}
-
-/// 크레딧이 모자랄 때 보여주는 안내
-struct NotEnoughCreditsView: View {
-    @Environment(CreditStore.self) private var credits
-
-    var body: some View {
-        VStack(spacing: 14) {
-            Image(systemName: "bolt.slash.circle.fill")
-                .font(.system(size: 44))
-                .foregroundStyle(Palette.warning)
-            VStack(spacing: 4) {
-                Text("크레딧이 부족해요").font(.headline)
-                Text("AI 한 번에 \(CreditStore.costPerUse) 크레딧이 필요해요. 지금 \(credits.balance) 크레딧이 있어요.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
-            NavigationLink { CreditsView() } label: {
-                Label("크레딧 얻기", systemImage: "play.rectangle.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-            }
-            .buttonStyle(.glassProminent)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 }
