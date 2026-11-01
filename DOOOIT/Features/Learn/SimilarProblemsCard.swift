@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 오답과 같은 유형의 새 문제 3개를 기기 안 AI가 만들어주고, 직접 풀어서 채점
+/// 오답과 같은 유형의 새 문제 3개를 두잇 AI가 만들어주고, 직접 풀어서 채점
 struct SimilarProblemsCard: View {
     @Bindable var note: MathNote
     @Environment(\.modelContext) private var context
@@ -33,7 +33,7 @@ struct SimilarProblemsCard: View {
                     ProgressView()
                     VStack(alignment: .leading, spacing: 2) {
                         Text("비슷한 문제를 만들고 있어요").font(.subheadline.weight(.semibold))
-                        Text("기기 안 AI라 10~30초 걸릴 수 있어요").font(.caption).foregroundStyle(.secondary)
+                        Text("보통 10~20초 걸려요").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 8)

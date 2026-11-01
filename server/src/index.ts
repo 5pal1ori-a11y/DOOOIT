@@ -63,11 +63,116 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+type ImageInput = { data: string; mediaType?: string };
+
+function imageBlocks(images: unknown): Anthropic.ImageBlockParam[] {
+  if (!Array.isArray(images)) return [];
+  return images.slice(0, 4).flatMap((item): Anthropic.ImageBlockParam[] => {
+    const image = item as ImageInput;
+    if (typeof image?.data !== "string" || image.data.length === 0) return [];
+    if (image.data.length * 0.75 > MAX_IMAGE_BYTES) return [];
+    const mediaType = (MEDIA_TYPES as readonly string[]).includes(image.mediaType ?? "")
+      ? (image.mediaType as MediaType)
+      : "image/jpeg";
+    return [{ type: "image", source: { type: "base64", media_type: mediaType, data: image.data } }];
+  });
+}
+
+function textOf(message: Anthropic.Message): string {
+  return message.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("");
+}
+
+function errorResponse(error: unknown, where: string): Response {
+  if (error instanceof Anthropic.RateLimitError) return json({ error: "rate_limited" }, 429);
+  if (error instanceof Anthropic.AuthenticationError) {
+    console.error("Anthropic API key rejected");
+    return json({ error: "server_key_invalid" }, 502);
+  }
+  if (error instanceof Anthropic.BadRequestError) {
+    console.error(where, "bad request", error.message);
+    return json({ error: "bad_request" }, 400);
+  }
+  if (error instanceof Anthropic.APIError) {
+    console.error(where, "Anthropic API error", error.status, error.message);
+    return json({ error: "upstream_error" }, 502);
+  }
+  console.error(where, "failed", error);
+  return json({ error: "internal_error" }, 500);
+}
+
+/** 문제 사진 읽기 (오답노트) */
+async function readProblem(body: { image?: unknown; mediaType?: unknown }, client: Anthropic, model: string): Promise<Response> {
+  const images = imageBlocks([{ data: body.image, mediaType: body.mediaType }]);
+  if (images.length === 0) return json({ error: "bad_request" }, 400);
+  const message = await client.messages.create({
+    model,
+    max_tokens: 2048,
+    output_config: { format: { type: "json_schema", schema: SCHEMA } },
+    messages: [{ role: "user", content: [...images, { type: "text", text: PROMPT }] }],
+  });
+  if (message.stop_reason === "refusal") return json({ error: "refused" }, 422);
+  const parsed = JSON.parse(textOf(message)) as { title?: string; text?: string; answer?: string };
+  return json({
+    title: (parsed.title ?? "").trim(),
+    text: (parsed.text ?? "").trim(),
+    answer: (parsed.answer ?? "").trim(),
+  });
+}
+
+/** 한 번 묻고 답하기: schema가 있으면 그 JSON 형태로, 없으면 글로 */
+async function generate(
+  body: { system?: unknown; prompt?: unknown; schema?: unknown; images?: unknown; maxTokens?: unknown },
+  client: Anthropic,
+  model: string,
+): Promise<Response> {
+  if (typeof body.prompt !== "string" || body.prompt.length === 0 || body.prompt.length > 20_000) {
+    return json({ error: "bad_request" }, 400);
+  }
+  const schema = body.schema && typeof body.schema === "object" ? (body.schema as Record<string, unknown>) : undefined;
+  const maxTokens = typeof body.maxTokens === "number" ? Math.min(Math.max(body.maxTokens, 256), 8000) : 4000;
+  const message = await client.messages.create({
+    model,
+    max_tokens: maxTokens,
+    system: typeof body.system === "string" ? body.system.slice(0, 8000) : undefined,
+    ...(schema ? { output_config: { format: { type: "json_schema" as const, schema } } } : {}),
+    messages: [{ role: "user", content: [...imageBlocks(body.images), { type: "text", text: body.prompt }] }],
+  });
+  if (message.stop_reason === "refusal") return json({ error: "refused" }, 422);
+  const text = textOf(message);
+  if (schema) return json({ result: JSON.parse(text) });
+  return json({ text: text.trim() });
+}
+
+/** 두잇 AI 대화: 앱이 보낸 대화와 도구 정의를 그대로 Claude에 넘기고, 응답 블록을 돌려줌 (도구 실행은 앱에서) */
+async function chat(
+  body: { system?: unknown; messages?: unknown; tools?: unknown },
+  client: Anthropic,
+  model: string,
+): Promise<Response> {
+  if (!Array.isArray(body.messages) || body.messages.length === 0 || body.messages.length > 60) {
+    return json({ error: "bad_request" }, 400);
+  }
+  const tools = Array.isArray(body.tools) ? (body.tools.slice(0, 20) as Anthropic.Tool[]) : undefined;
+  const message = await client.messages.create({
+    model,
+    max_tokens: 2048,
+    system: typeof body.system === "string" ? body.system.slice(0, 12000) : undefined,
+    tools,
+    messages: body.messages as Anthropic.MessageParam[],
+  });
+  if (message.stop_reason === "refusal") return json({ error: "refused" }, 422);
+  return json({ content: message.content, stop_reason: message.stop_reason });
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/health") return json({ ok: true });
-    if (url.pathname !== "/read-problem") return json({ error: "not_found" }, 404);
+    const routes = ["/read-problem", "/generate", "/chat"];
+    if (!routes.includes(url.pathname)) return json({ error: "not_found" }, 404);
     if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
     if (!env.APP_KEY || !safeEqual(request.headers.get("x-dooit-key") ?? "", env.APP_KEY)) {
@@ -75,62 +180,26 @@ export default {
     }
     if (!env.ANTHROPIC_API_KEY) return json({ error: "server_not_configured" }, 500);
 
-    let image: string;
-    let mediaType: MediaType = "image/jpeg";
+    let body: Record<string, unknown>;
     try {
-      const body = (await request.json()) as { image?: unknown; mediaType?: unknown };
-      if (typeof body.image !== "string" || body.image.length === 0) throw new Error("no image");
-      image = body.image;
-      if (typeof body.mediaType === "string" && (MEDIA_TYPES as readonly string[]).includes(body.mediaType)) {
-        mediaType = body.mediaType as MediaType;
-      }
+      body = (await request.json()) as Record<string, unknown>;
     } catch {
       return json({ error: "bad_request" }, 400);
     }
-    if (image.length * 0.75 > MAX_IMAGE_BYTES) return json({ error: "image_too_large" }, 413);
 
     const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, maxRetries: 2 });
-
+    const model = env.MODEL || "claude-sonnet-5-5";
     try {
-      const message = await client.messages.create({
-        model: env.MODEL || "claude-sonnet-5-5",
-        max_tokens: 2048,
-        output_config: { format: { type: "json_schema", schema: SCHEMA } },
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mediaType, data: image } },
-              { type: "text", text: PROMPT },
-            ],
-          },
-        ],
-      });
-
-      if (message.stop_reason === "refusal") return json({ error: "refused" }, 422);
-
-      const text = message.content
-        .filter((block): block is Anthropic.TextBlock => block.type === "text")
-        .map((block) => block.text)
-        .join("");
-      const parsed = JSON.parse(text) as { title?: string; text?: string; answer?: string };
-      return json({
-        title: (parsed.title ?? "").trim(),
-        text: (parsed.text ?? "").trim(),
-        answer: (parsed.answer ?? "").trim(),
-      });
+      switch (url.pathname) {
+        case "/read-problem":
+          return await readProblem(body, client, model);
+        case "/generate":
+          return await generate(body, client, model);
+        default:
+          return await chat(body, client, model);
+      }
     } catch (error) {
-      if (error instanceof Anthropic.RateLimitError) return json({ error: "rate_limited" }, 429);
-      if (error instanceof Anthropic.AuthenticationError) {
-        console.error("Anthropic API key rejected");
-        return json({ error: "server_key_invalid" }, 502);
-      }
-      if (error instanceof Anthropic.APIError) {
-        console.error("Anthropic API error", error.status, error.message);
-        return json({ error: "upstream_error" }, 502);
-      }
-      console.error("read-problem failed", error);
-      return json({ error: "internal_error" }, 500);
+      return errorResponse(error, url.pathname);
     }
   },
 };

@@ -127,9 +127,9 @@ struct MathNoteListView: View {
     private var creditAlertMessage: String {
         let count = pendingPairs.count
         if credits.canAfford(pendingCost) {
-            return credits.confirmText("문제 \(count)개를 Claude로 정확하게 읽으면", cost: pendingCost)
+            return credits.confirmText("문제 \(count)개를 두잇 AI로 정확하게 읽으면", cost: pendingCost)
         }
-        return "문제 \(count)개를 Claude로 읽으려면 \(pendingCost) 크레딧이 필요한데 지금 \(credits.balance) 크레딧이 있어요.\n기기 인식으로 무료로 읽을 수 있어요. (수식은 덜 정확해요)"
+        return "문제 \(count)개를 두잇 AI로 읽으려면 \(pendingCost) 크레딧이 필요한데 지금 \(credits.balance) 크레딧이 있어요.\n기기 인식으로 무료로 읽을 수 있어요. (수식은 덜 정확해요)"
     }
 
     private func startCreate(useClaude: Bool) {

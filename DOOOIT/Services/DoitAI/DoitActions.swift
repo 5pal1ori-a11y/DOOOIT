@@ -211,6 +211,28 @@ final class DoitActions {
         return "최근 \(span)일: 총 \(TimeText.duration(seconds: total)), 공부한 날 \(studiedDays)일, 하루 평균 \(TimeText.duration(seconds: total / span))\n과목별: \(top.isEmpty ? "기록 없음" : top)"
     }
 
+    // MARK: 오답노트
+
+    /// 채팅에 보낸 문제 사진을 오답노트로 저장 (글자는 AI가 사진을 보고 옮겨 적은 것)
+    func addMathNote(title: String?, problem: String, answer: String?, image: UIImage?) -> String {
+        let text = problem.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty || image != nil else { return "저장할 문제가 없어요." }
+        let name = (title ?? "").trimmingCharacters(in: .whitespaces)
+        let noteTitle = name.isEmpty ? (MathOCRFixer.title(from: text) ?? "두잇 AI 오답") : name
+        let note = MathNote(
+            title: noteTitle,
+            imageData: image?.jpegForStorage(maxDimension: 2000),
+            thumbnailData: image?.jpegForStorage(maxDimension: 400, quality: 0.6),
+            recognizedText: text,
+            correctAnswer: (answer ?? "").trimmingCharacters(in: .whitespaces)
+        )
+        note.problemImageData = image?.jpegForStorage(maxDimension: 2000, quality: 0.85)
+        context?.insert(note)
+        save()
+        done("오답노트 저장 · \(noteTitle)")
+        return "오답노트에 저장: \(noteTitle)"
+    }
+
     // MARK: 메모
 
     func addMemo(_ text: String) -> String {

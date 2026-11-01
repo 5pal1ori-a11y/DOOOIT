@@ -46,7 +46,7 @@ struct WrittenSolutionCard: View {
                     ProgressView()
                     VStack(alignment: .leading, spacing: 2) {
                         Text("단계별 풀이를 쓰고 있어요").font(.subheadline.weight(.semibold))
-                        Text("기기 안 AI라 10~30초 걸릴 수 있어요").font(.caption).foregroundStyle(.secondary)
+                        Text("보통 10~20초 걸려요").font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 8)

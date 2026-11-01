@@ -25,6 +25,7 @@ struct DoitAIView: View {
         Suggestion(symbol: "chart.bar", text: "이번 주 공부 통계 보여줘"),
         Suggestion(symbol: "flag.checkered", text: "기말고사 D-Day 12월 10일로 설정해줘"),
         Suggestion(symbol: "function", text: "이차함수 꼭짓점 구하는 법 설명해줘"),
+        Suggestion(symbol: "camera", text: "사진 속 문제 풀어주고 오답노트에 넣어줘"),
         Suggestion(symbol: "note.text", text: "메모해줘: 수행평가 준비물 챙기기")
     ]
 
@@ -90,7 +91,7 @@ struct DoitAIView: View {
                     .background(LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing),
                                 in: .rect(cornerRadius: 18))
                 Text("무엇을 도와드릴까요?").font(.title.weight(.heavy))
-                Text("말로 시키면 일정 추가, 타이머, 단어, 메모, 목표 설정까지 대신 해드려요. 공부 질문도 물어보세요.")
+                Text("말로 시키면 일정 추가, 타이머, 단어, 오답노트, 메모, 목표 설정까지 대신 해드려요. 사진을 보내면 문제 풀이, 단어장 정리도 해요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -123,7 +124,7 @@ struct DoitAIView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("기기 안에서 처리돼서 무료이고 인터넷이 없어도 돼요. AI 답은 틀릴 수 있어요.")
+            Text("인터넷이 필요해요. AI 답은 틀릴 수 있어요.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -193,7 +194,7 @@ struct DoitAIView: View {
     private var typing: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            Text("두잇 AI가 생각하는 중…").font(.subheadline).foregroundStyle(.secondary)
+            Text(assistant.status.isEmpty ? "생각하는 중…" : assistant.status).font(.subheadline).foregroundStyle(.secondary)
         }
         .padding(14)
         .glassEffect(.regular, in: .capsule)
@@ -210,7 +211,7 @@ struct DoitAIView: View {
                         .scaledToFill()
                         .frame(width: 56, height: 56)
                         .clipShape(.rect(cornerRadius: 10))
-                    Text("사진을 함께 보낼게요").font(.caption).foregroundStyle(.secondary)
+                    Text("사진을 두잇 AI가 직접 보고 분석해요").font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button { self.attached = nil } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)

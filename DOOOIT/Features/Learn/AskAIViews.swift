@@ -93,7 +93,7 @@ struct AskAIComposer: View {
                     }
                     .buttonStyle(.borderless)
                 } footer: {
-                    Text("사진의 글자는 기기 안에서 읽어서 질문과 함께 AI에게 보내요. 답변은 기기 안 AI가 만들어서 틀릴 수 있어요.")
+                    Text("사진은 두잇 AI가 직접 보고 분석해요. AI 답은 틀릴 수 있어요.")
                 }
 
                 if credits.canAfford() {
@@ -140,22 +140,17 @@ struct AskAIComposer: View {
         guard credits.canAfford() else { return }
         working = true
         defer { working = false }
-        var problemText = ""
-        if let image {
-            let lines = (try? await OCRService.recognize(image)) ?? []
-            problemText = OCRService.plainText(from: lines)
-        }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let prompt = """
         과목: \(subject)
-        학생 질문: \(question.isEmpty ? "이 문제를 풀이해 주세요." : question)
-        \(problemText.isEmpty ? "" : "\n문제(사진에서 읽은 글자):\n\(problemText)")
+        학생 질문: \(question.isEmpty ? "사진 속 문제를 풀이해 주세요." : question)
+        \(image == nil ? "" : "(사진을 함께 보냈어요. 사진 속 인쇄된 문제를 보고 답해줘.)")
 
         핵심 개념 → 단계별 풀이 → 최종 답 순서로 설명해줘.
         """
         do {
-            let answer = try await AITutor.answer(prompt)
-            let item = AIQuestion(question: question.isEmpty ? (problemText.isEmpty ? "사진 질문" : String(problemText.prefix(80))) : question,
+            let answer = try await AITutor.answer(prompt, images: image.map { [$0] } ?? [])
+            let item = AIQuestion(question: question.isEmpty ? "사진 질문" : question,
                                   imageData: image?.jpegForStorage(maxDimension: 1600), subject: subject)
             item.answer = answer
             context.insert(item)

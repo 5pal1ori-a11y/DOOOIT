@@ -1,103 +1,132 @@
 import Foundation
-import FoundationModels
+import UIKit
 
-// MARK: - AI가 만들어내는 학습 자료 형식 (기기 안 Apple Foundation Models 가이드 생성)
+// MARK: - AI가 만들어내는 학습 자료 형식 (서버 AI가 이 JSON 형태로 답함)
 
-@Generable
-struct ConceptNote: Codable {
-    @Guide(description: "단원 이름")
-    var title: String
-    @Guide(description: "핵심 개념 3~6개. 각 항목은 한두 문장의 쉬운 한국어 설명")
-    var keyPoints: [String]
-    @Guide(description: "개념을 적용한 짧은 예시나 대표 문제와 풀이")
-    var example: String
+/// 서버에 보낼 JSON 스키마를 가진 형식
+protocol AISchema: Codable {
+    static var schema: [String: Any] { get }
 }
 
-@Generable
+private func object(_ properties: [String: [String: Any]]) -> [String: Any] {
+    ["type": "object", "properties": properties, "required": Array(properties.keys), "additionalProperties": false]
+}
+private func string(_ description: String) -> [String: Any] { ["type": "string", "description": description] }
+private func array(_ items: [String: Any], _ description: String) -> [String: Any] {
+    ["type": "array", "items": items, "description": description]
+}
+
+struct ConceptNote: AISchema {
+    var title: String
+    var keyPoints: [String]
+    var example: String
+
+    static var schema: [String: Any] {
+        object([
+            "title": string("단원 이름"),
+            "keyPoints": array(string("한두 문장의 쉬운 한국어 설명"), "핵심 개념 3~6개"),
+            "example": string("개념을 적용한 짧은 예시나 대표 문제와 풀이")
+        ])
+    }
+}
+
 struct ClozeItem: Codable {
-    @Guide(description: "핵심 용어 하나를 ____ 로 가린 한국어 문장")
     var sentence: String
-    @Guide(description: "빈칸에 들어갈 정답 용어 (짧게)")
     var answer: String
 }
 
-@Generable
-struct ClozeSet: Codable {
-    @Guide(description: "빈칸 문제 목록")
+struct ClozeSet: AISchema {
     var items: [ClozeItem]
+
+    static var schema: [String: Any] {
+        object(["items": array(object([
+            "sentence": string("핵심 용어 하나를 ____ 로 가린 한국어 문장"),
+            "answer": string("빈칸에 들어갈 정답 용어 (짧게)")
+        ]), "빈칸 문제 목록")])
+    }
 }
 
-@Generable
 struct OXItem: Codable {
-    @Guide(description: "참 또는 거짓을 판단할 한국어 문장")
     var statement: String
-    @Guide(description: "문장이 맞으면 true, 틀리면 false")
     var isTrue: Bool
-    @Guide(description: "왜 맞거나 틀린지 한두 문장 해설")
     var explanation: String
 }
 
-@Generable
-struct OXSet: Codable {
-    @Guide(description: "O/X 문제 목록")
+struct OXSet: AISchema {
     var items: [OXItem]
+
+    static var schema: [String: Any] {
+        object(["items": array(object([
+            "statement": string("참 또는 거짓을 판단할 한국어 문장"),
+            "isTrue": ["type": "boolean", "description": "문장이 맞으면 true"],
+            "explanation": string("왜 맞거나 틀린지 한두 문장 해설")
+        ]), "O/X 문제 목록")])
+    }
 }
 
-@Generable
 struct Problem: Codable {
-    @Guide(description: "문제 본문")
     var question: String
-    @Guide(description: "보기 정확히 5개")
     var choices: [String]
-    @Guide(description: "정답 보기의 번호 1~5")
     var answerNumber: Int
-    @Guide(description: "단계별 풀이. 각 단계는 '생각할 점: 식' 형태의 한 줄")
     var steps: [String]
-    @Guide(description: "최종 답")
     var finalAnswer: String
 }
 
-@Generable
-struct ProblemSet: Codable {
-    @Guide(description: "문제 목록")
+struct ProblemSet: AISchema {
     var items: [Problem]
+
+    static var schema: [String: Any] {
+        object(["items": array(object([
+            "question": string("문제 본문"),
+            "choices": array(string("보기"), "보기 정확히 5개"),
+            "answerNumber": ["type": "integer", "description": "정답 보기의 번호 1~5"],
+            "steps": array(string("'생각할 점: 식' 형태의 한 줄"), "단계별 풀이"),
+            "finalAnswer": string("최종 답")
+        ]), "문제 목록")])
+    }
 }
 
-@Generable
 struct SolutionStep: Codable {
-    @Guide(description: "이 단계에서 생각할 점 (질문 형태의 힌트)")
     var hint: String
-    @Guide(description: "이 단계의 풀이 식이나 서술")
     var work: String
 }
 
-@Generable
-struct WrittenSolution: Codable {
-    @Guide(description: "문제를 푸는 데 필요한 개념 요약")
+struct WrittenSolution: AISchema {
     var concept: String
-    @Guide(description: "2~4단계의 서술형 풀이")
     var steps: [SolutionStep]
-    @Guide(description: "최종 답")
     var finalAnswer: String
+
+    static var schema: [String: Any] {
+        object([
+            "concept": string("문제를 푸는 데 필요한 개념 요약"),
+            "steps": array(object([
+                "hint": string("이 단계에서 생각할 점 (질문 형태의 힌트)"),
+                "work": string("이 단계의 풀이 식이나 서술")
+            ]), "2~5단계의 서술형 풀이"),
+            "finalAnswer": string("최종 답")
+        ])
+    }
 }
 
-@Generable
 struct SimilarProblem: Codable, Hashable {
-    @Guide(description: "원래 문제와 같은 개념·유형으로 숫자나 조건만 바꾼 새 문제. 혼자 풀 수 있게 완결된 문장")
     var question: String
-    @Guide(description: "정답. 숫자나 식으로 짧게")
     var answer: String
-    @Guide(description: "2~3문장 해설")
     var explanation: String
 }
 
-@Generable
-struct SimilarProblemSet: Codable {
-    @Guide(description: "비슷한 문제 정확히 3개")
+struct SimilarProblemSet: AISchema {
     var problems: [SimilarProblem]
+
+    static var schema: [String: Any] {
+        object(["problems": array(object([
+            "question": string("원래 문제와 같은 개념·유형으로 숫자나 조건만 바꾼 새 문제. 혼자 풀 수 있게 완결된 문장"),
+            "answer": string("정답. 숫자나 식으로 짧게"),
+            "explanation": string("2~3문장 해설")
+        ]), "비슷한 문제 정확히 3개")])
+    }
 }
 
-// MARK: - 기기 안 AI 과외 선생님
+// MARK: - 두잇 AI 과외 선생님 (서버 AI)
 
 enum AITutorError: LocalizedError {
     case unavailable(String)
@@ -110,20 +139,16 @@ enum AITutorError: LocalizedError {
         }
     }
 
-    /// 기기 AI 오류를 사용자가 이해할 수 있는 문장 + 원래 오류 이름으로
+    /// AI 오류를 사용자가 이해할 수 있는 문장 + 원래 오류 이름으로
     static func describe(_ error: Error) -> AITutorError {
         let raw = String(describing: error)
         let reason: String
-        if raw.contains("guardrail") {
-            reason = "안전 필터에 걸렸어요. 단원 이름을 조금 바꿔서 다시 시도해보세요."
-        } else if raw.contains("unsupportedLanguage") || raw.contains("Locale") {
-            reason = "기기 AI가 지금 언어 설정을 지원하지 않아요. 설정 > Apple Intelligence 및 Siri의 언어를 확인해주세요."
-        } else if raw.contains("exceededContext") {
-            reason = "내용이 너무 길어요. 문제 텍스트를 줄여서 다시 시도해주세요."
-        } else if raw.contains("assetsUnavailable") {
-            reason = "AI 모델을 아직 내려받는 중이에요. Wi-Fi에 연결해 두고 잠시 후 다시 시도해주세요."
-        } else if raw.contains("rateLimited") || raw.contains("concurrent") {
-            reason = "요청이 겹쳤어요. 잠시 후 다시 시도해주세요."
+        if let readable = (error as? LocalizedError)?.errorDescription, error is ClaudeReader.ReaderError {
+            reason = readable
+        } else if let urlError = error as? URLError {
+            reason = urlError.code == .timedOut
+                ? "응답이 너무 오래 걸렸어요. 다시 시도해주세요."
+                : "인터넷 연결을 확인해주세요."
         } else if raw.contains("Cancellation") || raw.contains("cancelled") {
             reason = "중간에 멈췄어요. 다시 시도해주세요."
         } else {
@@ -143,40 +168,45 @@ enum AITutor {
 
     /// nil이면 사용 가능, 아니면 사용자에게 보여줄 안내 문구
     static var unavailableMessage: String? {
-        switch SystemLanguageModel.default.availability {
-        case .available:
-            return nil
-        case .unavailable(let reason):
-            switch reason {
-            case .deviceNotEligible:
-                return "이 기기는 기기 안 AI(Apple Intelligence)를 지원하지 않아요. 아이폰 15 Pro 이상에서 쓸 수 있어요."
-            case .appleIntelligenceNotEnabled:
-                return "설정 > Apple Intelligence 및 Siri에서 Apple Intelligence를 켜주세요."
-            case .modelNotReady:
-                return "AI 모델을 내려받는 중이에요. 잠시 후 다시 시도해주세요."
-            @unknown default:
-                return "지금은 AI를 사용할 수 없어요."
-            }
-        }
+        ClaudeReader.isConfigured ? nil : "두잇 AI 서버가 아직 연결되지 않았어요."
     }
 
-    static func generate<T: Generable>(_ type: T.Type, prompt: String) async throws -> T {
+    /// 정해진 JSON 형태로 받기 (학습 자료, 풀이, 비슷한 문제)
+    static func generate<T: AISchema>(_ type: T.Type, prompt: String, images: [UIImage] = []) async throws -> T {
         if let message = unavailableMessage { throw AITutorError.unavailable(message) }
-        let session = LanguageModelSession(instructions: instructions)
         do {
-            let response = try await session.respond(to: prompt, generating: type)
-            return response.content
+            let data = try await ClaudeReader.post("generate", body: [
+                "system": instructions,
+                "prompt": prompt,
+                "schema": T.schema,
+                "images": ClaudeReader.encode(images)
+            ])
+            guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let result = object["result"] else { throw AITutorError.failed("답을 읽지 못했어요.") }
+            let json = try JSONSerialization.data(withJSONObject: result)
+            return try JSONDecoder().decode(T.self, from: json)
+        } catch let error as AITutorError {
+            throw error
         } catch {
             print("AI 생성 실패: \(error)")
             throw AITutorError.describe(error)
         }
     }
 
-    static func answer(_ question: String) async throws -> String {
+    /// 글로 답 받기 (질문, 설명). 사진도 함께 보낼 수 있음
+    static func answer(_ question: String, images: [UIImage] = [], system: String? = nil) async throws -> String {
         if let message = unavailableMessage { throw AITutorError.unavailable(message) }
-        let session = LanguageModelSession(instructions: instructions)
         do {
-            return try await session.respond(to: question).content
+            let data = try await ClaudeReader.post("generate", body: [
+                "system": system ?? instructions,
+                "prompt": question,
+                "images": ClaudeReader.encode(images)
+            ])
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            guard let text = object?["text"] as? String, !text.isEmpty else { throw AITutorError.failed("빈 답이 왔어요.") }
+            return text
+        } catch let error as AITutorError {
+            throw error
         } catch {
             print("AI 답변 실패: \(error)")
             throw AITutorError.describe(error)
@@ -233,31 +263,12 @@ enum AITutor {
     표기는 x², √(…), (분자)/(분모), aₙ, ×, ÷, ≤, ≥, π, α, β, ①~⑤ 로 통일하고 범위는 괄호로 분명히 써.
     """
 
-    /// 여러 번 읽은 결과를 기기 AI가 비교해 원래 문제로 복원. 길면 읽기 수를 줄여 다시 시도
+    /// 여러 번 읽은 결과를 AI가 비교해 원래 문제로 복원
     static func reconstruct(readings: [String], current: String) async throws -> String {
-        if let message = unavailableMessage { throw AITutorError.unavailable(message) }
         let cleaned = readings.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        var attempts: [(count: Int, limit: Int)] = [(3, 380), (2, 500), (1, 800)]
-        attempts = attempts.filter { $0.count <= max(cleaned.count, 1) || $0.count == 1 }
-        var lastError: Error?
-        for attempt in attempts {
-            // 줄일 때도 수식에 강한 [영어 전용 읽기](맨 끝)는 남김
-            var picked = Array(cleaned.prefix(attempt.count))
-            if attempt.count >= 2, cleaned.count > attempt.count, let english = cleaned.last {
-                picked = Array(cleaned.prefix(attempt.count - 1)) + [english]
-            }
-            let prompt = reconstructPrompt(readings: picked, current: current, limit: attempt.limit)
-            let session = LanguageModelSession(instructions: ocrInstructions)
-            do {
-                let result = try await session.respond(to: prompt).content
-                return MathOCRFixer.fix(result.trimmingCharacters(in: .whitespacesAndNewlines))
-            } catch {
-                print("AI 복원 실패(\(attempt.count)개): \(error)")
-                lastError = error
-                guard String(describing: error).contains("exceededContext") else { break }
-            }
-        }
-        throw AITutorError.describe(lastError ?? AITutorError.failed("알 수 없는 오류"))
+        let prompt = reconstructPrompt(readings: cleaned, current: current, limit: 1500)
+        let result = try await answer(prompt, system: ocrInstructions)
+        return MathOCRFixer.fix(result.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
     static func reconstructPrompt(readings: [String], current: String, limit: Int) -> String {
