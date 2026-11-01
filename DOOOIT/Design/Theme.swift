@@ -77,7 +77,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
 enum Theme {
     /// 눈부시지 않은 흰색 바탕
-    static let base = Color(hex: "#F7F7F9")
+    static let base = Color(hex: "#F5F6F8")
 
     static var current: ThemeColor {
         ThemeColor(rawValue: UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "") ?? .lavender
@@ -86,26 +86,18 @@ enum Theme {
     static var accent: Color { current.accent }
 }
 
-/// 흰 바탕 + 선택한 테마 색이 은은하게 깔리는 배경 (리퀴드 글라스가 잘 보이도록)
+/// 깔끔한 바탕: 차분한 회색 위에, 맨 위에만 테마 색이 아주 옅게 (카드가 또렷하게 보이도록)
 struct AppBackground: View {
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
 
     var body: some View {
         let theme = ThemeColor(rawValue: themeRaw) ?? .lavender
-        MeshGradient(
-            width: 3,
-            height: 3,
-            points: [
-                [0, 0], [0.5, 0], [1, 0],
-                [0, 0.5], [0.55, 0.45], [1, 0.5],
-                [0, 1], [0.5, 1], [1, 1]
-            ],
-            colors: [
-                Theme.base, theme.softer, theme.soft,
-                Theme.base, Theme.base, theme.softer,
-                theme.softer, Theme.base, Theme.base
-            ]
-        )
+        ZStack(alignment: .top) {
+            Theme.base
+            LinearGradient(colors: [theme.soft.opacity(0.9), theme.softer.opacity(0.5), Theme.base.opacity(0)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 320)
+        }
         .ignoresSafeArea()
     }
 }

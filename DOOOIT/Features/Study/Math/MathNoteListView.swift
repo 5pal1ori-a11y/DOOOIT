@@ -77,7 +77,8 @@ struct MathNoteListView: View {
                 Menu {
                     Button { openScanner() } label: { Label("문제 촬영", systemImage: "doc.viewfinder") }
                     Button { showPhotoPicker = true } label: { Label("앨범에서 선택", systemImage: "photo.on.rectangle") }
-                    Button { createBlank() } label: { Label("빈 노트", systemImage: "square.and.pencil") }
+                    Button { createBlank() } label: { Label("문제 직접 입력", systemImage: "square.and.pencil") }
+                    NavigationLink { WeakConceptListView() } label: { Label("취약 개념 보기", systemImage: "scope") }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -137,6 +138,8 @@ struct MathNoteListView: View {
 
     private func createBlank() {
         let note = MathNote(title: "오답 \(notes.count + 1)", imageData: nil, thumbnailData: nil, recognizedText: "")
+        // 직접 적는 문제도 다 적은 뒤 "이대로 확정"을 눌러야 채점·풀이를 시작
+        note.recognitionRaw = "pending"
         context.insert(note)
         try? context.save()
         openedNote = note
@@ -160,7 +163,8 @@ struct MathNoteListView: View {
         var created: [MathNote] = []
         for (i, pair) in pairs.enumerated() {
             // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
-            let text = await OCRService.readMathProblem(pair.problem).text
+            let read = await OCRService.readMathProblemDetailed(pair.problem)
+            let text = read.text
             let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,
@@ -170,6 +174,11 @@ struct MathNoteListView: View {
                 correctAnswer: MathGrader.extractAnswer(from: text) ?? ""
             )
             note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
+            // 인식 결과는 사용자가 확인하기 전까지 임시 (흐리게 읽은 줄·이상한 수식은 표시)
+            note.recognitionRaw = "pending"
+            let graph = await VisionAnalyzer.analyze(pair.problem)
+            note.scan = DoitProblemScan.scan(text, lowConfidence: read.unsure, graphNote: graph.graph != nil ? graphNote(graph) : nil)
+            note.kind = note.scan?.kind
             context.insert(note)
             created.append(note)
         }
@@ -177,6 +186,13 @@ struct MathNoteListView: View {
         withAnimation { isProcessing = false }
         if created.count == 1 { openedNote = created.first }
     }
+}
+
+/// 그래프 분석 결과를 문제에 붙일 짧은 글 (식을 찾지 못하면 그렇다고만)
+@MainActor
+private func graphNote(_ analysis: ImageAnalysis) -> String {
+    if let equation = analysis.graph?.equation { return "그래프에서 찾은 식: \(equation) (눈으로 읽은 값이라 확인해 주세요)" }
+    return "그래프가 있지만 식을 읽지 못했어요. 필요한 값은 직접 적어 주세요."
 }
 
 private struct MathNoteCard: View {

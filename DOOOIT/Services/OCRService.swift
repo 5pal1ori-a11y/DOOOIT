@@ -257,6 +257,15 @@ enum OCRService {
         return (best.text, best.text != base)
     }
 
+    /// 문제 읽기 + 자신 없이 읽은 줄 (인식 결과 확인 화면에서 표시)
+    static func readMathProblemDetailed(_ image: UIImage) async -> (text: String, improved: Bool, unsure: [String]) {
+        let lines = (try? await recognizeMath(image)) ?? []
+        let unsure = lines.filter { $0.confidence < 0.5 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+            .map { MathOCRFixer.fix($0.text) }
+        let result = await readMathProblem(image)
+        return (result.text, result.improved, unsure)
+    }
+
     /// 읽은 글이 얼마나 그럴듯한지: 한글 문장은 그대로 두고, 수식 부분은 수식다운 정도로
     static func readingScore(_ text: String) -> Int {
         var score = 0

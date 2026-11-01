@@ -270,6 +270,24 @@ final class MathNote {
     /// 풀이 과정 채점 결과 (DoitWorkChecker.Report JSON)
     var workCheckData: Data?
 
+    // MARK: AI 오답노트 (모두 기본값이 있어 예전 노트도 그대로 열림)
+    /// 문제 유형 (ProblemKind). 비어 있으면 자동 판단
+    var kindRaw: String = ""
+    /// 인식 상태: "legacy"(예전 노트, 확인된 것으로 봄) · "pending"(사용자 확인 전) · "confirmed"
+    var recognitionRaw: String = "legacy"
+    /// 문제 나누기 결과 (ProblemScan JSON: 본문·수식·선택지·조건·표·불확실한 곳)
+    var scanData: Data?
+    /// 채점 결과 (GradeResult JSON)
+    var gradeData: Data?
+    /// 오답 원인 분석 (MistakeAnalysis JSON)
+    var analysisData: Data?
+    /// 유사 문제 단계 학습 (PracticeLadder JSON)
+    var ladderData: Data?
+    /// 취약 개념 연결 (WeakConcept.key)
+    var conceptKey: String = ""
+    /// 과목 (예: 중학교 수학)
+    var subject: String = ""
+
     var stepAnswers: [String] {
         get { stepAnswersData.flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? [] }
         set { stepAnswersData = try? JSONEncoder().encode(newValue) }
@@ -370,5 +388,101 @@ enum SeedData {
             try? context.save()
         }
         UserDefaults.standard.set(true, forKey: key)
+    }
+}
+
+// MARK: - AI 오답노트 도우미 (JSON 필드 읽기·쓰기)
+
+extension MathNote {
+    var kind: ProblemKind? {
+        get { ProblemKind(rawValue: kindRaw) }
+        set { kindRaw = newValue?.rawValue ?? "" }
+    }
+    /// 사용자가 인식 결과를 확인했는지 (예전 노트는 확인된 것으로 봄)
+    var isRecognitionConfirmed: Bool {
+        get { recognitionRaw != "pending" }
+        set { recognitionRaw = newValue ? "confirmed" : "pending" }
+    }
+    var scan: ProblemScan? {
+        get { scanData.flatMap { try? JSONDecoder().decode(ProblemScan.self, from: $0) } }
+        set { scanData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+    var grade: GradeResult? {
+        get { gradeData.flatMap { try? JSONDecoder().decode(GradeResult.self, from: $0) } }
+        set { gradeData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+    var analysis: MistakeAnalysis? {
+        get { analysisData.flatMap { try? JSONDecoder().decode(MistakeAnalysis.self, from: $0) } }
+        set { analysisData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+    var ladder: PracticeLadder? {
+        get { ladderData.flatMap { try? JSONDecoder().decode(PracticeLadder.self, from: $0) } }
+        set { ladderData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+}
+
+// MARK: - 취약 개념 (오답 기록으로 관리)
+
+@Model
+final class WeakConcept {
+    /// 과목|단원|개념
+    var key: String = ""
+    var subject: String = ""
+    var gradeLabel: String = ""
+    var unit: String = ""
+    var concept: String = ""
+    var problemType: String = ""
+    var wrongCount: Int = 0
+    var attemptCount: Int = 0
+    var mastery: Double = 0.3
+    var lastStudiedAt: Date = Date()
+    var lastWrongAt: Date?
+    var lastAnswer: String = ""
+    var lastCorrectAnswer: String = ""
+    /// 오답 원인별 횟수 ([원인: 횟수] JSON)
+    var causesData: Data?
+    /// 풀이 기록 (DoitMastery.Record 목록 JSON, 최근 40개)
+    var recordsData: Data?
+    var createdAt: Date = Date()
+
+    init(key: String, subject: String, unit: String, concept: String, problemType: String) {
+        self.key = key
+        self.subject = subject
+        self.unit = unit
+        self.concept = concept
+        self.problemType = problemType
+        self.createdAt = Date()
+        self.lastStudiedAt = Date()
+    }
+
+    var records: [DoitMastery.Record] {
+        get { recordsData.flatMap { try? JSONDecoder().decode([DoitMastery.Record].self, from: $0) } ?? [] }
+        set { recordsData = try? JSONEncoder().encode(Array(newValue.suffix(40))) }
+    }
+
+    var causes: [String: Int] {
+        get { causesData.flatMap { try? JSONDecoder().decode([String: Int].self, from: $0) } ?? [:] }
+        set { causesData = try? JSONEncoder().encode(newValue) }
+    }
+
+    var state: DoitMastery.State { DoitMastery.state(mastery: mastery, records: records, wrongCount: wrongCount) }
+    var isWeak: Bool { DoitMastery.isWeak(mastery: mastery, wrongCount: wrongCount) }
+    var mainCause: String? { causes.max { $0.value < $1.value }?.key }
+
+    /// 풀이 한 번 기록 (정답·오답, 단계, 어디서 풀었는지)
+    func record(correct: Bool, level: Int, source: String, answer: String = "", correctAnswer: String = "", cause: String? = nil) {
+        attemptCount += 1
+        if !correct {
+            wrongCount += 1
+            lastWrongAt = Date()
+            if let cause { var c = causes; c[cause, default: 0] += 1; causes = c }
+        }
+        mastery = DoitMastery.updated(mastery, correct: correct, level: level)
+        var list = records
+        list.append(DoitMastery.Record(date: Date(), correct: correct, level: level, source: source))
+        records = list
+        lastStudiedAt = Date()
+        if !answer.isEmpty { lastAnswer = answer }
+        if !correctAnswer.isEmpty { lastCorrectAnswer = correctAnswer }
     }
 }

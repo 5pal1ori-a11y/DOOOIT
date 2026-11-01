@@ -35,8 +35,9 @@ enum DoitTutor {
     // MARK: - 5. 오답노트 단계별 풀이
 
     static func solution(for problem: String) async throws -> WrittenSolution {
+        // 풀이 엔진이 직접 푼 단계에 "쓰는 개념·이유·다음 단계"를 붙임 (못 푸는 문제는 풀이를 지어내지 않음)
         if let solved = MathSolver.solve(problem) {
-            return WrittenSolution(concept: solved.concept, steps: solved.steps, finalAnswer: solved.answer)
+            return DoitSolutionWriter.write(solved)
         }
         throw TutorError.cannotSolve(
             "이 문제는 두잇 AI가 직접 풀 수 없는 유형이에요. 문제 글자가 정확히 읽혔는지 '문제' 탭에서 확인해 보세요.\n두잇 AI가 푸는 유형: 방정식(일차·이차·고차·연립·절댓값), 부등식, 인수분해, 이차함수 최대·최소, 근과 계수, 나머지정리, 복소수, 경우의 수, 좌표·직선·원, 집합, 합성·역함수, 유리·무리함수, 산술·기하평균, 미분·적분, 수열, 통계, 도형 공식"

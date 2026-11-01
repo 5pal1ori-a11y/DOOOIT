@@ -75,6 +75,19 @@ struct WeaknessView: View {
                 Text("빈칸·O/X·문제 풀이 기록과 오답노트를 모아 약한 유형을 찾아요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                NavigationLink { WeakConceptListView() } label: {
+                    HStack(spacing: 12) {
+                        IconBadge(symbol: "scope", color: Palette.danger)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("오답노트 취약 개념").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("개념별 오답 횟수·원인·숙련도").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                    }
+                    .softCard(cornerRadius: 20, padding: 14)
+                }
+                .buttonStyle(.pressable)
                 if list.isEmpty {
                     EmptyStateView(symbol: "scope", title: "아직 찾은 취약 유형이 없어요",
                                    message: "단원별 학습에서 문제를 풀거나\n오답노트에 단원을 적고 오답으로 채점해보세요.")

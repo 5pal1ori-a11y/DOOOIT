@@ -10,7 +10,9 @@ import SwiftData
 enum AccountStore {
     static let schema = Schema([
         Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self,
-        ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self
+        ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self,
+        // 새로 추가한 모델은 끝에 (기존 저장소에 자동으로 표가 더해짐 — 기존 데이터는 그대로)
+        WeakConcept.self
     ])
 
     /// 계정마다 따로 저장하는 설정 키

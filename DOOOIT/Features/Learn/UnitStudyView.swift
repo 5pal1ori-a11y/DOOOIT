@@ -592,6 +592,7 @@ struct ProblemStepView: View {
     @State private var wrongs: [WeakItem] = []
     @State private var finished = false
     @State private var showSteps = false
+    @State private var savedToNotes: Set<String> = []
 
     var body: some View {
         AIContentLoader(cacheKey: ContentCache.key(subject, unit, "problem", booster: booster)) {
@@ -678,6 +679,15 @@ struct ProblemStepView: View {
                         .padding(14)
                         .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
 
+                        if let picked, picked != item.answerNumber {
+                            Button { saveToNotes(item, picked: picked) } label: {
+                                Label(savedToNotes.contains(item.question) ? "오답노트에 담았어요" : "오답노트에 담기",
+                                      systemImage: savedToNotes.contains(item.question) ? "checkmark" : "tray.and.arrow.down")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .disabled(savedToNotes.contains(item.question))
+                        }
+
                         primaryButton(index + 1 < set.items.count ? "다음 문제" : "결과 보기") {
                             showSteps = false
                             if index + 1 < set.items.count {
@@ -695,6 +705,28 @@ struct ProblemStepView: View {
                 }
             }
         }
+    }
+
+    /// 틀린 AI 학습 문제를 오답노트로 (글이 정확하니 인식 확인 없이 바로 확정, 채점·원인 분석까지)
+    private func saveToNotes(_ item: Problem, picked: Int) {
+        let marks = ["①", "②", "③", "④", "⑤"]
+        let text = item.question + "\n" + item.choices.prefix(5).enumerated().map { "\(marks[$0.offset]) \($0.element)" }.joined(separator: " ")
+        let note = MathNote(title: unit, imageData: nil, thumbnailData: nil, recognizedText: text, correctAnswer: "\(item.answerNumber)")
+        note.subject = subject
+        note.unit = unit
+        note.recognitionRaw = "confirmed"
+        note.scan = DoitProblemScan.scan(text)
+        note.kind = .multipleChoice
+        note.myAnswer = "\(picked)"
+        let result = DoitGrader.grade(.init(kind: .multipleChoice, student: note.myAnswer, answerKey: note.correctAnswer, choices: Array(item.choices.prefix(5)), problem: item.question))
+        note.grade = result
+        note.status = .wrong
+        note.analysis = DoitMistake.analyze(.init(problem: item.question, kind: .multipleChoice, student: note.myAnswer, grade: result, choices: Array(item.choices.prefix(5))))
+        note.solutionData = try? JSONEncoder().encode(WrittenSolution(concept: unit, steps: item.steps.map { SolutionStep(hint: "풀이", work: $0) }, finalAnswer: item.finalAnswer))
+        context.insert(note)
+        WeakConceptStore.recordGrade(note: note, correct: false, source: "AI 학습", cause: note.analysis?.cause.rawValue, context: context)
+        savedToNotes.insert(item.question)
+        Haptics.success()
     }
 
     private func choiceColor(_ number: Int, answer: Int) -> Color {

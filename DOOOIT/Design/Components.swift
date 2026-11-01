@@ -3,20 +3,20 @@ import SwiftUI
 // MARK: - 카드 스타일 (두잇 AI 화면과 같은 흰 카드)
 
 extension View {
-    /// 흰 카드: 부드러운 그림자 + 둥근 모서리
-    func softCard(cornerRadius: CGFloat = 22, padding: CGFloat = 18) -> some View {
+    /// 흰 카드: 얇은 테두리 + 아주 옅은 그림자 + 둥근 모서리 (또렷하고 가볍게)
+    func softCard(cornerRadius: CGFloat = 20, padding: CGFloat = 18) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white, in: .rect(cornerRadius: cornerRadius))
-            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+            .softCardBackground(cornerRadius: cornerRadius)
     }
 
     /// 패딩 없이 흰 카드 배경만 (목록 묶음 등)
-    func softCardBackground(cornerRadius: CGFloat = 22) -> some View {
+    func softCardBackground(cornerRadius: CGFloat = 20) -> some View {
         self
             .background(Color.white, in: .rect(cornerRadius: cornerRadius))
-            .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
+            .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
     }
 }
 
@@ -68,7 +68,6 @@ struct EmptyStateView: View {
                 .foregroundStyle(Theme.accent)
                 .frame(width: 68, height: 68)
                 .background(Theme.accent.opacity(0.12), in: .circle)
-                .symbolEffect(.pulse, options: .repeating.speed(0.4))
                 .padding(.bottom, 2)
             Text(title)
                 .font(.headline)

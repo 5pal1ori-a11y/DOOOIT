@@ -544,6 +544,135 @@ func runStudy() async {
     check("대화 퀴즈: 광합성 O/X", quick != nil && !(quick?.statement.contains("지리") ?? true), "\(String(describing: quick))")
 }
 
+// MARK: - AI 오답노트: 문제 인식 → 채점 → 원인 분석 → 풀이 → 유사 문제 → 숙련도
+
+func runMistakeNote() async {
+    // 1) 문제 나누기
+    let scanned = DoitProblemScan.scan("""
+    3. 이차방정식 x² - 5x + 6 = 0 의 두 근 중 큰 근은? (단, x는 자연수)
+    ① 1 ② 2 ③ 3 ④ 4 ⑤ 5
+    정답: ③
+    """)
+    check("인식: 선택지 5개", scanned.choices == ["1", "2", "3", "4", "5"], "\(scanned.choices)")
+    check("인식: 객관식으로 판단", scanned.kind == .multipleChoice)
+    check("인식: 사진의 정답 표기", scanned.printedAnswer == "③", scanned.printedAnswer ?? "-")
+    check("인식: 조건 찾기", scanned.conditions.contains { $0.contains("자연수") }, "\(scanned.conditions)")
+    check("인식: 질문 핵심", scanned.question.contains("큰 근은"), scanned.question)
+    check("인식: 수식 찾기", scanned.formulas.contains { $0.contains("x") && $0.contains("=") }, "\(scanned.formulas)")
+    let lineChoices = DoitProblemScan.scan("다음 중 소수는?\n1) 4\n2) 6\n3) 7\n4) 9\n5) 10")
+    check("인식: 줄마다 쓴 선택지", lineChoices.choices == ["4", "6", "7", "9", "10"], "\(lineChoices.choices)")
+    check("인식: 문제 번호는 선택지 아님", DoitProblemScan.scan("3. 2x + 3 = 11 을 푸시오").choices.isEmpty)
+    let doubtful = DoitProblemScan.scan("(x + 2 = 5 의 해는?", lowConfidence: ["흐린 줄"])
+    check("인식: 불확실한 곳 표시", doubtful.doubts.contains { $0.reason.contains("괄호") } && doubtful.doubts.contains { $0.text == "흐린 줄" }, "\(doubtful.doubts)")
+    let graph = DoitProblemScan.scan("다음 그래프에서 꼭짓점의 좌표를 구하시오.")
+    check("인식: 읽지 못한 그래프는 지어내지 않고 표시", graph.doubts.contains { $0.text.contains("그래프") } && graph.graphNote == nil)
+    let table = DoitProblemScan.scan("다음 표를 보고 평균을 구하시오.\n이름 | 국어 | 수학\n민지 | 80 | 90\n준호 | 70 | 85")
+    check("인식: 표", table.table.count == 3 && table.table[1] == ["민지", "80", "90"], "\(table.table)")
+    check("인식: 서술형 판단", DoitProblemScan.scan("광합성이 일어나는 과정을 서술하시오.").kind == .essay)
+
+    // 2) 채점
+    func g(_ kind: ProblemKind, _ student: String, _ key: String, choices: [String] = [], problem: String = "") -> GradeResult.Verdict {
+        DoitGrader.grade(.init(kind: kind, student: student, answerKey: key, choices: choices, problem: problem)).verdict
+    }
+    let five = ["1", "2", "3", "4", "5"]
+    check("채점(객관식): ③ = 3번", g(.multipleChoice, "3번", "③", choices: five) == .correct)
+    check("채점(객관식): 보기 글로 답해도", g(.multipleChoice, "3", "③", choices: ["ㄱ", "ㄴ", "3", "ㄹ", "ㅁ"]) == .correct)
+    check("채점(객관식): 오답", g(.multipleChoice, "②", "③", choices: five) == .wrong)
+    check("채점(단답): 띄어쓰기·기호 무시", g(.shortAnswer, "광 합성.", "광합성") == .correct)
+    check("채점(단답): 복수 정답", g(.shortAnswer, "탄소 동화 작용", "광합성 | 탄소 동화 작용") == .correct)
+    check("채점(단답): 끝말 정리", g(.shortAnswer, "엽록체입니다", "엽록체") == .correct)
+    check("채점(단답): 한 글자 차이는 확인 요청", g(.shortAnswer, "미토콘드리야", "미토콘드리아") == .needsReview)
+    check("채점(단답): 오답", g(.shortAnswer, "핵", "엽록체") == .wrong)
+    check("채점(수학): 분수 = 소수", g(.math, "0.5", "1/2") == .correct)
+    check("채점(수학): 근호 정리", g(.math, "√8", "2√2") == .correct)
+    check("채점(수학): 해 순서 무시", g(.math, "3, 2", "x = 2 또는 x = 3") == .correct)
+    check("채점(수학): ± 표기", g(.math, "1±√2", "1+√2, 1-√2") == .correct)
+    check("채점(수학): 같은 식 (전개)", g(.math, "x^2+2x+1", "(x+1)^2") == .correct)
+    check("채점(수학): 다른 식", g(.math, "x^2+1", "(x+1)^2") == .wrong)
+    check("채점(수학): 연립 해 순서 무시", g(.math, "y=2, x=1", "x=1, y=2") == .correct)
+    check("채점(수학): 순서쌍은 순서 중요", g(.math, "(2, 1)", "(1, 2)") == .wrong)
+    check("채점(수학): 부등식 방향", g(.math, "2<x", "x>2") == .correct)
+    check("채점(수학): 해 일부만 → 부분 정답", g(.math, "2", "x = 2 또는 x = 3") == .partial)
+    check("채점(수학): 정답 없으면 직접 풀어서", g(.math, "4", "", problem: "2x + 3 = 11") == .correct && g(.math, "5", "", problem: "2x + 3 = 11") == .wrong)
+    check("채점(수학): 읽을 수 없는 답은 확인 요청", g(.math, "모르겠음", "4") == .needsReview)
+    check("채점: 정답을 모르면 확정하지 않음", g(.shortAnswer, "엽록체", "") == .needsReview)
+    let essay = DoitGrader.grade(.init(kind: .essay, student: "식물은 빛 에너지를 이용해 포도당을 만든다.", answerKey: "식물은 빛 에너지를 이용한다. 이산화 탄소와 물로 포도당을 만든다. 산소가 발생한다."))
+    check("채점(서술형): 부분 점수 + 근거, 확정하지 않음", essay.verdict == .partial && essay.score > 0 && essay.score < 1 && essay.reasons.contains { $0.hasPrefix("✗") }, "\(essay)")
+
+    // 3) 오답 원인
+    func analyze(_ problem: String, _ student: String, kind: ProblemKind = .math, key: String = "", conditions: [String] = [], work: [String]? = nil) -> MistakeAnalysis? {
+        let grade = DoitGrader.grade(.init(kind: kind, student: student, answerKey: key, problem: problem))
+        return DoitMistake.analyze(.init(problem: problem, kind: kind, student: student, grade: grade, conditions: conditions,
+                                         work: work.map { DoitWorkChecker.check(problem: problem, work: $0) }))
+    }
+    let sign = analyze("2x + 3 = 11", "-4")
+    check("원인: 부호 반대 → 계산 실수(추정)", sign?.cause == .calculation && sign?.certainty == .estimated, "\(String(describing: sign))")
+    let partialRoots = analyze("x^2 - 5x + 6 = 0", "2")
+    check("원인: 해 일부만 → 풀이 과정 오류", partialRoots?.cause == .process, "\(String(describing: partialRoots?.cause))")
+    let byWork = analyze("2x + 3 = 11", "7", work: ["2x = 14", "x = 7"])
+    check("원인: 풀이 과정으로 확인 (확인됨)", byWork?.certainty == .confirmed && byWork?.evidence.first?.contains("1번째 줄") == true, "\(String(describing: byWork))")
+    let unknown = analyze("2x + 3 = 11", "13")
+    check("원인: 근거 없으면 판단 불가", unknown?.cause == .unknown && unknown?.certainty == .unknown, "\(String(describing: unknown?.cause))")
+    check("원인: 복습·다음 학습·놓친 개념", (unknown?.review.isEmpty == false) && (unknown?.next.isEmpty == false) && unknown?.missedConcepts.contains("일차방정식") == true, "\(String(describing: unknown))")
+    check("원인: 정답이면 분석 안 함", analyze("2x + 3 = 11", "4") == nil)
+    let confused = analyze("식물 세포에서 광합성이 일어나는 곳은?", "미토콘드리아", kind: .shortAnswer, key: "엽록체")
+    check("원인: 다른 개념과 헷갈림 → 개념 이해 부족(추정)", confused?.cause == .concept && confused?.certainty == .estimated, "\(String(describing: confused))")
+    check("원인: 개념 오답은 1단계부터", confused?.startLevel == 1)
+
+    // 4) 단계별 풀이: 개념·이유·다음 단계 (풀이 엔진이 푼 것만)
+    if let solved = MathSolver.solve("x^2 - 5x + 6 = 0") {
+        let written = DoitSolutionWriter.write(solved)
+        check("풀이: 단계마다 다음 단계 안내", written.steps.allSatisfy { !$0.next.isEmpty } && written.steps.last?.next.contains(written.finalAnswer) == true)
+        check("풀이: 쓰는 개념·이유", written.steps.contains { !$0.concept.isEmpty } && written.steps.contains { !$0.reason.isEmpty }, "\(written.steps)")
+    } else { check("풀이: 이차방정식", false) }
+    let oldStep = try? JSONDecoder().decode(SolutionStep.self, from: Data(#"{"hint":"이항하면","work":"2x = 8"}"#.utf8))
+    check("예전 풀이 형식 읽기", oldStep?.hint == "이항하면" && oldStep?.reason == "")
+
+    // 5) 유사 문제 단계
+    let basis = DoitPractice.basis(problem: "x^2 - 5x + 6 = 0")
+    check("유사 문제: 개념 찾기", basis.concept == "이차방정식의 풀이" && basis.level == .middle, "\(basis.concept)")
+    var levels: [Int: PracticeItem] = [:]
+    var asked: [String] = []
+    for level in 1...5 {
+        if let item = await DoitPractice.makeItem(level: level, basis: basis, avoid: asked) { levels[level] = item; asked.append(item.question) }
+    }
+    check("유사 문제: 1~5단계 모두", levels.count == 5, "\(levels.keys.sorted())")
+    check("유사 문제: 1단계는 개념 확인", levels[1]?.kind != .math, levels[1]?.question ?? "")
+    check("유사 문제: 원래 문제·서로 같은 문제 없음", Set(asked).count == asked.count && !asked.contains("x^2 - 5x + 6 = 0"))
+    check("유사 문제: 중학교 문제에 고등 유형 없음", !asked.joined().contains("α") && !asked.joined().contains("허근"), asked.joined(separator: " / "))
+    let templates = Set(asked.filter { !$0.contains("O, 틀리면") }.map(DoitPractice.templateKey))
+    check("유사 문제: 숫자만 바꾼 반복이 아님 (모양이 여러 가지)", templates.count >= 2, "\(templates)")
+    if let item = levels[2] {
+        check("유사 문제: 정답으로 채점", DoitPractice.grade(item, answer: item.answer).verdict == .correct)
+        var ladder = PracticeLadder(level: 2)
+        DoitPractice.advance(&ladder, item: item, answer: item.answer, result: DoitPractice.grade(item, answer: item.answer), reminder: basis.reminder)
+        check("단계: 맞히면 올라감", ladder.level == 3 && ladder.streak == 1 && ladder.reminder == nil)
+        let wrong = PracticeItem(level: 3, kind: .math, question: "q", answer: "4", explanation: [], concept: "c")
+        DoitPractice.advance(&ladder, item: wrong, answer: "9", result: DoitPractice.grade(wrong, answer: "9"), reminder: basis.reminder)
+        check("단계: 틀리면 개념 설명 + 한 단계 쉽게", ladder.level == 2 && ladder.streak == 0 && ladder.reminder != nil)
+    }
+
+    // 6) 숙련도: 한 번 맞혔다고 익힘이 아님
+    var mastery = 0.2
+    var records: [DoitMastery.Record] = [.init(date: Date(), correct: false, level: 3, source: "오답노트")]
+    mastery = DoitMastery.updated(mastery, correct: true, level: 5)
+    records.append(.init(date: Date(), correct: true, level: 5, source: "유사 문제"))
+    check("숙련도: 한 번 맞혀도 익힘 아님", DoitMastery.state(mastery: mastery, records: records, wrongCount: 1) != .mastered)
+    for _ in 0..<6 { mastery = DoitMastery.updated(mastery, correct: true, level: 4); records.append(.init(date: Date(), correct: true, level: 4, source: "유사 문제")) }
+    check("숙련도: 같은 날만 맞히면 익힘 아님", DoitMastery.state(mastery: mastery, records: records, wrongCount: 1) != .mastered)
+    records.append(.init(date: Date().addingTimeInterval(-3 * 86400), correct: true, level: 4, source: "재도전"))
+    records.sort { $0.date < $1.date }
+    records.append(.init(date: Date(), correct: true, level: 4, source: "재도전"))
+    check("숙련도: 여러 날 연속 정답이면 익힘", DoitMastery.state(mastery: mastery, records: records, wrongCount: 1) == .mastered, "\(mastery)")
+    check("숙련도: 틀리면 크게 내려감", DoitMastery.updated(0.9, correct: false, level: 3) < 0.6)
+    check("취약 개념: 반복 오답", DoitMastery.isWeak(mastery: 0.4, wrongCount: 2) && !DoitMastery.isWeak(mastery: 0.7, wrongCount: 1))
+    for kind in MathSolver.Kind.allCases {
+        if let info = DoitMathConceptMap.info(for: kind) {
+            check("개념 지도: \(kind) → \(info.subject) \(info.unit)", DoitStudy.catalog.contains { $0.subjectName == info.subject && $0.unit == info.unit })
+        }
+    }
+}
+
 // MARK: - 실행
 
 await runChat()
@@ -555,6 +684,7 @@ runKnowledge()
 runBrain()
 await runCurriculum()
 await runStudy()
+await runMistakeNote()
 
 print("두잇 AI 테스트: \(passed)개 통과, \(failed.count)개 실패")
 for f in failed { print(f) }

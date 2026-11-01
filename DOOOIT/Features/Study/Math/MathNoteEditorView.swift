@@ -29,7 +29,7 @@ struct MathNoteEditorView: View {
     @State private var isEditingText = false
 
     enum EditorTab: String, CaseIterable, Identifiable {
-        case note = "필기", grade = "채점 · 풀이", text = "문제"
+        case note = "필기", grade = "학습", text = "문제"
         var id: String { rawValue }
     }
 
@@ -51,12 +51,20 @@ struct MathNoteEditorView: View {
                     case .note:
                         page(width: pageWidth)
                     case .grade:
-                        gradingCard
-                        WorkCheckCard(note: note)
-                        WrittenSolutionCard(note: note)
-                        SimilarProblemsCard(note: note)
+                        // 학습 순서: 채점 → 오답 원인 → 풀이(과정 채점·단계별 풀이) → 유사 문제 → 재도전 → 취약 개념
+                        MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
+                        if note.isRecognitionConfirmed {
+                            MistakeAnalysisCard(note: note)
+                            WorkCheckCard(note: note)
+                            WrittenSolutionCard(note: note)
+                            SimilarProblemsCard(note: note)
+                            WeakConceptBadge(note: note)
+                        }
                     case .text:
                         recognizedCard
+                        ProblemReviewCard(note: note) {
+                            withAnimation(.snappy) { isEditingText = true }
+                        }
                     }
                 }
                 .padding(16)
@@ -112,6 +120,8 @@ struct MathNoteEditorView: View {
         }
         .onAppear(perform: load)
         .onDisappear(perform: save)
+        // 문제 글을 고치면 다시 나눔 (흐리게 읽은 줄 표시는 그 줄이 남아 있을 때만)
+        .onChange(of: note.recognizedText) { _, text in rescan(text) }
     }
 
     // MARK: Info
@@ -286,61 +296,6 @@ struct MathNoteEditorView: View {
         }
     }
 
-    // MARK: Grading
-
-    private var gradingCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(title: "채점", symbol: "checkmark.seal.fill") {
-                TagLabel(text: note.status.title, symbol: note.status.symbol, color: note.status.color)
-            }
-
-            VStack(spacing: 10) {
-                answerField(title: "내 답", text: $note.myAnswer, placeholder: "풀이 후 답을 입력")
-                answerField(title: "정답", text: $note.correctAnswer, placeholder: "정답 (사진에 있으면 자동으로 채워져요)")
-            }
-
-            HStack(spacing: 10) {
-                gradeButton(title: "맞았어요", symbol: "circle", color: Palette.success, status: .correct)
-                gradeButton(title: "틀렸어요", symbol: "xmark", color: Palette.danger, status: .wrong)
-            }
-        }
-        .glassCard()
-    }
-
-    private func answerField(title: String, text: Binding<String>, placeholder: String) -> some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .frame(width: 40, alignment: .leading)
-            TextField(placeholder, text: text)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 14))
-    }
-
-    private func gradeButton(title: String, symbol: String, color: Color, status: NoteStatus) -> some View {
-        let isOn = note.status == status
-        return Button { setStatus(status) } label: {
-            Label(title, systemImage: symbol)
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(isOn ? Color.white : color)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(isOn ? color : color.opacity(0.12), in: .rect(cornerRadius: 14))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func setStatus(_ status: NoteStatus) {
-        withAnimation(.snappy) { note.status = status }
-        note.updatedAt = Date()
-        try? context.save()
-        if status == .correct { Haptics.success() } else { Haptics.error() }
-    }
-
     // MARK: Recognized text
 
     private var recognizedCard: some View {
@@ -478,10 +433,13 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
-        let result = await OCRService.readMathProblem(problem)
+        let result = await OCRService.readMathProblemDetailed(problem)
+        // 새로 읽은 문제는 사용자가 확인하기 전까지 확정하지 않음
+        note.isRecognitionConfirmed = false
         apply(result.text, message: result.text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요."
               : result.improved ? "여러 방법으로 읽어서 수식이 가장 자연스러운 결과를 골랐어요. 틀린 곳은 \"고치기\"로 바꿔주세요."
               : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
+        rescan(result.text, unsure: result.unsure)
     }
 
     // MARK: Text annotations
@@ -519,6 +477,15 @@ struct MathNoteEditorView: View {
             image = UIImage(data: data)
         }
         annotations = note.annotations
+        // 인식 결과를 아직 확인하지 않았으면 문제 탭부터
+        if !note.isRecognitionConfirmed { tab = .text }
+        if note.scan == nil, !note.recognizedText.isEmpty { rescan(note.recognizedText) }
+    }
+
+    private func rescan(_ text: String, unsure: [String]? = nil) {
+        let previous = note.scan?.doubts.filter { $0.reason.hasPrefix("글자가") }.map(\.text) ?? []
+        let low = (unsure ?? previous).filter { text.contains($0) }
+        note.scan = DoitProblemScan.scan(text, lowConfidence: low, graphNote: note.scan?.graphNote)
     }
 
     private func saveAnnotations() {

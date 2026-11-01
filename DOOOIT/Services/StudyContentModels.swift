@@ -77,8 +77,28 @@ struct ProblemSet: Codable {
 }
 
 struct SolutionStep: Codable {
+    /// 이 단계에서 할 일
     var hint: String
+    /// 계산·풀이 과정
     var work: String
+    /// 쓰는 개념이나 공식 (확실할 때만)
+    var concept: String = ""
+    /// 왜 이렇게 하는지 (확실할 때만)
+    var reason: String = ""
+    /// 다음 단계로 이어지는 말
+    var next: String = ""
+}
+
+// 예전에 저장한 풀이(hint·work만 있음)도 읽을 수 있게 (extension에 두어야 SolutionStep(hint:work:)도 그대로 쓸 수 있음)
+extension SolutionStep {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        hint = try c.decodeIfPresent(String.self, forKey: .hint) ?? ""
+        work = try c.decodeIfPresent(String.self, forKey: .work) ?? ""
+        concept = try c.decodeIfPresent(String.self, forKey: .concept) ?? ""
+        reason = try c.decodeIfPresent(String.self, forKey: .reason) ?? ""
+        next = try c.decodeIfPresent(String.self, forKey: .next) ?? ""
+    }
 }
 
 struct WrittenSolution: Codable {

@@ -1,201 +1,223 @@
 import SwiftData
 import SwiftUI
 
-/// 오답과 같은 유형의 새 문제 3개를 두잇 AI가 만들어주고, 직접 풀어서 채점
+/// ⑤ 유사 문제 단계 학습 + ⑥ 재도전
+/// 1단계 개념 확인 → 2단계 쉬운 유형 → 3단계 비슷한 난이도 → 4단계 응용 → 5단계 최종 복습
+/// 맞히면 올라가고, 틀리면 개념을 다시 보여주고 쉬운 문제로. 모든 풀이는 취약 개념 숙련도에 기록돼요.
 struct SimilarProblemsCard: View {
     @Bindable var note: MathNote
     @Environment(\.modelContext) private var context
 
-    @State private var problemSet: SimilarProblemSet?
-    @State private var answers: [String] = ["", "", ""]
-    @State private var results: [Bool?] = [nil, nil, nil]
-    @State private var openExplanation: Set<Int> = []
+    @State private var ladder: PracticeLadder?
+    @State private var answer = ""
+    @State private var lastResult: (item: PracticeItem, result: GradeResult)?
     @State private var working = false
-    @State private var error: String?
+    @State private var message: String?
+    @State private var retryAnswer = ""
+    @State private var retryResult: GradeResult?
 
-    private var cacheKey: String { ContentCache.key("오답노트", note.id.uuidString, "similar") }
+    private var basis: DoitPractice.Basis { DoitPractice.basis(problem: note.scan?.body ?? note.recognizedText, noteUnit: note.unit) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            header
-
-            if let problemSet, !problemSet.problems.isEmpty {
-                ForEach(Array(problemSet.problems.prefix(3).enumerated()), id: \.offset) { index, problem in
-                    problemView(index: index, problem: problem)
-                }
-                Label("AI가 만든 문제라 틀릴 수 있어요. 해설과 함께 확인하세요.", systemImage: "exclamationmark.circle")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } else if working {
-                HStack(spacing: 12) {
-                    ProgressView()
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("비슷한 문제를 만들고 있어요").font(.subheadline.weight(.semibold))
-                        Text("보통 10~20초 걸려요").font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 8)
-            } else {
-                emptyState
-            }
-        }
-        .padding(18)
-        .glassEffect(.regular, in: .rect(cornerRadius: 26))
-        .errorAlert($error)
-        .onAppear {
-            if problemSet == nil { problemSet = ContentCache.load(SimilarProblemSet.self, key: cacheKey, context: context) }
-        }
-    }
-
-    // MARK: Pieces
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "square.on.square")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .frame(width: 34, height: 34)
-                .background(Palette.warning, in: .rect(cornerRadius: 10))
-            VStack(alignment: .leading, spacing: 1) {
-                Text("비슷한 문제 풀기").font(.headline)
-                if problemSet != nil {
-                    let solved = results.compactMap { $0 }.filter { $0 }.count
-                    Text("3문제 중 \(solved)문제 맞힘")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            if problemSet != nil {
-                Button { Task { await generate() } } label: {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(width: 34, height: 34)
-                        .background(Color.primary.opacity(0.06), in: .circle)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("새로 만들기")
-                .disabled(working)
-            }
-        }
-    }
-
-    private var emptyState: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(note.recognizedText.isEmpty
-                 ? "문제 탭에 문제가 있어야 비슷한 문제를 만들 수 있어요."
-                 : "같은 개념으로 숫자와 조건만 바꾼 문제 3개를 만들어드려요. 풀면서 진짜 이해했는지 확인해보세요.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Button { Task { await generate() } } label: {
-                Label("비슷한 문제 3개 만들기", systemImage: "sparkles")
-                    .font(.body.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 36)
-            }
-            .buttonStyle(.glassProminent)
-            .disabled(note.recognizedText.isEmpty)
-        }
-    }
-
-    private func problemView(index: Int, problem: SimilarProblem) -> some View {
-        let result = results[index]
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                Text("\(index + 1)")
-                    .font(.subheadline.weight(.heavy))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(Palette.warning, in: .circle)
-                Text(MathSymbolBar.pretty(problem.question))
-                    .font(.system(size: 16, design: .serif))
-                    .lineSpacing(5)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            HStack(spacing: 8) {
-                TextField("내 답", text: $answers[index])
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12))
-                Button {
-                    check(index, problem: problem)
-                } label: {
-                    Text("채점").font(.subheadline.weight(.bold)).padding(.horizontal, 6)
+            FlowHeader(number: 5, title: "유사 문제 단계 학습", symbol: "stairs",
+                       trailing: ladder.map { $0.finished ? "완료" : "\($0.level)단계" })
+            if let ladder {
+                levelDots(ladder)
+                if let lastResult { feedback(lastResult.item, lastResult.result, reminder: ladder.reminder) }
+                if ladder.finished {
+                    Label("5단계까지 통과했어요! 2~3일 뒤 원래 문제를 다시 풀어서 확실히 익혔는지 확인해요.", systemImage: "trophy.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Palette.success)
+                } else if let item = ladder.current {
+                    itemView(item)
+                } else if working {
+                    ProgressView("다음 문제를 만드는 중…").font(.caption)
+                } else {
+                    Button { Task { await nextItem() } } label: {
+                        Label(lastResult == nil ? "\(PracticeLadder.levelTitle(ladder.level)) 시작" : "다음 문제", systemImage: "arrow.right")
+                            .frame(maxWidth: .infinity).frame(height: 38)
+                    }
+                    .buttonStyle(.glassProminent)
+                }
+            } else {
+                Text("같은 핵심 개념을 단계별로 연습해요. 숫자만 바꾼 문제가 아니라 개념 확인 → 쉬운 유형 → 비슷한 문제 → 응용 → 최종 복습 순서로, 맞히면 어려워지고 틀리면 개념을 다시 보여줘요.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                Button { Task { await start() } } label: {
+                    Label("단계 학습 시작", systemImage: "sparkles").frame(maxWidth: .infinity).frame(height: 38)
                 }
                 .buttonStyle(.glassProminent)
-                .disabled(answers[index].trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(note.recognizedText.isEmpty || working)
             }
+            if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
 
-            if let result {
-                Label(result ? "정답이에요!" : "아쉬워요. 정답은 \(problem.answer)",
-                      systemImage: result ? "checkmark.circle.fill" : "xmark.circle.fill")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(result ? Palette.success : Palette.danger)
-                    .symbolEffect(.bounce, value: result)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+            Divider().padding(.vertical, 4)
+            retrySection
+        }
+        .softCard()
+        .onAppear { if ladder == nil { ladder = note.ladder } }
+    }
 
-            Button {
-                withAnimation(.snappy) {
-                    if openExplanation.contains(index) { openExplanation.remove(index) } else { openExplanation.insert(index) }
-                }
-            } label: {
-                Label(openExplanation.contains(index) ? "해설 닫기" : "해설 보기",
-                      systemImage: openExplanation.contains(index) ? "chevron.up" : "lightbulb")
-                    .font(.caption.weight(.semibold))
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(Theme.accent)
+    // MARK: 단계 표시
 
-            if openExplanation.contains(index) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("정답 \(problem.answer)").font(.subheadline.weight(.bold))
-                    Text(MathSymbolBar.pretty(problem.explanation)).font(.subheadline).foregroundStyle(.secondary)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 12))
-                .transition(.move(edge: .top).combined(with: .opacity))
+    private func levelDots(_ ladder: PracticeLadder) -> some View {
+        HStack(spacing: 6) {
+            ForEach(1...5, id: \.self) { level in
+                let passed = ladder.history.contains { $0.level == level && $0.correct }
+                Capsule()
+                    .fill(passed ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(level == ladder.level ? Theme.accent.opacity(0.35) : Color.primary.opacity(0.08)))
+                    .frame(height: 8)
             }
         }
-        .padding(14)
-        .background(Color.white, in: .rect(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
-        .feedbackGlow(result, cornerRadius: 18)
-        .shake(trigger: result == false)
-        .appearAnimation(delay: Double(index) * 0.06)
+        .accessibilityLabel("\(ladder.level)단계, 정답 \(ladder.correctCount)개")
     }
 
-    // MARK: Actions
-
-    private func check(_ index: Int, problem: SimilarProblem) {
-        let ok = MathGrader.grade(myAnswer: answers[index], correctAnswer: problem.answer) ?? false
-        withAnimation(Motion.spring) { results[index] = ok }
-        if ok { Haptics.success() } else { Haptics.error() }
+    private func itemView(_ item: PracticeItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(PracticeLadder.levelTitle(item.level)).font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
+            Text(MathSymbolBar.pretty(item.question))
+                .font(.system(size: 16, design: .serif))
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
+            if !item.choices.isEmpty {
+                ForEach(Array(item.choices.enumerated()), id: \.offset) { index, choice in
+                    Button { submit(item, answer: "\(index + 1)") } label: {
+                        HStack {
+                            Text("\(index + 1)").font(.subheadline.weight(.bold)).frame(width: 26, height: 26).background(Theme.accent.opacity(0.12), in: .circle)
+                            Text(MathSymbolBar.pretty(choice)).foregroundStyle(Palette.ink).multilineTextAlignment(.leading)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(10)
+                        .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    TextField("내 답", text: $answer)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(10)
+                        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12))
+                    Button("제출") { submit(item, answer: answer) }
+                        .buttonStyle(.glassProminent)
+                        .disabled(answer.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
     }
 
-    private func generate() async {
+    private func feedback(_ item: PracticeItem, _ result: GradeResult, reminder: String?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label(result.verdict == .correct ? "정답이에요! 한 단계 올라가요" : (result.verdict == .needsReview ? "확인이 필요해요" : "아쉬워요. 개념을 다시 보고 쉬운 문제로 가요"),
+                  systemImage: result.verdict == .correct ? "checkmark.circle.fill" : "arrow.down.circle.fill")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(result.verdict == .correct ? Palette.success : Palette.warning)
+            if result.verdict != .correct { Text("정답: \(MathSymbolBar.pretty(item.choices.isEmpty ? item.answer : "\(item.answer)번"))").font(.subheadline.weight(.semibold)) }
+            ForEach(item.explanation, id: \.self) { line in
+                Text(MathSymbolBar.pretty(line)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            if let reminder, result.verdict != .correct {
+                Text(MathSymbolBar.pretty(reminder))
+                    .font(.subheadline)
+                    .padding(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.warning.opacity(0.1), in: .rect(cornerRadius: 12))
+            }
+        }
+    }
+
+    // MARK: 진행
+
+    private func start() async {
+        ladder = PracticeLadder(level: note.analysis?.startLevel ?? 2)
+        lastResult = nil
+        await nextItem()
+    }
+
+    private func nextItem() async {
+        guard var current = ladder else { return }
         working = true
         defer { working = false }
-        do {
-            let made = try await DoitTutor.similar(to: note.recognizedText)
-            guard !made.problems.isEmpty else {
-                error = "문제를 만들지 못했어요. 다시 시도해주세요."
-                return
-            }
-            ContentCache.save(made, key: cacheKey, context: context)
-            withAnimation(.snappy) {
-                problemSet = made
-                answers = ["", "", ""]
-                results = [nil, nil, nil]
-                openExplanation = []
-            }
-        } catch {
-            self.error = error.localizedDescription
+        let asked = current.history.map(\.question)
+        if let item = await DoitPractice.makeItem(level: current.level, basis: basis, avoid: asked) {
+            current.current = item
+            message = nil
+        } else if let item = await DoitPractice.makeItem(level: max(2, current.level - 1), basis: basis, avoid: asked) {
+            current.current = item
+            message = "이 단계 문제를 만들 수 없어 한 단계 쉬운 문제로 냈어요."
+        } else {
+            message = "이 문제의 유형으로는 검증된 유사 문제를 만들 수 없어요. 문제 글이 정확한지 확인하거나, 단원(개념 이름)을 적어 주세요."
         }
+        answer = ""
+        ladder = current
+        save()
+    }
+
+    private func submit(_ item: PracticeItem, answer given: String) {
+        guard var current = ladder else { return }
+        let result = DoitPractice.grade(item, answer: given)
+        guard result.verdict != .needsReview else {
+            message = result.reasons.first
+            return
+        }
+        DoitPractice.advance(&current, item: item, answer: given, result: result, reminder: basis.reminder)
+        withAnimation(.snappy) {
+            lastResult = (item, result)
+            ladder = current
+        }
+        if result.verdict == .correct { Haptics.success() } else { Haptics.error() }
+        WeakConceptStore.recordGrade(note: note, correct: result.verdict == .correct, level: item.level, source: "유사 문제", context: context)
+        save()
+    }
+
+    // MARK: 재도전 (원래 문제)
+
+    private var retrySection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            FlowHeader(number: 6, title: "원래 문제 재도전", symbol: "arrow.counterclockwise")
+            Text("유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.").font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                TextField("다시 푼 답", text: $retryAnswer)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(10)
+                    .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12))
+                Button("채점", action: retry)
+                    .buttonStyle(.glassProminent)
+                    .disabled(retryAnswer.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+            if let retryResult {
+                Text(retryResult.verdict == .correct ? "재도전 성공! 🎉" : (retryResult.verdict == .needsReview ? (retryResult.reasons.first ?? "확인이 필요해요") : "아직 틀렸어요. 풀이와 원인 분석을 다시 확인해요."))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(retryResult.verdict == .correct ? Palette.success : Palette.danger)
+            }
+            if let retries = ladder?.retries, !retries.isEmpty {
+                ForEach(Array(retries.suffix(5).enumerated()), id: \.offset) { _, attempt in
+                    Text("\(attempt.date.kr("M월 d일")) · \(attempt.given) · \(attempt.correct ? "정답" : "오답")").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func retry() {
+        let kind = note.kind ?? note.scan?.kind ?? .shortAnswer
+        let result = DoitGrader.grade(.init(kind: kind, student: retryAnswer, answerKey: note.correctAnswer, choices: note.scan?.choices ?? [],
+                                            problem: note.scan?.body ?? note.recognizedText))
+        withAnimation(.snappy) { retryResult = result }
+        guard result.verdict == .correct || result.verdict == .wrong else { return }
+        var current = ladder ?? PracticeLadder(level: 3)
+        current.retries.append(PracticeAttempt(level: 3, question: "원래 문제", given: retryAnswer, correct: result.verdict == .correct))
+        ladder = current
+        WeakConceptStore.recordGrade(note: note, correct: result.verdict == .correct, level: 3, source: "재도전", context: context)
+        if result.verdict == .correct { note.status = .correct }
+        retryAnswer = ""
+        save()
+    }
+
+    private func save() {
+        note.ladder = ladder
+        note.updatedAt = Date()
+        try? context.save()
     }
 }

@@ -37,7 +37,7 @@ struct WrittenSolutionCard: View {
                 .id(tab)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
 
-                Label("AI 풀이는 틀릴 수 있어요. 정답과 꼭 비교해보세요.", systemImage: "exclamationmark.circle")
+                Label("두잇 풀이 엔진이 직접 푼 단계예요. 문제 글이 정확해야 풀이도 정확해요.", systemImage: "exclamationmark.circle")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if working {
@@ -70,7 +70,7 @@ struct WrittenSolutionCard: View {
                 .frame(width: 34, height: 34)
                 .background(Theme.accent, in: .rect(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 1) {
-                Text("서술형 단계별 풀이").font(.headline)
+                Text("단계별 풀이").font(.headline)
                 if let solution {
                     Text("\(solution.steps.count)단계 · 최종 답 \(solution.finalAnswer)")
                         .font(.caption)
@@ -181,9 +181,18 @@ struct WrittenSolutionCard: View {
                 HStack(alignment: .top, spacing: 12) {
                     stepMarker(index, isLast: index == solution.steps.count - 1)
                     VStack(alignment: .leading, spacing: 8) {
+                        // 이 단계에서 할 일
                         Text(step.hint)
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
+                        // 쓰는 개념·공식
+                        if !step.concept.isEmpty {
+                            Label(MathSymbolBar.pretty(step.concept), systemImage: "function")
+                                .font(.caption)
+                                .foregroundStyle(Theme.accent)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        // 계산·풀이 과정
                         Text(MathSymbolBar.pretty(step.work))
                             .font(.system(.body, design: .rounded).weight(.medium))
                             .lineSpacing(5)
@@ -191,6 +200,18 @@ struct WrittenSolutionCard: View {
                             .padding(12)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
+                        // 왜 이렇게 하는지 · 다음 단계
+                        if !step.reason.isEmpty {
+                            Label(step.reason, systemImage: "questionmark.bubble")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if !step.next.isEmpty {
+                            Text(MathSymbolBar.pretty(step.next))
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
                         if index < myAnswers.count, !myAnswers[index].isEmpty {
                             Label("내 풀이: \(myAnswers[index])", systemImage: "person.fill")
                                 .font(.caption)
