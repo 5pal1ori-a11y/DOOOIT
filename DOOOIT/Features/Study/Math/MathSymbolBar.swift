@@ -1,0 +1,92 @@
+import SwiftUI
+
+/// 문제 텍스트를 고칠 때 쓰는 수식 기호 바
+struct MathSymbolBar: View {
+    struct Symbol: Identifiable {
+        let label: String
+        let insert: String
+        /// 넣은 뒤 커서를 둘 위치 (insert 기준 글자 수)
+        let caretOffset: Int
+        var id: String { label }
+
+        init(_ label: String, _ insert: String? = nil, caret: Int? = nil) {
+            self.label = label
+            self.insert = insert ?? label
+            self.caretOffset = caret ?? (insert ?? label).count
+        }
+    }
+
+    var onInsert: (Symbol) -> Void
+
+    static let symbols: [Symbol] = [
+        Symbol("√", "√()", caret: 2),
+        Symbol("분수", "()/()", caret: 1),
+        Symbol("x²", "²"),
+        Symbol("x³", "³"),
+        Symbol("xⁿ", "^()", caret: 2),
+        Symbol("π"), Symbol("±"), Symbol("×"), Symbol("÷"),
+        Symbol("≤"), Symbol("≥"), Symbol("≠"), Symbol("∞"),
+        Symbol("|x|", "||", caret: 1),
+        Symbol("θ"), Symbol("∠"), Symbol("△"),
+        Symbol("①"), Symbol("②"), Symbol("③"), Symbol("④"), Symbol("⑤")
+    ]
+
+    var body: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 6) {
+                ForEach(Self.symbols) { symbol in
+                    Button { onInsert(symbol) } label: {
+                        Text(symbol.label)
+                            .font(.body.weight(.semibold))
+                            .frame(minWidth: 40, minHeight: 36)
+                            .padding(.horizontal, 4)
+                            .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(symbol.label)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    /// ^2 → ², sqrt( → √( 처럼 읽기 쉽게 바꿔서 보여주기
+    static func pretty(_ text: String) -> String {
+        let superscripts: [Character: Character] = ["0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵",
+                                                    "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "n": "ⁿ", "-": "⁻", "+": "⁺"]
+        var result = text.replacingOccurrences(of: "sqrt(", with: "√(")
+        var output = ""
+        var index = result.startIndex
+        while index < result.endIndex {
+            let ch = result[index]
+            if ch == "^" {
+                var next = result.index(after: index)
+                if next < result.endIndex, result[next] == "(" {
+                    var inner = ""
+                    var cursor = result.index(after: next)
+                    while cursor < result.endIndex, result[cursor] != ")" { inner.append(result[cursor]); cursor = result.index(after: cursor) }
+                    if cursor < result.endIndex, inner.allSatisfy({ superscripts[$0] != nil }) {
+                        output += String(inner.compactMap { superscripts[$0] })
+                        index = result.index(after: cursor)
+                        continue
+                    }
+                }
+                var digits = ""
+                while next < result.endIndex, let sup = superscripts[result[next]] {
+                    digits.append(sup)
+                    next = result.index(after: next)
+                }
+                if !digits.isEmpty {
+                    output += digits
+                    index = next
+                    continue
+                }
+            }
+            output.append(ch)
+            index = result.index(after: index)
+        }
+        result = output
+        return result
+    }
+}

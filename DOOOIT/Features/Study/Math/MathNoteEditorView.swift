@@ -26,6 +26,7 @@ struct MathNoteEditorView: View {
     @State private var cropItem: CropItem?
     @State private var previousText: String?
     @State private var textMessage: String?
+    @State private var textSelection: TextSelection?
 
     enum EditorTab: String, CaseIterable, Identifiable {
         case note = "필기", grade = "채점 · 풀이", text = "문제 텍스트"
@@ -383,12 +384,21 @@ struct MathNoteEditorView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            TextEditor(text: $note.recognizedText)
+            TextEditor(text: $note.recognizedText, selection: $textSelection)
                 .font(.body)
                 .frame(minHeight: 180)
                 .scrollContentBackground(.hidden)
                 .padding(10)
                 .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14))
+
+            MathSymbolBar { symbol in insertSymbol(symbol) }
+
+            if note.recognizedText.contains("^") || note.recognizedText.contains("sqrt") {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("보기 좋게").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(MathSymbolBar.pretty(note.recognizedText)).font(.body)
+                }
+            }
 
             if let textMessage {
                 Text(textMessage).font(.caption).foregroundStyle(.secondary)
@@ -424,6 +434,22 @@ struct MathNoteEditorView: View {
             .disabled(isRecognizing)
         }
         .glassCard()
+    }
+
+    /// 커서 위치에 수식 기호 넣기 (괄호 안에 커서를 둠)
+    private func insertSymbol(_ symbol: MathSymbolBar.Symbol) {
+        var text = note.recognizedText
+        var insertAt = text.endIndex
+        var replaceRange = text.endIndex..<text.endIndex
+        if let selection = textSelection, case .selection(let range) = selection.indices {
+            replaceRange = range
+            insertAt = range.lowerBound
+        }
+        let offset = text.distance(from: text.startIndex, to: insertAt)
+        text.replaceSubrange(replaceRange, with: symbol.insert)
+        note.recognizedText = text
+        let caret = text.index(text.startIndex, offsetBy: min(offset + symbol.caretOffset, text.count))
+        textSelection = TextSelection(insertionPoint: caret)
     }
 
     private func recognize(_ problem: UIImage) async {
