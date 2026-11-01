@@ -27,7 +27,7 @@ struct WordHomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 heroCard
-                gamesCard
+                if !words.isEmpty { gamesCard }
                 addCard
                 if !wrongWords.isEmpty { reviewCard }
                 goalCard
@@ -118,15 +118,17 @@ struct WordHomeView: View {
         return doneToday ? "다음 단어 더 외우기" : "오늘의 단어 외우기"
     }
 
-    // MARK: Games
+    // MARK: Pronunciation
 
     private var gamesCard: some View {
-        NavigationLink { WordGamesView() } label: {
+        NavigationLink {
+            SpeakPracticeView(pool: words.filter { !$0.term.trimmingCharacters(in: .whitespaces).isEmpty })
+        } label: {
             HStack(spacing: 14) {
-                IconBadge(symbol: "gamecontroller.fill", color: Color(hex: "#7B68EE"), size: 44)
+                IconBadge(symbol: "mic.fill", color: Palette.success, size: 44)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("단어 게임 · 발음 연습").font(.headline)
-                    Text("짝 맞추기, 스피드 퀴즈, 스펠링 퍼즐, 따라 말하기")
+                    Text("발음 연습").font(.headline)
+                    Text("단어를 듣고 따라 말하면 발음을 확인해요")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

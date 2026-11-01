@@ -81,6 +81,22 @@ struct WrittenSolution: Codable {
     var finalAnswer: String
 }
 
+@Generable
+struct SimilarProblem: Codable, Hashable {
+    @Guide(description: "원래 문제와 같은 개념·유형으로 숫자나 조건만 바꾼 새 문제. 혼자 풀 수 있게 완결된 문장")
+    var question: String
+    @Guide(description: "정답. 숫자나 식으로 짧게")
+    var answer: String
+    @Guide(description: "2~3문장 해설")
+    var explanation: String
+}
+
+@Generable
+struct SimilarProblemSet: Codable {
+    @Guide(description: "비슷한 문제 정확히 3개")
+    var problems: [SimilarProblem]
+}
+
 // MARK: - 기기 안 AI 과외 선생님
 
 enum AITutorError: LocalizedError {
@@ -253,6 +269,19 @@ enum AITutor {
             text += "\n\n[지금 저장된 텍스트]\n\(String(current.prefix(limit)))"
         }
         return text
+    }
+
+    static func similarPrompt(problem: String) -> String {
+        """
+        다음 문제와 같은 개념과 유형을 연습할 수 있는 비슷한 문제 3개를 만들어줘.
+        - 숫자, 계수, 조건을 바꿔서 새 문제로 만들고 원래 문제를 그대로 베끼지 마.
+        - 난이도는 원래 문제와 비슷하게, 1번은 조금 쉽게, 3번은 조금 어렵게.
+        - 정답이 정확한지 직접 계산해서 확인해.
+        - 수식은 x², √(…), (분자)/(분모) 형태로 써.
+
+        원래 문제:
+        \(problem)
+        """
     }
 
     static func solutionPrompt(problem: String) -> String {

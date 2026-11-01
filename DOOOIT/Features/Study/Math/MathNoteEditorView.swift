@@ -54,6 +54,7 @@ struct MathNoteEditorView: View {
                     case .grade:
                         gradingCard
                         WrittenSolutionCard(note: note)
+                        SimilarProblemsCard(note: note)
                     case .text:
                         recognizedCard
                     }

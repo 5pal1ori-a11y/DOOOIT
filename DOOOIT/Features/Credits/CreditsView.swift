@@ -174,7 +174,7 @@ struct CreditsView: View {
     private var priceCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("크레딧이 드는 기능").font(.headline)
-            ForEach([CreditStore.Use.readProblem, .solution, .askAI, .unitStudy], id: \.self) { use in
+            ForEach([CreditStore.Use.readProblem, .solution, .similar, .askAI, .unitStudy], id: \.self) { use in
                 HStack(spacing: 12) {
                     Image(systemName: use.symbol)
                         .foregroundStyle(Theme.accent)

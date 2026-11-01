@@ -19,7 +19,7 @@ final class CreditStore {
     static let studyRewardMaxHours = 5
 
     enum Use: String, Codable {
-        case readProblem, solution, askAI, unitStudy
+        case readProblem, solution, askAI, unitStudy, similar
 
         var title: String {
             switch self {
@@ -27,6 +27,7 @@ final class CreditStore {
             case .solution: return "AI 단계별 풀이"
             case .askAI: return "AI에게 질문"
             case .unitStudy: return "AI 학습 (단원 1개)"
+            case .similar: return "비슷한 문제 만들기"
             }
         }
 
@@ -36,6 +37,7 @@ final class CreditStore {
             case .solution: return "list.number"
             case .askAI: return "questionmark.bubble.fill"
             case .unitStudy: return "sparkles"
+            case .similar: return "square.on.square"
             }
         }
     }
