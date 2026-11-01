@@ -21,7 +21,7 @@ jobs:
       # 이 세 개를 넣으면 빌드할 때 Claude 서버(server/)를 Cloudflare에 자동 배포하고 앱에 연결
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       # AdMob (없으면 Google 테스트 광고 ID로 빌드)
-      ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID }}
+      ADMOB_APP_ID: ${{ secrets.ADMOB_APP_ID || secrets.ADMIB_APP_ID }}
       ADMOB_REWARDED_ID: ${{ secrets.ADMOB_REWARDED_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || secrets.CLOUDFARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFARE_ACCOUNT_ID }}
