@@ -195,7 +195,8 @@ extension DoitWeb {
         let declared = (charset ?? head.firstMatch(of: #/charset=["']?([a-z0-9_\-]+)/#).map { String($0.1) } ?? "utf-8").lowercased()
         if ["euc-kr", "ks_c_5601-1987", "cp949", "x-windows-949", "ksc5601"].contains(declared) {
             #if canImport(Darwin)
-            let encoding = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(CFStringEncodings.dlgKorean.rawValue)))
+            // 0x0422 = kCFStringEncodingDOSKorean (CP949, EUC-KR을 포함)
+            let encoding = String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(CFStringEncoding(0x0422)))
             if let text = String(data: data, encoding: encoding) { return text }
             #endif
         }
