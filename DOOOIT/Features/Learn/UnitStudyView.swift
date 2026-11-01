@@ -180,14 +180,6 @@ struct AIContentLoader<T: Codable, Content: View>: View {
         Group {
             if let value {
                 content(value) { Task { await load(force: true) } }
-            } else if loading {
-                VStack(spacing: 12) {
-                    ProgressView().controlSize(.large)
-                    Text("AI 선생님이 자료를 만들고 있어요").font(.subheadline.weight(.semibold))
-                    Text("기기 안에서 만들어서 10~30초 정도 걸릴 수 있어요").font(.caption).foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 50)
             } else if let error {
                 VStack(spacing: 12) {
                     Text(error).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
@@ -196,6 +188,15 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 40)
+            } else {
+                // 처음부터 이 화면을 보여줘야 .task가 실행됨 (빈 화면이면 시작되지 않음)
+                VStack(spacing: 12) {
+                    ProgressView().controlSize(.large)
+                    Text("AI 선생님이 자료를 만들고 있어요").font(.subheadline.weight(.semibold))
+                    Text("기기 안에서 만들어서 10~30초 정도 걸릴 수 있어요").font(.caption).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 50)
             }
         }
         .task { await load(force: false) }
