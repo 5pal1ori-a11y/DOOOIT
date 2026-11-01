@@ -55,6 +55,22 @@ jobs:
                   pass
           body = re.sub(r"-----(BEGIN|END)[A-Z ]*-----", "", raw)
           body = re.sub(r"[^A-Za-z0-9+/=]", "", body)
+          # 앞뒤에 섞인 글자 제거: PKCS#8 키는 "MIG"로 시작하고 DER 길이 정보로 끝을 알 수 있음
+          start = body.find("MIG")
+          extra_front = max(start, 0)
+          if start > 0:
+              body = body[start:]
+          try:
+              padded = body + "=" * (-len(body) % 4)
+              der = base64.b64decode(padded[: (len(padded) // 4) * 4])
+              if der[0] == 0x30 and der[1] == 0x81:
+                  total = der[2] + 3
+                  der = der[:total]
+                  extra_back = len(body) - len(base64.b64encode(der).decode())
+                  body = base64.b64encode(der).decode()
+                  print(f"::notice title=API key::앞쪽 여분 {extra_front}자, 뒤쪽 여분 {max(extra_back, 0)}자를 제거 · 키 길이 {total}바이트")
+          except Exception as e:
+              print(f"::warning title=API key::키 구조를 읽지 못했어요 ({type(e).__name__})")
           lines = [body[i:i + 64] for i in range(0, len(body), 64)]
           pem = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
           open(sys.argv[1], "w").write(pem)
