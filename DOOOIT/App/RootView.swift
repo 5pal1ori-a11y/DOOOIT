@@ -68,6 +68,17 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $studyTimer.isPresented) {
             TimerView()
         }
+        // 홈 화면 위젯을 누르면 해당 탭으로
+        .onOpenURL { url in
+            switch url.host() {
+            case "planner":
+                plannerRouter.selectedDate = Date().startOfDay
+                tab = .planner
+            case "words": tab = .study
+            case "home": tab = .home
+            default: break
+            }
+        }
         .task {
             if AppSettings.notificationsEnabled {
                 _ = await NotificationService.requestAuthorization()

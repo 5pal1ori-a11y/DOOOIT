@@ -12,6 +12,7 @@ struct CreditsView: View {
             VStack(alignment: .leading, spacing: 22) {
                 balanceCard
                 adCard
+                studyCard
                 priceCard
                 historyCard
             }
@@ -133,6 +134,39 @@ struct CreditsView: View {
         } else if ads.lastError == nil {
             withAnimation { message = "광고를 끝까지 봐야 크레딧을 받을 수 있어요." }
         }
+    }
+
+    // MARK: 공부로 얻기
+
+    private var studyCard: some View {
+        let earned = credits.studyHoursRewardedToday
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                IconBadge(symbol: "timer", color: Palette.success, size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("공부하고 크레딧 얻기").font(.headline)
+                    Text("타이머로 하루 공부 1시간마다 +\(CreditStore.studyRewardPerHour) · 하루 \(CreditStore.studyRewardMaxHours)시간까지")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            HStack(spacing: 6) {
+                ForEach(1...CreditStore.studyRewardMaxHours, id: \.self) { hour in
+                    VStack(spacing: 4) {
+                        Capsule()
+                            .fill(hour <= earned ? Palette.success : Color.primary.opacity(0.08))
+                            .frame(height: 8)
+                        Text("\(hour)시간").font(.caption2).foregroundStyle(hour <= earned ? Palette.success : .secondary)
+                    }
+                }
+            }
+            Text(earned >= CreditStore.studyRewardMaxHours
+                 ? "오늘 공부 보상을 모두 받았어요!"
+                 : "오늘 +\(earned * CreditStore.studyRewardPerHour) 받음 · 타이머를 끝내면 자동으로 들어와요")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .glassCard()
     }
 
     // MARK: 요금

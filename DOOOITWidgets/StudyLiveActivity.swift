@@ -6,6 +6,10 @@ import WidgetKit
 struct DOOOITWidgetsBundle: WidgetBundle {
     var body: some Widget {
         StudyLiveActivity()
+        TodayPlansWidget()
+        DDayWidget()
+        TodayWordsWidget()
+        StudyProgressWidget()
     }
 }
 

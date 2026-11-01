@@ -36,13 +36,18 @@ struct DOOOITApp: App {
                     PlanScheduler.shared.start(context: context, timer: studyTimer)
                     credits.grantDailyIfNeeded()
                     RewardedAdManager.shared.start()
+                    WidgetSync.update(context: context)
                     await auth.verifyAppleCredential()
                 }
         }
         .modelContainer(container)
         .onChange(of: scenePhase) { _, phase in
+            if phase == .background || phase == .inactive {
+                WidgetSync.update(context: container.mainContext)
+            }
             if phase == .active {
                 credits.grantDailyIfNeeded()
+                WidgetSync.update(context: container.mainContext)
                 PlanScheduler.shared.tick()
                 PlanScheduler.shared.rescheduleNotifications()
             }

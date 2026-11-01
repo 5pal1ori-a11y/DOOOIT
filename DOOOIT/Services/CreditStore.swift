@@ -15,6 +15,8 @@ final class CreditStore {
     static let dailyGrant = 100
     static let adReward = 50
     static let adDailyLimit = 10
+    static let studyRewardPerHour = 20
+    static let studyRewardMaxHours = 5
 
     enum Use: String, Codable {
         case readProblem, solution, askAI, unitStudy
@@ -52,6 +54,9 @@ final class CreditStore {
         var adsCount = 0
         var paidUnits: [String] = []
         var history: [Entry] = []
+        // 나중에 추가된 값은 옵셔널 (예전에 저장된 크레딧을 그대로 읽기 위해)
+        var studyKey: String?
+        var studyHours: Int?
     }
 
     private static let storageKey = "dooit.credits.v1"
@@ -62,6 +67,8 @@ final class CreditStore {
     var adsWatchedToday: Int { state.adsKey == Date().dayKey ? state.adsCount : 0 }
     var adsLeftToday: Int { max(0, Self.adDailyLimit - adsWatchedToday) }
     var receivedDailyToday: Bool { state.dailyKey == Date().dayKey }
+    /// 오늘 공부 보상을 받은 시간 수
+    var studyHoursRewardedToday: Int { state.studyKey == Date().dayKey ? (state.studyHours ?? 0) : 0 }
 
     private init() {
         if let data = Keychain.get(Self.storageKey),
@@ -104,6 +111,23 @@ final class CreditStore {
         state.paidUnits.append(key)
         if state.paidUnits.count > 300 { state.paidUnits.removeFirst(state.paidUnits.count - 300) }
         charge(.unitStudy)
+    }
+
+    /// 공부 시간 보상: 오늘 총 공부 시간이 1시간 넘을 때마다 +20 (하루 5시간까지). 새로 받은 양을 돌려줌
+    @discardableResult
+    func rewardStudyTime(todaySeconds: Int) -> Int {
+        let today = Date().dayKey
+        if state.studyKey != today {
+            state.studyKey = today
+            state.studyHours = 0
+        }
+        let hours = min(todaySeconds / 3600, Self.studyRewardMaxHours)
+        let already = state.studyHours ?? 0
+        guard hours > already else { return 0 }
+        let amount = (hours - already) * Self.studyRewardPerHour
+        state.studyHours = hours
+        add(amount, title: "공부 \(hours)시간 달성")
+        return amount
     }
 
     /// 광고 보상

@@ -57,6 +57,14 @@ struct WordListView: View {
                             if word.isLearned {
                                 Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.success)
                             }
+                            Button { WordSpeaker.shared.speak(word.term) } label: {
+                                Image(systemName: "speaker.wave.2.fill")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Theme.accent)
+                                    .frame(width: 32, height: 32)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel("\(word.term) 발음 듣기")
                         }
                     }
                     .tint(.primary)

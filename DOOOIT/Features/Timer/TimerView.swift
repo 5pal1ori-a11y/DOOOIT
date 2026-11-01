@@ -11,6 +11,8 @@ struct TimerView: View {
     @State private var targetMinutes: Int? = 50
     @State private var showStopConfirm = false
     @State private var savedSeconds: Int?
+    @State private var sound = AmbientSoundPlayer.shared
+    @State private var showSounds = false
 
     private let targets: [Int?] = [25, 50, 90, nil]
 
@@ -71,9 +73,24 @@ struct TimerView: View {
 
             Spacer()
 
-            Color.clear.frame(width: 44, height: 44)
+            Button {
+                showSounds = true
+            } label: {
+                Image(systemName: sound.current?.symbol ?? "speaker.wave.2")
+                    .font(.headline)
+                    .foregroundStyle(sound.isPlaying ? Color.accentColor : Color.primary)
+                    .symbolEffect(.variableColor.iterative, isActive: sound.isPlaying)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .glassEffect(.regular.interactive(), in: .circle)
+            .accessibilityLabel("집중 사운드")
         }
         .padding(.top, 8)
+        .sheet(isPresented: $showSounds) {
+            AmbientSoundSheet()
+                .presentationDetents([.medium])
+        }
     }
 
     // MARK: Setup (idle)
@@ -268,6 +285,14 @@ struct TimerView: View {
                 Text(seconds >= 10 ? "\(TimeText.clock(TimeInterval(seconds))) 공부를 기록했어요." : "10초 이상 공부해야 기록돼요.")
                     .foregroundStyle(.secondary)
             }
+            if studyTimer.lastCreditReward > 0 {
+                Label("오늘 공부 시간 달성 보상 +\(studyTimer.lastCreditReward) 크레딧", systemImage: "bolt.circle.fill")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Theme.accent.opacity(0.12), in: .capsule)
+            }
             Button {
                 savedSeconds = nil
                 studyTimer.isPresented = false
@@ -344,5 +369,63 @@ struct TimerAccessoryView: View {
             return "다음: \(next.plan.title) \(next.start.kr("a h:mm"))"
         }
         return "타이머를 눌러 집중 시간을 기록하세요"
+    }
+}
+
+/// 집중 사운드 고르기 + 음량
+struct AmbientSoundSheet: View {
+    @State private var sound = AmbientSoundPlayer.shared
+
+    var body: some View {
+        @Bindable var sound = sound
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+                        ForEach(AmbientSoundPlayer.Kind.allCases) { kind in
+                            let isOn = sound.current == kind
+                            Button {
+                                sound.toggle(kind)
+                                Haptics.tap()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Image(systemName: kind.symbol)
+                                        .font(.title3)
+                                        .symbolEffect(.variableColor.iterative, isActive: isOn)
+                                    Text(kind.title).font(.subheadline.weight(.bold))
+                                    Text(kind.subtitle).font(.caption2).opacity(0.75).lineLimit(1)
+                                }
+                                .foregroundStyle(isOn ? Color.white : Color.primary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(14)
+                                .background(isOn ? Theme.accent : Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    HStack(spacing: 12) {
+                        Image(systemName: "speaker.fill").foregroundStyle(.secondary)
+                        Slider(value: $sound.volume, in: 0...1)
+                        Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 4)
+
+                    Text("다시 누르면 꺼져요. 공부를 마치면 자동으로 꺼지고, 화면을 꺼도 계속 들려요.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(20)
+            }
+            .navigationTitle("집중 사운드")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                if sound.isPlaying {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("끄기") { sound.stop() }
+                    }
+                }
+            }
+        }
     }
 }
