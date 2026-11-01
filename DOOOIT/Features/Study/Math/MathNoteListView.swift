@@ -169,6 +169,7 @@ struct MathNoteListView: View {
                 recognizedText: text,
                 correctAnswer: MathGrader.extractAnswer(from: text) ?? ""
             )
+            note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
             context.insert(note)
             created.append(note)
         }

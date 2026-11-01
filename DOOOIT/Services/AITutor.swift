@@ -185,6 +185,25 @@ enum AITutor {
         "\(subject) '\(unit)' 단원의 \(hard ? "응용·실전" : "기본") 5지선다 문제 \(count)개를 만들어줘. 정답이 하나뿐이도록 하고, 단계별 풀이를 꼭 검산해."
     }
 
+    static func reconstructPrompt(readings: [String], current: String) -> String {
+        var text = """
+        같은 수학 문제 사진을 글자 인식으로 여러 번 읽은 결과야. 읽을 때마다 틀린 곳이 조금씩 달라.
+        결과들을 서로 비교해서 사진에 인쇄된 원래 문제 문장과 보기를 복원해줘.
+        - 손글씨 풀이 흔적, 출처 표시, 의미 없는 숫자·기호는 지워.
+        - 수식은 x³, x², √, a/b, ① 같은 형태로 바로잡아.
+        - 여러 결과에 공통으로 있는 숫자를 믿고, 확실하지 않은 부분은 [?]로 표시해.
+        - 문제를 풀거나 없는 내용을 지어내지 마.
+        복원한 문제 텍스트만 답해.
+        """
+        for (index, reading) in readings.enumerated() {
+            text += "\n\n[읽기 \(index + 1)]\n\(String(reading.prefix(1500)))"
+        }
+        if !current.isEmpty && !readings.contains(current) {
+            text += "\n\n[지금 저장된 텍스트]\n\(String(current.prefix(1500)))"
+        }
+        return text
+    }
+
     static func solutionPrompt(problem: String) -> String {
         "다음 문제를 서술형 모범 답안처럼 단계별로 풀어줘. 각 단계는 생각할 점(힌트)과 풀이 식으로 나눠.\n\n문제:\n\(problem)"
     }

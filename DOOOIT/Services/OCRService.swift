@@ -1,3 +1,4 @@
+import CoreImage
 import UIKit
 import Vision
 
@@ -11,7 +12,7 @@ struct OCRLine {
 }
 
 enum OCRService {
-    static func recognize(_ image: UIImage) async throws -> [OCRLine] {
+    static func recognize(_ image: UIImage, languageCorrection: Bool = true) async throws -> [OCRLine] {
         let prepared = image.preparedForOCR()
         guard let cgImage = prepared.cgImage else { return [] }
 
@@ -19,7 +20,7 @@ enum OCRService {
             DispatchQueue.global(qos: .userInitiated).async {
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .accurate
-                request.usesLanguageCorrection = true
+                request.usesLanguageCorrection = languageCorrection
                 request.recognitionLanguages = ["ko-KR", "en-US"]
 
                 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -36,6 +37,39 @@ enum OCRService {
                 }
             }
         }
+    }
+
+    /// 같은 사진을 세 가지 방법으로 읽은 결과 (AI가 비교해서 문장을 복원할 때 사용)
+    /// 1) 기본  2) 철자 자동교정 끔(수식·기호 보존)  3) 흑백·고대비·확대
+    static func multiPassRead(_ image: UIImage) async -> [String] {
+        var results: [String] = []
+        if let lines = try? await recognize(image) {
+            results.append(printedText(from: lines))
+        }
+        if let lines = try? await recognize(image, languageCorrection: false) {
+            results.append(printedText(from: lines))
+        }
+        if let enhanced = enhancedForText(image), let lines = try? await recognize(enhanced, languageCorrection: false) {
+            results.append(printedText(from: lines))
+        }
+        return results.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    }
+
+    /// 흑백 + 대비를 높이고, 작은 사진은 2배로 키움
+    static func enhancedForText(_ image: UIImage) -> UIImage? {
+        let base = image.resized(maxDimension: 3000)
+        guard let input = CIImage(image: base) else { return nil }
+        let controls = CIFilter(name: "CIColorControls")
+        controls?.setValue(input, forKey: kCIInputImageKey)
+        controls?.setValue(0.0, forKey: kCIInputSaturationKey)
+        controls?.setValue(1.4, forKey: kCIInputContrastKey)
+        guard var output = controls?.outputImage else { return nil }
+        if max(base.size.width, base.size.height) < 1600 {
+            output = output.transformed(by: CGAffineTransform(scaleX: 2, y: 2))
+        }
+        let ciContext = CIContext()
+        guard let cg = ciContext.createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: cg)
     }
 
     /// 인쇄된 문제 위주로 남기기: 신뢰도가 낮은 줄(손글씨)과

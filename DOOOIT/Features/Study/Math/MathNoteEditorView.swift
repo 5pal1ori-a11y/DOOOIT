@@ -407,7 +407,7 @@ struct MathNoteEditorView: View {
                 Button {
                     Task { await tidyWithAI() }
                 } label: {
-                    Label("AI로 문제 문장 다듬기", systemImage: "sparkles")
+                    Label(image == nil ? "AI로 문제 문장 다듬기" : "사진 다시 분석해서 AI로 다듬기", systemImage: "sparkles")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glass)
@@ -437,28 +437,40 @@ struct MathNoteEditorView: View {
             note.correctAnswer = answer
         }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
+        note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
         textMessage = text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요."
     }
 
-    /// 사진에서 읽은 글자를 AI가 문제 문장으로 정리 (풀지 않음)
+    /// 사진을 여러 방법으로 다시 읽고, AI가 결과들을 비교해 문제 문장을 복원 (풀지 않음)
     private func tidyWithAI() async {
         isRecognizing = true
         defer { isRecognizing = false }
         let original = note.recognizedText
-        let prompt = """
-        다음은 수학 문제 사진에서 글자 인식으로 읽은 텍스트야.
-        인쇄된 문제 문장과 보기만 남기고, 손글씨 풀이 흔적이나 의미 없는 숫자·기호는 지워.
-        깨진 수식은 x³, x², √, a/b 같은 형태로 바로잡아. 문제를 풀거나 내용을 새로 지어내지 마.
-        정리한 문제 텍스트만 답해.
 
-        \(original)
-        """
+        var readings: [String] = []
+        let source: UIImage? = note.problemImageData.flatMap(UIImage.init(data:)) ?? image
+        if let source {
+            textMessage = "사진을 세 가지 방법으로 다시 읽는 중이에요…"
+            readings = await OCRService.multiPassRead(source)
+        }
+        if readings.isEmpty && original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            textMessage = "사진에서 글자를 찾지 못했어요. 문제 영역을 다시 골라보세요."
+            return
+        }
+        textMessage = "AI가 \(max(readings.count, 1))개의 읽기 결과를 비교해서 정리하는 중이에요…"
+
         do {
+            let prompt = readings.isEmpty
+                ? AITutor.reconstructPrompt(readings: [original], current: "")
+                : AITutor.reconstructPrompt(readings: readings, current: original)
             let tidy = try await AITutor.answer(prompt).trimmingCharacters(in: .whitespacesAndNewlines)
             guard !tidy.isEmpty else { return }
             previousText = original
             note.recognizedText = tidy
-            textMessage = "AI가 정리했어요. 숫자와 기호가 사진과 같은지 꼭 확인하세요."
+            if note.correctAnswer.isEmpty, let answer = MathGrader.extractAnswer(from: tidy) {
+                note.correctAnswer = answer
+            }
+            textMessage = "사진을 \(readings.count)번 다시 읽고 AI가 정리했어요. [?] 표시와 숫자가 사진과 같은지 꼭 확인하세요."
         } catch {
             textMessage = error.localizedDescription
         }

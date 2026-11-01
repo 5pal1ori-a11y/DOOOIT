@@ -261,6 +261,8 @@ final class MathNote {
     var updatedAt: Date = Date()
     /// AI 서술형 단계별 풀이 (WrittenSolution JSON)
     var solutionData: Data?
+    /// 영역 선택으로 잘라낸 인쇄된 문제 사진 (다시 분석할 때 사용)
+    @Attribute(.externalStorage) var problemImageData: Data?
     /// 내가 단계별로 적은 풀이
     var stepAnswersData: Data?
 
