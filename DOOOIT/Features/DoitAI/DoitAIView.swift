@@ -35,6 +35,7 @@ struct DoitAIView: View {
                         .animation(.snappy, value: assistant.messages.count)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    .simultaneousGesture(TapGesture().onEnded { focused = false })
                     .onChange(of: assistant.messages.count) {
                         withAnimation { proxy.scrollTo(assistant.messages.last?.id, anchor: .bottom) }
                     }
@@ -220,6 +221,21 @@ struct DoitAIView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             HStack(alignment: .bottom, spacing: 8) {
+                if focused {
+                    // 키보드 내리기
+                    Button {
+                        focused = false
+                    } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                            .font(.headline)
+                            .foregroundStyle(Palette.ink)
+                            .frame(width: 42, height: 42)
+                    }
+                    .buttonStyle(.plain)
+                    .glassEffect(.regular.interactive(), in: .circle)
+                    .accessibilityLabel("키보드 내리기")
+                    .transition(.scale.combined(with: .opacity))
+                } else {
                 Menu {
                     Button { showScanner = DocumentScanner.isSupported; showPhotoPicker = !DocumentScanner.isSupported } label: {
                         Label("문제 촬영", systemImage: "camera")
@@ -234,9 +250,12 @@ struct DoitAIView: View {
                         .frame(width: 42, height: 42)
                 }
                 .glassEffect(.regular.interactive(), in: .circle)
+                .transition(.scale.combined(with: .opacity))
+                }
 
                 HStack(alignment: .bottom, spacing: 6) {
                     TextField("두잇 AI에게 물어보기", text: $input, axis: .vertical)
+                        .submitLabel(.send)
                         .onSubmit { submit() }
                         .lineLimit(1...5)
                         .focused($focused)
@@ -262,6 +281,7 @@ struct DoitAIView: View {
         .padding(.top, 8)
         .padding(.bottom, 8)
         .animation(.snappy, value: attached != nil)
+        .animation(.snappy, value: focused)
     }
 
     /// **굵게** 같은 간단한 마크다운만 적용

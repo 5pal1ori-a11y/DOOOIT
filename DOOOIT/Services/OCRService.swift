@@ -115,50 +115,109 @@ enum OCRService {
             }
         }
 
-        return korean.compactMap { observation -> OCRLine? in
+        // 줄과 떨어져서 따로 읽힌 작은 지수(x² 의 2 등) 찾기
+        let heights = korean.map(\.boundingBox.height).sorted()
+        let medianHeight = heights.isEmpty ? 0 : heights[heights.count / 2]
+        func superscriptText(_ observation: VNRecognizedTextObservation) -> String? {
+            guard let raw = observation.topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces),
+                  raw.range(of: #"^[0-9n]{1,2}$"#, options: .regularExpression) != nil,
+                  observation.boundingBox.height < medianHeight * 0.75 else { return nil }
+            return raw
+        }
+        var tiny: [(text: String, box: CGRect)] = []
+        for observation in korean + english {
+            guard let text = superscriptText(observation) else { continue }
+            let box = observation.boundingBox
+            if !tiny.contains(where: { abs($0.box.midX - box.midX) < 0.01 && abs($0.box.midY - box.midY) < 0.01 }) {
+                tiny.append((text, box))
+            }
+        }
+        var usedTiny = Set<Int>()
+
+        let lines = korean.map { observation -> OCRLine? in
+            if superscriptText(observation) != nil { return nil }   // 지수 조각은 줄에 끼워 넣음
             let candidates = observation.topCandidates(3)
             guard let best = candidates.first else { return nil }
             let candidate = candidates.filter { $0.confidence >= best.confidence - 0.15 }
                 .min { mathPenalty($0.string) < mathPenalty($1.string) } ?? best
-            var text = candidate.string
-            guard !words.isEmpty else { return OCRLine(text: text, confidence: best.confidence, box: observation.boundingBox) }
+            let original = candidate.string
+            let chars = Array(original)
+            func index(_ offset: Int) -> String.Index { original.index(original.startIndex, offsetBy: offset) }
+            func charBox(_ offset: Int) -> CGRect? {
+                try? candidate.boundingBox(for: index(offset)..<index(offset + 1))?.boundingBox
+            }
 
-            // 한글이 없는 구간 찾기
-            var runs: [Range<String.Index>] = []
-            var runStart: String.Index?
-            for i in text.indices {
-                if isHangul(text[i]) {
-                    if let s = runStart { runs.append(s..<i); runStart = nil }
-                } else if runStart == nil {
-                    runStart = i
+            // 1) 떨어진 지수 끼워 넣기: 줄 위쪽에 붙은 작은 숫자 → 바로 왼쪽 글자 뒤에 ^숫자
+            var insertions: [(offset: Int, text: String)] = []
+            let line = observation.boundingBox
+            for (k, piece) in tiny.enumerated() where !usedTiny.contains(k) {
+                let b = piece.box
+                guard b.midX >= line.minX, b.midX <= line.maxX + 0.02,
+                      b.minY >= line.minY + line.height * 0.25, b.minY <= line.maxY,
+                      b.maxY <= line.maxY + line.height * 0.8 else { continue }
+                var bestOffset: Int?
+                var bestMaxX = -1.0
+                for offset in chars.indices where !chars[offset].isWhitespace {
+                    guard let cb = charBox(offset), cb.maxX <= b.minX + 0.006, cb.maxX > bestMaxX else { continue }
+                    bestMaxX = cb.maxX
+                    bestOffset = offset
+                }
+                guard let offset = bestOffset else { continue }
+                let base = chars[offset]
+                guard base.isLetter || base.isNumber || base == ")" else { continue }
+                // 이미 지수가 붙어 있으면 건너뜀
+                if offset + 1 < chars.count, chars[offset + 1] == piece.text.first || "²³^".contains(chars[offset + 1]) { usedTiny.insert(k); continue }
+                insertions.append((offset + 1, "^" + piece.text))
+                usedTiny.insert(k)
+            }
+
+            // 2) 한글이 없는 구간(수식)을 영어 전용 결과와 비교
+            var replacements: [(range: Range<Int>, text: String)] = []
+            if !words.isEmpty {
+                var runs: [Range<Int>] = []
+                var runStart: Int?
+                for i in chars.indices {
+                    if isHangul(chars[i]) {
+                        if let s = runStart { runs.append(s..<i); runStart = nil }
+                    } else if runStart == nil {
+                        runStart = i
+                    }
+                }
+                if let s = runStart { runs.append(s..<chars.count) }
+                for run in runs {
+                    guard let first = run.first(where: { !chars[$0].isWhitespace && !",.".contains(chars[$0]) }),
+                          let last = run.last(where: { !chars[$0].isWhitespace && !",.".contains(chars[$0]) }) else { continue }
+                    let range = first..<(last + 1)
+                    // 지수를 끼워 넣은 구간은 그대로 둠
+                    if insertions.contains(where: { $0.offset > range.lowerBound && $0.offset <= range.upperBound }) { continue }
+                    let originalPart = String(chars[range])
+                    guard originalPart.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
+                          let box = try? candidate.boundingBox(for: index(range.lowerBound)..<index(range.upperBound))?.boundingBox else { continue }
+                    let inside = words.filter { word in
+                        let overlap = min(word.box.maxY, box.maxY) - max(word.box.minY, box.minY)
+                        let height = min(word.box.height, box.height)
+                        guard height > 0, overlap / height > 0.5 else { return false }
+                        let midX = word.box.midX
+                        return midX >= box.minX - 0.01 && midX <= box.maxX + 0.01
+                    }.sorted { $0.box.minX < $1.box.minX }
+                    let replacement = inside.map(\.text).joined(separator: " ")
+                    guard !replacement.isEmpty, !replacement.contains(where: isHangul),
+                          replacement.count * 2 >= originalPart.count, replacement.count <= originalPart.count * 2 + 2,
+                          mathScore(replacement) > mathScore(originalPart) else { continue }
+                    replacements.append((range, replacement))
                 }
             }
-            if let s = runStart { runs.append(s..<text.endIndex) }
 
-            // 뒤에서부터 바꿔야 앞 구간의 위치가 안 바뀜
-            for run in runs.reversed() {
-                // 앞뒤 공백·문장부호 빼고 수식 부분만
-                guard let first = text[run].firstIndex(where: { !$0.isWhitespace && !",.".contains($0) }),
-                      let lastChar = text[run].lastIndex(where: { !$0.isWhitespace && !",.".contains($0) }) else { continue }
-                let range = first..<text.index(after: lastChar)
-                let original = String(text[range])
-                guard original.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
-                      let box = try? candidate.boundingBox(for: range)?.boundingBox else { continue }
-                let inside = words.filter { word in
-                    let overlap = min(word.box.maxY, box.maxY) - max(word.box.minY, box.minY)
-                    let height = min(word.box.height, box.height)
-                    guard height > 0, overlap / height > 0.5 else { return false }
-                    let midX = word.box.midX
-                    return midX >= box.minX - 0.01 && midX <= box.maxX + 0.01
-                }.sorted { $0.box.minX < $1.box.minX }
-                let replacement = inside.map(\.text).joined(separator: " ")
-                guard !replacement.isEmpty, !replacement.contains(where: isHangul),
-                      replacement.count * 2 >= original.count, replacement.count <= original.count * 2 + 2,
-                      mathScore(replacement) > mathScore(original) else { continue }
-                text.replaceSubrange(range, with: replacement)
+            // 3) 뒤에서부터 적용 (앞쪽 위치가 안 바뀌게)
+            var result = chars
+            var edits: [(start: Int, end: Int, text: String)] = replacements.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
+            edits += insertions.map { (start: $0.offset, end: $0.offset, text: $0.text) }
+            for edit in edits.sorted(by: { $0.start > $1.start }) {
+                result.replaceSubrange(edit.start..<edit.end, with: Array(edit.text))
             }
-            return OCRLine(text: text, confidence: best.confidence, box: observation.boundingBox)
+            return OCRLine(text: String(result), confidence: best.confidence, box: observation.boundingBox)
         }
+        return lines.compactMap { $0 }
     }
 
     /// 수식다운 정도: 변수 글자·연산 기호는 +, 숫자 자리의 이상한 글자·낯선 기호는 −

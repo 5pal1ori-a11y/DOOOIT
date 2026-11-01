@@ -25,22 +25,45 @@ enum DoitAppleAI {
 
     static let tutorInstructions = """
     너는 한국 고등학생을 돕는 친절한 과외 선생님이야.
-    2022 개정 교육과정 수준에 맞춰 정확하고 간결한 한국어(해요체)로 답해.
+    말투 규칙: 모든 문장을 '~요'로 끝나는 해요체로 써. 예: "이건 이렇게 풀어요.", "좋은 질문이에요!" 반말(~해, ~야)과 '~다/~습니다' 체는 쓰지 마.
+    2022 개정 교육과정 수준에 맞춰 정확하고 간결하게 답해.
     확실하지 않은 내용은 지어내지 말고 모른다고 말해.
     수식은 x², √(…), (분자)/(분모), ≤, ≥ 처럼 써. 강조는 **굵게**만 쓰고 다른 마크다운(#, 표, 코드)은 쓰지 마.
     """
 
     static let chatInstructions = """
     너는 공부 플래너 앱 'DOOOIT' 안에 있는 AI 도우미 '두잇 AI'야.
-    한국 고등학생과 친구처럼 따뜻하게, 해요체로 짧게(보통 2~5문장) 대답해.
+    말투 규칙: 모든 문장을 '~요'로 끝나는 해요체로 써. 예: "좋아요!", "같이 해봐요.", "그건 이렇게 하면 돼요." 반말(~해, ~야, ~지)과 '~다/~습니다' 체는 절대 쓰지 마.
+    한국 고등학생에게 친구처럼 따뜻하게, 짧게(보통 2~5문장) 대답해.
     공부 질문은 정확하게 설명하고, 확실하지 않으면 모른다고 솔직하게 말해.
-    일정 추가, 타이머, 단어 추가, 메모, D-Day 같은 앱 기능은 네가 직접 실행할 수 없어. 그런 부탁을 받으면
-    "내일 오후 4시에 수학 공부 2시간 추가해줘"처럼 말하면 된다고 예시를 알려줘.
+    일정 추가, 타이머, 단어 추가, 메모, D-Day, 퀴즈 같은 앱 기능은 네가 직접 실행할 수 없어. 그런 부탁을 받으면
+    "내일 오후 4시에 수학 공부 2시간 추가해줘", "일차방정식 문제 내줘"처럼 말하면 된다고 예시를 알려줘.
     강조는 **굵게**만 쓰고 다른 마크다운(#, 표, 코드)은 쓰지 마.
     """
 
     /// 첫 시도가 실패했을 때 쓰는 가장 단순한 지시문
-    static let simpleInstructions = "너는 친절한 공부 도우미야. 한국어 해요체로 짧고 정확하게 답해."
+    static let simpleInstructions = "너는 친절한 공부 도우미야. 모든 문장을 '~요'로 끝나는 해요체로, 짧고 정확하게 답해."
+
+    // MARK: - 말투 다듬기
+
+    /// Apple Intelligence가 반말이나 '~습니다'로 끝낸 문장을 해요체로 바꿈 (문장 끝에서만)
+    static func polite(_ text: String) -> String {
+        let end = #"(?=\s*[.!?~…]|\s*$)"#
+        let rules: [(String, String)] = [
+            ("있습니다", "있어요"), ("없습니다", "없어요"), ("합니다", "해요"), ("됩니다", "돼요"), ("입니다", "이에요"), ("습니다", "어요"),
+            ("이야", "이에요"), ("거야", "거예요"), ("이다", "이에요"), ("있다", "있어요"), ("없다", "없어요"), ("한다", "해요"),
+            ("된다", "돼요"), ("좋다", "좋아요"), ("같다", "같아요"), ("할게", "할게요"), ("줄게", "줄게요"), ("볼게", "볼게요"),
+            ("보자", "봐요"), ("하자", "해요"), ("가자", "가요"), ("내", "내요"),
+            ("봐", "봐요"), ("줘", "줘요"), ("해", "해요"), ("돼", "돼요"), ("져", "져요"), ("워", "워요"), ("와", "와요"),
+            ("지", "지요"), ("네", "네요"), ("어", "어요"), ("아", "아요"), ("야", "예요")
+        ]
+        var result = text
+        for (from, to) in rules {
+            result = result.replacingOccurrences(of: "(?<=[가-힣0-9A-Za-z)²³])\(from)\(end)", with: to, options: .regularExpression)
+        }
+        // 위에서 만든 "요요" 같은 중복 정리
+        return result.replacingOccurrences(of: "요요", with: "요")
+    }
 
     // MARK: - 사용할 수 있는지
 
@@ -76,13 +99,13 @@ enum DoitAppleAI {
         if let message = unavailableMessage { throw AIError.unavailable(message) }
         do {
             let text = try await LanguageModelSession(instructions: instructions).respond(to: prompt).content
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return instructions == ocrInstructions ? text.trimmingCharacters(in: .whitespacesAndNewlines) : polite(text.trimmingCharacters(in: .whitespacesAndNewlines))
         } catch {
             print("Apple Intelligence 답변 실패: \(error)")
             if isUnrecoverable(error) { throw describe(error) }
             do {
                 let text = try await LanguageModelSession(instructions: simpleInstructions).respond(to: prompt).content
-                return text.trimmingCharacters(in: .whitespacesAndNewlines)
+                return polite(text.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
                 throw describe(error)
             }
@@ -115,7 +138,7 @@ enum DoitAppleAI {
             if session == nil { session = LanguageModelSession(instructions: DoitAppleAI.chatInstructions) }
             do {
                 let reply = try await session!.respond(to: prompt).content
-                return reply.trimmingCharacters(in: .whitespacesAndNewlines)
+                return DoitAppleAI.polite(reply.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
                 print("Apple Intelligence 대화 실패(1): \(error)")
                 session = nil
@@ -126,7 +149,7 @@ enum DoitAppleAI {
                 let fresh = LanguageModelSession(instructions: DoitAppleAI.chatInstructions)
                 let reply = try await fresh.respond(to: text).content
                 session = fresh
-                return reply.trimmingCharacters(in: .whitespacesAndNewlines)
+                return DoitAppleAI.polite(reply.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
                 print("Apple Intelligence 대화 실패(2): \(error)")
                 if DoitAppleAI.isUnrecoverable(error) { throw DoitAppleAI.describe(error) }
@@ -134,7 +157,7 @@ enum DoitAppleAI {
             // 3) 가장 단순한 지시문으로 한 번 더
             do {
                 let simple = LanguageModelSession(instructions: DoitAppleAI.simpleInstructions)
-                return try await simple.respond(to: text).content.trimmingCharacters(in: .whitespacesAndNewlines)
+                return DoitAppleAI.polite(try await simple.respond(to: text).content.trimmingCharacters(in: .whitespacesAndNewlines))
             } catch {
                 print("Apple Intelligence 대화 실패(3): \(error)")
                 throw DoitAppleAI.describe(error)
