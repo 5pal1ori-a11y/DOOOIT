@@ -36,7 +36,6 @@
 			dstSubfolderSpec = 13;
 			files = (
 				6382D7D514DFB3B766EA5AC6,
-				A6B5EE8CB94F8E8E0A1CC3FF,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -156,7 +155,6 @@
 			);
 			dependencies = (
 				337424A03EB20DF6B28A3EB8,
-				8F35CBE7B2C0569B5C52BA59,
 			);
 			fileSystemSynchronizedGroups = (
 				4133148486FD3F88917196CC,

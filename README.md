@@ -33,6 +33,7 @@ SwiftUI + SwiftData로 만든 iOS 공부 플래너 앱입니다. 화면은 iOS 2
 
 1. https://developer.apple.com/contact/request/family-controls-distribution 에서 Family Controls (Distribution) 사용을 신청합니다. 앱(`com.bravekoon.dooit`)과 잠금 익스텐션(`com.bravekoon.dooit.activitymonitor`) 둘 다 필요합니다.
 2. 승인되면 Xcode → 프로젝트 → Build Settings에서 `DOOOIT_APPLOCK_SUFFIX` 값을 `-AppLock`으로 바꿉니다. (두 타깃이 `*-AppLock.entitlements`를 쓰게 됩니다)
+   - 그리고 DOOOIT 타깃 → General → Frameworks, Libraries, and Embedded Content(또는 Build Phases → Embed Foundation Extensions)에 `DOOOITActivityMonitor.appex`를 다시 추가합니다. 승인 전에는 App Store Connect 경고(ITMS-90897)를 피하려고 빼두었습니다.
    - 승인 전에도 실기기 개발 빌드에서는 같은 방법으로 시험해볼 수 있습니다(Development 권한).
 3. 동작 방식
    - 플랜 저장 시 앞으로 7일간의 잠금 공부 플랜(최대 15개)을 DeviceActivity 일정으로 등록 → 앱이 꺼져 있어도 시작 시각에 잠기고 종료 시각에 풀립니다(`DOOOITActivityMonitor` 익스텐션).
