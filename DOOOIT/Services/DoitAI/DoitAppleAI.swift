@@ -37,8 +37,10 @@ enum DoitAppleAI {
     일정 추가, 타이머, 단어 추가, 메모, D-Day 같은 앱 기능은 네가 직접 실행할 수 없어. 그런 부탁을 받으면
     "내일 오후 4시에 수학 공부 2시간 추가해줘"처럼 말하면 된다고 예시를 알려줘.
     강조는 **굵게**만 쓰고 다른 마크다운(#, 표, 코드)은 쓰지 마.
-    자해나 위험한 이야기가 나오면 공감하고, 자살예방상담전화 109와 청소년상담 1388을 꼭 안내해.
     """
+
+    /// 첫 시도가 실패했을 때 쓰는 가장 단순한 지시문
+    static let simpleInstructions = "너는 친절한 공부 도우미야. 한국어 해요체로 짧고 정확하게 답해."
 
     // MARK: - 사용할 수 있는지
 
@@ -72,12 +74,18 @@ enum DoitAppleAI {
     static func answer(_ prompt: String, instructions: String = tutorInstructions) async throws -> String {
         #if canImport(FoundationModels)
         if let message = unavailableMessage { throw AIError.unavailable(message) }
-        let session = LanguageModelSession(instructions: instructions)
         do {
-            let text = try await session.respond(to: prompt).content
+            let text = try await LanguageModelSession(instructions: instructions).respond(to: prompt).content
             return text.trimmingCharacters(in: .whitespacesAndNewlines)
         } catch {
-            throw describe(error)
+            print("Apple Intelligence 답변 실패: \(error)")
+            if isUnrecoverable(error) { throw describe(error) }
+            do {
+                let text = try await LanguageModelSession(instructions: simpleInstructions).respond(to: prompt).content
+                return text.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                throw describe(error)
+            }
         }
         #else
         throw AIError.unavailable(unavailableMessage ?? "")
@@ -102,20 +110,35 @@ enum DoitAppleAI {
         func reply(_ text: String, context: String) async throws -> String {
             #if canImport(FoundationModels)
             if let message = DoitAppleAI.unavailableMessage { throw AIError.unavailable(message) }
-            let prompt = context.isEmpty ? text : "[앱 정보: \(context)]\n\(text)"
-            for attempt in 0..<2 {
-                if session == nil { session = LanguageModelSession(instructions: DoitAppleAI.chatInstructions) }
-                do {
-                    let reply = try await session!.respond(to: prompt).content
-                    return reply.trimmingCharacters(in: .whitespacesAndNewlines)
-                } catch {
-                    // 대화가 길어져 기억할 공간이 꽉 차면 새로 시작해서 한 번 더
-                    session = nil
-                    if attempt == 0, String(describing: error).contains("exceededContext") { continue }
-                    throw DoitAppleAI.describe(error)
-                }
+            // 1) 이어지는 대화 (앱 정보 포함)
+            let prompt = context.isEmpty ? text : "\(text)\n\n(참고: \(context))"
+            if session == nil { session = LanguageModelSession(instructions: DoitAppleAI.chatInstructions) }
+            do {
+                let reply = try await session!.respond(to: prompt).content
+                return reply.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                print("Apple Intelligence 대화 실패(1): \(error)")
+                session = nil
+                if DoitAppleAI.isUnrecoverable(error) { throw DoitAppleAI.describe(error) }
             }
-            throw AIError.failed("잠시 후 다시 시도해주세요.")
+            // 2) 새 대화로, 질문만
+            do {
+                let fresh = LanguageModelSession(instructions: DoitAppleAI.chatInstructions)
+                let reply = try await fresh.respond(to: text).content
+                session = fresh
+                return reply.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                print("Apple Intelligence 대화 실패(2): \(error)")
+                if DoitAppleAI.isUnrecoverable(error) { throw DoitAppleAI.describe(error) }
+            }
+            // 3) 가장 단순한 지시문으로 한 번 더
+            do {
+                let simple = LanguageModelSession(instructions: DoitAppleAI.simpleInstructions)
+                return try await simple.respond(to: text).content.trimmingCharacters(in: .whitespacesAndNewlines)
+            } catch {
+                print("Apple Intelligence 대화 실패(3): \(error)")
+                throw DoitAppleAI.describe(error)
+            }
             #else
             throw AIError.unavailable(DoitAppleAI.unavailableMessage ?? "")
             #endif
@@ -280,10 +303,18 @@ enum DoitAppleAI {
     }
     #endif
 
-    /// 기기 AI 오류를 이해할 수 있는 문장으로
+    /// 다시 시도해도 소용없는 오류 (언어 미지원, 모델 없음)
+    static func isUnrecoverable(_ error: Error) -> Bool {
+        if error is AIError { return true }
+        let raw = String(describing: error)
+        return raw.contains("unsupportedLanguage") || raw.contains("assetsUnavailable")
+    }
+
+    /// 기기 AI 오류를 이해할 수 있는 문장으로 (원인 이름도 짧게 붙임)
     static func describe(_ error: Error) -> AIError {
         if let known = error as? AIError { return known }
         let raw = String(describing: error)
+        let code = raw.split(whereSeparator: { $0 == "(" || $0 == ":" || $0 == " " }).first.map(String.init) ?? ""
         let reason: String
         if raw.contains("guardrail") {
             reason = "안전 필터에 걸렸어요. 표현을 조금 바꿔서 다시 물어봐 주세요."
@@ -295,10 +326,12 @@ enum DoitAppleAI {
             reason = "모델을 아직 내려받는 중이에요. Wi-Fi에 연결해 두고 잠시 후 다시 시도해주세요."
         } else if raw.contains("rateLimited") || raw.contains("concurrent") {
             reason = "요청이 겹쳤어요. 잠시 후 다시 시도해주세요."
+        } else if raw.contains("refusal") {
+            reason = "이 질문에는 답하지 않기로 했대요. 다르게 물어봐 주세요."
         } else {
             reason = "잠시 후 다시 시도해주세요."
         }
-        return .failed(reason)
+        return .failed(reason + (code.isEmpty || code.count > 40 ? "" : " (\(code))"))
     }
 }
 

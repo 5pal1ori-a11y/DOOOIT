@@ -206,6 +206,12 @@ enum DoitChat {
     // MARK: - 숫자가 들어간 대화 (공부 시간, 점수, 남은 기간, 과목이 어려움)
 
     private static func specialCases(_ text: String, _ t: String, _ c: Context) -> Answer? {
+        // "이차함수 문제 풀어줄 수 있니?", "영어 문법 도와줄 수 있어?"
+        if has(t, ["줄수있", "줄수있니", "줄래", "해줄수", "할수있니", "할수있어", "가능해", "가능하니", "되니", "돼?"]),
+           has(t, ["풀어", "풀이", "문제", "도와", "알려", "설명", "가르쳐", "수학", "영어", "과학", "사회", "함수", "방정식", "문법", "단어"]),
+           !has(t, ["추가", "일정", "타이머", "메모", "퀴즈"]) {
+            return capability(t)
+        }
         // "오늘 3시간 공부했어", "2시간 반 공부함"
         if has(t, ["공부했", "공부함", "공부한거", "공부를했"]), !has(t, ["추가", "기록해", "타이머"]),
            let m = t.firstMatch(of: #/(\d+)시간(반)?|(\d+)분/#) {
@@ -250,6 +256,33 @@ enum DoitChat {
             return answer
         }
         return nil
+    }
+
+    /// "~할 수 있어?" 에 대한 답: 할 수 있다고 하고 바로 쓸 수 있는 예시를 보여줌
+    private static func capability(_ t: String) -> Answer {
+        if has(t, ["영어", "문법", "단어", "영단어"]) {
+            return Answer(text: "네, 할 수 있어요! 문법 개념, 동사 변화, 문장 고치기, 단어 뜻을 바로 알려드려요.\n예: \"현재완료 설명해줘\", \"write 과거분사\", \"He go to school 문법 맞아?\"",
+                          suggestions: ["현재완료 설명해줘", "영어 퀴즈 내줘"])
+        }
+        if has(t, ["과학", "물리", "화학", "생명", "원소"]) {
+            return Answer(text: "네, 할 수 있어요! 공식 계산, 원소, 화학식량, 단위 변환, 개념 설명을 도와드려요.\n예: \"전압 12V 저항 4Ω 전류는?\", \"H2SO4 몰질량\", \"광합성이 뭐야?\"",
+                          suggestions: ["광합성이 뭐야?", "과학 퀴즈 내줘"])
+        }
+        if has(t, ["사회", "역사", "한국사", "경제", "지리"]) {
+            return Answer(text: "네, 할 수 있어요! 역사 사건과 연도, 나라와 수도, 사회 개념을 알려드려요.\n예: \"임진왜란 언제 일어났어?\", \"기회비용이 뭐야?\"",
+                          suggestions: ["기회비용이 뭐야?", "사회 퀴즈 내줘"])
+        }
+        var example = "\"x² − 5x + 6 = 0 풀어줘\", \"x+y=5, x−y=1\""
+        var chips = ["y = x² − 4x + 1 꼭짓점", "수학 퀴즈 내줘"]
+        if has(t, ["이차함수", "함수"]) {
+            example = "\"y = x² − 4x + 1 의 꼭짓점\", \"y = −2x² + 8x − 3 최댓값\", \"y = x² − 2x 에서 0 ≤ x ≤ 3 최대 최소\""
+            chips = ["y = x² − 4x + 1 꼭짓점", "y = x² − 2x 에서 0 ≤ x ≤ 3 최대 최소"]
+        } else if has(t, ["미분", "적분"]) {
+            example = "\"f(x) = x³ − 3x 극값\", \"x² + 2x 0부터 3까지 적분\""
+            chips = ["f(x) = x³ − 3x 극값"]
+        }
+        return Answer(text: "네, 풀 수 있어요! 문제를 식으로 보내주면 단계별로 풀어드려요. 문제 사진을 + 버튼으로 보내도 돼요.\n예: \(example)",
+                      suggestions: chips)
     }
 
     private static func examCountdown(days: Int) -> Answer {

@@ -326,7 +326,7 @@ enum DoitEngine {
         let duration = findDuration(in: text)
         var rest = text
         if let duration { rest = rest.replacingOccurrences(of: duration.text, with: " ") }
-        for word in ["타이머", "스톱워치", "시작해줘", "시작해", "시작할게", "시작", "켜줘", "켜", "돌려줘", "공부할게"] {
+        for word in ["타이머", "스톱워치", "시작해줄래", "시작해 줄래", "시작해줄 수 있어", "시작해줘", "시작해 줘", "시작해", "시작할게", "시작", "켜줄래", "켜줘", "켜", "돌려줘", "돌려줄래", "공부할게", "해줄래", "줄래", "부탁해", "좀"] {
             rest = rest.replacingOccurrences(of: word, with: " ")
         }
         let title = cleanTitle(rest)

@@ -127,7 +127,8 @@ final class DoitAssistant {
                     messages.append(Message(role: .assistant, text: answer, actions: actions, suggestions: reply.suggestions, source: .apple))
                     return
                 } catch {
-                    reply.text += "\n\n(\(error.localizedDescription))"
+                    reply.text = "이 질문은 지금 바로 답하기 어려워요. 조금 더 구체적으로 물어봐 주세요.\n예: \"y = x² − 4x + 1 의 꼭짓점\", \"광합성이 뭐야?\", \"현재완료 설명해줘\""
+                        + "\n\n" + error.localizedDescription.replacingOccurrences(of: "\n", with: " ")
                 }
             } else if let note = DoitAppleAI.unavailableMessage {
                 reply.text += "\n\n💡 \(note)"
