@@ -27,9 +27,10 @@ struct MathNoteEditorView: View {
     @State private var previousText: String?
     @State private var textMessage: String?
     @State private var textSelection: TextSelection?
+    @State private var isEditingText = false
 
     enum EditorTab: String, CaseIterable, Identifiable {
-        case note = "필기", grade = "채점 · 풀이", text = "문제 텍스트"
+        case note = "필기", grade = "채점 · 풀이", text = "문제"
         var id: String { rawValue }
     }
 
@@ -376,64 +377,139 @@ struct MathNoteEditorView: View {
     // MARK: Recognized text
 
     private var recognizedCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "인식된 문제", symbol: "text.viewfinder") {
-                if isRecognizing { ProgressView() }
-            }
-            Text("잘못 읽힌 글자는 직접 고칠 수 있어요. 이 텍스트로 AI 풀이를 만들어요.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            TextEditor(text: $note.recognizedText, selection: $textSelection)
-                .font(.body)
-                .frame(minHeight: 180)
-                .scrollContentBackground(.hidden)
-                .padding(10)
-                .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14))
-
-            MathSymbolBar { symbol in insertSymbol(symbol) }
-
-            if note.recognizedText.contains("^") || note.recognizedText.contains("sqrt") {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("보기 좋게").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    Text(MathSymbolBar.pretty(note.recognizedText)).font(.body)
-                }
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            problemSheet
 
             if let textMessage {
-                Text(textMessage).font(.caption).foregroundStyle(.secondary)
+                Label(textMessage, systemImage: isRecognizing ? "hourglass" : "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+                    .transition(.opacity)
             }
 
-            VStack(spacing: 10) {
-                if let image {
-                    Button {
-                        cropItem = CropItem(image: image)
-                    } label: {
-                        Label("문제 영역 다시 골라서 읽기", systemImage: "crop")
-                            .frame(maxWidth: .infinity)
+            VStack(alignment: .leading, spacing: 10) {
+                Text("다시 읽기")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+
+                if ClaudeReader.isConfigured {
+                    Button { Task { await readWithClaude() } } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "sparkles")
+                                .font(.title3)
+                                .frame(width: 40, height: 40)
+                                .background(.white.opacity(0.22), in: .circle)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Claude로 정확하게 읽기").font(.headline)
+                                Text("사진을 직접 보고 루트·분수·변수까지 읽어요").font(.caption).opacity(0.85)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(14)
+                        .background(Theme.accent, in: .rect(cornerRadius: 20))
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.plain)
                 }
-                Button {
-                    Task { await tidyWithAI() }
-                } label: {
-                    Label(image == nil ? "AI로 문제 문장 다듬기" : "사진 다시 분석해서 AI로 다듬기", systemImage: "sparkles")
-                        .frame(maxWidth: .infinity)
+
+                HStack(spacing: 10) {
+                    if image != nil {
+                        readOption(symbol: "crop", title: "영역 다시 고르기") {
+                            if let image { cropItem = CropItem(image: image) }
+                        }
+                    }
+                    readOption(symbol: "wand.and.stars", title: "기기 AI로 다듬기") {
+                        Task { await tidyWithAI() }
+                    }
                 }
-                .buttonStyle(.glass)
-                .disabled(isRecognizing || note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 if previousText != nil {
-                    Button("다듬기 전으로 되돌리기") {
+                    Button {
                         if let previousText { note.recognizedText = previousText }
                         previousText = nil
+                        textMessage = "이전 텍스트로 되돌렸어요."
+                    } label: {
+                        Label("이전 텍스트로 되돌리기", systemImage: "arrow.uturn.backward")
+                            .font(.caption.weight(.semibold))
                     }
-                    .font(.caption.weight(.semibold))
+                    .padding(.horizontal, 4)
                 }
             }
             .disabled(isRecognizing)
+            .opacity(isRecognizing ? 0.5 : 1)
         }
-        .glassCard()
+    }
+
+    /// 문제를 종이처럼 보여주고, "고치기"를 누르면 편집 + 수식 기호 바
+    private var problemSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.text.fill").foregroundStyle(Theme.accent)
+                Text("문제").font(.headline).foregroundStyle(Palette.ink)
+                if isRecognizing { ProgressView().controlSize(.small) }
+                Spacer()
+                Button {
+                    withAnimation(.snappy) { isEditingText.toggle() }
+                } label: {
+                    Label(isEditingText ? "완료" : "고치기", systemImage: isEditingText ? "checkmark" : "pencil")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Theme.accent.opacity(0.12), in: .capsule)
+                        .foregroundStyle(Theme.accent)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if isEditingText {
+                TextEditor(text: $note.recognizedText, selection: $textSelection)
+                    .font(.system(size: 17))
+                    .foregroundStyle(Palette.ink)
+                    .frame(minHeight: 160)
+                    .scrollContentBackground(.hidden)
+                    .padding(10)
+                    .background(Color.black.opacity(0.04), in: .rect(cornerRadius: 14))
+                MathSymbolBar { symbol in insertSymbol(symbol) }
+                Text("x² 는 ^2, 루트는 √( ) 로 써도 보기 좋게 바뀌어요.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else if note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("아직 읽은 문제가 없어요. 아래 \"다시 읽기\"로 사진에서 문제를 읽어주세요.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(MathSymbolBar.pretty(note.recognizedText))
+                    .font(.system(size: 18, design: .serif))
+                    .lineSpacing(8)
+                    .foregroundStyle(Palette.ink)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(18)
+        .background(Color.white, in: .rect(cornerRadius: 22))
+        .overlay(alignment: .leading) {
+            UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 22)
+                .fill(Theme.accent)
+                .frame(width: 5)
+        }
+        .clipShape(.rect(cornerRadius: 22))
+        .shadow(color: .black.opacity(0.07), radius: 14, y: 6)
+    }
+
+    private func readOption(symbol: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                Image(systemName: symbol).font(.title3)
+                Text(title).font(.caption.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+        }
+        .buttonStyle(.plain)
+        .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
     }
 
     /// 커서 위치에 수식 기호 넣기 (괄호 안에 커서를 둠)
@@ -452,53 +528,79 @@ struct MathNoteEditorView: View {
         textSelection = TextSelection(insertionPoint: caret)
     }
 
-    private func recognize(_ problem: UIImage) async {
-        isRecognizing = true
-        defer { isRecognizing = false }
-        let lines = (try? await OCRService.recognize(problem)) ?? []
-        let text = OCRService.printedText(from: lines)
+    private var problemImage: UIImage? {
+        note.problemImageData.flatMap(UIImage.init(data:)) ?? image
+    }
+
+    private func apply(_ text: String, message: String) {
         previousText = note.recognizedText
         note.recognizedText = text
         if note.correctAnswer.isEmpty, let answer = MathGrader.extractAnswer(from: text) {
             note.correctAnswer = answer
         }
-        note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
-        note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
-        textMessage = text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요."
+        withAnimation { textMessage = message }
     }
 
-    /// 사진을 여러 방법으로 다시 읽고, AI가 결과들을 비교해 문제 문장을 복원 (풀지 않음)
+    private func recognize(_ problem: UIImage) async {
+        isRecognizing = true
+        defer { isRecognizing = false }
+        note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
+        note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
+        if ClaudeReader.isConfigured, let result = try? await ClaudeReader.read(problem) {
+            if note.correctAnswer.isEmpty, !result.answer.isEmpty { note.correctAnswer = result.answer }
+            apply(result.text, message: "Claude가 선택한 영역을 읽었어요.")
+            return
+        }
+        let lines = (try? await OCRService.recognize(problem)) ?? []
+        let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
+        apply(text, message: text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
+    }
+
+    /// 서버의 Claude가 사진을 직접 보고 읽음
+    private func readWithClaude() async {
+        guard let source = problemImage else {
+            textMessage = "읽을 사진이 없어요."
+            return
+        }
+        isRecognizing = true
+        defer { isRecognizing = false }
+        withAnimation { textMessage = "Claude가 사진을 읽는 중이에요… (10~20초)" }
+        do {
+            let result = try await ClaudeReader.read(source)
+            if note.correctAnswer.isEmpty, !result.answer.isEmpty { note.correctAnswer = result.answer }
+            if note.title.hasPrefix("오답") || note.title.isEmpty, !result.title.isEmpty { note.title = result.title }
+            apply(result.text, message: "Claude가 사진을 직접 보고 읽었어요.")
+        } catch {
+            withAnimation { textMessage = error.localizedDescription }
+        }
+    }
+
+    /// 기기 안: 사진을 여러 방법으로 다시 읽고, AI가 결과들을 비교해 문제 문장을 복원 (풀지 않음)
     private func tidyWithAI() async {
         isRecognizing = true
         defer { isRecognizing = false }
         let original = note.recognizedText
 
         var readings: [String] = []
-        let source: UIImage? = note.problemImageData.flatMap(UIImage.init(data:)) ?? image
-        if let source {
-            textMessage = "사진을 세 가지 방법으로 다시 읽는 중이에요…"
-            readings = await OCRService.multiPassRead(source)
+        if let source = problemImage {
+            withAnimation { textMessage = "사진을 네 가지 방법으로 다시 읽는 중이에요…" }
+            readings = await OCRService.multiPassRead(source).map(MathOCRFixer.fix)
         }
         if readings.isEmpty && original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            textMessage = "사진에서 글자를 찾지 못했어요. 문제 영역을 다시 골라보세요."
+            withAnimation { textMessage = "사진에서 글자를 찾지 못했어요. 문제 영역을 다시 골라보세요." }
             return
         }
-        textMessage = "AI가 \(max(readings.count, 1))개의 읽기 결과를 비교해서 정리하는 중이에요…"
+        withAnimation { textMessage = "기기 AI가 \(max(readings.count, 1))개의 읽기 결과를 비교하는 중이에요…" }
 
         do {
             let prompt = readings.isEmpty
                 ? AITutor.reconstructPrompt(readings: [original], current: "")
                 : AITutor.reconstructPrompt(readings: readings, current: original)
-            let tidy = try await AITutor.answer(prompt).trimmingCharacters(in: .whitespacesAndNewlines)
+            let tidy = MathOCRFixer.fix(try await AITutor.answer(prompt).trimmingCharacters(in: .whitespacesAndNewlines))
             guard !tidy.isEmpty else { return }
-            previousText = original
-            note.recognizedText = tidy
-            if note.correctAnswer.isEmpty, let answer = MathGrader.extractAnswer(from: tidy) {
-                note.correctAnswer = answer
-            }
-            textMessage = "사진을 \(readings.count)번 다시 읽고 AI가 정리했어요. [?] 표시와 숫자가 사진과 같은지 꼭 확인하세요."
+            apply(tidy, message: "기기 AI가 정리했어요. [?] 표시와 숫자가 사진과 같은지 확인하세요.")
         } catch {
-            textMessage = error.localizedDescription
+            withAnimation { textMessage = error.localizedDescription }
         }
     }
 
