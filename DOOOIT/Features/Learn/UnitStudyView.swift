@@ -246,7 +246,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 credits.confirmUnit(key)
                 Task { await load(force: false) }
             } label: {
-                Text(credits.isUnlimited ? "진행" : "진행 (\(CreditStore.costPerUse) 크레딧)")
+                Text("진행 (\(CreditStore.costPerUse) 크레딧)")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)

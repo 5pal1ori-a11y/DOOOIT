@@ -107,7 +107,7 @@ struct MathNoteListView: View {
         .errorAlert($errorMessage)
         .alert(creditAlertTitle, isPresented: $showCreditConfirm) {
             if credits.canAfford(pendingCost) {
-                Button(credits.isUnlimited ? "진행" : "진행 (\(pendingCost) 크레딧)") { startCreate(useClaude: true) }
+                Button("진행 (\(pendingCost) 크레딧)") { startCreate(useClaude: true) }
             }
             Button("기기 인식으로 무료로 읽기") { startCreate(useClaude: false) }
             Button("취소", role: .cancel) { pendingPairs = [] }

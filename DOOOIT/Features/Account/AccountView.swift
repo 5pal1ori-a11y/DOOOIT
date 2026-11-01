@@ -58,7 +58,7 @@ struct AccountView: View {
                 } header: {
                     Text("AI 크레딧")
                 } footer: {
-                    Text("매일 \(CreditStore.dailyGrant) 크레딧을 무료로 받고, 광고를 보면 더 받을 수 있어요.")
+                    Text("매일 \(CreditStore.dailyGrant) 크레딧을 무료로 받고, 타이머로 공부하면 1시간마다 \(CreditStore.studyRewardPerHour) 크레딧을 더 받아요.")
                 }
 
                 Section("학습 목표") {
@@ -297,7 +297,7 @@ private struct CreditRowLabel: View {
         LabeledContent {
             Text("\(credits.balance)").monospacedDigit().fontWeight(.bold)
         } label: {
-            Label("크레딧 얻기", systemImage: "bolt.circle.fill")
+            Label("크레딧", systemImage: "bolt.circle.fill")
         }
     }
 }

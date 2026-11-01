@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		6382D7D514DFB3B766EA5AC6 /* DOOOITWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 34A12B4316E0C7804F2E247E; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		A6B5EE8CB94F8E8E0A1CC3FF /* DOOOITActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B02EF2EFFCB28CF8F37799DB; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		2EAEF93A71F0A41ABD7A1A84 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = 4CB38B2E88F4822CADC66C42 /* GoogleMobileAds */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,7 +83,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2EAEF93A71F0A41ABD7A1A84 /* GoogleMobileAds in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -164,7 +162,6 @@
 			);
 			name = DOOOIT;
 			packageProductDependencies = (
-				4CB38B2E88F4822CADC66C42 /* GoogleMobileAds */,
 			);
 			productName = DOOOIT;
 			productReference = 56276DD632C62329F6ADA69E;
@@ -246,9 +243,6 @@
 			);
 			mainGroup = 186495F7DA296BF880DF3A22;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				D6D0A20DAD1A3D6CC11C48B0 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D71BD8A0B6A6AA54EDBA6454;
 			projectDirPath = "";
@@ -337,8 +331,6 @@
 				DOOOIT_APPLOCK_SUFFIX = "";
 				DOOOIT_READER_KEY = "";
 				DOOOIT_READER_URL = "";
-				DOOOIT_ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
-				DOOOIT_ADMOB_REWARDED_ID = "ca-app-pub-3940256099942544/1712485313";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -377,8 +369,6 @@
 				DOOOIT_APPLOCK_SUFFIX = "";
 				DOOOIT_READER_KEY = "";
 				DOOOIT_READER_URL = "";
-				DOOOIT_ADMOB_APP_ID = "ca-app-pub-3940256099942544~1458002511";
-				DOOOIT_ADMOB_REWARDED_ID = "ca-app-pub-3940256099942544/1712485313";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -613,24 +603,6 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		D6D0A20DAD1A3D6CC11C48B0 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/googleads/swift-package-manager-google-mobile-ads.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 13.0.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		4CB38B2E88F4822CADC66C42 /* GoogleMobileAds */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D6D0A20DAD1A3D6CC11C48B0 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
-			productName = GoogleMobileAds;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DD7512F5E0289CDDCE66B0F8;
 }

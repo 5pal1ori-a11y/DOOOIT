@@ -58,7 +58,7 @@ struct WrittenSolutionCard: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
         .errorAlert($error)
         .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-            Button(credits.isUnlimited ? "진행" : "진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
+            Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
             Button("취소", role: .cancel) {}
         } message: {
             Text(credits.confirmText("AI 단계별 풀이를 만들면"))

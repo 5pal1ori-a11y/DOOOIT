@@ -35,8 +35,7 @@ struct DOOOITApp: App {
                     studyTimer.attach(context: context)
                     PlanScheduler.shared.start(context: context, timer: studyTimer)
                     credits.grantDailyIfNeeded()
-                    RewardedAdManager.shared.start()
-                    StoreManager.shared.start()
+                    DoitActions.shared.context = context
                     WidgetSync.update(context: context)
                     await auth.verifyAppleCredential()
                 }
@@ -48,7 +47,6 @@ struct DOOOITApp: App {
             }
             if phase == .active {
                 credits.grantDailyIfNeeded()
-                Task { await StoreManager.shared.refreshEntitlements() }
                 WidgetSync.update(context: container.mainContext)
                 PlanScheduler.shared.tick()
                 PlanScheduler.shared.rescheduleNotifications()

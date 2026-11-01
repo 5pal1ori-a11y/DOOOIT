@@ -4,7 +4,7 @@ import Observation
 /// AI 크레딧
 /// - 매일 처음 열 때 100 크레딧 지급 (쌓임)
 /// - AI 기능 1회(문제 1개) = 100 크레딧, 실패하면 차감하지 않음
-/// - 보상형 광고 1회 = 50 크레딧, 하루 10회까지
+/// - 타이머로 공부 1시간마다 +20 (하루 5시간까지)
 /// 기기 Keychain에 저장해서 앱을 지웠다 깔아도 유지됨
 @MainActor
 @Observable
@@ -13,22 +13,8 @@ final class CreditStore {
 
     static let costPerUse = 100
     static let dailyGrant = 100
-    static let adReward = 50
-    static let adDailyLimit = 10
     static let studyRewardPerHour = 20
     static let studyRewardMaxHours = 5
-    static let dailyPlanGrant = 300
-
-    enum Plan {
-        case unlimited, daily
-
-        var title: String {
-            switch self {
-            case .unlimited: return "무제한 플랜"
-            case .daily: return "매일 지급 플랜"
-            }
-        }
-    }
 
     enum Use: String, Codable {
         case readProblem, solution, askAI, unitStudy, similar
@@ -69,6 +55,7 @@ final class CreditStore {
         var paidUnits: [String] = []
         var history: [Entry] = []
         // 나중에 추가된 값은 옵셔널 (예전에 저장된 크레딧을 그대로 읽기 위해)
+        // (adsKey·adsCount·hasPurchased·processedTransactions·planDailyKey는 예전 버전 데이터 호환용)
         var studyKey: String?
         var studyHours: Int?
         var hasPurchased: Bool?
@@ -80,14 +67,7 @@ final class CreditStore {
     private var state: State
 
     var balance: Int { state.balance }
-    /// 이용 중인 구독 플랜 (StoreManager가 App Store에서 확인해서 넣어줌)
-    private(set) var plan: Plan?
-    var isUnlimited: Bool { plan == .unlimited }
-    /// 첫 구매 특가를 쓸 수 있는지
-    var canUseFirstPurchaseDeal: Bool { state.hasPurchased != true }
     var history: [Entry] { state.history }
-    var adsWatchedToday: Int { state.adsKey == Date().dayKey ? state.adsCount : 0 }
-    var adsLeftToday: Int { max(0, Self.adDailyLimit - adsWatchedToday) }
     var receivedDailyToday: Bool { state.dailyKey == Date().dayKey }
     /// 오늘 공부 보상을 받은 시간 수
     var studyHoursRewardedToday: Int { state.studyKey == Date().dayKey ? (state.studyHours ?? 0) : 0 }
@@ -108,55 +88,21 @@ final class CreditStore {
         guard state.dailyKey != today else { return nil }
         state.dailyKey = today
         add(Self.dailyGrant, title: "오늘의 무료 크레딧")
-        grantPlanDailyIfNeeded()
         return Self.dailyGrant
     }
 
     func canAfford(_ cost: Int = CreditStore.costPerUse) -> Bool {
-        isUnlimited || state.balance >= cost
+        state.balance >= cost
     }
 
-    /// AI 사용이 끝난 뒤 차감 (실패한 요청은 부르지 않음). 무제한 플랜이면 차감 없음
+    /// AI 사용이 끝난 뒤 차감 (실패한 요청은 부르지 않음)
     func charge(_ use: Use, cost: Int = CreditStore.costPerUse) {
-        guard !isUnlimited else { return }
         add(-cost, title: use.title)
     }
 
     /// 크레딧 사용 확인 문구
     func confirmText(_ action: String, cost: Int = CreditStore.costPerUse) -> String {
-        if isUnlimited {
-            return "\(action) 무제한 플랜을 이용 중이라 크레딧이 차감되지 않아요. 진행할까요?"
-        }
         return "\(action) \(cost) 크레딧이 소모됩니다. 그래도 진행할까요?\n\n지금 \(state.balance) 크레딧 → 진행 후 \(state.balance - cost) 크레딧"
-    }
-
-    // MARK: 결제
-
-    func setPlan(_ plan: Plan?) {
-        self.plan = plan
-        grantPlanDailyIfNeeded()
-    }
-
-    /// 매일 지급 플랜: 하루 한 번 추가 지급
-    func grantPlanDailyIfNeeded() {
-        guard plan == .daily else { return }
-        let today = Date().dayKey
-        guard state.planDailyKey != today else { return }
-        state.planDailyKey = today
-        add(Self.dailyPlanGrant, title: "매일 지급 플랜")
-    }
-
-    /// 결제한 크레딧 지급 (같은 결제를 두 번 지급하지 않음). 지급했으면 true
-    @discardableResult
-    func addPurchase(_ amount: Int, title: String, transactionID: String) -> Bool {
-        var processed = state.processedTransactions ?? []
-        guard !processed.contains(transactionID) else { return false }
-        processed.append(transactionID)
-        if processed.count > 200 { processed.removeFirst(processed.count - 200) }
-        state.processedTransactions = processed
-        state.hasPurchased = true
-        add(amount, title: title)
-        return true
     }
 
     /// 단원 학습은 단원마다 한 번만 차감
@@ -189,18 +135,6 @@ final class CreditStore {
         state.studyHours = hours
         add(amount, title: "공부 \(hours)시간 달성")
         return amount
-    }
-
-    /// 광고 보상
-    func rewardForAd() {
-        let today = Date().dayKey
-        if state.adsKey != today {
-            state.adsKey = today
-            state.adsCount = 0
-        }
-        guard state.adsCount < Self.adDailyLimit else { return }
-        state.adsCount += 1
-        add(Self.adReward, title: "광고 보상")
     }
 
     private func add(_ amount: Int, title: String) {

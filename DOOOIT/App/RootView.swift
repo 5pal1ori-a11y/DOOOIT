@@ -35,7 +35,7 @@ struct RootView: View {
 }
 
 enum AppTab: String, Hashable {
-    case home, study, planner, account
+    case home, study, ai, planner, account
 }
 
 struct MainTabView: View {
@@ -52,6 +52,9 @@ struct MainTabView: View {
             }
             Tab("공부", systemImage: "book.closed.fill", value: AppTab.study) {
                 StudyView()
+            }
+            Tab("두잇 AI", systemImage: "sparkles", value: AppTab.ai) {
+                DoitAIView()
             }
             Tab("플래너", systemImage: "calendar", value: AppTab.planner) {
                 PlannerView()

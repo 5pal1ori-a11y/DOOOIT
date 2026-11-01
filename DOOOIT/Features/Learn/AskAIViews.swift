@@ -127,7 +127,7 @@ struct AskAIComposer: View {
             }
             .overlay { if working { ProcessingOverlay(message: "AI 선생님이 답을 쓰고 있어요") } }
             .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-                Button(credits.isUnlimited ? "진행" : "진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await ask() } }
+                Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await ask() } }
                 Button("취소", role: .cancel) {}
             } message: {
                 Text(credits.confirmText("AI에게 질문하면"))

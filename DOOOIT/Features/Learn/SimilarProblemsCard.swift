@@ -45,7 +45,7 @@ struct SimilarProblemsCard: View {
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
         .errorAlert($error)
         .alert("크레딧이 사용돼요", isPresented: $confirmCredits) {
-            Button(credits.isUnlimited ? "진행" : "진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
+            Button("진행 (\(CreditStore.costPerUse) 크레딧)") { Task { await generate() } }
             Button("취소", role: .cancel) {}
         } message: {
             Text(credits.confirmText("비슷한 문제 3개를 만들면"))
