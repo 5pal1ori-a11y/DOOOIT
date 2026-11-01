@@ -40,10 +40,113 @@ enum OCRService {
         }
     }
 
+    /// 수학 문제용: 검은 인쇄 글자만 남긴 사진(빨간 펜·파란 펜·연필 풀이 제거, 작은 지수가 보이게 확대)으로 읽음
+    static func recognizeMath(_ image: UIImage) async throws -> [OCRLine] {
+        let original = try await recognize(image)
+        guard let ink = inkOnly(image), let inkLines = try? await recognize(ink), !inkLines.isEmpty else { return original }
+        // 검은 글자만 읽은 결과가 원래보다 확실히 적으면 (얇은 글씨가 지워진 경우) 원래 결과 사용
+        let inkCount = printedText(from: inkLines).count
+        let originalCount = printedText(from: original).count
+        return inkCount >= originalCount * 7 / 10 ? inkLines : original
+    }
+
+    /// 검은색(채도가 낮고 어두운) 픽셀만 남기고 나머지는 흰색으로 지움
+    /// - 빨강·파랑 펜: 채도가 높아서 지워짐
+    /// - 연필 풀이: 인쇄 글자보다 밝아서 지워짐
+    /// - 작은 사진은 키워서 x², x³ 같은 작은 지수도 읽히게 함
+    static func inkOnly(_ image: UIImage) -> UIImage? {
+        let longest = max(image.size.width, image.size.height)
+        guard longest > 0 else { return nil }
+        let targetLongest = min(max(longest, 2200), 3000)
+        let scale = targetLongest / longest
+        let width = Int((image.size.width * scale).rounded())
+        let height = Int((image.size.height * scale).rounded())
+        guard width > 0, height > 0 else { return nil }
+
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 255, count: bytesPerRow * height)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let drawn: Bool = pixels.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                                          bytesPerRow: bytesPerRow, space: colorSpace,
+                                          bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+            context.interpolationQuality = .high
+            UIGraphicsPushContext(context)
+            context.translateBy(x: 0, y: CGFloat(height))
+            context.scaleBy(x: 1, y: -1)
+            image.draw(in: CGRect(x: 0, y: 0, width: width, height: height))
+            UIGraphicsPopContext()
+            return true
+        }
+        guard drawn else { return nil }
+
+        // 채도가 낮은 픽셀들의 밝기 분포로 "인쇄 글자"와 "종이"를 나누는 기준을 찾음 (오츠 방법)
+        var histogram = [Int](repeating: 0, count: 256)
+        var index = 0
+        while index < pixels.count {
+            let r = Int(pixels[index]), g = Int(pixels[index + 1]), b = Int(pixels[index + 2])
+            if max(r, g, b) - min(r, g, b) < 60 {
+                histogram[(r * 299 + g * 587 + b * 114) / 1000] += 1
+            }
+            index += 4
+        }
+        let total = histogram.reduce(0, +)
+        guard total > 0 else { return nil }
+        var sumAll = 0.0
+        for level in 0..<256 { sumAll += Double(level * histogram[level]) }
+        var sumBack = 0.0, weightBack = 0.0, bestVariance = 0.0, otsu = 128
+        for level in 0..<256 {
+            weightBack += Double(histogram[level])
+            if weightBack == 0 { continue }
+            let weightFore = Double(total) - weightBack
+            if weightFore == 0 { break }
+            sumBack += Double(level * histogram[level])
+            let meanBack = sumBack / weightBack
+            let meanFore = (sumAll - sumBack) / weightFore
+            let variance = weightBack * weightFore * (meanBack - meanFore) * (meanBack - meanFore)
+            if variance > bestVariance { bestVariance = variance; otsu = level }
+        }
+        // 연필(회색)은 빼고 진한 인쇄만: 기준을 조금 더 어둡게
+        let threshold = min(max(Int(Double(otsu) * 0.85), 80), 170)
+        let ramp = 45
+
+        index = 0
+        while index < pixels.count {
+            let r = Int(pixels[index]), g = Int(pixels[index + 1]), b = Int(pixels[index + 2])
+            let saturation = max(r, g, b) - min(r, g, b)
+            let luminance = (r * 299 + g * 587 + b * 114) / 1000
+            let value: Int
+            if saturation > 70 && luminance > 40 {
+                value = 255
+            } else if luminance <= threshold {
+                value = 0
+            } else if luminance >= threshold + ramp {
+                value = 255
+            } else {
+                value = (luminance - threshold) * 255 / ramp
+            }
+            let byte = UInt8(value)
+            pixels[index] = byte
+            pixels[index + 1] = byte
+            pixels[index + 2] = byte
+            index += 4
+        }
+
+        let output: CGImage? = pixels.withUnsafeMutableBytes { buffer in
+            CGContext(data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8,
+                      bytesPerRow: bytesPerRow, space: colorSpace,
+                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage()
+        }
+        return output.map { UIImage(cgImage: $0) }
+    }
+
     /// 같은 사진을 세 가지 방법으로 읽은 결과 (AI가 비교해서 문장을 복원할 때 사용)
-    /// 1) 기본  2) 철자 자동교정 끔(수식·기호 보존)  3) 흑백·고대비·확대  4) 영어 전용(수식의 x, a, b, y)
+    /// 0) 검은 인쇄 글자만  1) 기본  2) 철자 자동교정 끔(수식·기호 보존)  3) 흑백·고대비·확대  4) 영어 전용(수식의 x, a, b, y)
     static func multiPassRead(_ image: UIImage) async -> [String] {
         var results: [String] = []
+        if let ink = inkOnly(image), let lines = try? await recognize(ink) {
+            results.append(printedText(from: lines))
+        }
         if let lines = try? await recognize(image) {
             results.append(printedText(from: lines))
         }

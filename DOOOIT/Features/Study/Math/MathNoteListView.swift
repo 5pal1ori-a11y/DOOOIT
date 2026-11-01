@@ -158,7 +158,7 @@ struct MathNoteListView: View {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
         for (i, pair) in pairs.enumerated() {
-            let lines = (try? await OCRService.recognize(pair.problem)) ?? []
+            let lines = (try? await OCRService.recognizeMath(pair.problem)) ?? []
             let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
             let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(

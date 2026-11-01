@@ -526,7 +526,7 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
-        let lines = (try? await OCRService.recognize(problem)) ?? []
+        let lines = (try? await OCRService.recognizeMath(problem)) ?? []
         let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
         apply(text, message: text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
     }

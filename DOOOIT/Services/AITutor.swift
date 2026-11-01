@@ -189,35 +189,48 @@ enum AITutor {
     static let ocrInstructions = """
     너는 수학 문제 사진의 글자 인식 결과를 원래 인쇄된 문제로 되돌리는 교정자야.
     문제를 풀지 말고, 없는 내용을 지어내지 말고, 복원한 문제 텍스트만 답해.
-    여러 읽기 결과가 있으면 서로 비교해 공통된 부분을 믿어. 끝까지 모르겠으면 [?]로 표시해.
-    손글씨 풀이, 채점 표시, 낙서, 쪽 번호, 출처 문구는 지워. 배점 [3점] [4점]은 남겨.
-    한글 문장은 한국어 읽기 결과에서, 수식은 [영어 전용 읽기] 결과에서 가져와 합쳐.
+    읽기 결과들을 비교해 공통된 부분을 믿고, 끝까지 모르겠으면 [?]로 표시해.
+    사진의 검은 인쇄 글자만 문제야. 빨간·파란 펜, 연필 풀이, 채점 표시, 쪽 번호, 출처는 지워. 배점 [3점]은 남겨.
+    한글 문장은 한국어 읽기에서, 수식은 [영어 전용 읽기]에서 가져와 합쳐.
 
     자주 틀리는 경우 (문맥을 보고 되돌려):
-    [기울어진 변수] x→2, ×, X, χ, ㅈ / y→J, V, v, u, ν / a→0, o, α, d, ㅁ / b→6, h, ㅂ / n→ㅁ, r / k→K, 片 / t→十, + / f(x)→「(x), F(x), ƒ / m→rn
-     예: 2축→x축, J축→y축, 2a→20, a²→0², 02, x⁴→24, 29, x4, J=2²→y=x², 실수 0, 6→실수 a, b, 0+6의 값→a+b의 값, 2+J→x+y, 2²→x², 22+1→x²+1
-    [지수] 변수 바로 뒤 2·3·4는 대부분 지수 (작은 4는 9로도 읽힘): x2→x², x3→x³, (x+1)2→(x+1)², 2^→², 10의 n제곱 10n→10ⁿ
-    [첨자] 수열 an→aₙ, a1→a₁, an+1→aₙ₊₁, Sn→Sₙ, log2 8→log₂8
-    [루트] √→V, v, J, /, ✓, ~, ㄷ: 2-V5→2-√5, V3x→√(3x), 3V2→3√2
-    [분수] 가로선이 사라져 분자·분모가 다른 줄로 나뉘거나 -, —, _ 로 읽힘 → (분자)/(분모)
-    [기호] ±→+, 土 / ×→x / ÷→+ / ≤→<, ≦, s / ≥→>, ≧ / ≠→= / =→-, 二, == / π→T, n, 元, 兀 / ∠→<, L / △→A, Δ / °→o, 0 / |x|→lxl, 1x1, Ix / ∞→oo, 00 / ∑→E, Σ, 2 / ∫→J, f, S / lim→Iim, 1im / sin→sln, s1n / cos→c0s / log→l0g, 1og / ≡→三
-    [숫자·글자] 1↔l, I, | / 0↔O, o / 5↔S / 8↔B / 9↔g, q / 7↔T / 4↔A / ,↔. / -↔~
-    [보기·선택지] ①→®, (1), O1, 0 / ②→©, (2) / ③→(3) / ④→(4) / ⑤→(5), @ / 보기 ㄱ. ㄴ. ㄷ.→7. L. C. 또는 ᄀ. ᄂ. ᄃ.  선택지는 한 줄에 하나씩
-    [한글] 0이→001, 00|, 0l (예: -20=001 정수인 → -20=0이 정수인) / 이차함수→1차함수, 0|차함수 / 값→갔, 갑 / 의→으| / 이→0|, 01 / 는→늗 / 좌표→좌포 / 꼭짓점→꼭지점 / 최댓값→최대값 (식에 x²가 있으면 이차함수)
-    [괄호] (→C, ( / )→), J / [ ]→I I / { }→( )
-    예시) 읽기: "29+ (1-20)x2+0-0-20= 001 정수인 근을" → 복원: "x⁴+(1-2a)x²+a²-a-20=0이 정수인 근을"
-    표기는 x², √(…), (분자)/(분모), aₙ, ×, ÷, ≤, ≥, π, ①~⑤ 로 통일하고 범위는 괄호로 분명히 써.
+    [변수] x→2, ×, X, χ, ㅈ / y→J, V, v, u, ν / a→0, o, α, d / b→6, h, ㅂ / c→e, ( / n→ㅁ, r, 11 / k→K / t→十, + / m→rn / f(x)→「(x), F(x)
+     예: 2축→x축, J축→y축, 2에 대한→x에 대한, 실수 0, 6→실수 a, b, 상수 0, 6, c→상수 a, b, c, 0+6의 값→a+b의 값, 2a→20, J=2²→y=x²
+    [지수] 변수·괄호 바로 뒤 2·3·4·n은 거의 지수. 작은 지수는 빠지거나 9, ', ", °로 읽힘
+     x2→x², x3→x³, x4·x9·29→x⁴, a2→a², (x+1)2→(x+1)², 2^→x², 22→x², 202→x², 10n→10ⁿ, 2-1→x⁻¹
+    [첨자] an→aₙ, a1→a₁, an+1→aₙ₊₁, Sn→Sₙ, log2 8→log₂8, x1, x2(두 근)→x₁, x₂
+    [루트] √→V, v, J, /, ✓, ~, ㄷ: 2-V5→2-√5, V3x→√(3x), 3V2→3√2, 세제곱근 3√→³√
+    [분수] 가로선이 사라져 분자·분모가 다른 줄로 나뉘거나 -, —, _ 로 읽힘 → (분자)/(분모). 1/2, 1 2 가 위아래로 있으면 분수
+    [부등호·등호] ≤→<, <=, ≦, s / ≥→>, >=, ≧ / ≠→=, +, # / =→-, 二, == / ±→+, +-, 土 / ∓→-+
+    [연산] ×→x, X / ÷→+ / ·(곱)→., - / −(빼기)→-, ~
+    [그리스 문자] α→a, ∝, oc / β→B, ß, 8 / γ→Y, y / θ→0, e, Ø / π→T, n, 元, 兀, TT / ω→w / λ→入 / Δ→A
+    [집합·논리] ∈→E, e, € / ∉→¢ / ⊂→c, C / ⊃→コ / ∪→U / ∩→n / ∅→Ø, 0 / ⇒→=>, → / ⇔→<=> / ~p(부정)→-p
+    [함수·미적] lim→Iim, 1im / x→1(극한)→x-1, x→1 / f'(x)→f(x), f`(x), fʼ(x) / ∫→J, f, S / dx→dx, d× / Σ→E, 2 / sin→sln, s1n / cos→c0s / tan→ta n / log→l0g, 1og / ln→In / f∘g→fog, fo g
+    [경우의 수] nPr→nPr, ₙPᵣ / nCr→nCr, ₙCᵣ / n!→nl, n1
+    [도형] ∠→<, L / △→A, Δ / □→ㅁ, 口 / ⊥→l / //(평행)→ll / °→o, 0, ' / 선분 AB→AB, 호 AB→⌒AB
+    [절댓값·괄호] |x|→lxl, 1x1, Ix / [x]→I x I / { }→( ) / (→C / )→J
+    [숫자·글자] 1↔l, I, | / 0↔O, o / 5↔S / 8↔B / 9↔g, q / 7↔T / 4↔A / 6↔b / 2↔z, Z / ,↔. / -↔~ / ∞→oo, 00
+    [보기·선택지] ①→®, (1), O1, 0 / ②→©, (2) / ③→(3) / ④→(4) / ⑤→(5), @ / 보기 ㄱ.ㄴ.ㄷ.→7. L. C. / 선택지는 한 줄에 하나씩
+    [한글] 0이→001, 00|, 0l / 이→0|, 01 / 이차함수→1차함수, 0|차함수 / 값→갔, 갑 / 의→으| / 는→늗 / 좌표→좌포 / 꼭짓점→꼭지점 / 최댓값→최대값 (식에 x²가 있으면 이차, x³이면 삼차, x⁴면 사차)
+    예시) "29+ (1-20)x2+0-0-20= 001 정수인 근을" → "x⁴+(1-2a)x²+a²-a-20=0이 정수인 근을"
+    예시) "삼차방정식 28-22 + 22+4=0의 두 허근을 0, B라 할 때, (0-B)2의 값은?" → "삼차방정식 x³-x²+2x+4=0의 두 허근을 α, β라 할 때, (α-β)²의 값은?"
+    표기는 x², √(…), (분자)/(분모), aₙ, ×, ÷, ≤, ≥, π, α, β, ①~⑤ 로 통일하고 범위는 괄호로 분명히 써.
     """
 
     /// 여러 번 읽은 결과를 기기 AI가 비교해 원래 문제로 복원. 길면 읽기 수를 줄여 다시 시도
     static func reconstruct(readings: [String], current: String) async throws -> String {
         if let message = unavailableMessage { throw AITutorError.unavailable(message) }
         let cleaned = readings.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-        var attempts: [(count: Int, limit: Int)] = [(4, 450), (2, 600), (1, 900)]
+        var attempts: [(count: Int, limit: Int)] = [(3, 380), (2, 500), (1, 800)]
         attempts = attempts.filter { $0.count <= max(cleaned.count, 1) || $0.count == 1 }
         var lastError: Error?
         for attempt in attempts {
-            let prompt = reconstructPrompt(readings: Array(cleaned.prefix(attempt.count)), current: current, limit: attempt.limit)
+            // 줄일 때도 수식에 강한 [영어 전용 읽기](맨 끝)는 남김
+            var picked = Array(cleaned.prefix(attempt.count))
+            if attempt.count >= 2, cleaned.count > attempt.count, let english = cleaned.last {
+                picked = Array(cleaned.prefix(attempt.count - 1)) + [english]
+            }
+            let prompt = reconstructPrompt(readings: picked, current: current, limit: attempt.limit)
             let session = LanguageModelSession(instructions: ocrInstructions)
             do {
                 let result = try await session.respond(to: prompt).content
