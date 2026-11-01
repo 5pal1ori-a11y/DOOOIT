@@ -70,6 +70,7 @@ struct StatsView: View {
                             .foregroundStyle(Palette.ink)
                     }
                     .frame(maxWidth: .infinity)
+                    .contentTransition(.numericText())
 
                     if total == 0 {
                         EmptyStateView(symbol: "chart.pie", title: "아직 공부 기록이 없어요", message: "타이머로 공부하면 여기에 쌓여요.")
@@ -78,21 +79,28 @@ struct StatsView: View {
                     }
                 }
                 .softCard(cornerRadius: 24, padding: 20)
+                .appearAnimation()
 
                 if total > 0 {
                     subjectList(bySubject, total: total)
+                        .appearAnimation(delay: 0.05)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
                 comparison(total: total, previous: previous)
                     .softCard(cornerRadius: 24, padding: 20)
+                    .appearAnimation(delay: 0.1)
 
                 if total > 0 {
                     hourHeat(current)
                         .softCard(cornerRadius: 24, padding: 20)
+                        .appearAnimation(delay: 0.15)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 40)
+            .animation(Motion.spring, value: period)
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
@@ -103,31 +111,7 @@ struct StatsView: View {
     // MARK: Pieces
 
     private var tabs: some View {
-        HStack(spacing: 4) {
-            ForEach(StatPeriod.allCases) { item in
-                Button {
-                    withAnimation(.snappy) { period = item }
-                } label: {
-                    Text(item.title)
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(period == item ? Color.white : Color.secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background {
-                            if period == item {
-                                Capsule()
-                                    .fill(AccentGradient.linear)
-                                    .shadow(color: Theme.accent.opacity(0.3), radius: 6, y: 3)
-                            }
-                        }
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(4)
-        .background(Color.white, in: .capsule)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+        PillSegmentedControl(items: StatPeriod.allCases, selection: $period) { $0.title }
     }
 
     private func bigTime(_ seconds: Int) -> Text {

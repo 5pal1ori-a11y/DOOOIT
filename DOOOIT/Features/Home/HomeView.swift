@@ -20,6 +20,7 @@ struct HomeView: View {
     @AppStorage(SettingsKey.dailyWordGoal) private var wordGoal = 20
     @AppStorage(SettingsKey.wordGoalDoneKey) private var wordGoalDoneKey = ""
 
+    @State private var chartShown = false
     @State private var showAllPlans = false
     @State private var showNewPlan = false
     @State private var editingPlan: Plan?
@@ -31,11 +32,17 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         header(now: now)
+                            .appearAnimation()
                         WeekStrip(selected: now) { day in openPlanner(day) }
+                            .appearAnimation(delay: 0.05)
                         focusPanel(now: now)
+                            .appearAnimation(delay: 0.1)
                         plansSection(now: now)
+                            .appearAnimation(delay: 0.15)
                         wordMemoCard(now: now)
+                            .appearAnimation(delay: 0.2)
                         weekSection(now: now)
+                            .appearAnimation(delay: 0.25)
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
@@ -71,6 +78,7 @@ struct HomeView: View {
             HStack(spacing: 6) {
                 Image(systemName: Greeting.symbol(at: now))
                     .symbolRenderingMode(.multicolor)
+                    .symbolEffect(.bounce, value: Greeting.symbol(at: now))
                 Text(now.kr("M월 d일 EEEE"))
                 Spacer()
                 DDayChip()
@@ -123,6 +131,8 @@ struct HomeView: View {
                         .foregroundStyle(.white)
                         .minimumScaleFactor(0.7)
                         .lineLimit(1)
+                        .contentTransition(.numericText())
+                        .animation(Motion.spring, value: seconds / 60)
                     Text("목표 \(TimeText.duration(minutes: studyGoalMinutes)) · \(Int(min(progress, 1) * 100))% 달성")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.85))
@@ -134,6 +144,7 @@ struct HomeView: View {
                         .font(.subheadline.weight(.bold))
                         .foregroundStyle(.white)
                         .monospacedDigit()
+                        .contentTransition(.numericText())
                 }
                 .frame(width: 72, height: 72)
             }
@@ -150,14 +161,16 @@ struct HomeView: View {
             Button {
                 studyTimer.isPresented = true
             } label: {
-                Label(studyTimer.isActive ? "타이머 보기" : "집중 시작", systemImage: "play.fill")
+                Label(studyTimer.isActive ? "타이머 보기" : "집중 시작", systemImage: studyTimer.isActive ? "timer" : "play.fill")
                     .font(.body.weight(.bold))
                     .foregroundStyle(Theme.accent)
+                    .contentTransition(.symbolEffect(.replace))
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
                     .background(Color.white, in: .capsule)
+                    .shadow(color: .black.opacity(0.08), radius: 6, y: 3)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
         .padding(20)
         .background {
@@ -212,7 +225,7 @@ struct HomeView: View {
                     }
                     .softCard(cornerRadius: 20, padding: 16)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .padding(.top, 4)
             } else {
                 VStack(alignment: .leading, spacing: 2) {
@@ -276,7 +289,7 @@ struct HomeView: View {
             .shadow(color: .black.opacity(0.18), radius: 14, y: 8)
             .rotationEffect(.degrees(-0.6))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     // MARK: Week chart (카드 없이)
@@ -310,18 +323,22 @@ struct HomeView: View {
                     Text(TimeText.duration(minutes: total))
                         .font(.title3.weight(.heavy))
                         .foregroundStyle(Palette.ink)
+                        .contentTransition(.numericText())
                     Text("최근 7일 총 공부")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Chart(stats) { stat in
-                    BarMark(x: .value("요일", stat.label), y: .value("분", stat.minutes))
+                    BarMark(x: .value("요일", stat.label), y: .value("분", chartShown ? stat.minutes : 0))
                         .cornerRadius(7)
                         .foregroundStyle(stat.isToday ? Theme.accent : Theme.accent.opacity(0.28))
                 }
                 .chartYAxis { AxisMarks(position: .leading) }
                 .chartYAxisLabel("분")
                 .frame(height: 150)
+                .onAppear {
+                    withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.3)) { chartShown = true }
+                }
             }
             .softCard()
         }

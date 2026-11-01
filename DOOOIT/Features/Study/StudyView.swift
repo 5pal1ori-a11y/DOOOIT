@@ -14,11 +14,14 @@ struct StudyView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
                     wordsHero
+                        .appearAnimation()
                     VStack(alignment: .leading, spacing: 12) {
                         Text("공부 도구").font(.title3.weight(.heavy)).foregroundStyle(Palette.ink)
                         toolList
                     }
+                    .appearAnimation(delay: 0.08)
                     LearnHubSection()
+                        .appearAnimation(delay: 0.14)
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 32)
@@ -42,6 +45,7 @@ struct StudyView: View {
                         .font(.title3)
                         .frame(width: 46, height: 46)
                         .background(.white.opacity(0.18), in: .circle)
+                        .symbolEffect(.bounce, value: done)
                     Spacer()
                     if done {
                         Label("오늘 목표 성공", systemImage: "checkmark")
@@ -80,12 +84,13 @@ struct StudyView: View {
             .clipShape(.rect(cornerRadius: 28))
             .shadow(color: Theme.accent.opacity(0.32), radius: 18, y: 10)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
     }
 
     private func heroStat(_ value: String, _ label: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value).font(.title2.weight(.black)).monospacedDigit()
+                .contentTransition(.numericText())
             Text(label).font(.caption2).opacity(0.8)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -105,7 +110,7 @@ struct StudyView: View {
                 listRow(symbol: "chart.pie.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .softCardBackground(cornerRadius: 22)
     }
 

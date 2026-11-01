@@ -78,10 +78,12 @@ struct WeaknessView: View {
                 if list.isEmpty {
                     EmptyStateView(symbol: "scope", title: "아직 찾은 취약 유형이 없어요",
                                    message: "단원별 학습에서 문제를 풀거나\n오답노트에 단원을 적고 오답으로 채점해보세요.")
-                        .glassCard()
+                        .softCard()
+                        .appearAnimation()
                 }
-                ForEach(list) { item in
+                ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
                     weaknessCard(item)
+                        .appearAnimation(delay: Double(index) * 0.07)
                 }
             }
             .padding(.horizontal, 20)
@@ -103,6 +105,7 @@ struct WeaknessView: View {
             Label(item.unit, systemImage: "sparkles").font(.headline).foregroundStyle(Theme.accent)
             Text("\(item.headline)\n\(item.plan)")
                 .font(.title3.weight(.bold))
+                .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("맞춤 학습 예상 시간 \(TimeText.duration(minutes: item.minutes))")
                 .font(.caption)
@@ -121,8 +124,7 @@ struct WeaknessView: View {
             .buttonStyle(.glassProminent)
             .controlSize(.large)
         }
-        .padding(20)
-        .glassEffect(.regular, in: .rect(cornerRadius: 26))
+        .softCard(cornerRadius: 24, padding: 20)
     }
 
     private func levelBar(_ level: Int) -> some View {
@@ -137,14 +139,8 @@ struct WeaknessView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Theme.accent)
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(Color.primary.opacity(0.08))
-                    Capsule().fill(Theme.accent.opacity(0.25)).frame(width: geo.size.width * target)
-                    Capsule().fill(Theme.accent).frame(width: geo.size.width * current)
-                }
-            }
-            .frame(height: 10)
+            LevelFillBar(current: current, target: target)
+                .frame(height: 10)
             HStack {
                 ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                     Text(label)
@@ -155,15 +151,37 @@ struct WeaknessView: View {
             }
         }
         .padding(14)
-        .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 16))
+        .background(Theme.accent.opacity(0.05), in: .rect(cornerRadius: 16))
     }
 }
 
-/// AI 학습: 과목과 단원만 직접 입력
+/// 실력 막대: 처음 보일 때 왼쪽부터 차오름
+private struct LevelFillBar: View {
+    let current: Double
+    let target: Double
+    @State private var filled = false
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.primary.opacity(0.08))
+                Capsule().fill(Theme.accent.opacity(0.25)).frame(width: geo.size.width * (filled ? target : 0))
+                Capsule().fill(AccentGradient.linear).frame(width: geo.size.width * (filled ? current : 0))
+            }
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.9).delay(0.2)) { filled = true }
+        }
+    }
+}
+
+/// AI 학습: 교과 단원을 고르거나 과목과 단원을 직접 입력
 struct CurriculumView: View {
     @State private var subject = ""
     @State private var unit = ""
+    @State private var pickedSubject: String?
     @FocusState private var focus: Field?
+    @Query private var records: [QuizRecord]
 
     private enum Field { case subject, unit }
 
@@ -172,39 +190,129 @@ struct CurriculumView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("무엇을 공부할까요?").font(.title2.weight(.heavy))
-                    Text("과목과 단원을 적으면 AI가 개념 → 빈칸 → O/X → 문제 순서로 자료를 만들어요.")
+                    Text("무엇을 공부할까요?").font(.title2.weight(.heavy)).foregroundStyle(Palette.ink)
+                    Text("단원을 고르거나 직접 적으면 AI가 개념 → 빈칸 → O/X → 문제 순서로 자료를 만들어요.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                .appearAnimation()
 
-                VStack(spacing: 0) {
-                    field(title: "과목", placeholder: "예: 수학", text: $subject, field: .subject)
-                    Divider().padding(.leading, 16)
-                    field(title: "단원", placeholder: "예: 이차방정식과 이차함수", text: $unit, field: .unit)
-                }
-                .glassEffect(.regular, in: .rect(cornerRadius: 22))
+                subjectCards
+                    .appearAnimation(delay: 0.05)
 
-                NavigationLink {
-                    UnitStudyView(subject: trimmedSubject, unit: trimmedUnit)
-                } label: {
-                    Label("학습 시작", systemImage: "sparkles")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                if let picked = pickedSubject, let curriculum = Curriculum.subjects.first(where: { $0.name == picked }) {
+                    unitList(curriculum)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
-                .buttonStyle(.glassProminent)
-                .disabled(trimmedSubject.isEmpty || trimmedUnit.isEmpty)
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("직접 입력").font(.headline).foregroundStyle(Palette.ink)
+                    VStack(spacing: 0) {
+                        field(title: "과목", placeholder: "예: 수학", text: $subject, field: .subject)
+                        Divider().padding(.leading, 16)
+                        field(title: "단원", placeholder: "예: 이차방정식과 이차함수", text: $unit, field: .unit)
+                    }
+                    .softCardBackground(cornerRadius: 20)
+
+                    NavigationLink {
+                        UnitStudyView(subject: trimmedSubject, unit: trimmedUnit)
+                    } label: {
+                        Label("학습 시작", systemImage: "sparkles")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(trimmedSubject.isEmpty || trimmedUnit.isEmpty)
+                }
+                .appearAnimation(delay: 0.1)
             }
             .padding(20)
+            .animation(Motion.spring, value: pickedSubject)
         }
         .scrollDismissesKeyboard(.interactively)
         .background { AppBackground() }
         .navigationTitle("AI 학습")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { if subject.isEmpty { focus = .subject } }
+    }
+
+    /// 교과 과목 카드 (가로로 넘김)
+    private var subjectCards: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 12) {
+                ForEach(Curriculum.subjects) { item in
+                    let selected = pickedSubject == item.name
+                    Button {
+                        pickedSubject = selected ? nil : item.name
+                        Haptics.tap()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Image(systemName: item.symbol)
+                                .font(.headline)
+                                .foregroundStyle(selected ? Theme.accent : .white)
+                                .frame(width: 38, height: 38)
+                                .background(selected ? AnyShapeStyle(Color.white) : AnyShapeStyle(AccentGradient.linear), in: .rect(cornerRadius: 12))
+                                .symbolEffect(.bounce, value: selected)
+                            Text(item.name)
+                                .font(.subheadline.weight(.bold))
+                                .foregroundStyle(selected ? .white : Palette.ink)
+                            Text("\(item.units.count)개 단원")
+                                .font(.caption)
+                                .foregroundStyle(selected ? Color.white.opacity(0.85) : Color.secondary)
+                        }
+                        .frame(width: 118, alignment: .leading)
+                        .padding(14)
+                        .background(selected ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.white), in: .rect(cornerRadius: 20))
+                        .shadow(color: selected ? Theme.accent.opacity(0.3) : .black.opacity(0.06), radius: 10, y: 4)
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 2)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    /// 고른 과목의 단원 목록 (기록이 있으면 정답률 표시)
+    private func unitList(_ curriculum: CurriculumSubject) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(curriculum.units.enumerated()), id: \.element.id) { index, item in
+                NavigationLink {
+                    UnitStudyView(subject: curriculum.name, unit: item.title)
+                } label: {
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.chapter).font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+                            Text(item.title).font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                        }
+                        Spacer(minLength: 0)
+                        if let accuracy = accuracy(subject: curriculum.name, unit: item.title) {
+                            TagLabel(text: "정답률 \(accuracy)%", symbol: "checkmark.circle.fill",
+                                     color: accuracy >= 80 ? Palette.success : (accuracy >= 50 ? Theme.accent : Palette.danger))
+                        }
+                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.pressable)
+                if index < curriculum.units.count - 1 {
+                    Divider().padding(.leading, 16)
+                }
+            }
+        }
+        .softCardBackground(cornerRadius: 20)
+    }
+
+    private func accuracy(subject: String, unit: String) -> Int? {
+        let matching = records.filter { $0.subject == subject && $0.unit == unit }
+        let total = matching.reduce(0) { $0 + $1.total }
+        guard total > 0 else { return nil }
+        return Int((Double(matching.reduce(0) { $0 + $1.correct }) / Double(total) * 100).rounded())
     }
 
     private func field(title: String, placeholder: String, text: Binding<String>, field: Field) -> some View {

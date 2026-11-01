@@ -4,6 +4,7 @@ import SwiftUI
 /// 전체 화면 공부 타이머
 struct TimerView: View {
     @Environment(StudyTimer.self) private var studyTimer
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \PlanCategory.sortIndex) private var categories: [PlanCategory]
 
     @State private var freeTitle = ""
@@ -212,6 +213,15 @@ struct TimerView: View {
                 let progress = target.map { elapsed / Double(max($0, 1)) } ?? (elapsed.truncatingRemainder(dividingBy: 3600) / 3600)
 
                 ZStack {
+                    if studyTimer.phase == .running && !reduceMotion {
+                        Circle()
+                            .fill(Theme.accent.opacity(0.10))
+                            .frame(width: 330, height: 330)
+                            .phaseAnimator([false, true]) { view, phase in
+                                view.scaleEffect(phase ? 1.08 : 0.97).opacity(phase ? 0.5 : 1)
+                            } animation: { _ in .easeInOut(duration: 1.8) }
+                            .allowsHitTesting(false)
+                    }
                     ProgressRing(progress: progress, lineWidth: 14,
                                  color: (target != nil && elapsed >= Double(target ?? 0)) ? Palette.success : Theme.accent)
 
@@ -227,6 +237,8 @@ struct TimerView: View {
                                 Label("목표 달성!", systemImage: "checkmark.seal.fill")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(Palette.success)
+                                    .symbolEffect(.bounce, value: elapsed >= Double(target))
+                                    .transition(.scale.combined(with: .opacity))
                             } else {
                                 Text("목표 \(TimeText.duration(seconds: target)) · \(TimeText.duration(seconds: target - Int(elapsed) + 59)) 남음")
                                     .font(.subheadline)
@@ -289,6 +301,7 @@ struct TimerView: View {
                 Text(seconds >= 10 ? "\(TimeText.clock(TimeInterval(seconds))) 공부를 기록했어요." : "10초 이상 공부해야 기록돼요.")
                     .foregroundStyle(.secondary)
             }
+            .appearAnimation(delay: 0.1)
             Button {
                 savedSeconds = nil
                 studyTimer.isPresented = false

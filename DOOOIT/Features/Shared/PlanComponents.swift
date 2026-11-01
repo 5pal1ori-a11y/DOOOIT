@@ -149,6 +149,7 @@ struct PlanTimelineRow: View {
                         .font(.title3)
                         .foregroundStyle(done ? plan.color : Color.secondary)
                         .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.bounce, value: done)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(done ? "완료 취소" : "완료로 표시")
@@ -164,6 +165,8 @@ struct PlanTimelineRow: View {
                 }
             }
             .clipShape(.rect(cornerRadius: 16))
+            .opacity(done ? 0.75 : 1)
+            .animation(Motion.spring, value: done)
             .contentShape(.rect(cornerRadius: 16))
             .onTapGesture(perform: onOpen)
             .padding(.vertical, 3)
@@ -202,6 +205,7 @@ struct PlanRow: View {
                     .font(.title3)
                     .foregroundStyle(completed ? plan.color : Color.secondary)
                     .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: completed)
             }
             .buttonStyle(.plain)
 
