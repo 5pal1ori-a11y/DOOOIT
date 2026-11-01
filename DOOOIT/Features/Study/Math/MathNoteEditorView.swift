@@ -447,15 +447,6 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
-        if ClaudeReader.isConfigured, credits.canAfford() {
-            withAnimation { textMessage = "두잇 AI가 사진을 읽는 중이에요… (10~20초)" }
-            if let result = try? await ClaudeReader.read(problem) {
-                credits.charge(.readProblem)
-                if note.correctAnswer.isEmpty, !result.answer.isEmpty { note.correctAnswer = result.answer }
-                apply(result.text, message: "두잇 AI가 선택한 영역을 읽었어요.")
-                return
-            }
-        }
         let lines = (try? await OCRService.recognizeMath(problem)) ?? []
         let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
         apply(text, message: text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")

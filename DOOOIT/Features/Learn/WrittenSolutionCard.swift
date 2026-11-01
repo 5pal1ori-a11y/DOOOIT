@@ -258,7 +258,7 @@ struct WrittenSolutionCard: View {
         working = true
         defer { working = false }
         do {
-            let result = try await AITutor.generate(WrittenSolution.self, prompt: AITutor.solutionPrompt(problem: note.recognizedText))
+            let result = try await DoitTutor.solution(for: note.recognizedText)
             note.solutionData = try? JSONEncoder().encode(result)
             try? context.save()
             credits.charge(.solution)

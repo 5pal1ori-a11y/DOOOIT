@@ -89,13 +89,6 @@ struct UnitStudyView: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    if let message = AITutor.unavailableMessage {
-                        Label(message, systemImage: "exclamationmark.triangle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(Palette.warning)
-                            .padding(14)
-                            .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
-                    }
                     Group {
                         switch step {
                         case .concept: ConceptStepView(subject: subject, unit: unit, booster: booster, onDone: finish)
@@ -204,9 +197,9 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 // 처음부터 이 화면을 보여줘야 .task가 실행됨 (빈 화면이면 시작되지 않음)
                 VStack(spacing: 12) {
                     ProgressView().controlSize(.large)
-                    Text("AI 선생님이 자료를 만들고 있어요").font(.subheadline.weight(.semibold))
+                    Text("두잇 AI가 자료를 찾아서 만들고 있어요").font(.subheadline.weight(.semibold))
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 10~30초 걸려요" : "준비 중")
+                        Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요" : "준비 중")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
@@ -347,7 +340,7 @@ struct ConceptStepView: View {
 
     var body: some View {
         AIContentLoader(cacheKey: ContentCache.key(subject, unit, "concept", booster: booster), creditKey: "\(subject)|\(unit)") {
-            try await AITutor.generate(ConceptNote.self, prompt: AITutor.conceptPrompt(subject: subject, unit: unit, booster: booster))
+            try await DoitTutor.concept(subject: subject, unit: unit, booster: booster)
         } content: { note, regenerate in
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
@@ -396,7 +389,7 @@ struct ClozeStepView: View {
 
     var body: some View {
         AIContentLoader(cacheKey: ContentCache.key(subject, unit, "cloze", booster: booster), creditKey: "\(subject)|\(unit)") {
-            try await AITutor.generate(ClozeSet.self, prompt: AITutor.clozePrompt(subject: subject, unit: unit, count: booster ? 4 : 6))
+            try await DoitTutor.cloze(subject: subject, unit: unit, count: booster ? 4 : 6)
         } content: { set, regenerate in
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
@@ -459,7 +452,7 @@ struct OXStepView: View {
 
     var body: some View {
         AIContentLoader(cacheKey: ContentCache.key(subject, unit, "ox", booster: booster), creditKey: "\(subject)|\(unit)") {
-            try await AITutor.generate(OXSet.self, prompt: AITutor.oxPrompt(subject: subject, unit: unit, count: booster ? 4 : 6))
+            try await DoitTutor.ox(subject: subject, unit: unit, count: booster ? 4 : 6)
         } content: { set, regenerate in
             if finished || set.items.isEmpty {
                 resultView(total: set.items.count) { index = 0; correct = 0; wrongs = []; picked = nil; finished = false; regenerate() }
@@ -558,7 +551,7 @@ struct ProblemStepView: View {
 
     var body: some View {
         AIContentLoader(cacheKey: ContentCache.key(subject, unit, "problem", booster: booster), creditKey: "\(subject)|\(unit)") {
-            try await AITutor.generate(ProblemSet.self, prompt: AITutor.problemPrompt(subject: subject, unit: unit, count: booster ? 3 : 4, hard: !booster))
+            try await DoitTutor.problems(subject: subject, unit: unit, count: booster ? 3 : 4, hard: !booster)
         } content: { set, regenerate in
             if finished || set.items.isEmpty {
                 VStack(spacing: 14) {

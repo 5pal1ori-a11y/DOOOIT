@@ -198,7 +198,7 @@ struct SimilarProblemsCard: View {
         working = true
         defer { working = false }
         do {
-            let made = try await AITutor.generate(SimilarProblemSet.self, prompt: AITutor.similarPrompt(problem: note.recognizedText))
+            let made = try DoitTutor.similar(to: note.recognizedText)
             guard !made.problems.isEmpty else {
                 error = "문제를 만들지 못했어요. 다시 시도해주세요."
                 return

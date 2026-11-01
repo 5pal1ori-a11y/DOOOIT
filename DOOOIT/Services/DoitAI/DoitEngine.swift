@@ -7,6 +7,8 @@ enum DoitEngine {
     struct Reply {
         var text: String
         var suggestions: [String] = []
+        /// 앱 명령으로 알아듣지 못한 말 (검색해서 설명해 봄)
+        var understood = true
     }
 
     /// 사진에서 읽어 둔 내용 (다음 말에서도 쓸 수 있게 기억)
@@ -84,8 +86,9 @@ enum DoitEngine {
         if findDate(in: text) != nil && findTime(in: text) != nil { return addPlan(text) }
 
         return Reply(
-            text: "아직 그 말은 이해하지 못했어요. 저는 일정·타이머·단어·메모·목표·기록 같은 앱 기능과 수학 계산을 도와드릴 수 있어요. 이렇게 말해보세요.",
-            suggestions: examples
+            text: "아직 그 말은 이해하지 못했어요. 저는 일정·타이머·단어·메모·목표·기록 같은 앱 기능, 수학 풀이, 개념 검색(예: 광합성이 뭐야?)을 도와드릴 수 있어요.",
+            suggestions: examples,
+            understood: false
         )
     }
 
@@ -338,7 +341,8 @@ enum DoitEngine {
         • 메모: "메모해줘: 준비물", "준비물 메모 찾아줘"
         • 목표: "기말고사 D-Day 12월 10일", "하루 공부 목표 4시간"
         • 기록: "이번 주 공부 통계", "틀린 단어 알려줘"
-        • 수학: "2x+3=11 풀어줘", "x²-5x+6=0", "(x+1)² 전개"
+        • 수학: "2x+3=11 풀어줘", "y=x²-4x+1의 꼭짓점", "(x+1)² 전개"
+        • 개념 검색: "광합성이 뭐야?", "임진왜란 설명해줘" (위키백과에서 찾아 정리)
         """, suggestions: Array(examples.prefix(4)))
     }
 

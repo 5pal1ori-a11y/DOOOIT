@@ -52,6 +52,20 @@ enum DoitMath {
         return Result(title: "식 전개·정리", steps: ["\(pretty(expression)) 를 전개해서 정리하면"], answer: describe(poly))
     }
 
+    /// 식을 다항식으로 (실패하면 nil)
+    static func polynomial(_ text: String) -> Poly? { Parser.parse(text) }
+
+    static func value(_ p: Poly, at x: Double) -> Double {
+        (0..<5).reduce(0) { $0 + p[$1] * pow(x, Double($1)) }
+    }
+
+    /// 방정식 부분만 풀이 (좌변 - 우변)
+    static func solveEquation(_ text: String) -> Result? {
+        let sides = text.split(separator: "=", omittingEmptySubsequences: false).map(String.init)
+        guard sides.count == 2, let left = Parser.parse(sides[0]), let right = Parser.parse(sides[1]) else { return nil }
+        return equation(left - right, original: text)
+    }
+
     // MARK: 방정식
 
     private static func equation(_ poly: Poly, original: String) -> Result {

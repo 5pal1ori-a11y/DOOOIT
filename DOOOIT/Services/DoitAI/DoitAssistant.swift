@@ -24,6 +24,8 @@ final class DoitAssistant {
 
     /// 바로 전에 보낸 사진 (다음 한 번의 말에서 "단어 추가해줘"처럼 이어서 쓸 수 있게)
     @ObservationIgnored private var lastPhoto: DoitEngine.PhotoContext?
+    /// 바로 전 검색 답 (주제, 내용) — "더 자세히", "메모로 저장" 이어서 하기용
+    @ObservationIgnored private var lastAnswer: (topic: String, text: String)?
 
     func reset() {
         messages = []
@@ -46,10 +48,39 @@ final class DoitAssistant {
         }
 
         _ = DoitActions.shared.drainLog()
-        let reply = DoitEngine.respond(to: question, photo: photo)
+
+        // 바로 전 검색 답에 이어서
+        if image == nil, let previous = lastAnswer {
+            if question.contains("더 자세히") || question.contains("자세히 알려") || question.contains("더 알려") {
+                status = "더 찾아보는 중…"
+                let more = (try? await DoitTutor.more(about: previous.topic)) ?? "더 찾은 내용이 없어요."
+                lastAnswer = (previous.topic, more)
+                messages.append(Message(role: .assistant, text: more, suggestions: ["메모로 저장해줘"]))
+                return
+            }
+            if question.contains("메모") && question.contains("저장") {
+                let result = DoitActions.shared.addMemo(previous.text.replacingOccurrences(of: "**", with: ""))
+                lastAnswer = nil
+                messages.append(Message(role: .assistant, text: result, actions: DoitActions.shared.drainLog()))
+                return
+            }
+        }
+        lastAnswer = nil
+
+        var reply = DoitEngine.respond(to: question, photo: photo)
         // 사진으로 실제 작업을 했으면 그 사진은 더 쓰지 않음
         let actions = DoitActions.shared.drainLog()
         if !actions.isEmpty { lastPhoto = nil }
+
+        // 앱 명령이 아니면: 수학 문제 유형 풀이 → 위키백과 검색 설명
+        if !reply.understood {
+            status = "찾아보는 중…"
+            if let answer = try? await DoitTutor.answer(question) {
+                let topic = answer.components(separatedBy: "\n").first?.replacingOccurrences(of: "**", with: "") ?? ""
+                lastAnswer = (topic, answer)
+                reply = DoitEngine.Reply(text: answer, suggestions: ["더 자세히 알려줘", "메모로 저장해줘"])
+            }
+        }
         messages.append(Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions))
     }
 

@@ -141,15 +141,8 @@ struct AskAIComposer: View {
         working = true
         defer { working = false }
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let prompt = """
-        과목: \(subject)
-        학생 질문: \(question.isEmpty ? "사진 속 문제를 풀이해 주세요." : question)
-        \(image == nil ? "" : "(사진을 함께 보냈어요. 사진 속 인쇄된 문제를 보고 답해줘.)")
-
-        핵심 개념 → 단계별 풀이 → 최종 답 순서로 설명해줘.
-        """
         do {
-            let answer = try await AITutor.answer(prompt, images: image.map { [$0] } ?? [])
+            let answer = try await DoitTutor.answer(question, subject: subject, image: image)
             let item = AIQuestion(question: question.isEmpty ? "사진 질문" : question,
                                   imageData: image?.jpegForStorage(maxDimension: 1600), subject: subject)
             item.answer = answer

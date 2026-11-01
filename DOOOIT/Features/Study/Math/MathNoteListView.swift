@@ -9,7 +9,6 @@ struct MathNoteListView: View {
     }
 
     @Environment(\.modelContext) private var context
-    @Environment(CreditStore.self) private var credits
     @Query(sort: \MathNote.createdAt, order: .reverse) private var notes: [MathNote]
 
     @State private var filter: Filter = .all
@@ -21,8 +20,6 @@ struct MathNoteListView: View {
     @State private var cropItem: CropItem?
     @State private var croppedPairs: [(original: UIImage, problem: UIImage)] = []
     @State private var openedNote: MathNote?
-    @State private var pendingPairs: [(original: UIImage, problem: UIImage)] = []
-    @State private var showCreditConfirm = false
     @State private var errorMessage: String?
 
     private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
@@ -105,37 +102,6 @@ struct MathNoteListView: View {
             MathNoteEditorView(note: note)
         }
         .errorAlert($errorMessage)
-        .alert(creditAlertTitle, isPresented: $showCreditConfirm) {
-            if credits.canAfford(pendingCost) {
-                Button("진행 (\(pendingCost) 크레딧)") { startCreate(useClaude: true) }
-            }
-            Button("기기 인식으로 무료로 읽기") { startCreate(useClaude: false) }
-            Button("취소", role: .cancel) { pendingPairs = [] }
-        } message: {
-            Text(creditAlertMessage)
-        }
-    }
-
-    // MARK: 크레딧 확인
-
-    private var pendingCost: Int { pendingPairs.count * CreditStore.costPerUse }
-
-    private var creditAlertTitle: String {
-        credits.canAfford(pendingCost) ? "크레딧이 사용돼요" : "크레딧이 부족해요"
-    }
-
-    private var creditAlertMessage: String {
-        let count = pendingPairs.count
-        if credits.canAfford(pendingCost) {
-            return credits.confirmText("문제 \(count)개를 두잇 AI로 정확하게 읽으면", cost: pendingCost)
-        }
-        return "문제 \(count)개를 두잇 AI로 읽으려면 \(pendingCost) 크레딧이 필요한데 지금 \(credits.balance) 크레딧이 있어요.\n기기 인식으로 무료로 읽을 수 있어요. (수식은 덜 정확해요)"
-    }
-
-    private func startCreate(useClaude: Bool) {
-        let pairs = pendingPairs
-        pendingPairs = []
-        Task { await create(from: pairs, useClaude: useClaude) }
     }
 
     private var emptyState: some View {
@@ -184,41 +150,24 @@ struct MathNoteListView: View {
         } else if !croppedPairs.isEmpty {
             let pairs = croppedPairs
             croppedPairs = []
-            if ClaudeReader.isConfigured {
-                // 크레딧이 드는 Claude 읽기 전에 먼저 물어봄
-                pendingPairs = pairs
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { showCreditConfirm = true }
-            } else {
-                Task { await create(from: pairs, useClaude: false) }
-            }
+            Task { await create(from: pairs) }
         }
     }
 
-    private func create(from pairs: [(original: UIImage, problem: UIImage)], useClaude: Bool) async {
+    private func create(from pairs: [(original: UIImage, problem: UIImage)]) async {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
         for (i, pair) in pairs.enumerated() {
-            // 서버가 연결되어 있으면 Claude가 직접 읽고, 실패하거나 없으면 기기 안 글자 인식
-            var text = ""
-            var claudeTitle = ""
-            var claudeAnswer = ""
-            // Claude 읽기는 문제 1개에 크레딧 차감, 모자라면 기기 안 인식(무료)
-            if useClaude, ClaudeReader.isConfigured, credits.canAfford(), let result = try? await ClaudeReader.read(pair.problem) {
-                text = result.text
-                claudeTitle = result.title
-                claudeAnswer = result.answer
-                credits.charge(.readProblem)
-            } else {
-                let lines = (try? await OCRService.recognizeMath(pair.problem)) ?? []
-                text = MathOCRFixer.fix(OCRService.printedText(from: lines))
-            }
-            let title = !claudeTitle.isEmpty ? claudeTitle : (MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)")
+            // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
+            let lines = (try? await OCRService.recognizeMath(pair.problem)) ?? []
+            let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
+            let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
                 thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
                 recognizedText: text,
-                correctAnswer: claudeAnswer.isEmpty ? (MathGrader.extractAnswer(from: text) ?? "") : claudeAnswer
+                correctAnswer: MathGrader.extractAnswer(from: text) ?? ""
             )
             note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
             context.insert(note)
