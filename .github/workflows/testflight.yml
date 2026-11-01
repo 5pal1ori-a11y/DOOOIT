@@ -92,6 +92,13 @@ jobs:
           mkdir -p "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
 
+      - name: Record certificates before build
+        env:
+          ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+        run: |
+          python3 .github/scripts/asc_certs.py list
+          python3 .github/scripts/asc_certs.py snapshot "$RUNNER_TEMP/certs-before.json"
+
       - name: Archive
         run: |
           set -o pipefail
@@ -146,3 +153,13 @@ jobs:
               done
               exit 1
             }
+
+      # 빌드용 Mac은 매번 새것이라 서명 인증서를 새로 만들어요. 그 인증서의 키는 이 Mac에만 있어
+      # 빌드가 끝나면 다시 쓸 수 없으니, 이번 빌드가 만든 것만 폐기해 한도(최대 개수)가 차지 않게 함
+      - name: Revoke certificates created by this build
+        if: always()
+        env:
+          ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+        run: |
+          [ -f "$ASC_KEY_FILE" ] || exit 0
+          python3 .github/scripts/asc_certs.py cleanup "$RUNNER_TEMP/certs-before.json"
