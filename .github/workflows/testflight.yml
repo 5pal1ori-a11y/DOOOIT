@@ -40,7 +40,7 @@ jobs:
             fi
           done
           # 선택: Claude 서버 자동 배포용 (값은 출력하지 않고 들어 있는지만 표시)
-          for name in ANTHROPIC_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+          for name in ANTHROPIC_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID ADMOB_APP_ID ADMOB_REWARDED_ID; do
             if [ -z "${!name}" ]; then
               echo "::warning title=Claude secret::$name 비어 있음 (Settings > Secrets and variables > Actions > Repository secrets 에 정확히 이 이름으로)"
             else
