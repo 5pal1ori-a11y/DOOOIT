@@ -3,16 +3,22 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// 두잇 AI 인터넷 검색: 위키백과(한국어 → 없으면 영어)에서 자료를 찾아 가져옴 (무료, 키 없음)
+/// 두잇 AI 인터넷 검색: 일반 웹 검색(DoitWebSearch, DuckDuckGo) → 모자라면 위키백과(한국어 → 영어)
 /// 가져온 글은 그대로 보여주지 않고, 두잇 AI 두뇌(언어 모델)가 읽고 자기 말로 정리하는 '재료'로만 써요.
 enum DoitWeb {
     struct Source: Codable, Hashable {
         let title: String
         let url: String
         let text: String
+        /// "ko"·"en" = 위키백과, "web" = 일반 웹 페이지
         let language: String
+        /// 사이트 이름 (일반 웹 페이지일 때)
+        var site: String? = nil
 
-        var label: String { "위키백과(\(language == "ko" ? "한국어" : "영어")) 「\(title)」" }
+        var label: String {
+            if let site, !site.isEmpty { return "\(site) 「\(DoitMemory.trimmed(title, max: 30))」" }
+            return "위키백과(\(language == "ko" ? "한국어" : "영어")) 「\(title)」"
+        }
     }
 
     enum WebError: LocalizedError {
@@ -36,15 +42,18 @@ enum DoitWeb {
     private static let cache = Cache()
 
     /// 질문과 관련된 자료 (최대 limit개, 글자 수 제한)
-    static func research(_ question: String, limit: Int = 2, maxChars: Int = 900) async -> [Source] {
+    static func research(_ question: String, limit: Int = 3, maxChars: Int = 900) async -> [Source] {
+        guard isEnabled else { return [] }
         let query = searchQuery(from: question)
         guard query.count >= 2 else { return [] }
         if let cached = await cache.get(query) { return cached }
-        var sources: [Source] = []
-        for language in ["ko", "en"] where sources.isEmpty {
+        // 1) 일반 웹 검색
+        var sources = await searchWeb(query, limit: limit, maxChars: maxChars)
+        // 2) 웹에서 못 찾았거나 하나뿐이면 위키백과로 보충
+        for language in ["ko", "en"] where sources.count < 2 {
             let q = language == "en" ? englishQuery(query) : query
             guard !q.isEmpty, let titles = try? await search(q, language: language), !titles.isEmpty else { continue }
-            for title in titles.prefix(limit) {
+            for title in titles.prefix(2 - sources.count) where !sources.contains(where: { $0.title == title }) {
                 if let text = try? await extract(title, language: language), text.count >= 40 {
                     sources.append(Source(title: title, url: pageURL(title, language: language), text: String(text.prefix(maxChars)), language: language))
                 }

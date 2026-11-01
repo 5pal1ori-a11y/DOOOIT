@@ -7,6 +7,7 @@ struct BrainSettingsView: View {
     @State private var choice: DoitBrain.Size = DoitBrain.shared.size
     @State private var confirmRemove = false
     @State private var confirmForget = false
+    @State private var webEnabled = DoitWeb.isEnabled
 
     var body: some View {
         List {
@@ -31,7 +32,15 @@ struct BrainSettingsView: View {
                 }
                 .padding(.vertical, 4)
             } footer: {
-                Text("휴대폰 안에서 돌아가는 오픈소스 언어 모델(Qwen3, Apache-2.0)이에요. 처음 한 번만 내려받으면 인터넷 없이도 설명하고 대화해요. 질문 내용은 기기 밖으로 나가지 않아요. 인터넷 자료는 위키백과에서 찾아 읽고 자기 말로 정리해요.")
+                Text("휴대폰 안에서 돌아가는 오픈소스 언어 모델(Qwen3, Apache-2.0)이에요. 처음 한 번만 내려받으면 인터넷 없이도 설명하고 대화해요. 생각과 답은 모두 휴대폰 안에서 만들어요.")
+            }
+
+            Section {
+                Toggle(isOn: Binding(get: { webEnabled }, set: { webEnabled = $0; DoitWeb.isEnabled = $0 })) {
+                    Label("인터넷 검색", systemImage: "globe")
+                }
+            } footer: {
+                Text("모르는 내용이나 \"검색해줘\"라고 하면 인터넷(DuckDuckGo 검색, 모자라면 위키백과)에서 찾아 여러 페이지를 읽고, 그대로 옮기지 않고 자기 말로 정리해요. 이때 질문에서 뽑은 검색어만 검색 엔진에 보내고, 대화 전체나 계정 정보는 보내지 않아요. 끄면 앱 안 지식과 배운 내용만 써요.")
             }
 
             if !DoitBrain.isSupported {

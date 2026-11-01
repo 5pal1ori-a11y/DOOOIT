@@ -289,6 +289,42 @@ func runBrain() {
     check("프롬프트: 참고 자료·이전 대화·질문", prompt.contains("[참고 자료]") && prompt.contains("위키백과") && prompt.contains("학생: 안녕") && prompt.contains("[질문]\n광합성이 뭐야?"), prompt)
     check("출처 표시", context.sourceLabels.contains { $0.contains("위키백과(한국어) 「광합성」") }, "\(context.sourceLabels)")
 
+    // 일반 인터넷 검색: DuckDuckGo 결과 읽기 (html 형식)
+    let ddgHTML = """
+    <div class="result results_links result--ad"><a rel="nofollow" class="result__a" href="https://duckduckgo.com/y.js?ad_domain=shop.com">광고 상품</a></div>
+    <div class="result results_links"><h2 class="result__title"><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.example.org%2Fphoto%3Fid%3D1&amp;rut=abc">광합성 <b>원리</b> &amp; 과정</a></h2>
+    <a class="result__snippet" href="x">식물이 <b>빛</b>으로 양분을 만드는 과정이에요.</a></div>
+    <div class="result"><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fblog.naver.com%2Fsci%2F123&amp;rut=x">네이버 블로그 글</a>
+    <a class="result__snippet" href="y">엽록체에서 일어나요</a></div>
+    <div class="result"><a rel="nofollow" class="result__a" href="//duckduckgo.com/l/?uddg=http%3A%2F%2Finsecure.com%2F&amp;rut=x">http 사이트</a></div>
+    """
+    let ddg = DoitWeb.parseDuckDuckGo(ddgHTML)
+    check("웹 검색 결과 읽기 (광고·http 제외)", ddg.count == 2 && ddg.first?.title == "광합성 원리 & 과정" && ddg.first?.url == "https://www.example.org/photo?id=1",
+          "\(ddg)")
+    check("웹 검색 스니펫", ddg.first?.snippet == "식물이 빛 으로 양분을 만드는 과정이에요." || ddg.first?.snippet == "식물이 빛으로 양분을 만드는 과정이에요.", ddg.first?.snippet ?? "")
+    check("네이버 블로그는 모바일 주소로", ddg.last?.url == "https://m.blog.naver.com/sci/123", ddg.last?.url ?? "")
+    check("사이트 이름", ddg.last?.site == "네이버 블로그" && ddg.first?.site == "example.org", "\(ddg.map(\.site))")
+    // lite 형식
+    let lite = DoitWeb.parseDuckDuckGo("""
+    <tr><td><a rel="nofollow" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fnamu.wiki%2Fw%2Fabc&amp;rut=1" class='result-link'>블랙홀 - 나무위키</a></td></tr>
+    <tr><td class='result-snippet'>중력이 매우 강한 천체</td></tr>
+    """)
+    check("웹 검색 결과 읽기 (lite 형식)", lite.count == 1 && lite[0].site == "나무위키" && lite[0].snippet == "중력이 매우 강한 천체", "\(lite)")
+    check("읽지 않을 페이지", !DoitWeb.isUseful("https://www.youtube.com/watch?v=1") && !DoitWeb.isUseful("https://a.com/file.pdf") && DoitWeb.isUseful("https://namu.wiki/w/x"))
+    // 페이지 본문 고르기
+    let page = """
+    <html><head><title>광합성</title><script>var ignore = "광합성 스크립트 내용이 여기에 길게 들어 있어요 무시해야 해요";</script><style>.a{}</style></head>
+    <body><nav><a>홈</a> | <a>과학</a> | <a>로그인</a></nav>
+    <p>광합성은 식물이 빛 에너지를 이용해 이산화 탄소와 물로 포도당을 만드는 과정이에요.</p>
+    <div>오늘의 인기 글 목록과 추천 게시물을 확인해 보세요 여기는 광고 영역</div>
+    <p>이 과정은 잎의 엽록체에서 일어나며 부산물로 산소가 나와요. &lt;중요&gt; &#54620;&#44544;도 풀려요.</p>
+    <footer>Copyright 2026 All rights reserved 무단 전재 금지 광합성 사이트</footer></body></html>
+    """
+    let body = DoitWeb.readableText(page, query: "광합성", maxChars: 600)
+    check("페이지 본문 고르기", body.contains("포도당") && !body.contains("스크립트") && !body.contains("Copyright") && !body.contains("로그인"), body)
+    check("HTML 기호 풀기", body.contains("<중요>") && body.contains("한글도"), body)
+    check("웹 자료 출처 표시", DoitWeb.Source(title: "블랙홀", url: "https://namu.wiki/w/x", text: "t", language: "web", site: "나무위키").label == "나무위키 「블랙홀」")
+
     // AI 학습 형식 읽기
     let concept = DoitMind.parseConcept("""
     제목: 광합성
