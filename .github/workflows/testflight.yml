@@ -87,9 +87,15 @@ jobs:
         run: |
           sed -i '' "s/CURRENT_PROJECT_VERSION = [0-9]*;/CURRENT_PROJECT_VERSION = ${GITHUB_RUN_NUMBER};/g" DOOOIT.xcodeproj/project.pbxproj
 
+      - name: Prepare provisioning folders
+        run: |
+          mkdir -p "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+
       - name: Archive
         run: |
           set -o pipefail
+          archive() {
           xcodebuild archive \
             -project DOOOIT.xcodeproj \
             -scheme DOOOIT \
@@ -101,7 +107,10 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic 2>&1 | tee "$RUNNER_TEMP/archive.log" || {
+            CODE_SIGN_STYLE=Automatic 2>&1 | tee "$RUNNER_TEMP/archive.log"
+          }
+          # 처음 빌드 때는 Apple에서 프로비저닝 프로필을 새로 만들면서 실패할 수 있어 한 번 더 시도
+          archive || { echo "::notice title=Archive::첫 시도 실패, 프로필을 받은 뒤 다시 시도해요"; sleep 10; archive; } || {
               grep -E "error:|Error |\*\* ARCHIVE FAILED" "$RUNNER_TEMP/archive.log" | sort -u | head -40 | while IFS= read -r line; do
                 echo "::error title=Archive::${line:0:900}"
               done
