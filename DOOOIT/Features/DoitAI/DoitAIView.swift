@@ -21,12 +21,11 @@ struct DoitAIView: View {
         Suggestion(symbol: "calendar", text: "오늘 할 일 알려줘"),
         Suggestion(symbol: "plus.circle", text: "내일 오후 4시에 수학 공부 2시간 추가해줘"),
         Suggestion(symbol: "timer", text: "영어 단어 25분 타이머 시작해줘"),
-        Suggestion(symbol: "character.book.closed", text: "단어 추가해줘: abundant 풍부한, resilient 회복력 있는"),
-        Suggestion(symbol: "chart.bar", text: "이번 주 공부 통계 보여줘"),
+        Suggestion(symbol: "character.book.closed", text: "단어 추가: abundant 풍부한, resilient 회복력 있는"),
+        Suggestion(symbol: "chart.bar", text: "이번 주 공부 통계"),
         Suggestion(symbol: "flag.checkered", text: "기말고사 D-Day 12월 10일로 설정해줘"),
-        Suggestion(symbol: "function", text: "이차함수 꼭짓점 구하는 법 설명해줘"),
-        Suggestion(symbol: "camera", text: "사진 속 문제 풀어주고 오답노트에 넣어줘"),
-        Suggestion(symbol: "note.text", text: "메모해줘: 수행평가 준비물 챙기기")
+        Suggestion(symbol: "function", text: "x²-5x+6=0 풀어줘"),
+        Suggestion(symbol: "questionmark.circle", text: "뭐 할 수 있어?")
     ]
 
     var body: some View {
@@ -91,17 +90,9 @@ struct DoitAIView: View {
                     .background(LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing),
                                 in: .rect(cornerRadius: 18))
                 Text("무엇을 도와드릴까요?").font(.title.weight(.heavy))
-                Text("말로 시키면 일정 추가, 타이머, 단어, 오답노트, 메모, 목표 설정까지 대신 해드려요. 사진을 보내면 문제 풀이, 단어장 정리도 해요.")
+                Text("말로 시키면 일정, 타이머, 단어, 오답노트, 메모, 목표 설정을 대신 해드려요. 방정식도 풀어요. 사진을 보내면 글자를 읽어서 단어장이나 오답노트로 정리해요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-            }
-
-            if let message = assistant.unavailableMessage {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.warning)
-                    .padding(14)
-                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
             }
 
             VStack(spacing: 8) {
@@ -124,7 +115,7 @@ struct DoitAIView: View {
                     .buttonStyle(.plain)
                 }
             }
-            Text("인터넷이 필요해요. AI 답은 틀릴 수 있어요.")
+            Text("두잇 AI는 휴대폰 안에서만 동작해요. 인터넷이 없어도 되고 무료예요.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
         }
@@ -177,6 +168,26 @@ struct DoitAIView: View {
                 Text(Self.markdown(MathSymbolBar.pretty(message.text)))
                     .font(.body)
                     .textSelection(.enabled)
+                if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(message.suggestions, id: \.self) { suggestion in
+                                Button { Task { await assistant.send(suggestion) } } label: {
+                                    Text(suggestion)
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Theme.accent)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 7)
+                                        .background(Theme.accent.opacity(0.12), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(assistant.isResponding)
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                    .padding(.top, 2)
+                }
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -211,7 +222,7 @@ struct DoitAIView: View {
                         .scaledToFill()
                         .frame(width: 56, height: 56)
                         .clipShape(.rect(cornerRadius: 10))
-                    Text("사진을 두잇 AI가 직접 보고 분석해요").font(.caption).foregroundStyle(.secondary)
+                    Text("사진 속 글자를 읽어서 정리해요").font(.caption).foregroundStyle(.secondary)
                     Spacer()
                     Button { self.attached = nil } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
@@ -236,19 +247,14 @@ struct DoitAIView: View {
                 .glassEffect(.regular.interactive(), in: .circle)
 
                 TextField("두잇 AI에게 부탁하기", text: $input, axis: .vertical)
+                    .onSubmit { submit() }
                     .lineLimit(1...5)
                     .focused($focused)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .glassEffect(.regular, in: .rect(cornerRadius: 20))
 
-                Button {
-                    let text = input
-                    let image = attached
-                    input = ""
-                    attached = nil
-                    Task { await assistant.send(text, image: image) }
-                } label: {
+                Button { submit() } label: {
                     Image(systemName: "arrow.up")
                         .font(.headline.weight(.bold))
                         .foregroundStyle(.white)
@@ -268,6 +274,15 @@ struct DoitAIView: View {
     private static func markdown(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
             ?? AttributedString(text)
+    }
+
+    private func submit() {
+        guard canSend else { return }
+        let text = input
+        let image = attached
+        input = ""
+        attached = nil
+        Task { await assistant.send(text, image: image) }
     }
 
     private var canSend: Bool {

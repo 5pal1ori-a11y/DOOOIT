@@ -59,6 +59,16 @@ final class DoitActions {
 
     // MARK: 플랜
 
+    /// 그날 플랜 이름들
+    func plans(on day: Date) -> [String] {
+        fetch(Plan.self).occurrences(on: day).map(\.plan.title)
+    }
+
+    /// 공부 과목 이름들 (공부 플랜인지 판단할 때)
+    func studyCategoryNames() -> [String] {
+        fetch(PlanCategory.self).filter(\.isStudy).map(\.name).filter { !$0.isEmpty }
+    }
+
     func addPlan(title: String, dateText: String?, timeText: String?, minutes: Int?, isStudy: Bool,
                  allDay: Bool, repeatText: String?) -> String {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
@@ -165,6 +175,20 @@ final class DoitActions {
         save()
         done("단어 \(added.count)개 추가 · \(added.prefix(3).joined(separator: ", "))\(added.count > 3 ? " …" : "")")
         return "단어 \(added.count)개 추가: \(added.joined(separator: ", "))"
+    }
+
+    /// 내 단어장에서 단어 뜻 찾기
+    func lookupWord(_ term: String) -> String {
+        let key = term.lowercased()
+        let words = fetch(Word.self)
+        if let word = words.first(where: { $0.term.lowercased() == key }) {
+            var text = "\(word.term): \(word.meaning)"
+            if word.wrongCount > 0 { text += "\n(\(word.wrongCount)번 틀린 단어예요)" }
+            return text
+        }
+        let similar = words.filter { $0.term.lowercased().hasPrefix(String(key.prefix(3))) }.prefix(3)
+        if similar.isEmpty { return "'\(term)'은(는) 내 단어장에 없어요. \"단어 추가: \(term) 뜻\" 으로 넣을 수 있어요." }
+        return "'\(term)'은(는) 단어장에 없어요. 비슷한 단어: " + similar.map { "\($0.term)(\($0.meaning))" }.joined(separator: ", ")
     }
 
     // MARK: 기록 보기
