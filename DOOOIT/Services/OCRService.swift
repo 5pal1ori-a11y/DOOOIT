@@ -49,12 +49,128 @@ enum OCRService {
 
     /// 수학 문제용: 검은 인쇄 글자만 남긴 사진(빨간 펜·파란 펜·연필 풀이 제거, 작은 지수가 보이게 확대)으로 읽음
     static func recognizeMath(_ image: UIImage) async throws -> [OCRLine] {
-        let original = try await recognize(image, preferMath: true)
-        guard let ink = inkOnly(image), let inkLines = try? await recognize(ink, preferMath: true), !inkLines.isEmpty else { return original }
+        let original = await mathRead(image)
+        guard let ink = inkOnly(image) else { return original }
+        let inkLines = await mathRead(ink)
+        guard !inkLines.isEmpty else { return original }
         // 검은 글자만 읽은 결과가 원래보다 확실히 적으면 (얇은 글씨가 지워진 경우) 원래 결과 사용
         let inkCount = printedText(from: inkLines).count
         let originalCount = printedText(from: original).count
         return inkCount >= originalCount * 7 / 10 ? inkLines : original
+    }
+
+    // MARK: 수식 두 번 읽기 (한국어+영어 / 영어 전용)
+
+    /// 한국어 인식은 한글 문장을 잘 읽지만 기울어진 수식 글자(a, b, x, 지수)를 숫자로 착각하기 쉬움.
+    /// 영어 전용 인식은 수식을 더 잘 읽음 → 줄마다 글자 위치를 맞춰서 수식 부분만 영어 전용 결과로 바꿈
+    static func mathRead(_ image: UIImage) async -> [OCRLine] {
+        guard let cgImage = image.preparedForOCR(maxDimension: 3000).cgImage else { return [] }
+        guard let korean = try? await observe(cgImage, languages: ["ko-KR", "en-US"], correction: true) else { return [] }
+        let english = (try? await observe(cgImage, languages: ["en-US"], correction: false)) ?? []
+        return merge(korean: korean, english: english)
+    }
+
+    private static func observe(_ cgImage: CGImage, languages: [String], correction: Bool) async throws -> [VNRecognizedTextObservation] {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = correction
+                request.recognitionLanguages = languages
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                do {
+                    try handler.perform([request])
+                    continuation.resume(returning: request.results ?? [])
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
+    private struct Word {
+        let text: String
+        let box: CGRect
+    }
+
+    private static func isHangul(_ c: Character) -> Bool {
+        c.unicodeScalars.contains { (0xAC00...0xD7A3).contains($0.value) || (0x3131...0x318E).contains($0.value) }
+    }
+
+    /// 한국어 줄의 수식 부분(한글이 없는 구간)을 같은 자리의 영어 전용 인식 결과와 비교해서 더 수식다운 쪽을 고름
+    private static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation]) -> [OCRLine] {
+        // 영어 전용 결과를 낱말 단위 위치로
+        var words: [Word] = []
+        for observation in english {
+            guard let candidate = observation.topCandidates(1).first else { continue }
+            let text = candidate.string
+            var index = text.startIndex
+            while index < text.endIndex {
+                guard let start = text[index...].firstIndex(where: { !$0.isWhitespace }) else { break }
+                let end = text[start...].firstIndex(where: { $0.isWhitespace }) ?? text.endIndex
+                if let box = try? candidate.boundingBox(for: start..<end)?.boundingBox {
+                    words.append(Word(text: String(text[start..<end]), box: box))
+                }
+                index = end
+            }
+        }
+
+        return korean.compactMap { observation -> OCRLine? in
+            let candidates = observation.topCandidates(3)
+            guard let best = candidates.first else { return nil }
+            let candidate = candidates.filter { $0.confidence >= best.confidence - 0.15 }
+                .min { mathPenalty($0.string) < mathPenalty($1.string) } ?? best
+            var text = candidate.string
+            guard !words.isEmpty else { return OCRLine(text: text, confidence: best.confidence, box: observation.boundingBox) }
+
+            // 한글이 없는 구간 찾기
+            var runs: [Range<String.Index>] = []
+            var runStart: String.Index?
+            for i in text.indices {
+                if isHangul(text[i]) {
+                    if let s = runStart { runs.append(s..<i); runStart = nil }
+                } else if runStart == nil {
+                    runStart = i
+                }
+            }
+            if let s = runStart { runs.append(s..<text.endIndex) }
+
+            // 뒤에서부터 바꿔야 앞 구간의 위치가 안 바뀜
+            for run in runs.reversed() {
+                // 앞뒤 공백·문장부호 빼고 수식 부분만
+                guard let first = text[run].firstIndex(where: { !$0.isWhitespace && !",.".contains($0) }),
+                      let lastChar = text[run].lastIndex(where: { !$0.isWhitespace && !",.".contains($0) }) else { continue }
+                let range = first..<text.index(after: lastChar)
+                let original = String(text[range])
+                guard original.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
+                      let box = try? candidate.boundingBox(for: range)?.boundingBox else { continue }
+                let inside = words.filter { word in
+                    let overlap = min(word.box.maxY, box.maxY) - max(word.box.minY, box.minY)
+                    let height = min(word.box.height, box.height)
+                    guard height > 0, overlap / height > 0.5 else { return false }
+                    let midX = word.box.midX
+                    return midX >= box.minX - 0.01 && midX <= box.maxX + 0.01
+                }.sorted { $0.box.minX < $1.box.minX }
+                let replacement = inside.map(\.text).joined(separator: " ")
+                guard !replacement.isEmpty, !replacement.contains(where: isHangul),
+                      replacement.count * 2 >= original.count, replacement.count <= original.count * 2 + 2,
+                      mathScore(replacement) > mathScore(original) else { continue }
+                text.replaceSubrange(range, with: replacement)
+            }
+            return OCRLine(text: text, confidence: best.confidence, box: observation.boundingBox)
+        }
+    }
+
+    /// 수식다운 정도: 변수 글자·연산 기호는 +, 숫자 자리의 이상한 글자·낯선 기호는 −
+    static func mathScore(_ text: String) -> Int {
+        var score = 0
+        for c in text {
+            if "xyabcknmt".contains(c) { score += 2 }
+            else if "+-=×÷^()√<>≤≥/²³".contains(c) { score += 1 }
+            else if c.isUppercase && c.isASCII { score -= 1 }
+            else if !c.isASCII && !"−·αβγθπ".contains(c) { score -= 2 }
+        }
+        return score - 3 * mathPenalty(text)
     }
 
     /// 수식처럼 보이는 줄에서 숫자 자리에 비슷한 글자가 끼어든 정도 (작을수록 좋음)

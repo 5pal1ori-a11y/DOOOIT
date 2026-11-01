@@ -98,6 +98,27 @@ enum MathOCRFixer {
         (#"(?<=[0-9])[Oo](?=\s*[+\-−=×÷)])"#, "0")
     ]
 
+    /// 수식 글자 a, b, x와 지수 ²를 숫자·기호로 잘못 읽은 것 되돌리기
+    private static let letterRules: [(pattern: String, template: String)] = [
+        // 0x → ax (계수 0은 쓰지 않으니 a), 06 → ab, 0b → ab, a6 → ab
+        (#"(?<![0-9.])0(?=[xy](?![a-z]))"#, "a"),
+        (#"(?<![0-9.])06(?![0-9.])"#, "ab"),
+        (#"(?<![0-9.A-Za-z])0b(?![a-z])"#, "ab"),
+        (#"(?<![A-Za-z])a6(?![0-9.])"#, "ab"),
+        // 곱셈 기호로 읽힌 x: 2×+3, 3×², ×=2 → x
+        (#"(?<=[0-9])×(?=\s*[+\-−=)<>≤≥]|\s*$)"#, "x"),
+        (#"×(?=[²³⁴])"#, "x"),
+        (#"(^|[\s(=+\-−,])×(?=\s*[+\-−=)<>]|[²³])"#, "$1x"),
+        // 대문자 X, 그리스 χ → x
+        (#"(?<=[0-9+\-−=(\s])[Xχ](?=[0-9²³+\-−=)\s<>]|$)"#, "x"),
+        // 지수가 ' ° ’ 로 읽힘: x' → x², a° → a²
+        (#"(?<![A-Za-z])([xyab])[°'’](?![0-9A-Za-z])"#, "$1²"),
+        // 지수 2가 떨어져 읽힘: x 2 + → x² +
+        (#"(?<![A-Za-z])([xy])\s2(?=\s*[+\-−=)<>]|\s*$)"#, "$1²"),
+        // a, b 를 α, β로 읽은 경우 (두 근 α, β 문제가 아니면)
+        (#"(실수|상수|자연수|정수)\s*α\s*,\s*β"#, "$1 a, b")
+    ]
+
     /// 복소수 문제에서는 z가 변수: "복소수 2 = 3+4i" 처럼 z를 2로 읽은 것을 되돌림
     private static let complexRules: [(pattern: String, template: String)] = [
         (#"복소수\s*2(?=\s*[=에의는가를와,])"#, "복소수 z"),
@@ -124,6 +145,10 @@ enum MathOCRFixer {
                 guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
                 result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: rule.template)
             }
+        }
+        for rule in letterRules {
+            guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
+            result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: rule.template)
         }
         for rule in rules {
             guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
