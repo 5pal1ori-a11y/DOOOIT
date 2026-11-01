@@ -112,7 +112,8 @@ jobs:
           python3 .github/scripts/asc_certs.py list
           python3 .github/scripts/asc_certs.py snapshot "$RUNNER_TEMP/certs-before.json"
 
-      # 빌드 속도: 받은 패키지(MLX 등)와 컴파일 결과를 다음 빌드에 다시 씀
+      # 빌드 속도: 받은 패키지(MLX 등)와 컴파일 캐시(Xcode 26 compilation caching, DerivedData/CompilationCache.noindex)를
+      # 다음 빌드에 다시 씀. archive는 중간 결과를 새로 만들지만, 컴파일 캐시는 같은 입력이면 결과를 그대로 꺼내 씀
       - name: Restore build cache
         uses: actions/cache@v4
         with:
@@ -143,6 +144,7 @@ jobs:
             -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
             -derivedDataPath "$RUNNER_TEMP/dd" \
             COMPILER_INDEX_STORE_ENABLE=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             CODE_SIGN_STYLE=Automatic 2>&1 | tee "$RUNNER_TEMP/archive.log"
           }

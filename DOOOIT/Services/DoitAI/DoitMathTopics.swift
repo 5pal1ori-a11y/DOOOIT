@@ -263,8 +263,9 @@ enum DoitMathTopics {
     static func complex(_ text: String) -> Solved? {
         let t = DoitAlgebra.normalize(text)
         let allowed = Set("0123456789.+-*/^()i ")
-        let run = t.split(whereSeparator: { !allowed.contains($0) }).map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { $0.contains("i") && $0.count >= 2 }.max(by: { $0.count < $1.count }) ?? ""
+        let runs: [String] = t.split(whereSeparator: { !allowed.contains($0) }).map { String($0).trimmingCharacters(in: .whitespaces) }
+        let candidates: [String] = runs.filter { $0.contains("i") && $0.count >= 2 }
+        let run: String = candidates.max(by: { $0.count < $1.count }) ?? ""
         guard !run.isEmpty else { return nil }
         let wantsConjugate = has(t, ["켤레"])
         var parser = ComplexParser(chars: Array(run.replacingOccurrences(of: " ", with: "")))

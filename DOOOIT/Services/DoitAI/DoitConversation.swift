@@ -205,19 +205,19 @@ enum DoitConversation {
         for cut in [" 중에", " 중 ", "중에서", "중에", " 골라", "골라줘", " 뭐 할까", " 뭐할까", " 뭐 먹을까", "뭐먹을까", " 정해", " 선택"] {
             if let r = body.range(of: cut) { body = String(body[..<r.lowerBound]) }
         }
-        let parts = body.components(separatedBy: CharacterSet(charactersIn: ",/"))
-            .flatMap { $0.components(separatedBy: " 아니면 ") }
-            .flatMap { $0.components(separatedBy: "랑 ") }
-            .flatMap { $0.components(separatedBy: "이랑 ") }
-            .flatMap { $0.components(separatedBy: "하고 ") }
-            .flatMap { $0.components(separatedBy: " 또는 ") }
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .map { word -> String in
-                var w = word
-                for suffix in ["이랑", "랑", "과", "와", "하고"] where w.hasSuffix(suffix) && w.count > suffix.count { w.removeLast(suffix.count); break }
-                return w
-            }
-            .filter { !$0.isEmpty && $0.count <= 20 }
+        // (긴 체인은 컴파일이 느려서 단계별로 나눔)
+        var pieces: [String] = body.components(separatedBy: CharacterSet(charactersIn: ",/"))
+        for separator in [" 아니면 ", "랑 ", "이랑 ", "하고 ", " 또는 "] {
+            var next: [String] = []
+            for piece in pieces { next.append(contentsOf: piece.components(separatedBy: separator)) }
+            pieces = next
+        }
+        var parts: [String] = []
+        for piece in pieces {
+            var w = piece.trimmingCharacters(in: .whitespacesAndNewlines)
+            for suffix in ["이랑", "랑", "과", "와", "하고"] where w.hasSuffix(suffix) && w.count > suffix.count { w.removeLast(suffix.count); break }
+            if !w.isEmpty && w.count <= 20 { parts.append(w) }
+        }
         return parts.count >= 2 ? parts : nil
     }
 

@@ -349,8 +349,8 @@ struct DoitAIView: View {
 /// 두잇 AI 아이콘: 테마 색 그라데이션 원 + 은은한 빛
 private struct AIOrb: View {
     var size: CGFloat
-    var symbol = "sparkles"
 
+    /// 두잇 AI 프로필 = 앱 아이콘(DOOIT 로고)을 둥글게
     var body: some View {
         ZStack {
             if size > 50 {
@@ -359,19 +359,16 @@ private struct AIOrb: View {
                     .frame(width: size * 1.4, height: size * 1.4)
                     .blur(radius: size * 0.2)
             }
-            Circle()
-                .fill(AngularGradient(colors: [Theme.accent, Theme.accent.opacity(0.55), Color.white.opacity(0.9), Theme.accent],
-                                      center: .center))
+            Image("AppLogo")
+                .resizable()
+                .scaledToFill()
                 .frame(width: size, height: size)
-            Circle()
-                .fill(LinearGradient(colors: [Color.white.opacity(0.45), .clear], startPoint: .top, endPoint: .center))
-                .frame(width: size, height: size)
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.42, weight: .bold))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                .clipShape(.circle)
+                .overlay(Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: max(1, size * 0.02)))
+                .shadow(color: .black.opacity(0.12), radius: size * 0.08, y: size * 0.03)
         }
         .frame(width: size, height: size)
+        .accessibilityLabel("두잇 AI")
     }
 }
 
