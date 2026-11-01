@@ -21,17 +21,31 @@ enum WordParser {
             }
         }
 
+        let texts = rows.map { row in row.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ") }
+        // 시중 단어장(표제어 + [발음] + 품사 + 뜻 + 예시 구·예문)은 품사 표시를 기준으로 읽음
+        let words = isBookPage(texts) ? parseBook(texts) : parseList(texts)
+        // 3) 같은 단어는 뜻을 합쳐서 하나로
+        var merged: [ParsedWord] = []
+        for word in words where !word.term.isEmpty {
+            if let i = merged.firstIndex(where: { $0.term.lowercased() == word.term.lowercased() }) {
+                if merged[i].meaning.isEmpty { merged[i].meaning = word.meaning }
+                else if !word.meaning.isEmpty && !merged[i].meaning.contains(word.meaning) { merged[i].meaning += ", " + word.meaning }
+            } else {
+                merged.append(word)
+            }
+        }
+        return merged
+    }
+
+    /// 단순한 단어 목록 ("apple 사과" 한 줄씩, 또는 뜻이 다음 줄)
+    static func parseList(_ texts: [String]) -> [ParsedWord] {
         // 2) 행마다 단어/뜻 분리
         var result: [ParsedWord] = []
         var pendingTerm: String?
         /// 바로 앞 줄이 예문이었으면, 다음 한글 줄은 그 예문의 해석이라 뜻에 붙이지 않음
         var afterExample = false
 
-        for row in rows {
-            let text = row
-                .sorted { $0.box.minX < $1.box.minX }
-                .map(\.text)
-                .joined(separator: " ")
+        for text in texts {
             // 예문(영어 문장)과 예문 해석은 단어·뜻이 아님
             if isExampleSentence(text) {
                 afterExample = true
@@ -70,10 +84,118 @@ enum WordParser {
         if let pending = pendingTerm {
             result.append(ParsedWord(term: pending, meaning: ""))
         }
+        return result.map { ParsedWord(term: $0.term, meaning: cleanMeaning($0.meaning)) }
+    }
 
-        // 3) 중복 제거
-        var seen = Set<String>()
-        return result.filter { seen.insert($0.term.lowercased()).inserted }
+    // MARK: - 시중 단어장 (품사 표시 기준)
+
+    /// 품사 표시: 명 동 형 부 전 접 대 감 (괄호·] 붙어도), n. v. adj. adv. …
+    static func isPOS(_ word: String) -> Bool {
+        word.range(of: #"^[\(\[]?(명|동|형|부|전|접|대|감|자|타)[\]\)\.:]?$"#, options: .regularExpression) != nil
+            || word.range(of: #"^\(?(n|v|vt|vi|a|adj|adv|ad|prep|conj|pron|int)\.\)?$"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
+    /// [발음]·(발음) (한글이 없는 괄호), 번호·쪽수, 낱자 자모 지우기
+    static func stripNoise(_ text: String) -> String {
+        var t = text
+        t = t.replacingOccurrences(of: #"[\[\(][^\]\)가-힣]{1,30}[\]\)]"#, with: " ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?<![A-Za-z가-힣])\d{1,4}(?![A-Za-z가-힣])"#, with: " ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?<![가-힣])[ㄱ-ㅎㅏ-ㅣ]+(?![가-힣])"#, with: " ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"[□■☐☑✓✔•…]+"#, with: " ", options: .regularExpression)
+        return t
+    }
+
+    static func isBookPage(_ texts: [String]) -> Bool {
+        let words = texts.flatMap { stripNoise($0).split(separator: " ").map(String.init) }
+        let pos = words.filter(isPOS).count
+        let brackets = texts.reduce(0) { $0 + $1.matches(of: #/\[[^\]가-힣]{2,}\]/#).count }
+        return pos >= 2 || brackets >= 2
+    }
+
+    private enum Piece { case english([String]), korean([String], pos: Bool), slash, lineBreak }
+
+    /// 품사 뒤의 뜻을 그 앞(또는 같은 줄 바로 뒤)의 영어 한 낱말에 붙임. 예시 구·예문·해석은 버림
+    static func parseBook(_ texts: [String]) -> [ParsedWord] {
+        // 1) 글을 영어 덩어리 / 한글 덩어리(품사로 시작하면 품사 덩어리) / 줄바꿈·"/" 으로 나눔
+        var pieces: [Piece] = []
+        func push(_ word: String) {
+            let hasHangul = word.range(of: "[가-힣]", options: .regularExpression) != nil
+            let hasLatin = word.range(of: "[A-Za-z]", options: .regularExpression) != nil
+            if isPOS(word) {
+                pieces.append(.korean([word], pos: true))
+            } else if hasHangul {
+                if case .korean(let words, let pos)? = pieces.last { pieces[pieces.count - 1] = .korean(words + [word], pos: pos) }
+                else { pieces.append(.korean([word], pos: false)) }
+            } else if hasLatin {
+                if case .english(let words)? = pieces.last { pieces[pieces.count - 1] = .english(words + [word]) }
+                else { pieces.append(.english([word])) }
+            } else if case .korean(let words, let pos)? = pieces.last {
+                // 기호(~, 쉼표 등)는 앞의 뜻에 붙임
+                pieces[pieces.count - 1] = .korean(words + [word], pos: pos)
+            }
+        }
+        for text in texts {
+            for raw in stripNoise(text).components(separatedBy: " ") where !raw.isEmpty {
+                if raw == "/" { pieces.append(.slash); continue }
+                push(raw)
+            }
+            pieces.append(.lineBreak)
+        }
+
+        // 2) 품사 덩어리마다 표제어 찾기
+        var result: [ParsedWord] = []
+        var used = Set<Int>()
+        var lastOwner: (index: Int, piece: Int)?
+        for (i, piece) in pieces.enumerated() {
+            guard case .korean(let words, true) = piece else { continue }
+            let meaning = cleanMeaning(words.joined(separator: " "))
+            // 바로 앞이 같은 단어의 다른 품사면 이어 붙임 ("instant 형 즉각적인 명 순간")
+            if let owner = lastOwner, owner.piece == i - 1 {
+                result[owner.index].meaning += ", " + meaning
+                lastOwner = (owner.index, i)
+                continue
+            }
+            var owner: Int?
+            // 앞 칸의 영어 한 낱말 (표제어만 한 줄에 따로 있으면 줄바꿈 하나 건너서)
+            let back: Int? = {
+                if i > 0, case .english = pieces[i - 1] { return i - 1 }
+                if i > 1, case .lineBreak = pieces[i - 1], case .english = pieces[i - 2] { return i - 2 }
+                return nil
+            }()
+            if let back, case .english(let before) = pieces[back], before.count == 1, !used.contains(back) {
+                owner = back
+            } else if i + 1 < pieces.count, case .english(let after) = pieces[i + 1], after.count == 1, !used.contains(i + 1) {
+                // 같은 줄 바로 뒤의 낱말 ("명 대륙 continent"), 단 그 낱말 뒤에 자기 품사가 바로 오면 다음 단어의 것
+                let nextIsPOS: Bool = { if i + 2 < pieces.count, case .korean(_, true) = pieces[i + 2] { return true }; return false }()
+                if !nextIsPOS { owner = i + 1 }
+            }
+            guard let owner, case .english(let termWords) = pieces[owner] else { lastOwner = nil; continue }
+            let term = cleanTerm(termWords.joined(separator: " "))
+            guard !term.isEmpty else { continue }
+            used.insert(owner)
+            result.append(ParsedWord(term: term, meaning: meaning))
+            lastOwner = (result.count - 1, i)
+        }
+        // 3) 품사 표시 없이 "영어 한 낱말 + 뜻"만 있는 줄도 단어로 (예시 구·예문은 여러 낱말이라 빠짐)
+        for (i, piece) in pieces.enumerated() where !used.contains(i) {
+            guard case .english(let words) = piece, words.count == 1, i + 1 < pieces.count,
+                  case .korean(let meaningWords, false) = pieces[i + 1] else { continue }
+            let meaning = cleanMeaning(meaningWords.joined(separator: " "))
+            let term = cleanTerm(words[0])
+            if !term.isEmpty, !meaning.isEmpty, !looksLikeKoreanSentence(meaning) { result.append(ParsedWord(term: term, meaning: meaning)) }
+        }
+        return result
+    }
+
+    /// 뜻 정리: 발음·번호 지우기, 예문 해석 같은 문장 조각 빼기, 끝의 영어 낱말 떼기
+    static func cleanMeaning(_ raw: String) -> String {
+        var t = stripExample(from: stripNoise(raw))
+        t = t.replacingOccurrences(of: #"\s+[A-Za-z][A-Za-z\-']*\s*$"#, with: "", options: .regularExpression)
+        let parts = t.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !looksLikeKoreanSentence($0) }
+        t = parts.joined(separator: ", ")
+        t = t.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+        return t.trimmingCharacters(in: CharacterSet(charactersIn: " ,/"))
     }
 
     /// "1. apple n. 사과, 능금" → ("apple", "n. 사과, 능금")

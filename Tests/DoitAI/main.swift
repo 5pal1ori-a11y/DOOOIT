@@ -249,6 +249,35 @@ func runWordParser() {
           && words.first { $0.term == "abundant" }?.meaning == "adj. 풍부한"
           && words.first { $0.term == "give up" }?.meaning == "포기하다, 그만두다", "\(words.map { "\($0.term)=\($0.meaning)" })")
     check("단어장: 세로형(뜻이 다음 줄)", words.first { $0.term == "resilient" }?.meaning == "회복력 있는")
+    // 시중 단어장 (사진 속 화면처럼: 예시 구 + 해석 + [발음] + 품사 뜻 + 표제어, 파생어, 쪽수)
+    let book = page([
+        "throughout the whole continent 전 대륙 전역에서",
+        "(kántənənt] 명 대륙 continent",
+        "in an instant 곧, 당장, 즉시 / instantly 부 즉각, 즉시",
+        "instant rewards 즉각적인 보상",
+        "바로 그 순간에 불이 꺼졌다.",
+        "instant [ínstənt] 형 즉각적인 명 순간",
+        "employee 명 종업원, 직원 / employer 명 고용주",
+        "employ a new method 새로운 방법을 이용하다",
+        "employ [implɔ́i] 동 고용하다, 이용하다",
+        "involve 동] 참여하다, 관여하다 / involving (형 ~을 포함하는",
+        "without human involvement 인간의 개입 없이",
+        "[invɑ́lvmənt] ㄱ, 명 참여, 관여 involvement",
+        "an arrogant attitude 오만한 태도",
+        "[ǽrəgənt] 형 오만한 arrogant 272",
+        "a best-selling author 베스트셀러 작가",
+        "[5:0or] 명 작가, 저자 author"
+    ])
+    let bookTerms = book.map(\.term)
+    check("단어장(책): 표제어만", Set(bookTerms) == ["continent", "instantly", "instant", "employee", "employer", "employ", "involve", "involving", "involvement", "arrogant", "author"], "\(bookTerms)")
+    func meaning(_ t: String) -> String { book.first { $0.term == t }?.meaning ?? "-" }
+    check("단어장(책): 뜻에 발음·쪽수·예문 없음", meaning("continent") == "명 대륙" && meaning("arrogant") == "형 오만한" && meaning("author") == "명 작가, 저자"
+          && meaning("instant") == "형 즉각적인, 명 순간" && meaning("involvement") == "명 참여, 관여" && meaning("employ") == "동 고용하다, 이용하다",
+          "\(book.map { "\($0.term)=\($0.meaning)" })")
+    let usual = page(["continent [kántənənt] 명 대륙", "throughout the whole continent 전 대륙 전역에서", "author", "[ɔ́:θər] 명 작가, 저자", "a best-selling author 베스트셀러 작가"])
+    check("단어장(책): 흔한 배치·표제어만 한 줄", usual.map(\.term) == ["continent", "author"] && usual.first?.meaning == "명 대륙" && usual.last?.meaning == "명 작가, 저자",
+          "\(usual.map { "\($0.term)=\($0.meaning)" })")
+    check("단어장(책): 예시 구는 단어가 아님", !bookTerms.contains { $0.contains(" ") })
     check("예문 판별", WordParser.isExampleSentence("He has been to Paris.") && !WordParser.isExampleSentence("take care of") && !WordParser.isExampleSentence("Take care of"))
 }
 
