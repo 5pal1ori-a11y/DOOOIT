@@ -2904,3 +2904,13 @@ private enum EngQuiz {
         }
     }
 }
+
+// MARK: - 두잇 AI 지식 검색용
+
+extension DoitEnglish {
+    /// 문법 노트와 숙어 전체 (이름들, 설명)
+    static var knowledgeEntries: [(names: [String], body: String)] {
+        EngGrammar.topics.map { ([$0.title] + $0.keywords, $0.body) }
+            + EngIdioms.idioms.map { ([$0.display, $0.key], "\($0.display): \($0.meaning)\n예문: \($0.example) — \($0.exampleKo)" + ($0.note.isEmpty ? "" : "\n주의: \($0.note)")) }
+    }
+}

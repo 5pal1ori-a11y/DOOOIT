@@ -206,11 +206,6 @@ struct WorkCheckCard: View {
         note.workCheckData = try? JSONEncoder().encode(result)
         try? context.save()
         if result.allGood { Haptics.success() } else { Haptics.error() }
-        // 틀린 줄이 있으면 Apple Intelligence가 쉬운 말로 한 번 더 설명 (지원 기기에서만)
-        if let index = result.firstWrongIndex, DoitAppleAI.isAvailable {
-            explanation = try? await DoitAppleAI.explainMistake(problem: note.recognizedText, lines: result.lines.map(\.text),
-                                                               wrongIndex: index, correctAnswer: result.correctAnswer)
-        }
     }
 }
 
@@ -243,22 +238,6 @@ private struct ReportView: View {
                     row(index: index, line: line, isLast: index == report.lines.count - 1)
                         .appearAnimation(delay: Double(index) * 0.06)
                 }
-            }
-
-            if let explanation, !explanation.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("Apple Intelligence 설명", systemImage: "apple.intelligence")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Theme.accent)
-                    Text(explanation)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.ink)
-                    Text(DoitAppleAI.caution).font(.caption2).foregroundStyle(.tertiary)
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
-                .transition(.opacity)
             }
 
             ForEach(report.tips, id: \.self) { tip in

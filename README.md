@@ -21,23 +21,25 @@ SwiftUI + SwiftData로 만든 iOS 공부 플래너 앱입니다. 화면은 iOS 2
 
 ## 두잇 AI 안내
 
-두잇 AI는 **두잇 AI 엔진(직접 만든 규칙형)** 과 **기기 안 Apple Intelligence** 를 함께 써요. (`DOOOIT/Services/DoitAI/`)
-
-- **두잇 AI 엔진이 먼저**: 앱 기능 실행, 수학 계산·풀이, 영어·과학·사회 내장 지식, 퀴즈처럼 정확해야 하는 일
-- **Apple Intelligence가 이어서**: 엔진이 알아듣지 못한 자유 대화와 질문, "더 자세히", 엔진에 없는 단원의 개념·빈칸·O/X·문제, 두잇 AI가 못 푸는 유형의 풀이·비슷한 문제
-- Apple Intelligence는 아이폰 15 Pro 이상에서 설정 > Apple Intelligence 및 Siri를 켜야 동작해요. 지원하지 않으면 두잇 AI 엔진만으로 동작해요.
-- 대화는 휴대폰 밖으로 나가지 않아요. 인터넷은 영어 단어 사전(Free Dictionary API)에만 써요. (위키백과 검색은 뺐어요)
+두잇 AI는 **외부 AI·서버 없이 앱 안에서 직접 만든 엔진**으로 동작해요. 대화와 사진은 휴대폰 밖으로 나가지 않아요. (인터넷은 영어 단어 사전에만 써요)
 
 | 엔진 | 파일 | 하는 일 |
 |---|---|---|
-| 대화·명령 | `DoitEngine`, `DoitAssistant` | 문장을 분석해서 플랜·타이머·단어·메모·목표·기록·화면 이동을 실행하고, 공부 질문은 아래 엔진으로 넘겨요. 퀴즈 진행(출제·채점·힌트·점수)과 이어 말하기 |
-| Apple Intelligence | `DoitAppleAI` | 기기 안 모델과의 대화(이전 대화 기억), 가이드 생성으로 학습 자료 만들기 |
-| 일상 대화 | `DoitChat` | 인사, 감정 공감, 공부 의욕·집중·암기법·과목별 공부법·시험 계획, 시간·날짜, 농담·명언. 위기 신호에는 109, 1388 안내 |
-| 수학 | `DoitMath`, `DoitAlgebra`, `DoitMathTopics`, `DoitMathProblems`, `DoitMathConcepts` | 방정식·부등식(고차·연립·절댓값), 인수분해, 이차함수, 미분·적분, 함수, 복소수, 경우의 수, 통계, 좌표·도형, 수열, 집합, 삼각함수·로그. 공통수학1·2 모든 단원의 개념 정리와 문제 생성 |
-| 영어 | `DoitEnglish` | 문법 개념, 동사 변화·복수형·비교급, 문법 검사, 숙어, 내장 단어 뜻 + 영어 사전 |
-| 과학 | `DoitScience` | 공식 계산, 원소·전자 배치, 화학식량, 단위 변환, 개념 사전 |
-| 사회 | `DoitSocial` | 한국사·세계사 연표, 역대 대통령, 세계 수도, 개념 사전 |
-| 학습 자료 | `DoitTutor` | AI 학습·AI에게 질문하기·오답노트 풀이: 엔진 먼저, 없으면 Apple Intelligence |
+| 대화·명령 | `DoitAI/DoitEngine`, `DoitAssistant` | 문장을 분석해서 플랜·타이머·단어·메모·목표·기록을 실행하고, 공부 질문은 아래 엔진으로 보내요. 퀴즈 진행, 이어 말하기, 사진 처리 |
+| 자유 대화 | `DoitAI/DoitConversation`, `DoitChat` | 일상 대화, 감정 공감, 공부 상담, 이름 기억, 날짜 계산·남은 날·나이·주사위·골라주기·메뉴 추천·글자 수 |
+| 지식 검색 | `DoitAI/DoitKnowledge` | 수학·과학·사회·영어 개념 사전 전체에서 비슷한 말로 찾기 (예: "물체가 원래 상태를 유지하려는 성질" → 관성) |
+| 수학 | `DoitMath`, `DoitAlgebra`, `DoitMathTopics`, `DoitMathProblems`, `DoitMathConcepts`, `DoitWorkChecker` | 방정식·부등식·인수분해·함수·미적분·경우의 수·통계·도형·수열 풀이, 공통수학1·2 문제 생성, 풀이 과정 채점 |
+| 영어 · 과학 · 사회 | `DoitEnglish`, `DoitScience`, `DoitSocial` | 문법·동사 변화·문장 검사·숙어·단어 / 공식 계산·원소·화학식량·단위 / 연표·수도·개념 |
+| 사진 | `OCRService`, `MathOCRFixer`, `VisionAnalyzer`, `VisionCore/*` | 문제 글자 인식(두 번 읽어 수식 보정, 떨어진 지수 붙이기), 그래프 식 찾기(일차·이차·삼차·원), 도형 판별과 넓이·빗변 계산, 사진 속 사물·QR·문서 |
+
+### 테스트
+
+```bash
+./Tests/DoitAI/run.sh        # 두잇 AI 엔진 (대화·수학·채점·글자 교정·지식 검색)
+bash Tests/VisionCore/run.sh # 그래프·도형 인식
+```
+
+Swift가 없으면 Docker(swift:6.1)로 실행돼요. iOS 전용 부분은 `Tests/DoitAI/Support/Stubs.swift`의 가짜로 바꿔서 엔진만 검사해요.
 
 ## 앱 잠금 켜기 (공부 플랜의 "다른 앱 잠금")
 

@@ -289,7 +289,17 @@ struct AccountView: View {
         try? context.delete(model: AIQuestion.self)
         try? context.save()
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        UNUserNotificationCenter.current().removeAllDeliveredNotifications()
         LiveActivityManager.shared.endAll()
+        // 앱 잠금(스크린 타임) 해제와 예약된 잠금 일정 정리
+        AppLockManager.shared.endLock(planKey: nil)
+        AppLockManager.shared.scheduleLocks(for: [])
+        // 개인 설정(D-Day 등)과 대화 기록, 위젯 정보도 지움
+        for key in [SettingsKey.dDayTitle, SettingsKey.dDayDate, SettingsKey.wordGoalDoneKey, "selectedTab"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        DoitAssistant.shared.reset()
+        WidgetSync.update(context: context)
         auth.deleteAccount()
     }
 }

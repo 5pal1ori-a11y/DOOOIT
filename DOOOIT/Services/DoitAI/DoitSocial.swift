@@ -608,3 +608,10 @@ enum DoitSocial {
         SocConcept(names: ["공리주의"], body: "'최대 다수의 최대 행복'을 도덕의 기준으로 삼는 사상이에요(벤담, 밀). 행위의 결과로 생기는 행복(쾌락)의 양을 중요하게 여겨요.\n소수의 권리가 무시될 수 있다는 비판을 받아요.")
     ]
 }
+
+// MARK: - 두잇 AI 지식 검색용
+
+extension DoitSocial {
+    /// 개념 사전 전체 (이름들, 설명)
+    static var knowledgeEntries: [(names: [String], body: String)] { concepts.map { ($0.names, $0.body) } }
+}

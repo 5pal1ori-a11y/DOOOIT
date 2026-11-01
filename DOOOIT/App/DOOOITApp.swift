@@ -12,13 +12,33 @@ struct DOOOITApp: App {
     let container: ModelContainer
 
     init() {
+        container = Self.makeContainer()
+    }
+
+    /// 저장소 열기. 열 수 없으면 (예: 업데이트 뒤 형식이 맞지 않음) 앱이 매번 꺼지지 않도록
+    /// 기존 파일을 지우지 않고 옆에 백업해 둔 뒤 새 저장소로 시작함
+    private static func makeContainer() -> ModelContainer {
+        let schema = Schema([
+            Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self,
+            ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self
+        ])
         do {
-            container = try ModelContainer(
-                for: Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self,
-                ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self
-            )
+            return try ModelContainer(for: schema)
         } catch {
-            fatalError("데이터 저장소를 열 수 없어요: \(error)")
+            let support = URL.applicationSupportDirectory
+            let stamp = Int(Date().timeIntervalSince1970)
+            for name in ["default.store", "default.store-shm", "default.store-wal"] {
+                let url = support.appending(path: name)
+                if FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) {
+                    try? FileManager.default.moveItem(at: url, to: support.appending(path: "\(name).backup-\(stamp)"))
+                }
+            }
+            if let fresh = try? ModelContainer(for: schema) { return fresh }
+            do {
+                return try ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+            } catch {
+                fatalError("데이터 저장소를 열 수 없어요: \(error)")
+            }
         }
     }
 

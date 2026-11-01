@@ -1419,3 +1419,10 @@ enum DoitScience {
         SciConcept(names: ["달의 위상", "달의 모양"], body: "달이 지구 둘레를 공전하면서 햇빛을 받는 부분이 우리에게 보이는 모양이 바뀌는 현상이에요. 약 한 달(29.5일) 주기로 삭 → 초승달 → 상현달 → 보름달(망) → 하현달 → 그믐달 순서로 변해요.\n일식은 삭일 때, 월식은 망일 때 일어날 수 있어요.")
     ]
 }
+
+// MARK: - 두잇 AI 지식 검색용
+
+extension DoitScience {
+    /// 개념 사전 전체 (이름들, 설명)
+    static var knowledgeEntries: [(names: [String], body: String)] { concepts.map { ($0.names, $0.body) } }
+}

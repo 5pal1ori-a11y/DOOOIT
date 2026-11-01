@@ -95,7 +95,7 @@ struct AskAIComposer: View {
                     }
                     .buttonStyle(.borderless)
                 } footer: {
-                    Text("사진 속 글자를 읽어서 두잇 AI와 Apple Intelligence가 답해요. AI 답은 틀릴 수 있어요.")
+                    Text("사진 속 문제·글자·그래프를 두잇 AI가 읽고 답해요. AI 답은 틀릴 수 있어요.")
                 }
             }
             .navigationTitle("새 질문")

@@ -6,6 +6,15 @@ on:
     tags:
       - "v*"
 
+# 저장소 읽기 권한만 (토큰으로 코드를 바꾸거나 릴리스를 만들 수 없게)
+permissions:
+  contents: read
+
+# 동시에 두 빌드가 돌면 서로가 만든 서명 인증서를 폐기할 수 있어서 한 번에 하나씩
+concurrency:
+  group: testflight
+  cancel-in-progress: false
+
 jobs:
   upload:
     runs-on: macos-26
@@ -13,12 +22,13 @@ jobs:
     env:
       ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-      ASC_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Check secrets
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
           missing=0
           for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_CONTENT TEAM_ID; do
@@ -38,7 +48,10 @@ jobs:
           xcodebuild -version
 
       - name: Write App Store Connect API key
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
+          umask 077
           mkdir -p "$RUNNER_TEMP/keys"
           KEY_FILE="$RUNNER_TEMP/keys/AuthKey_${ASC_KEY_ID}.p8"
           # 붙여넣기 형태가 달라도 올바른 .p8(PEM)로 정리 (키 값은 로그에 출력하지 않음)
@@ -163,3 +176,9 @@ jobs:
         run: |
           [ -f "$ASC_KEY_FILE" ] || exit 0
           python3 .github/scripts/asc_certs.py cleanup "$RUNNER_TEMP/certs-before.json"
+
+      # 개인 키 파일과 빌드 로그를 지움 (러너는 매번 새것이지만 남겨둘 이유가 없음)
+      - name: Remove signing key
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP/archive.log" "$RUNNER_TEMP/export.log"

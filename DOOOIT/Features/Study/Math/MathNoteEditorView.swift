@@ -370,7 +370,7 @@ struct MathNoteEditorView: View {
                         Button {
                             Task { await recognize(problemImage) }
                         } label: {
-                            Label(DoitAppleAI.isAvailable ? "다시 읽기 (Apple Intelligence로 다듬기)" : "다시 읽기", systemImage: "text.viewfinder")
+                            Label("다시 읽기 (꼼꼼하게)", systemImage: "text.viewfinder")
                         }
                     }
                     if let image {
@@ -480,7 +480,7 @@ struct MathNoteEditorView: View {
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
         let result = await OCRService.readMathProblem(problem)
         apply(result.text, message: result.text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요."
-              : result.usedAI ? "인쇄된 글자를 읽고 Apple Intelligence가 수식을 다듬었어요. 틀린 곳은 \"고치기\"로 바꿔주세요."
+              : result.improved ? "여러 방법으로 읽어서 수식이 가장 자연스러운 결과를 골랐어요. 틀린 곳은 \"고치기\"로 바꿔주세요."
               : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
     }
 

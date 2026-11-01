@@ -1,7 +1,7 @@
 import Foundation
 
 /// 두잇 AI 수학 개념 정리 (교과서 핵심을 직접 정리, 인터넷 없이 동작)
-/// AI 학습의 '개념' 단계에서 Apple Intelligence보다 먼저 씀
+/// AI 학습의 "개념" 단계에서 씀
 enum DoitMathConcepts {
     private struct Entry {
         let keys: [String]
@@ -207,4 +207,12 @@ enum DoitMathConcepts {
             "독립: P(A ∩ B) = P(A)P(B)"
         ])
     ]
+}
+
+// MARK: - 두잇 AI 지식 검색용
+
+extension DoitMathConcepts {
+    static var knowledgeEntries: [(names: [String], body: String)] {
+        entries.map { ([$0.title] + $0.keys, $0.points.map { "• " + $0 }.joined(separator: "\n")) }
+    }
 }

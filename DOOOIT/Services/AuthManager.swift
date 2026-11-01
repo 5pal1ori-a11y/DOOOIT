@@ -1,4 +1,5 @@
 import AuthenticationServices
+import CommonCrypto
 import CryptoKit
 import Foundation
 import Observation
@@ -26,6 +27,7 @@ enum AuthError: LocalizedError {
     case passwordMismatch
     case emailExists
     case wrongCredentials
+    case locked(Int)
     case apple(String)
 
     var errorDescription: String? {
@@ -36,6 +38,9 @@ enum AuthError: LocalizedError {
         case .passwordMismatch: return "비밀번호가 서로 달라요."
         case .emailExists: return "이미 가입된 이메일이에요. 로그인해주세요."
         case .wrongCredentials: return "이메일 또는 비밀번호가 올바르지 않아요."
+        case .locked(let seconds):
+            return seconds >= 60 ? "로그인 시도가 너무 많아요. \((seconds + 59) / 60)분 뒤에 다시 시도해주세요."
+                                 : "로그인 시도가 너무 많아요. \(seconds)초 뒤에 다시 시도해주세요."
         case .apple(let message): return "Apple 로그인에 실패했어요. \(message)"
         }
     }
@@ -51,6 +56,11 @@ final class AuthManager {
 
     private let currentUserKey = "dooit.currentUser"
     private let emailAccountsKey = "dooit.emailAccounts"
+    private let failureKey = "dooit.auth.failures"
+
+    /// 비밀번호 해시 방식: 1 = SHA256(salt+비밀번호) 한 번 (예전), 2 = PBKDF2-HMAC-SHA256 반복
+    private static let currentHashVersion = 2
+    private static let pbkdf2Rounds: UInt32 = 120_000
 
     private struct StoredAccount: Codable {
         var id: String
@@ -58,6 +68,14 @@ final class AuthManager {
         var salt: String
         var hash: String
         var createdAt: Date
+        /// nil이면 예전 방식(1). 로그인에 성공하면 새 방식으로 바꿔 저장
+        var version: Int?
+    }
+
+    /// 로그인 실패 기록 (연속 실패하면 잠깐 잠금)
+    private struct Failures: Codable {
+        var count = 0
+        var lockedUntil: Date?
     }
 
     private struct AppleProfile: Codable {
@@ -66,10 +84,16 @@ final class AuthManager {
     }
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: currentUserKey),
+        // 로그인 정보(이름·이메일)는 Keychain에 보관. 예전 버전이 UserDefaults에 둔 값은 옮기고 지움
+        if let data = Keychain.get(currentUserKey),
            let user = try? JSONDecoder().decode(UserAccount.self, from: data) {
             currentUser = user
+        } else if let data = UserDefaults.standard.data(forKey: currentUserKey),
+                  let user = try? JSONDecoder().decode(UserAccount.self, from: data) {
+            currentUser = user
+            Keychain.set(data, for: currentUserKey)
         }
+        UserDefaults.standard.removeObject(forKey: currentUserKey)
     }
 
     // MARK: Apple
@@ -109,7 +133,8 @@ final class AuthManager {
                 continuation.resume(returning: state)
             }
         }
-        if state == .revoked {
+        // 연결 해제(revoked) 또는 Apple ID에서 찾을 수 없음(notFound) → 로그아웃
+        if state == .revoked || state == .notFound {
             signOut()
         }
     }
@@ -121,15 +146,15 @@ final class AuthManager {
         let email = email.trimmingCharacters(in: .whitespaces).lowercased()
         guard !name.isEmpty else { throw AuthError.invalidName }
         guard Self.isValidEmail(email) else { throw AuthError.invalidEmail }
-        guard password.count >= 8 else { throw AuthError.weakPassword }
+        guard password.count >= 8, password.count <= 256 else { throw AuthError.weakPassword }
         guard password == confirm else { throw AuthError.passwordMismatch }
 
         var accounts = loadAccounts()
         guard accounts[email] == nil else { throw AuthError.emailExists }
 
-        let salt = UUID().uuidString
+        let salt = Self.randomSalt()
         let account = StoredAccount(id: UUID().uuidString, name: name, salt: salt,
-                                    hash: Self.hash(password, salt: salt), createdAt: Date())
+                                    hash: Self.pbkdf2(password, salt: salt), createdAt: Date(), version: Self.currentHashVersion)
         accounts[email] = account
         saveAccounts(accounts)
         setUser(UserAccount(id: account.id, name: name, email: email, provider: .email, createdAt: account.createdAt))
@@ -138,9 +163,33 @@ final class AuthManager {
     func signIn(email: String, password: String) throws {
         let email = email.trimmingCharacters(in: .whitespaces).lowercased()
         guard Self.isValidEmail(email) else { throw AuthError.invalidEmail }
-        guard let account = loadAccounts()[email],
-              account.hash == Self.hash(password, salt: account.salt) else {
+
+        // 연속 실패로 잠긴 상태인지
+        var failures = loadFailures()
+        if let until = failures.lockedUntil, until > Date() {
+            throw AuthError.locked(Int(until.timeIntervalSinceNow.rounded(.up)))
+        }
+
+        var accounts = loadAccounts()
+        guard var account = accounts[email], Self.verify(password, account: account) else {
+            // 5번 넘게 틀리면 30초부터 두 배씩 (최대 15분) 잠금
+            failures.count += 1
+            if failures.count >= 5 {
+                let seconds = min(30.0 * pow(2.0, Double(failures.count - 5)), 900)
+                failures.lockedUntil = Date().addingTimeInterval(seconds)
+            }
+            saveFailures(failures)
             throw AuthError.wrongCredentials
+        }
+        saveFailures(Failures())
+
+        // 예전 방식으로 저장된 비밀번호는 새 방식으로 다시 저장
+        if (account.version ?? 1) < Self.currentHashVersion {
+            account.salt = Self.randomSalt()
+            account.hash = Self.pbkdf2(password, salt: account.salt)
+            account.version = Self.currentHashVersion
+            accounts[email] = account
+            saveAccounts(accounts)
         }
         setUser(UserAccount(id: account.id, name: account.name, email: email, provider: .email, createdAt: account.createdAt))
     }
@@ -171,6 +220,7 @@ final class AuthManager {
 
     func signOut() {
         currentUser = nil
+        Keychain.delete(currentUserKey)
         UserDefaults.standard.removeObject(forKey: currentUserKey)
     }
 
@@ -184,6 +234,9 @@ final class AuthManager {
         case .apple:
             Keychain.delete("apple.\(user.id)")
         }
+        // 예전 버전이 남긴 크레딧 기록도 지움
+        Keychain.delete("dooit.credits.v1")
+        Keychain.delete(failureKey)
         signOut()
     }
 
@@ -192,7 +245,19 @@ final class AuthManager {
     private func setUser(_ user: UserAccount) {
         currentUser = user
         if let data = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(data, forKey: currentUserKey)
+            Keychain.set(data, for: currentUserKey)
+        }
+    }
+
+    private func loadFailures() -> Failures {
+        Keychain.get(failureKey).flatMap { try? JSONDecoder().decode(Failures.self, from: $0) } ?? Failures()
+    }
+
+    private func saveFailures(_ failures: Failures) {
+        if failures.count == 0 && failures.lockedUntil == nil {
+            Keychain.delete(failureKey)
+        } else if let data = try? JSONEncoder().encode(failures) {
+            Keychain.set(data, for: failureKey)
         }
     }
 
@@ -208,9 +273,57 @@ final class AuthManager {
         }
     }
 
-    private static func hash(_ password: String, salt: String) -> String {
+    /// 예전 방식 (버전 1): SHA256(salt + 비밀번호) — 기존 계정 확인용으로만 사용
+    private static func legacyHash(_ password: String, salt: String) -> String {
         let digest = SHA256.hash(data: Data((salt + password).utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// 새 방식 (버전 2): PBKDF2-HMAC-SHA256, 12만 번 반복, 32바이트
+    private static func pbkdf2(_ password: String, salt: String) -> String {
+        let passwordData = Array(password.utf8)
+        let saltData = Array(salt.utf8)
+        var derived = [UInt8](repeating: 0, count: 32)
+        let status = passwordData.withUnsafeBufferPointer { passwordBuffer in
+            saltData.withUnsafeBufferPointer { saltBuffer in
+                CCKeyDerivationPBKDF(
+                    CCPBKDFAlgorithm(kCCPBKDF2),
+                    passwordBuffer.baseAddress.map { UnsafeRawPointer($0).assumingMemoryBound(to: CChar.self) },
+                    passwordData.count,
+                    saltBuffer.baseAddress,
+                    saltData.count,
+                    CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                    pbkdf2Rounds,
+                    &derived,
+                    derived.count
+                )
+            }
+        }
+        guard status == Int32(kCCSuccess) else { return legacyHash(password, salt: salt) }
+        return derived.map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func verify(_ password: String, account: StoredAccount) -> Bool {
+        let expected = (account.version ?? 1) >= 2 ? pbkdf2(password, salt: account.salt) : legacyHash(password, salt: account.salt)
+        return constantTimeEqual(expected, account.hash)
+    }
+
+    /// 글자 수가 같으면 끝까지 비교 (어디서 달라지는지 시간으로 알 수 없게)
+    private static func constantTimeEqual(_ a: String, _ b: String) -> Bool {
+        let x = Array(a.utf8), y = Array(b.utf8)
+        guard x.count == y.count else { return false }
+        var difference: UInt8 = 0
+        for i in 0..<x.count { difference |= x[i] ^ y[i] }
+        return difference == 0
+    }
+
+    /// 무작위 16바이트 소금값 (hex)
+    private static func randomSalt() -> String {
+        var bytes = [UInt8](repeating: 0, count: 16)
+        if SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) != errSecSuccess {
+            return UUID().uuidString
+        }
+        return bytes.map { String(format: "%02x", $0) }.joined()
     }
 
     static func isValidEmail(_ email: String) -> Bool {
@@ -236,7 +349,8 @@ enum Keychain {
         SecItemDelete(query as CFDictionary)
         var attributes = query
         attributes[kSecValueData as String] = data
-        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        // 이 기기에서만, 처음 잠금 해제 뒤에 읽을 수 있음 (백업으로 다른 기기에 옮겨지지 않음)
+        attributes[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(attributes as CFDictionary, nil)
     }
 

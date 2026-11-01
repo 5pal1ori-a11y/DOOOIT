@@ -7,7 +7,6 @@ struct WeeklyReportView: View {
     @Environment(\.modelContext) private var context
     @State private var report: WeeklyReport?
     @State private var aiComment: String?
-    @State private var loadingComment = false
     @State private var addedPlans = false
     @State private var chartShown = false
 
@@ -18,7 +17,7 @@ struct WeeklyReportView: View {
                     hero(report).appearAnimation(delay: 0)
                     dailyChart(report).appearAnimation(delay: 0.05)
                     if !report.highlights.isEmpty { highlights(report).appearAnimation(delay: 0.1) }
-                    if DoitAppleAI.isAvailable { aiCard.appearAnimation(delay: 0.12) }
+                    aiCard.appearAnimation(delay: 0.12)
                     numbers(report).appearAnimation(delay: 0.15)
                     if !report.subjects.isEmpty { subjects(report).appearAnimation(delay: 0.2) }
                     if !report.weakUnits.isEmpty || !report.strongUnits.isEmpty { units(report).appearAnimation(delay: 0.25) }
@@ -135,41 +134,38 @@ struct WeeklyReportView: View {
         .softCard()
     }
 
-    // MARK: Apple Intelligence 한마디
+    // MARK: 두잇 AI 한마디
 
     private var aiCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Apple Intelligence 한마디", systemImage: "apple.intelligence")
+            Label("두잇 AI 한마디", systemImage: "sparkles")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(Theme.accent)
-            if let aiComment {
-                Text(aiComment)
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.ink)
-                    .transition(.opacity)
-            } else if loadingComment {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("한 주를 돌아보는 중…").font(.caption).foregroundStyle(.secondary)
-                }
-            } else {
-                Text("이번 주 기록을 바탕으로 한마디를 만들지 못했어요.").font(.caption).foregroundStyle(.secondary)
-            }
+            Text(aiComment ?? "")
+                .font(.subheadline)
+                .foregroundStyle(Palette.ink)
         }
         .softCard()
     }
 
+    /// 기록을 보고 직접 만드는 한마디: 잘한 점 하나 + 다음 주에 가장 중요한 한 가지
     private func loadComment(_ r: WeeklyReport) async {
-        guard DoitAppleAI.isAvailable else { return }
-        loadingComment = true
-        defer { loadingComment = false }
-        let prompt = """
-            다음은 고등학생의 이번 주 공부 기록이야. 잘한 점을 먼저 칭찬하고, 다음 주에 가장 중요한 한 가지를 구체적으로 제안해줘. 3문장 이내.
-            \(r.summaryText.replacingOccurrences(of: "**", with: ""))
-            """
-        if let text = try? await DoitAppleAI.answer(prompt) {
-            withAnimation(Motion.spring) { aiComment = text }
+        var parts: [String] = []
+        if let highlight = r.highlights.first {
+            parts.append("\(highlight). 정말 잘했어요!")
+        } else {
+            parts.append("이번 주는 조금 쉬어 갔네요. 괜찮아요, 다시 시작하면 돼요.")
         }
+        if let weak = r.weakUnits.first {
+            parts.append("다음 주에는 '\(weak.unit)'을(를) 집중해서 보완해 봐요. 개념을 다시 보고 문제를 5개만 풀어도 확 달라져요.")
+        } else if r.studyDays < 5 {
+            parts.append("다음 주 목표는 '매일 조금씩'이에요. 하루 30분이라도 빠지지 않고 해봐요.")
+        } else if r.goalDays < r.studyDays {
+            parts.append("공부 습관이 잘 잡혔어요. 이제 하루 목표 시간을 채우는 날을 하나씩 늘려봐요.")
+        } else {
+            parts.append("지금 페이스 그대로 가면 돼요. 다음 주엔 오답노트를 한 번 정리해 봐요.")
+        }
+        withAnimation(Motion.spring) { aiComment = parts.joined(separator: " ") }
     }
 
     // MARK: 숫자 요약

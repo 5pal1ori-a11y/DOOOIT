@@ -1,9 +1,8 @@
 import Observation
 import UIKit
 
-/// 두잇 AI 대화: 두잇 AI 엔진(직접 만든 규칙형) + Apple Intelligence(기기 안 모델) 병행
-/// - 앱 기능 실행, 수학 풀이, 내장 지식, 퀴즈는 두잇 AI 엔진
-/// - 엔진이 알아듣지 못한 자유 대화·질문은 Apple Intelligence (지원 기기에서만)
+/// 두잇 AI 대화: 직접 만든 엔진만으로 동작 (외부 AI·서버 없음)
+/// - 앱 기능 실행, 수학 풀이, 내장 지식, 퀴즈, 자유 대화, 사진 분석
 /// 사진은 기기 안 글자 인식(Vision)으로 읽음. 인터넷은 영어 단어 사전만 씀
 @MainActor
 @Observable
@@ -18,10 +17,6 @@ final class DoitAssistant {
         var actions: [String] = []
         var suggestions: [String] = []
         var image: UIImage?
-        /// 누가 답했는지 (두잇 AI 엔진 / Apple Intelligence)
-        var source: Source = .doit
-
-        enum Source { case doit, apple }
     }
 
     /// 진행 중인 퀴즈
@@ -45,8 +40,6 @@ final class DoitAssistant {
     @ObservationIgnored private var lastMath: String?
     @ObservationIgnored private var quiz: QuizState?
     @ObservationIgnored private var lastQuizSource: DoitEngine.QuizSource?
-    /// Apple Intelligence 대화 (이전 대화를 기억)
-    @ObservationIgnored private let appleChat = DoitAppleAI.Chat()
 
     func reset() {
         messages = []
@@ -54,7 +47,7 @@ final class DoitAssistant {
         lastAnswer = nil
         lastMath = nil
         quiz = nil
-        appleChat.reset()
+        DoitEngine.conversationTopic = nil
     }
 
     func send(_ text: String, image: UIImage? = nil) async {
@@ -86,6 +79,12 @@ final class DoitAssistant {
             return
         }
 
+        // 3) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
+        if let image, let analyzed = await analyzePhoto(image, question: question, photo: photo) {
+            messages.append(analyzed)
+            return
+        }
+
         var reply = DoitEngine.respond(to: question, photo: photo)
         // 사진으로 실제 작업을 했으면 그 사진은 더 쓰지 않음
         let actions = DoitActions.shared.drainLog()
@@ -113,30 +112,13 @@ final class DoitAssistant {
         }
         if reply.text.hasPrefix("**") && reply.suggestions.contains("비슷한 문제 내줘") { lastMath = question }
 
-        // 두잇 AI 엔진이 알아듣지 못한 말: Apple Intelligence가 이어서 대답
-        if !reply.understood {
-            if DoitAppleAI.isAvailable {
-                status = "Apple Intelligence가 생각하는 중…"
-                var prompt = question
-                if let photo, !photo.text.isEmpty { prompt += "\n[사진에서 읽은 글자]\n\(String(photo.text.prefix(600)))" }
-                do {
-                    let answer = try await appleChat.reply(prompt, context: contextLine())
-                    let topic = String(question.prefix(40))
-                    lastAnswer = (topic, answer)
-                    reply = DoitEngine.Reply(text: answer, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘", "메모로 저장해줘"])
-                    messages.append(Message(role: .assistant, text: answer, actions: actions, suggestions: reply.suggestions, source: .apple))
-                    return
-                } catch {
-                    reply.text = "이 질문은 지금 바로 답하기 어려워요. 조금 더 구체적으로 물어봐 주세요.\n예: \"y = x² − 4x + 1 의 꼭짓점\", \"광합성이 뭐야?\", \"현재완료 설명해줘\""
-                        + "\n\n" + error.localizedDescription.replacingOccurrences(of: "\n", with: " ")
-                }
-            } else if let note = DoitAppleAI.unavailableMessage {
-                reply.text += "\n\n💡 \(note)"
-            }
-        } else if reply.suggestions.contains("더 자세히 알려줘") || reply.text.hasPrefix("**") {
+        if reply.suggestions.contains("더 자세히 알려줘") || reply.text.hasPrefix("**") {
             // 앱 안 지식으로 답한 것도 이어서 묻기·저장할 수 있게
-            let topic = reply.text.components(separatedBy: "\n").first?.replacingOccurrences(of: "**", with: "") ?? ""
+            let firstLine = reply.text.components(separatedBy: "\n").first ?? ""
+            // "**광합성** (과학)" → "광합성"
+            let topic = firstLine.components(separatedBy: "**").dropFirst().first ?? firstLine.replacingOccurrences(of: "**", with: "")
             lastAnswer = (topic, reply.text)
+            DoitEngine.conversationTopic = topic
         }
         messages.append(Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions))
     }
@@ -156,18 +138,8 @@ final class DoitAssistant {
         }
         guard let previous = lastAnswer else { return nil }
         if q.contains("더자세히") || q.contains("자세히알려") || q.contains("더알려") || q == "더" || q.contains("계속") {
-            guard DoitAppleAI.isAvailable else {
-                return Message(role: .assistant, text: "더 자세한 설명은 Apple Intelligence가 만들어요.\n\(DoitAppleAI.unavailableMessage ?? "")",
-                               suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
-            }
-            status = "Apple Intelligence가 더 자세히 정리하는 중…"
-            do {
-                let more = try await DoitTutor.more(about: previous.topic, previous: previous.text)
-                lastAnswer = (previous.topic, more)
-                return Message(role: .assistant, text: more, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"], source: .apple)
-            } catch {
-                return Message(role: .assistant, text: error.localizedDescription)
-            }
+            return Message(role: .assistant, text: DoitTutor.more(about: previous.topic, previous: previous.text),
+                           suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
         }
         if q.contains("메모") && (q.contains("저장") || q.contains("남겨")) {
             let result = DoitActions.shared.addMemo(previous.text.replacingOccurrences(of: "**", with: ""))
@@ -220,7 +192,12 @@ final class DoitAssistant {
             return Message(role: .assistant, text: DoitChat.hint(for: state.item), suggestions: ["모르겠어", "그만"])
         }
         let giveUp = ["모르겠", "몰라", "패스", "정답알려", "답알려", "포기", "pass"].contains { q.contains($0) } && q.count <= 10
-        // 퀴즈와 상관없는 긴 부탁이면 퀴즈를 끝내고 넘김
+        // 퀴즈와 상관없는 부탁(일정 추가, 타이머, 설명 등)이면 퀴즈를 끝내고 넘김
+        let commandWords = ["추가해", "타이머", "일정", "플랜", "메모", "삭제", "알려줘", "설명해", "풀어줘", "뜻", "통계", "열어줘", "보여줘", "디데이", "d-day"]
+        if !giveUp && answer.count > 8 && commandWords.contains(where: { answer.lowercased().contains($0) }) {
+            quiz = nil
+            return nil
+        }
         if !giveUp && answer.count > 30 && DoitEngine.quizRequest(answer.lowercased()) == nil {
             quiz = nil
             return nil
@@ -310,12 +287,40 @@ final class DoitAssistant {
         }
     }
 
-    /// Apple Intelligence에게 알려줄 오늘 상황
-    private func contextLine() -> String {
-        let c = DoitActions.shared.chatContext()
-        var parts = ["오늘 공부 \(c.todayMinutes)분 / 목표 \(c.goalMinutes)분", "남은 플랜 \(c.remainingPlans)개"]
-        if let d = c.dDay { parts.append(d) }
-        return parts.joined(separator: ", ")
+    /// 사진 분석 (그래프 식, 도형 계산, 사진 속 사물, QR, 문서)
+    private func analyzePhoto(_ image: UIImage, question: String, photo: DoitEngine.PhotoContext?) async -> Message? {
+        let q = question.replacingOccurrences(of: " ", with: "")
+        // 저장·단어·풀이 부탁은 기존 처리 (오답노트, 단어장, 메모, 수학 풀이)
+        let commands = ["오답", "노트", "저장", "단어", "메모", "풀어", "풀이", "계산"]
+        if commands.contains(where: { q.contains($0) }) { return nil }
+        status = "사진을 분석하는 중…"
+        let analysis = await VisionAnalyzer.analyze(image)
+        switch analysis.kind {
+        case .mathProblem, .empty:
+            return nil
+        case .document:
+            // 글이 많은 사진: 단어장이면 기존 처리, 아니면 읽은 글 + 할 수 있는 일
+            if let photo, photo.words.count >= 3 { return nil }
+            var suggestions = ["메모로 저장해줘"]
+            if let photo, !photo.text.isEmpty, DoitMath.looksLikeMath(photo.text) { suggestions.insert("이 식 풀어줘", at: 0) }
+            return Message(role: .assistant, text: analysis.message, suggestions: suggestions)
+        case .graph:
+            var suggestions: [String] = []
+            if let graph = analysis.graph, let equation = graph.equation {
+                switch graph.kind {
+                case .quadratic: suggestions = ["\(equation) 꼭짓점", "\(equation) 최솟값"]
+                case .linear: suggestions = ["\(equation) 기울기"]
+                case .cubic: suggestions = ["f(x) = \(equation.replacingOccurrences(of: "y = ", with: "")) 극값"]
+                default: break
+                }
+                lastMath = equation
+            }
+            return Message(role: .assistant, text: analysis.message, suggestions: suggestions + ["비슷한 문제 내줘"])
+        case .figure:
+            return Message(role: .assistant, text: analysis.message, suggestions: ["도형 퀴즈 내줘"])
+        case .photo, .qrCode:
+            return Message(role: .assistant, text: analysis.message)
+        }
     }
 
     /// 사진 읽기: 문제·필기용(검은 글자 위주)과 단어장용(영어-뜻 짝)

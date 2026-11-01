@@ -80,14 +80,6 @@ struct DoitAIView: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            if DoitAppleAI.isAvailable {
-                Label("Apple Intelligence와 함께", systemImage: "apple.intelligence")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Theme.accent.opacity(0.1), in: .capsule)
-            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 24)
@@ -126,13 +118,8 @@ struct DoitAIView: View {
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 10) {
-                    AIOrb(size: 30, symbol: message.source == .apple ? "apple.intelligence" : "sparkles")
+                    AIOrb(size: 30)
                     VStack(alignment: .leading, spacing: 10) {
-                        if message.source == .apple {
-                            Text("Apple Intelligence")
-                                .font(.caption2.weight(.bold))
-                                .foregroundStyle(Theme.accent)
-                        }
                         if !message.actions.isEmpty {
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(message.actions, id: \.self) { action in
@@ -150,11 +137,6 @@ struct DoitAIView: View {
                             .lineSpacing(3)
                             .foregroundStyle(Palette.ink)
                             .textSelection(.enabled)
-                        if message.source == .apple {
-                            Text(DoitAppleAI.caution)
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)

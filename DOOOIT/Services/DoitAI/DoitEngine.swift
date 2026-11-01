@@ -31,6 +31,9 @@ enum DoitEngine {
         var words: [ParsedWord]
     }
 
+    /// 바로 전 대화 주제 ("왜?", "더 자세히" 같은 이어 말하기용)
+    static var conversationTopic: String?
+
     static let examples = [
         "오늘 할 일 알려줘",
         "내일 오후 4시에 수학 공부 2시간 추가해줘",
@@ -131,7 +134,7 @@ enum DoitEngine {
             let title = cleanTitle(rest)
             let hourText = time.contains("오전") || time.contains("오후") || time.contains("저녁") || time.contains("아침") || time.contains("밤") ? time : "오후 " + time
             if !title.isEmpty {
-                return Reply(text: "\(date) \(time)에 \(title) 일정이 있군요. 플래너에 넣어둘까요? 시간이 되기 전에 알림도 보내드릴게요.",
+                return Reply(text: "\(date) \(time)에 \(title) 일정이 있군요. 플래너에 추가할까요? 시간이 되기 전에 알림도 보내드릴게요.",
                              suggestions: ["\(date) \(hourText) \(title) 추가해줘", "괜찮아"])
             }
         }
@@ -142,11 +145,14 @@ enum DoitEngine {
         }
         if findDate(in: text) != nil && findTime(in: text) != nil { return addPlan(text) }
 
-        return Reply(
-            text: "아직 그 말은 이해하지 못했어요. 일정·타이머·단어·메모 같은 앱 기능, 수학 풀이, 영어 문법·단어, 과학 계산, 사회·역사 질문, 퀴즈, 공부 고민 상담을 도와드릴 수 있어요.",
-            suggestions: ["뭐 할 수 있어?"],
-            understood: false
-        )
+        // 내장 지식 사전에서 비슷한 개념 (이름이 정확히 안 맞아도)
+        if let known = DoitKnowledge.answer(text) {
+            return Reply(text: known, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"])
+        }
+        // 자유 대화
+        let talk = DoitConversation.reply(text, previousTopic: conversationTopic)
+        if let topic = talk.topic { conversationTopic = topic }
+        return Reply(text: talk.text, suggestions: talk.suggestions)
     }
 
     // MARK: 공부 질문 판별
@@ -494,7 +500,8 @@ enum DoitEngine {
         • 영어: "현재완료 설명해줘", "write 과거분사", "He go to school 문법 맞아?", "look forward to 뜻"
         • 과학: "전압 12V 저항 4Ω 전류는?", "H2SO4 몰질량", "원자번호 17", "72km/h는 몇 m/s"
         • 사회·역사: "임진왜란 언제 일어났어?", "프랑스 수도", "기회비용이 뭐야?"
-        • 그 밖의 질문·자유 대화: Apple Intelligence가 이어서 대답해요 (아이폰 15 Pro 이상, 설정에서 켜기)
+        • 생활 도구: "크리스마스까지 며칠?", "100일 뒤", "주사위 굴려줘", "피자랑 치킨 중에 골라줘", "점심 메뉴 추천", "내 이름은 민지야"
+        • 사진: 문제 사진은 풀이·오답노트, 단어장은 단어 추가, 그래프·도형·QR·일반 사진도 분석해요
         **퀴즈·대화**
         • "수학 퀴즈 내줘", "내 단어로 퀴즈", "이걸로 퀴즈 내줘"
         • 공부 고민도 편하게: "집중이 안 돼", "시험 기간 계획 어떻게 세워?", "너무 힘들어"

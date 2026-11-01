@@ -30,6 +30,7 @@ final class StudyTimer {
     @ObservationIgnored private var context: ModelContext?
     @ObservationIgnored private let storageKey = "dooit.studyTimer"
     @ObservationIgnored private var activityKey = "free"
+    private static let maxSessionSeconds = 12 * 60 * 60
 
     private struct Snapshot: Codable {
         var phase: Phase
@@ -111,7 +112,8 @@ final class StudyTimer {
     /// 타이머 종료 후 기록 저장. 저장된 초를 반환.
     @discardableResult
     func stop() -> Int {
-        let seconds = Int(elapsed())
+        // 끄는 걸 잊고 며칠 동안 켜 둔 경우 등 비정상적으로 긴 기록은 12시간까지만 저장
+        let seconds = min(Int(elapsed()), Self.maxSessionSeconds)
         if seconds >= 10, let context, let startedAt {
             context.insert(StudySession(title: title, categoryName: categoryName, start: startedAt,
                                         seconds: seconds, planKey: planKey))
@@ -155,5 +157,9 @@ final class StudyTimer {
         segmentStart = s.segmentStart
         accumulated = s.accumulated
         lockUntil = s.lockUntil
+        // 앱을 다시 켰을 때도 같은 Live Activity를 이어서 쓰도록
+        if phase != .idle {
+            activityKey = planKey ?? "free-\(Int((startedAt ?? Date()).timeIntervalSince1970))"
+        }
     }
 }

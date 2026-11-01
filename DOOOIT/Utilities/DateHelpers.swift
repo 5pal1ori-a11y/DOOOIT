@@ -4,13 +4,24 @@ enum KoreanDate {
     private static var cache: [String: DateFormatter] = [:]
     private static let lock = NSLock()
 
+    /// 날짜 키 전용 (DateFormatter는 만든 뒤 바꾸지 않으면 여러 스레드에서 읽어도 안전)
+    static let dayKeyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = .autoupdatingCurrent
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     static func formatter(_ pattern: String) -> DateFormatter {
         lock.lock(); defer { lock.unlock() }
         if let f = cache[pattern] { return f }
         let f = DateFormatter()
         f.locale = Locale(identifier: "ko_KR")
-        f.calendar = Calendar.current
-        f.timeZone = .current
+        // 사용자가 시간대를 바꿔도 바로 따라가도록 autoupdating 사용
+        f.calendar = .autoupdatingCurrent
+        f.timeZone = .autoupdatingCurrent
         f.dateFormat = pattern
         cache[pattern] = f
         return f
@@ -30,8 +41,8 @@ extension Date {
         return Calendar.current.date(from: comps) ?? self
     }
 
-    /// "yyyy-MM-dd"
-    var dayKey: String { kr("yyyy-MM-dd") }
+    /// "yyyy-MM-dd" (저장용 키: 기기 달력 설정(불기·일본력 등)과 상관없이 양력 숫자로)
+    var dayKey: String { KoreanDate.dayKeyFormatter.string(from: self) }
 
     func adding(days: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: days, to: self) ?? self

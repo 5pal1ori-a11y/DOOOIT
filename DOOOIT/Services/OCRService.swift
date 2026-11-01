@@ -241,17 +241,31 @@ enum OCRService {
     }
 
     /// 수학 문제 사진 → 문제 글: 기기 글자 인식 + 자주 틀리는 글자 교정
-    /// Apple Intelligence를 쓸 수 있으면 여러 번 읽은 결과를 비교해서 원래 인쇄된 문제로 한 번 더 복원
-    static func readMathProblem(_ image: UIImage, useAI: Bool = true) async -> (text: String, usedAI: Bool) {
+    /// 여러 방법으로 읽은 결과 중 수식이 가장 자연스러운 쪽을 고름 (improved: 기본 결과보다 나은 걸 골랐는지)
+    static func readMathProblem(_ image: UIImage, thorough: Bool = true) async -> (text: String, improved: Bool) {
         let lines = (try? await recognizeMath(image)) ?? []
         let base = MathOCRFixer.fix(printedText(from: lines))
-        guard useAI, DoitAppleAI.isAvailable, !base.isEmpty else { return (base, false) }
-        let readings = await multiPassRead(image)
-        guard let repaired = try? await DoitAppleAI.reconstruct(readings: readings, current: base) else { return (base, false) }
-        let fixed = MathOCRFixer.fix(repaired)
-        // 너무 짧아졌거나 엉뚱하게 길어지면 기본 결과 사용
-        guard fixed.count >= base.count / 2, fixed.count <= base.count * 2 + 40 else { return (base, false) }
-        return (fixed, true)
+        guard thorough, !base.isEmpty else { return (base, false) }
+        let readings = await multiPassRead(image).map { reading -> String in
+            MathOCRFixer.fix(reading.replacingOccurrences(of: "[영어 전용 읽기 · 수식 참고용]\n", with: ""))
+        }
+        var best = (text: base, score: readingScore(base))
+        for reading in readings where reading.count >= base.count * 3 / 4 && reading.count <= base.count * 3 / 2 + 10 {
+            let score = readingScore(reading)
+            if score > best.score + 3 { best = (reading, score) }
+        }
+        return (best.text, best.text != base)
+    }
+
+    /// 읽은 글이 얼마나 그럴듯한지: 한글 문장은 그대로 두고, 수식 부분은 수식다운 정도로
+    static func readingScore(_ text: String) -> Int {
+        var score = 0
+        for line in text.components(separatedBy: "\n") {
+            let hangul = line.filter(isHangul).count
+            let formula = String(line.filter { !isHangul($0) })
+            score += hangul / 2 + mathScore(formula)
+        }
+        return score
     }
 
     /// 손으로 쓴 풀이 읽기: 영어(수식) 위주, 교정 없이, 위에서 아래로 한 줄씩
