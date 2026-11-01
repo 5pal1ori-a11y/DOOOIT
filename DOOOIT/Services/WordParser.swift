@@ -24,13 +24,25 @@ enum WordParser {
         // 2) 행마다 단어/뜻 분리
         var result: [ParsedWord] = []
         var pendingTerm: String?
+        /// 바로 앞 줄이 예문이었으면, 다음 한글 줄은 그 예문의 해석이라 뜻에 붙이지 않음
+        var afterExample = false
 
         for row in rows {
             let text = row
                 .sorted { $0.box.minX < $1.box.minX }
                 .map(\.text)
                 .joined(separator: " ")
+            // 예문(영어 문장)과 예문 해석은 단어·뜻이 아님
+            if isExampleSentence(text) {
+                afterExample = true
+                continue
+            }
             let (term, meaning) = split(text)
+            if term.isEmpty, !meaning.isEmpty, afterExample || looksLikeKoreanSentence(meaning) {
+                afterExample = false
+                continue
+            }
+            afterExample = false
 
             switch (term.isEmpty, meaning.isEmpty) {
             case (false, false):
@@ -88,9 +100,57 @@ enum WordParser {
             meaningPart = pos + " " + meaningPart
         }
 
-        // 괄호로 시작하는 뜻 앞부분 정리
+        // 뜻 뒤에 붙은 예문 떼기 ("용감한 She was brave." / "용감한 예) …" / "용감한 ex. …")
+        meaningPart = stripExample(from: meaningPart)
         meaningPart = meaningPart.trimmingCharacters(in: .whitespacesAndNewlines)
         return (cleanTerm(termPart), meaningPart)
+    }
+
+    // MARK: 예문 거르기
+
+    /// 예문 표시 (뒤에 문장부호가 있어야 함: "exact", "example" 같은 단어는 해당 없음)
+    private static let exampleMarkers = [#"^(e\.\s?g\.?|eg\.|ex[.):]|example\s*[:)]|예\)|예:|예문|ⓔ|▶|►|→|=>)"#]
+
+    /// 영어 예문인지: 예문 표시로 시작하거나, 문장부호로 끝나는 문장, 또는 대문자로 시작하고 주어·동사가 있는 3낱말 이상
+    /// ("give up", "be good at", "a lot of" 같은 숙어는 단어로 남김)
+    static func isExampleSentence(_ raw: String) -> Bool {
+        var s = raw.trimmingCharacters(in: .whitespaces)
+        s = s.replacingOccurrences(of: #"^[\(\[]?\d{1,4}[\.\)\]:]?\s*"#, with: "", options: .regularExpression)
+        let lower = s.lowercased()
+        if exampleMarkers.contains(where: { lower.range(of: $0, options: .regularExpression) != nil }) { return true }
+        // 한글이 섞인 줄은 "단어 뜻" 줄이므로 여기서는 예문으로 보지 않음 (뜻 뒤 예문은 stripExample이 처리)
+        guard s.range(of: "[가-힣]", options: .regularExpression) == nil else { return false }
+        let words = s.split(separator: " ").filter { $0.contains(where: \.isLetter) }
+        guard words.count >= 3 else { return false }
+        if let last = s.last, ".?!\"”".contains(last) { return true }
+        let first = String(words[0])
+        let function: Set<String> = ["i", "you", "he", "she", "it", "we", "they", "this", "that", "there", "my", "his", "her", "our", "their",
+                                     "is", "are", "was", "were", "am", "will", "can", "do", "does", "did", "have", "has", "had", "the"]
+        let hasFunction = words.dropFirst().contains { function.contains($0.lowercased()) } || function.contains(first.lowercased())
+        return first.first?.isUppercase == true && hasFunction && words.count >= 4
+    }
+
+    /// 한글 문장인지 (예문 해석): 마침표로 끝나거나, 띄어쓰기가 많고 "~다/~요"로 끝남 ("포기하다" 같은 뜻은 아님)
+    static func looksLikeKoreanSentence(_ raw: String) -> Bool {
+        let s = raw.trimmingCharacters(in: .whitespaces)
+        guard s.count >= 8, !s.contains(",") else { return false }
+        if s.hasSuffix(".") || s.hasSuffix("?") || s.hasSuffix("!") { return true }
+        let spaces = s.filter { $0 == " " }.count
+        return spaces >= 3 && (s.hasSuffix("다") || s.hasSuffix("요"))
+    }
+
+    /// 뜻 뒤에 이어 붙은 예문 잘라내기
+    static func stripExample(from meaning: String) -> String {
+        var m = meaning
+        // 예문 표시가 나오면 거기서 자름
+        for marker in [#"\s(e\.\s?g\.?|eg\.|ex[.):]|예\)|예:|예문|ⓔ|▶|►|→)"#] {
+            if let range = m.range(of: marker, options: [.regularExpression, .caseInsensitive]) { m = String(m[..<range.lowerBound]) }
+        }
+        // 영어 낱말이 세 개 이상 이어지면 예문으로 보고 자름 ("용감한 She was brave.")
+        if let range = m.range(of: #"\s[A-Za-z][A-Za-z'’]*(\s+[A-Za-z][A-Za-z'’,]*){2,}"#, options: .regularExpression) {
+            m = String(m[..<range.lowerBound])
+        }
+        return m.trimmingCharacters(in: .whitespaces)
     }
 
     private static func cleanTerm(_ raw: String) -> String {

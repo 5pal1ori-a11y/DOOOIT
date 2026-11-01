@@ -220,6 +220,38 @@ func runWorkChecker() {
 
 // MARK: - 사진 글자 교정
 
+// MARK: - 단어장 사진: 예문은 빼고 단어·뜻만
+
+func runWordParser() {
+    func page(_ rows: [String]) -> [ParsedWord] {
+        // 위에서 아래로 한 줄씩 (Vision 좌표는 아래가 0)
+        let lines = rows.enumerated().map { i, text in OCRLine(text: text, box: CGRect(x: 0.05, y: 0.95 - Double(i) * 0.04, width: 0.9, height: 0.03)) }
+        return WordParser.parse(lines)
+    }
+    let words = page([
+        "1. brave 용감한",
+        "She was brave enough to speak.",
+        "그녀는 말할 만큼 충분히 용감했다.",
+        "2. give up 포기하다, 그만두다",
+        "e.g. Don't give up!",
+        "3. abundant adj. 풍부한 There is abundant water here.",
+        "4. exact 정확한",
+        "5. a lot of 많은",
+        "6. example 예, 보기",
+        "Ex) I love apples.",
+        "나는 사과를 좋아해요.",
+        "7. resilient",
+        "회복력 있는"
+    ])
+    let terms = words.map(\.term)
+    check("단어장: 단어만 (예문 제외)", terms == ["brave", "give up", "abundant", "exact", "a lot of", "example", "resilient"], "\(terms)")
+    check("단어장: 뜻에 예문·해석이 섞이지 않음", words.first { $0.term == "brave" }?.meaning == "용감한"
+          && words.first { $0.term == "abundant" }?.meaning == "adj. 풍부한"
+          && words.first { $0.term == "give up" }?.meaning == "포기하다, 그만두다", "\(words.map { "\($0.term)=\($0.meaning)" })")
+    check("단어장: 세로형(뜻이 다음 줄)", words.first { $0.term == "resilient" }?.meaning == "회복력 있는")
+    check("예문 판별", WordParser.isExampleSentence("He has been to Paris.") && !WordParser.isExampleSentence("take care of") && !WordParser.isExampleSentence("Take care of"))
+}
+
 func runOCRFixer() {
     let cases: [(String, String)] = [
         ("Zx + 3", "2x + 3"), ("xZ - 5x + 6 = 0", "x² - 5x + 6 = 0"), ("x^Z+1", "x^2+1"), ("1O+5", "10+5"), ("3l4", "314"),
@@ -680,6 +712,7 @@ runMath()
 runGenerators()
 runWorkChecker()
 runOCRFixer()
+runWordParser()
 runKnowledge()
 runBrain()
 await runCurriculum()
