@@ -70,7 +70,7 @@ struct MathNoteListView: View {
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
-        .navigationTitle("수학 오답노트")
+        .navigationTitle("오답노트")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -160,8 +160,7 @@ struct MathNoteListView: View {
         for (i, pair) in pairs.enumerated() {
             let lines = (try? await OCRService.recognize(pair.problem)) ?? []
             let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
-            let firstLine = text.split(separator: "\n").first.map(String.init) ?? ""
-            let title = firstLine.isEmpty ? "오답 \(notes.count + i + 1)" : String(firstLine.prefix(24))
+            let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
@@ -184,20 +183,23 @@ private struct MathNoteCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ZStack {
-                GridPaperBackground()
-                if let data = note.thumbnailData, let image = UIImage(data: data) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Image(systemName: "function")
-                        .font(.largeTitle)
-                        .foregroundStyle(Palette.ink.opacity(0.3))
+            // 사진이 카드 크기를 밀어내지 않도록: 고정 크기 틀 위에 사진을 덮고 잘라냄
+            Color.clear
+                .frame(height: 120)
+                .frame(maxWidth: .infinity)
+                .background { GridPaperBackground() }
+                .overlay {
+                    if let data = note.thumbnailData, let image = UIImage(data: data) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                    } else {
+                        Image(systemName: "function")
+                            .font(.largeTitle)
+                            .foregroundStyle(Palette.ink.opacity(0.3))
+                    }
                 }
-            }
-            .frame(height: 120)
-            .frame(maxWidth: .infinity)
+                .clipped()
             .clipShape(.rect(cornerRadius: 14))
             .overlay(alignment: .topTrailing) {
                 Image(systemName: note.status.symbol)

@@ -25,8 +25,26 @@ enum MathOCRFixer {
         // 0|차함수, 01차함수 → 이차함수
         (#"(?:0\||01|0l)차"#, "이차"),
         // 한글 사이에 낀 0| → 이 (예: 넓0|, 길0|)
-        (#"(?<=[가-힣])0\|"#, "이")
+        (#"(?<=[가-힣])0\|"#, "이"),
+        // = 0이 → = 001, = 00| (예: "-20=001 정수인" → "-20=0이 정수인")
+        (#"(=\s*-?\d+?)(?:01|0\||0l)(?=\s*[가-힣])"#, "$1이")
     ]
+
+    /// 목록에 보일 제목: 첫 줄에서 수식 부분이 나오기 전까지의 한글 문장만 (예: "이차함수 3/= 202+" → "이차함수")
+    static func title(from text: String) -> String? {
+        for line in text.split(separator: "\n") {
+            let cleaned = line.replacingOccurrences(of: "|", with: " ").trimmingCharacters(in: .whitespaces)
+            var words: [Substring] = []
+            for word in cleaned.split(separator: " ") {
+                let isKorean = word.unicodeScalars.allSatisfy { (0xAC00...0xD7A3).contains($0.value) || ",.?".unicodeScalars.contains($0) }
+                if !isKorean { break }
+                words.append(word)
+            }
+            let title = words.joined(separator: " ")
+            if title.count >= 2 { return String(title.prefix(24)) }
+        }
+        return nil
+    }
 
     static func fix(_ text: String) -> String {
         var result = text
