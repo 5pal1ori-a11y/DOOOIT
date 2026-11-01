@@ -15,6 +15,13 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
       ASC_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      # Claude 문제 읽기 서버 (server/README.md). 비어 있으면 기기 안 인식만 사용
+      READER_URL: ${{ secrets.DOOOIT_READER_URL }}
+      READER_KEY: ${{ secrets.DOOOIT_READER_KEY }}
+      # 이 세 개를 넣으면 빌드할 때 Claude 서버(server/)를 Cloudflare에 자동 배포하고 앱에 연결
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,6 +99,38 @@ jobs:
           mkdir -p "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
 
+      - uses: actions/setup-node@v4
+        if: env.ANTHROPIC_API_KEY != '' && env.CLOUDFLARE_API_TOKEN != ''
+        with:
+          node-version: 20
+
+      - name: Deploy Claude reader server
+        if: env.ANTHROPIC_API_KEY != '' && env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: server
+        run: |
+          set -eo pipefail
+          # 앱 키: DOOOIT_READER_KEY 시크릿이 있으면 그 값, 없으면 Anthropic 키에서 만든 해시 (원래 키는 알 수 없음)
+          if [ -n "$READER_KEY" ]; then
+            APP_KEY="$READER_KEY"
+          else
+            APP_KEY=$(printf 'dooit-reader:%s' "$ANTHROPIC_API_KEY" | shasum -a 256 | cut -c1-48)
+          fi
+          echo "::add-mask::$APP_KEY"
+          npm ci --no-audit --no-fund
+          npx wrangler deploy 2>&1 | tee "$RUNNER_TEMP/deploy.log"
+          URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.workers\.dev' "$RUNNER_TEMP/deploy.log" | head -1)
+          if [ -z "$URL" ]; then
+            echo "::error title=Claude 서버::배포 주소를 찾지 못했어요. Cloudflare 대시보드에서 Workers & Pages를 한 번 열어 workers.dev 하위 도메인을 정해주세요."
+            exit 1
+          fi
+          APP_KEY="$APP_KEY" python3 -c 'import json,os; json.dump({"ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"], "APP_KEY": os.environ["APP_KEY"]}, open(os.environ["RUNNER_TEMP"] + "/worker-secrets.json", "w"))'
+          npx wrangler secret bulk "$RUNNER_TEMP/worker-secrets.json"
+          rm -f "$RUNNER_TEMP/worker-secrets.json"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || true)
+          echo "Claude 서버: $URL (health $code)"
+          echo "CLAUDE_URL=$URL" >> "$GITHUB_ENV"
+          echo "CLAUDE_KEY=$APP_KEY" >> "$GITHUB_ENV"
+
       - name: Record certificates before build
         env:
           ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
@@ -114,6 +153,8 @@ jobs:
             -authenticationKeyID "$ASC_KEY_ID" \
             -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            DOOOIT_READER_URL="${CLAUDE_URL:-$READER_URL}" \
+            DOOOIT_READER_KEY="${CLAUDE_KEY:-$READER_KEY}" \
             CODE_SIGN_STYLE=Automatic 2>&1 | tee "$RUNNER_TEMP/archive.log"
           }
           # 처음 빌드 때는 Apple에서 프로비저닝 프로필을 새로 만들면서 실패할 수 있어 한 번 더 시도

@@ -394,6 +394,26 @@ struct MathNoteEditorView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
 
+                if ClaudeReader.isConfigured {
+                    Button { Task { await readWithClaude() } } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "sparkles")
+                                .font(.title3)
+                                .frame(width: 40, height: 40)
+                                .background(.white.opacity(0.22), in: .circle)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Claude로 정확하게 읽기").font(.headline)
+                                Text("사진을 직접 보고 루트·분수·지수까지 읽어요").font(.caption).opacity(0.85)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(14)
+                        .background(Theme.accent, in: .rect(cornerRadius: 20))
+                    }
+                    .buttonStyle(.plain)
+                }
+
                 HStack(spacing: 10) {
                     if image != nil {
                         readOption(symbol: "crop", title: "영역 다시 고르기") {
@@ -526,9 +546,36 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
+        if ClaudeReader.isConfigured {
+            withAnimation { textMessage = "Claude가 사진을 읽는 중이에요… (10~20초)" }
+            if let result = try? await ClaudeReader.read(problem) {
+                if note.correctAnswer.isEmpty, !result.answer.isEmpty { note.correctAnswer = result.answer }
+                apply(result.text, message: "Claude가 선택한 영역을 읽었어요.")
+                return
+            }
+        }
         let lines = (try? await OCRService.recognizeMath(problem)) ?? []
         let text = MathOCRFixer.fix(OCRService.printedText(from: lines))
         apply(text, message: text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요." : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
+    }
+
+    /// 서버의 Claude가 사진을 직접 보고 읽음
+    private func readWithClaude() async {
+        guard let source = problemImage else {
+            textMessage = "읽을 사진이 없어요."
+            return
+        }
+        isRecognizing = true
+        defer { isRecognizing = false }
+        withAnimation { textMessage = "Claude가 사진을 읽는 중이에요… (10~20초)" }
+        do {
+            let result = try await ClaudeReader.read(source)
+            if note.correctAnswer.isEmpty, !result.answer.isEmpty { note.correctAnswer = result.answer }
+            if note.title.hasPrefix("오답") || note.title.isEmpty, !result.title.isEmpty { note.title = result.title }
+            apply(result.text, message: "Claude가 사진을 직접 보고 읽었어요.")
+        } catch {
+            withAnimation { textMessage = error.localizedDescription }
+        }
     }
 
     /// 기기 안: 사진을 여러 방법으로 다시 읽고, AI가 결과들을 비교해 문제 문장을 복원 (풀지 않음)

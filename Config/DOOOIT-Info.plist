@@ -4,6 +4,10 @@
 <dict>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>DOOOITReaderURL</key>
+	<string>$(DOOOIT_READER_URL)</string>
+	<key>DOOOITReaderKey</key>
+	<string>$(DOOOIT_READER_KEY)</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
