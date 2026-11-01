@@ -12,6 +12,7 @@ enum NotificationService {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
         guard AppSettings.notificationsEnabled else { return }
+        WeeklyReportBuilder.scheduleNotification()
 
         let now = Date()
         let lead = AppSettings.leadMinutes

@@ -58,6 +58,7 @@ struct StatsView: View {
 
         ScrollView {
             VStack(spacing: 24) {
+                WeeklyReportLink()
                 tabs
 
                 VStack(spacing: 16) {

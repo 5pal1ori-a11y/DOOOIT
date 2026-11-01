@@ -90,6 +90,9 @@ enum DoitEngine {
         }
         if has(t, ["단어"]) && has(t, ["추가", "넣어", "저장", "등록"]) { return addWords(text) }
         if let lookup = wordLookup(text) { return lookup }
+        if has(t, ["주간 리포트", "주간리포트", "이번 주 리포트", "이번주 리포트", "주간 보고", "한 주 정리", "일주일 정리", "이번 주 정리", "이번주 정리", "weekly"]) {
+            return Reply(text: DoitActions.shared.weeklyReportText(), suggestions: ["통계 화면 열어줘", "수학 퀴즈 내줘"])
+        }
         if has(t, ["통계", "얼마나 공부", "공부 시간", "공부시간", "공부한 시간", "기록 보여"]) && !has(t, ["법", "어떻게 해야", "쉬어"]) { return stats(text) }
         if has(t, ["틀린 단어", "단어 현황", "단어장 현황", "외운 단어", "단어 몇"]) {
             return Reply(text: DoitActions.shared.records(kind: "words"), suggestions: ["단어 화면 열어줘", "내 단어로 퀴즈 내줘"])

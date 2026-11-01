@@ -357,3 +357,14 @@ extension DoitActions {
         return fetch(Word.self).first { $0.term.lowercased() == key }?.meaning
     }
 }
+
+// MARK: - 주간 리포트
+
+extension DoitActions {
+    /// 두잇 AI 채팅에서 "주간 리포트"라고 하면 보여줄 요약
+    func weeklyReportText() -> String {
+        guard let context else { return "기록을 불러오지 못했어요." }
+        let report = WeeklyReportBuilder.build(context: context)
+        return report.summaryText + "\n\n자세한 리포트와 추천 플랜은 공부 탭 > 통계 또는 AI 학습의 '주간 AI 리포트'에서 볼 수 있어요."
+    }
+}

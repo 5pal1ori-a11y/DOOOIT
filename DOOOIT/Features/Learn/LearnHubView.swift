@@ -61,6 +61,9 @@ struct LearnHubSection: View {
                 .buttonStyle(.pressable)
                 .appearAnimation(delay: 0.12)
             }
+
+            WeeklyReportLink()
+                .appearAnimation(delay: 0.18)
         }
         .onAppear { sparkle.toggle() }
     }
