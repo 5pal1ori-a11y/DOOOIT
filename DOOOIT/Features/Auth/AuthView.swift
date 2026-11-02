@@ -89,6 +89,10 @@ struct AuthView: View {
             appleButton
                 .appearAnimation(delay: 0.18)
 
+            googleButton
+                .padding(.top, 10)
+                .appearAnimation(delay: 0.2)
+
             Text("계속하면 이용약관 및 개인정보 처리방침에 동의하게 돼요.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
@@ -249,6 +253,37 @@ struct AuthView: View {
         .clipShape(.rect(cornerRadius: 16, style: .continuous))
         .id(scheme) // 다크모드 전환 시 버튼 스타일 갱신
         .disabled(isSubmitting)
+    }
+
+    private var googleButton: some View {
+        Button {
+            Task {
+                isSubmitting = true
+                defer { isSubmitting = false }
+                do {
+                    try await auth.signInWithGoogle()
+                } catch {
+                    appleErrorMessage = error.localizedDescription
+                }
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Text("G")
+                    .font(.system(size: 19, weight: .bold, design: .rounded))
+                    .foregroundStyle(LinearGradient(colors: [Color(hex: "#4285F4"), Color(hex: "#34A853"), Color(hex: "#FBBC05"), Color(hex: "#EA4335")],
+                                                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                Text("Google로 계속하기")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Palette.ink)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 52)
+            .background(Palette.card, in: .rect(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
+        }
+        .buttonStyle(.pressable)
+        .disabled(isSubmitting)
+        .accessibilityLabel("Google로 계속하기")
     }
 
     // MARK: 짧은 안내 (입력을 마친 칸에만)

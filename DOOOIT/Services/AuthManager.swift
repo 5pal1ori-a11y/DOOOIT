@@ -2,15 +2,31 @@ import AuthenticationServices
 import CommonCrypto
 import CryptoKit
 import Foundation
+#if canImport(GoogleSignIn)
+import GoogleSignIn
+#endif
 import Observation
 import Security
+import UIKit
 
 struct UserAccount: Codable, Equatable {
     enum Provider: String, Codable {
-        case apple, email
+        case apple, email, google
 
-        var title: String { self == .apple ? "Apple로 로그인" : "이메일 계정" }
-        var symbol: String { self == .apple ? "applelogo" : "envelope.fill" }
+        var title: String {
+            switch self {
+            case .apple: return "Apple로 로그인"
+            case .google: return "Google로 로그인"
+            case .email: return "이메일 계정"
+            }
+        }
+        var symbol: String {
+            switch self {
+            case .apple: return "applelogo"
+            case .google: return "g.circle.fill"
+            case .email: return "envelope.fill"
+            }
+        }
     }
 
     var id: String
@@ -29,6 +45,7 @@ enum AuthError: LocalizedError {
     case wrongCredentials
     case locked(Int)
     case apple(String)
+    case google(String)
 
     var errorDescription: String? {
         switch self {
@@ -42,6 +59,7 @@ enum AuthError: LocalizedError {
             return seconds >= 60 ? "로그인 시도가 너무 많아요. \((seconds + 59) / 60)분 뒤에 다시 시도해주세요."
                                  : "로그인 시도가 너무 많아요. \(seconds)초 뒤에 다시 시도해주세요."
         case .apple(let message): return "Apple 로그인에 실패했어요. \(message)"
+        case .google(let message): return "Google 로그인에 실패했어요. \(message)"
         }
     }
 }
@@ -123,6 +141,50 @@ final class AuthManager {
 
             setUser(UserAccount(id: userID, name: profile.name, email: profile.email, provider: .apple, createdAt: Date()))
         }
+    }
+
+    // MARK: Google
+
+    /// Google 계정으로 로그인 (같은 Google 계정이면 같은 두잇 계정 → 저장소가 이어짐)
+    func signInWithGoogle() async throws {
+        #if canImport(GoogleSignIn)
+        guard let presenter = Self.topViewController() else { throw AuthError.google("화면을 찾을 수 없어요.") }
+        do {
+            let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
+            let user = result.user
+            guard let googleID = user.userID else { throw AuthError.google("계정 정보를 확인할 수 없어요.") }
+            let id = "google.\(googleID)"
+            let saved = Keychain.get("google.name.\(id)").flatMap { String(data: $0, encoding: .utf8) }
+            let name = saved ?? user.profile?.name ?? ""
+            let email = user.profile?.email ?? ""
+            setUser(UserAccount(id: id, name: name, email: email, provider: .google, createdAt: Date()))
+        } catch let error as AuthError {
+            throw error
+        } catch {
+            // 사용자가 취소하면 조용히
+            if (error as NSError).code == GIDSignInError.canceled.rawValue { return }
+            throw AuthError.google(error.localizedDescription)
+        }
+        #else
+        throw AuthError.google("이 빌드에서는 사용할 수 없어요.")
+        #endif
+    }
+
+    /// Google 로그인 화면에서 돌아온 주소 처리
+    static func handleGoogleURL(_ url: URL) -> Bool {
+        #if canImport(GoogleSignIn)
+        return GIDSignIn.sharedInstance.handle(url)
+        #else
+        return false
+        #endif
+    }
+
+    private static func topViewController() -> UIViewController? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap(\.windows).first { $0.isKeyWindow } ?? scenes.first?.windows.first
+        var top = window?.rootViewController
+        while let presented = top?.presentedViewController { top = presented }
+        return top
     }
 
     /// Apple ID 연결이 해제되었는지 확인
@@ -211,6 +273,9 @@ final class AuthManager {
                 accounts[user.email] = account
                 saveAccounts(accounts)
             }
+        case .google:
+            // 이름을 바꿨으면 다음 Google 로그인 때도 그 이름을 씀
+            Keychain.set(Data(trimmed.utf8), for: "google.name.\(user.id)")
         case .apple:
             let key = "apple.\(user.id)"
             let profile = AppleProfile(name: trimmed, email: user.email)
@@ -219,6 +284,9 @@ final class AuthManager {
     }
 
     func signOut() {
+        #if canImport(GoogleSignIn)
+        if currentUser?.provider == .google { GIDSignIn.sharedInstance.signOut() }
+        #endif
         currentUser = nil
         Keychain.delete(currentUserKey)
         UserDefaults.standard.removeObject(forKey: currentUserKey)
@@ -233,6 +301,11 @@ final class AuthManager {
             saveAccounts(accounts)
         case .apple:
             Keychain.delete("apple.\(user.id)")
+        case .google:
+            Keychain.delete("google.name.\(user.id)")
+            #if canImport(GoogleSignIn)
+            GIDSignIn.sharedInstance.disconnect { _ in }
+            #endif
         }
         // 예전 버전이 남긴 크레딧 기록도 지움
         Keychain.delete("dooit.credits.v1")

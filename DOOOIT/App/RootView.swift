@@ -99,6 +99,7 @@ struct MainTabView: View {
         }
         // 홈 화면 위젯을 누르면 해당 탭으로
         .onOpenURL { url in
+            if AuthManager.handleGoogleURL(url) { return }
             switch url.host() {
             case "planner":
                 plannerRouter.selectedDate = Date().startOfDay

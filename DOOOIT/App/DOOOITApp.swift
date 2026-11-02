@@ -56,6 +56,8 @@ struct DOOOITApp: App {
                 .onChange(of: auth.currentUser?.id) { _, newID in
                     switchAccount(to: newID)
                 }
+                // Google 로그인 화면에서 돌아온 주소
+                .onOpenURL { url in _ = AuthManager.handleGoogleURL(url) }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background || phase == .inactive {
