@@ -17,10 +17,11 @@ from asc_certs import API, token  # noqa: E402
 BUNDLE_ID = os.environ.get("BUNDLE_ID", "com.bravekoon.dooit")
 # 한국 시간 2026-01-05(월) 0시 = UTC 2026-01-04 15:00
 START = "2026-01-04T15:00:00Z"
+# 기간은 "시간이 들어간" ISO 8601 형식이어야 함 (P1D는 거절됨) → 되는 것을 차례로 시도
 BOARDS = [
-    ("dooit.study.daily", "두잇 일간 공부 시간", "일간 공부 시간", "P1D", "FREQ=DAILY;INTERVAL=1"),
-    ("dooit.study.weekly", "두잇 주간 공부 시간", "주간 공부 시간", "P7D", "FREQ=WEEKLY;INTERVAL=1"),
-    ("dooit.study.monthly", "두잇 월간 공부 시간", "월간 공부 시간", "P1M", "FREQ=MONTHLY;INTERVAL=1"),
+    ("dooit.study.daily", "두잇 일간 공부 시간", "일간 공부 시간", ["P1DT0H0M0S", "PT24H"], "FREQ=DAILY;INTERVAL=1"),
+    ("dooit.study.weekly", "두잇 주간 공부 시간", "주간 공부 시간", ["P7DT0H0M0S", "PT168H"], "FREQ=WEEKLY;INTERVAL=1"),
+    ("dooit.study.monthly", "두잇 월간 공부 시간", "월간 공부 시간", ["P1MT0H0M0S", "P30DT0H0M0S", "PT720H"], "FREQ=MONTHLY;INTERVAL=1"),
 ]
 
 
@@ -62,18 +63,22 @@ def main():
     # 2) 리더보드 (없는 것만 만듦)
     existing = call("GET", f"/gameCenterDetails/{detail_id}/gameCenterLeaderboards?limit=200").get("data", [])
     have = {b["attributes"].get("vendorIdentifier") for b in existing}
-    for vendor, reference, name, duration, rule in BOARDS:
+    for vendor, reference, name, durations, rule in BOARDS:
         if vendor in have:
             print(f"이미 있어요: {vendor}")
             continue
-        attributes = {"referenceName": reference, "vendorIdentifier": vendor, "defaultFormatter": "ELAPSED_TIME_SECOND",
-                      "submissionType": "BEST_SCORE", "scoreSortType": "DESC",
-                      "recurrenceStartDate": START, "recurrenceDuration": duration, "recurrenceRule": rule}
+        attempts = []
+        for duration in durations:
+            base = {"referenceName": reference, "vendorIdentifier": vendor, "defaultFormatter": "ELAPSED_TIME_SECOND",
+                    "submissionType": "BEST_SCORE", "scoreSortType": "DESC",
+                    "recurrenceStartDate": START, "recurrenceDuration": duration}
+            attempts += [dict(base, recurrenceRule=rule), base]
         board = None
-        for attempt in (attributes, {k: v for k, v in attributes.items() if k != "recurrenceRule"}):
+        for attempt in attempts:
             try:
                 board = call("POST", "/gameCenterLeaderboards", {"data": {"type": "gameCenterLeaderboards", "attributes": attempt,
                              "relationships": {"gameCenterDetail": {"data": {"type": "gameCenterDetails", "id": detail_id}}}}})["data"]
+                print(f"기간 {attempt['recurrenceDuration']}" + (" + 반복 규칙" if "recurrenceRule" in attempt else ""))
                 break
             except urllib.error.HTTPError as e:
                 print(f"::warning title=Game Center::{vendor} 만들기 실패 ({e.code}): {error_text(e)}")
