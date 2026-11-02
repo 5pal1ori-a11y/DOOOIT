@@ -28,7 +28,7 @@ func spellChecked(_ word: ParsedWord) -> ParsedWord {
         guard range.location != NSNotFound else { continue }
         result.unsure = true
         let guesses = checker.guesses(forWordRange: range, in: token, language: "en_US", inSpellDocumentWithTag: 0) ?? []
-        if let guess = guesses.first(where: { OCRService.editDistance($0.lowercased(), token.lowercased()) == 1 && !$0.contains(" ") }) {
+        if let guess = guesses.first(where: { OCRService.isLikelyMisread(token: token, guess: $0) }) {
             let fixed = token.first?.isUppercase == true ? guess : guess.lowercased()
             term = term.replacingOccurrences(of: token, with: fixed)
         }
@@ -84,8 +84,12 @@ func rawDump(_ image: CGImage, result: inout CaseResult) async {
     let median = heights.isEmpty ? 0 : heights[heights.count / 2]
     result.shapeCount = all.count
     result.circles = all.filter { MathOCRFixer.isChoiceCircle($0, lineHeight: median) }.map { rounded($0.box) }
-    result.fractions = await OCRService.stackedFractions(prepared, lines: k.map(\.boundingBox))
+    final class Notes: @unchecked Sendable { var items: [String] = [] }
+    let notes = Notes()
+    result.fractions = await OCRService.stackedFractions(prepared, page: OCRService.grayPage(prepared, lines: k.map(\.boundingBox)),
+                                                         lines: k.map(\.boundingBox), note: { notes.items.append($0) })
         .map { DebugLine(text: $0.text, confidence: 1, box: rounded($0.box)) }
+    result.notes = notes.items
 }
 
 /// 앱: readWords = 바로 세우기 → 원래 사진 + 고대비 사진 읽기 → bestWords → 철자 확인 → 뜻 있는 것만 보여 줌

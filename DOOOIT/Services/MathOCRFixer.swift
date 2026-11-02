@@ -53,6 +53,8 @@ enum MathOCRFixer {
         (#"(?<=[0-9])\s+x\s+(?=[0-9])"#, " × "),
         // 계수 뒤 x 를 r, * 로 읽음: 2r- 3, 3*- 1 → 2x- 3, 3x- 1
         (#"(?<=[0-9])[r*](?=\s*[+\-−=<>)])"#, "x"),
+        // 단위의 s 를 $ 로 읽음: m/$ → m/s
+        (#"(?<=[A-Za-z]/)\$"#, "s"),
         // 영어 문장의 대문자 I 를 l 로 읽음: "l am" → "I am"
         (#"(^|[①②③④⑤]\s?|[.?!]\s)l(?=\s[a-z])"#, "$1I"),
         // 부등호·기호
@@ -118,7 +120,7 @@ enum MathOCRFixer {
         // 곱셈 기호로 읽힌 x: 2×+3, 3×², ×=2 → x
         (#"(?<=[0-9])×(?=\s*[+\-−=)<>≤≥]|\s*$)"#, "x"),
         (#"×(?=[²³⁴])"#, "x"),
-        (#"(^|[\s(=+\-−,])×(?=\s*[+\-−=)<>]|[²³])"#, "$1x"),
+        (#"(^|[\s(=+\-−,])×(?=\s*[+\-−=)<>≤≥]|[²³])"#, "$1x"),
         // 대문자 X, 그리스 χ → x
         (#"(?<=[0-9+\-−=(\s])[Xχ](?=[0-9²³+\-−=)\s<>]|$)"#, "x"),
         // 지수가 ' ° ’ ? " ” * 로 읽힘: x' → x², a° → a²
@@ -291,7 +293,9 @@ enum MathOCRFixer {
                   let upper = result[lower...].firstIndex(of: after) else { continue }
             let segment = result[result.index(after: lower)..<upper]
             // 보기 값 뒤 빈칸 다음에 오는 낯선 기호 하나
-            if let m = segment.range(of: #"(?<=\s)[©®@Ⓒⓒ®OD](?=\s)"#, options: .regularExpression) {
+            // (앞 보기의 값 다음, 뒤에 이 보기의 값이 올 때만: "② 3 ④ 5"의 3은 ②의 값이라 그대로)
+            let junk = #"(?:[©®@Ⓒⓒ®OD*•§]|"# + String(k + 1) + ")"
+            if let m = segment.range(of: #"(?<=\S\s)"# + junk + #"(?=\s+[^\s①②③④⑤])"#, options: .regularExpression) {
                 result.replaceSubrange(m, with: String(missing))
             }
         }
@@ -302,7 +306,7 @@ enum MathOCRFixer {
         }
         // 맨 끝 ⑤를 S, 5), (5, @ 처럼 읽음: "④ 높다 S 푸르다" → "④ 높다 ⑤ 푸르다" (④ 뒤 같은 줄이나 다음 줄 처음)
         if !result.contains("⑤"), result.contains("④") {
-            result = result.replacingOccurrences(of: #"(④[^\n①②③⑤]*?[ \t]|④[^\n①②③⑤]*\n[ \t]*)(?:S|5\)|\(5\)?|\(S\)?|@|©|®|O)(?=[ \t]+\S)"#,
+            result = result.replacingOccurrences(of: #"(④[^\n①②③⑤]*?[ \t]|④[^\n①②③⑤]*\n[ \t]*(?=5[ \t])|④[^\n①②③⑤]*\n[ \t]*)(?:S|s|5\)|5(?<=\n[ \t]{0,4}5)|\(5\)?|\(S\)?|@|©|®|O)(?=[ \t]+\S)"#,
                                                  with: "$1⑤", options: .regularExpression)
         }
         return result
@@ -326,7 +330,7 @@ enum MathOCRFixer {
     /// lineHeight: 글자 줄 높이 (Vision 좌표)
     static func isChoiceCircle(_ shape: Shape, lineHeight: CGFloat) -> Bool {
         guard lineHeight > 0,
-              shape.box.height >= lineHeight * 0.5, shape.box.height <= lineHeight * 1.7,
+              shape.box.height >= lineHeight * 0.62, shape.box.height <= lineHeight * 1.7,
               shape.aspect >= 0.82, shape.aspect <= 1.22,
               shape.fill >= 0.66, shape.fill <= 0.88 else { return false }
         func centered(_ r: CGRect) -> Bool { abs(r.midX - 0.5) <= 0.2 && abs(r.midY - 0.5) <= 0.2 }
@@ -575,7 +579,7 @@ enum MathOCRFixer {
                     let junk = tokens[i + 1]
                     let number = String(n + 1)
                     let lookalike: [Int: [String]] = [1: ["l", "I", "|"], 2: ["Z"], 5: ["S"]]
-                    let isJunk = ["O", "o", "@", "©", "®", "*", "D", "Ⓒ", "ⓒ", "•", "·"].contains(junk)
+                    let isJunk = ["O", "o", "@", "©", "®", "*", "D", "Ⓒ", "ⓒ", "•", "·", "§"].contains(junk)
                         || junk == number || junk == "(\(number))" || junk == "\(number))" || junk == "(\(number)"
                         || (lookalike[n + 1] ?? []).contains(junk)
                     let after = tokens[i + 2]

@@ -23,6 +23,63 @@ enum FractionFinder {
         }
     }
 
+    /// 잉크 표시 (위가 0)
+    struct Ink {
+        var mask: [Bool]
+        var width: Int
+        var height: Int
+
+        /// 영역 안 잉크의 맨 위·맨 아래 줄 (없으면 nil)
+        func extent(x0: Int, x1: Int, y0: Int, y1: Int) -> (top: Int, bottom: Int)? {
+            let xs = max(0, x0), xe = min(width - 1, x1), ys = max(0, y0), ye = min(height - 1, y1)
+            guard xs <= xe, ys <= ye else { return nil }
+            var top = Int.max, bottom = -1
+            for y in ys...ye {
+                for x in xs...xe where mask[y * width + x] {
+                    top = min(top, y); bottom = max(bottom, y)
+                    break
+                }
+            }
+            return bottom >= 0 ? (top, bottom) : nil
+        }
+    }
+
+    /// 빈칸 네모 □처럼 생겼는지 (픽셀, 위가 0): 네 변 중 세 변 이상에 선이 있고 안은 비어 있음
+    /// (네모 찾기가 글자 사이 빈 곳이나 한글 받침을 네모로 잡는 경우를 거름)
+    static func isEmptyBox(_ ink: Ink, x0: Int, x1: Int, y0: Int, y1: Int) -> Bool {
+        let w = x1 - x0 + 1, h = y1 - y0 + 1
+        guard w >= 6, h >= 6, x0 >= 0, y0 >= 0, x1 < ink.width, y1 < ink.height else { return false }
+        let band = max(1, min(w, h) / 8)
+        func dark(_ x: Int, _ y: Int) -> Bool { x >= 0 && y >= 0 && x < ink.width && y < ink.height && ink.mask[y * ink.width + x] }
+        func side(_ points: [(Int, Int)], _ dx: Int, _ dy: Int) -> Double {
+            var hit = 0
+            for (x, y) in points where (-band...band).contains(where: { dark(x + dx * $0, y + dy * $0) }) { hit += 1 }
+            return Double(hit) / Double(max(1, points.count))
+        }
+        let top = side((x0...x1).map { ($0, y0) }, 0, 1), bottom = side((x0...x1).map { ($0, y1) }, 0, 1)
+        let left = side((y0...y1).map { (x0, $0) }, 1, 0), right = side((y0...y1).map { (x1, $0) }, 1, 0)
+        let strong = [top, bottom, left, right].filter { $0 >= 0.6 }.count
+        guard strong >= 3 else { return false }
+        // 안쪽(가장자리 25% 빼고)은 거의 비어 있어야 함
+        let ix0 = x0 + w / 4, ix1 = x1 - w / 4, iy0 = y0 + h / 4, iy1 = y1 - h / 4
+        guard ix0 <= ix1, iy0 <= iy1 else { return true }
+        var inside = 0, total = 0
+        for y in iy0...iy1 { for x in ix0...ix1 { total += 1; if dark(x, y) { inside += 1 } } }
+        return Double(inside) / Double(max(1, total)) < 0.06
+    }
+
+    /// 지수 숫자인지 (픽셀, 위가 0): 앞 글자의 가운데보다 위에서 끝나고,
+    /// 앞 글자보다 작으면서 위쪽에 붙어 있거나(2³) 키 작은 글자 위로 확실히 솟아 있음(x²)
+    static func isSuperscript(base: (top: Int, bottom: Int), digit: (top: Int, bottom: Int)) -> Bool {
+        let baseHeight = Double(base.bottom - base.top + 1), digitHeight = Double(digit.bottom - digit.top + 1)
+        guard baseHeight >= 5, digitHeight >= 3 else { return false }
+        let top = Double(base.top)
+        guard Double(digit.bottom) < top + baseHeight * 0.55 else { return false }
+        let smallAndHigh = digitHeight <= baseHeight * 0.8 && Double(digit.top) <= top + baseHeight * 0.15
+        let above = Double(digit.top) < top - baseHeight * 0.25
+        return smallAndHigh || above
+    }
+
     /// 글자(잉크) 픽셀: 주변 종이 밝기보다 확실히 어두운 픽셀.
     /// 한쪽이 어두운 조명·책상 배경에서도 맞도록 16픽셀 칸마다 가장 밝은 값(종이)을 재고 그와 비교함
     static func inkMask(gray: [UInt8], width: Int, height: Int) -> [Bool] {

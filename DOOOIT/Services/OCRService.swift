@@ -97,7 +97,7 @@ extension OCRService {
             guard range.location != NSNotFound else { continue }
             result.unsure = true
             let guesses = checker.guesses(forWordRange: range, in: token, language: language) ?? []
-            if let guess = guesses.first(where: { editDistance($0.lowercased(), token.lowercased()) == 1 && !$0.contains(" ") }) {
+            if let guess = guesses.first(where: { isLikelyMisread(token: token, guess: $0) }) {
                 let fixed = token.first?.isUppercase == true ? guess : guess.lowercased()
                 term = term.replacingOccurrences(of: token, with: fixed)
             }

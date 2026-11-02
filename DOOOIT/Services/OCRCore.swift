@@ -97,30 +97,33 @@ enum OCRService {
         async let circleRead = detectCircles(cgImage)
         guard let korean = await koreanRead else { return [] }
         // 쌓은 분수: 막대를 픽셀에서 찾고 분자·분모를 따로 읽음 (글자 인식은 작은 분수를 "늘", "⅔"처럼 한 글자로 읽음)
-        let barFractions = await stackedFractions(cgImage, lines: korean.map(\.boundingBox))
+        let page = grayPage(cgImage, lines: korean.map(\.boundingBox))
+        let barFractions = await stackedFractions(cgImage, page: page, lines: korean.map(\.boundingBox))
         let english = await englishRead ?? []
         let rects = await boxRead
         let circles = await circleRead
-        return merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions)
+        return merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions,
+                     ink: page.map { FractionFinder.Ink(mask: FractionFinder.inkMask(gray: $0.gray, width: $0.width, height: $0.height), width: $0.width, height: $0.height) })
     }
 
-    // MARK: 쌓은 분수 (막대 찾기 + 분자·분모 따로 읽기)
-
-    /// 사진에서 찾아 읽은 분수 하나 (box: Vision 좌표, 분자·분모를 합친 영역)
-    struct BarFraction {
-        var box: CGRect
-        var text: String
+    /// 글자 크기가 40픽셀쯤 되게 줄인 흑백 사진 (분수 막대·지수 위치를 픽셀로 볼 때)
+    struct GrayPage {
+        var gray: [UInt8]
+        var width: Int
+        var height: Int
+        /// 원래 사진 → 줄인 사진 배율
+        var scale: Double
+        /// 줄인 사진에서 글자 크기 짐작 (픽셀)
+        var size: Double
     }
 
-    static func stackedFractions(_ cgImage: CGImage, lines: [CGRect]) async -> [BarFraction] {
-        let fullWidth = cgImage.width, fullHeight = cgImage.height
-        let heights = lines.map { Double($0.height) * Double(fullHeight) }.sorted()
-        guard !heights.isEmpty else { return [] }
+    static func grayPage(_ cgImage: CGImage, lines: [CGRect]) -> GrayPage? {
+        let heights = lines.map { Double($0.height) * Double(cgImage.height) }.sorted()
+        guard !heights.isEmpty else { return nil }
         let size = heights[heights.count / 4]
-        guard size >= 8 else { return [] }
-        // 글자 크기가 40픽셀쯤 되게 줄여서 찾음 (빠르게)
+        guard size >= 8 else { return nil }
         let scale = min(1.0, 40.0 / size)
-        let w = max(1, Int(Double(fullWidth) * scale)), h = max(1, Int(Double(fullHeight) * scale))
+        let w = max(1, Int(Double(cgImage.width) * scale)), h = max(1, Int(Double(cgImage.height) * scale))
         var gray = [UInt8](repeating: 255, count: w * h)
         let drawn: Bool = gray.withUnsafeMutableBytes { buffer in
             guard let context = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
@@ -131,10 +134,26 @@ enum OCRService {
             context.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
             return true
         }
-        guard drawn else { return [] }
+        return drawn ? GrayPage(gray: gray, width: w, height: h, scale: scale, size: size * scale) : nil
+    }
+
+    // MARK: 쌓은 분수 (막대 찾기 + 분자·분모 따로 읽기)
+
+    /// 사진에서 찾아 읽은 분수 하나 (box: Vision 좌표, 분자·분모를 합친 영역)
+    struct BarFraction {
+        var box: CGRect
+        var text: String
+    }
+
+    /// note: 원인 찾기용 기록 (사진 테스트에서만 씀)
+    static func stackedFractions(_ cgImage: CGImage, page: GrayPage?, lines: [CGRect], note: ((String) -> Void)? = nil) async -> [BarFraction] {
+        guard let page else { return [] }
+        let fullWidth = cgImage.width, fullHeight = cgImage.height
+        let w = page.width, h = page.height, scale = page.scale
         let pixelLines = lines.map { (x: Double($0.minX) * Double(w), y: (1 - Double($0.maxY)) * Double(h),
                                       width: Double($0.width) * Double(w), height: Double($0.height) * Double(h)) }
-        let bars = FractionFinder.bars(gray: gray, width: w, height: h, size: size * scale, lines: pixelLines)
+        let bars = FractionFinder.bars(gray: page.gray, width: w, height: h, size: page.size, lines: pixelLines)
+        note?("막대 \(bars.count)개 (글자 크기 \(Int(page.size))px, 배율 \(String(format: "%.2f", scale)))")
         guard !bars.isEmpty, bars.count <= 24 else { return [] }
 
         // 분자·분모를 원래 사진에서 잘라 한 줄에 하나씩 쌓은 "읽기 종이"를 만들어 한 번에 읽음
@@ -187,6 +206,7 @@ enum OCRService {
                   abs(rowCenters[row] - mid) * Double(sheetHeight) < pieceHeight else { continue }
             texts[row] += (texts[row].isEmpty ? "" : " ") + text
         }
+        note?("읽기 종이 \(sheetWidth)x\(sheetHeight): " + texts.map { "[\($0)]" }.joined(separator: " "))
         var result: [BarFraction] = []
         for (k, bar) in bars.enumerated() {
             guard let numerator = MathOCRFixer.fractionPart(texts[k * 2]),
@@ -292,7 +312,7 @@ enum OCRService {
 
     /// 한국어 줄의 수식 부분(한글이 없는 구간)을 같은 자리의 영어 전용 인식 결과와 비교해서 더 수식다운 쪽을 고름
     static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation], rects: [CGRect] = [],
-                      circles: [MathOCRFixer.Shape] = [], barFractions: [BarFraction] = []) -> [OCRLine] {
+                      circles: [MathOCRFixer.Shape] = [], barFractions: [BarFraction] = [], ink: FractionFinder.Ink? = nil) -> [OCRLine] {
         // 영어 전용 결과를 낱말 단위 위치로
         var words: [Word] = []
         for observation in english {
@@ -386,6 +406,13 @@ enum OCRService {
         }
         var blanksByLine: [Int: [CGRect]] = [:]
         for blank in MathOCRFixer.blankBoxes(rects: rects, lines: korean.map(\.boundingBox), letters: letterBoxes) {
+            // 사진 픽셀로 한 번 더: 테두리가 있고 안이 빈 네모만 (글자 사이 빈 곳을 네모로 잡은 것 거름)
+            if let ink {
+                let b = blank.box
+                let x0 = Int(b.minX * CGFloat(ink.width)), x1 = Int(b.maxX * CGFloat(ink.width))
+                let y0 = Int((1 - b.maxY) * CGFloat(ink.height)), y1 = Int((1 - b.minY) * CGFloat(ink.height))
+                if !FractionFinder.isEmptyBox(ink, x0: x0, x1: x1, y0: y0, y1: y1) { continue }
+            }
             blanksByLine[blank.host, default: []].append(blank.box)
         }
 
@@ -436,6 +463,12 @@ enum OCRService {
                     places.append(nil)
                     continue
                 }
+                // 낱말 한가운데 글자("don't", "homework"의 o)는 번호가 아님
+                if let first = covered.min(), let last = covered.max(), first > 0, last + 1 < chars.count,
+                   chars[first - 1].isLetter, chars[last + 1].isLetter {
+                    places.append(nil)
+                    continue
+                }
                 let range = covered.isEmpty ? insertAt..<insertAt : (covered.min()!)..<(covered.max()! + 1)
                 places.append((line, range, anchor))
             }
@@ -446,6 +479,11 @@ enum OCRService {
                                                      anchors: Dictionary(uniqueKeysWithValues: valid.enumerated().compactMap { k, i in anchors[i].map { (k, $0) } }))
             for (k, i) in valid.enumerated() where numbers[k] > 0 {
                 guard let place = places[i] else { continue }
+                // 동그라미 자리를 다른 숫자 하나("9", "6")로 또렷이 읽었으면 그건 보기 값의 숫자 (모양만 둥근 것)
+                if let text = chosen(korean[place.line])?.string, place.remove.count == 1 {
+                    let c = Array(text)[place.remove.lowerBound]
+                    if c.isASCII, c.isNumber, !"10".contains(c), String(c) != String(numbers[k]) { continue }
+                }
                 circleEdits[place.line, default: []].append((place.remove, numbers[k]))
             }
         }
@@ -499,6 +537,26 @@ enum OCRService {
                     offset = i + 1
                 }
                 insertions.append((offset, " " + fraction.text + " "))
+            }
+
+            // 1-1b) 줄 안에 붙어 읽힌 지수: "x2", "23" 중 숫자가 앞 글자보다 작고 위에 떠 있으면 ^ (x², 2³)
+            if let ink {
+                func extent(_ box: CGRect) -> (top: Int, bottom: Int)? {
+                    let shrink = box.width * 0.12
+                    let x0 = Int((box.minX + shrink) * CGFloat(ink.width)), x1 = Int((box.maxX - shrink) * CGFloat(ink.width))
+                    let y0 = Int((1 - line.maxY - line.height * 0.15) * CGFloat(ink.height)), y1 = Int((1 - line.minY + line.height * 0.15) * CGFloat(ink.height))
+                    return ink.extent(x0: x0, x1: x1, y0: y0, y1: y1)
+                }
+                for i in chars.indices.dropFirst() where chars[i].isASCII && chars[i].isNumber {
+                    let base = chars[i - 1]
+                    guard base.isASCII && (base.isLetter || base.isNumber) || base == ")",
+                          !(i >= 2 && chars[i - 2] == "^"), chars[i - 1] != "^",
+                          let digitBox = charBox(i), let baseBox = charBox(i - 1),
+                          let d = extent(digitBox), let b = extent(baseBox),
+                          FractionFinder.isSuperscript(base: b, digit: d) else { continue }
+                    // 이미 지수로 표시됐거나 다음 글자도 같은 높이의 지수 숫자면 첫 숫자 앞에만
+                    insertions.append((i, "^"))
+                }
             }
 
             // 1-2b) 사진에서 찾은 분수: 그 자리에 잘못 읽힌 글자("늘", "÷", "⅔")를 지우고 분수로

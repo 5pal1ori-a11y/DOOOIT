@@ -108,6 +108,26 @@ func runFractionFinderCases() {
     fill(&minus, 30, 50, 16, 2)
     check("빼기는 분수 아님", FractionFinder.bars(gray: minus, width: w, height: h, size: 30).isEmpty)
 
+    // 지수 위치 (픽셀, 위가 0)
+    check("2³: 작고 위에 붙은 숫자", FractionFinder.isSuperscript(base: (100, 128), digit: (92, 109)))
+    check("x²: 낮은 x 위로 솟은 숫자", FractionFinder.isSuperscript(base: (112, 128), digit: (95, 111)))
+    check("12: 같은 높이 숫자는 지수 아님", !FractionFinder.isSuperscript(base: (100, 128), digit: (100, 128)))
+    check("x2: 바닥이 같은 숫자는 지수 아님", !FractionFinder.isSuperscript(base: (112, 128), digit: (100, 128)))
+
+    // 빈칸 네모: 테두리 있고 안이 빔 / 안에 글자가 있으면 아님
+    var box = [Bool](repeating: false, count: 60 * 60)
+    for i in 10...40 { box[10 * 60 + i] = true; box[40 * 60 + i] = true; box[i * 60 + 10] = true; box[i * 60 + 40] = true }
+    let ink = FractionFinder.Ink(mask: box, width: 60, height: 60)
+    check("빈 네모", FractionFinder.isEmptyBox(ink, x0: 10, x1: 40, y0: 10, y1: 40))
+    var filled = box
+    for y in 18...32 { for x in 22...28 { filled[y * 60 + x] = true } }
+    check("글자 든 네모는 빈칸 아님", !FractionFinder.isEmptyBox(FractionFinder.Ink(mask: filled, width: 60, height: 60), x0: 10, x1: 40, y0: 10, y1: 40))
+    check("선 없는 빈 곳은 빈칸 아님", !FractionFinder.isEmptyBox(FractionFinder.Ink(mask: [Bool](repeating: false, count: 3600), width: 60, height: 60), x0: 10, x1: 40, y0: 10, y1: 40))
+    // 철자 추천: rn↔m 같은 착각
+    check("Joumey → journey", OCRService.isLikelyMisread(token: "Joumey", guess: "journey"))
+    check("eager는 cager의 한 글자 차이", OCRService.isLikelyMisread(token: "cager", guess: "eager"))
+    check("전혀 다른 낱말은 아님", !OCRService.isLikelyMisread(token: "apple", guess: "orange"))
+
     // 따로 읽은 분자·분모 정리
     check("분자 1", MathOCRFixer.fractionPart(" 1 ") == "1")
     check("분자 l → 1", MathOCRFixer.fractionPart("l") == "1")
@@ -139,6 +159,12 @@ func runPhotoFixCases() {
         ("_ 안에 알맞은 분수를 구하시오.", "□ 안에 알맞은 분수를 구하시오."),
         ("l 빠르다 ② 예쁘다 ③ 달리다\n④ 높다 ⑤ 푸르다", "① 빠르다 ② 예쁘다 ③ 달리다\n④ 높다 ⑤ 푸르다"),   // ①을 l로
         ("① 왕건 ② 이성계 ③ 세종 ④ 정도전 S 이방원", "① 왕건 ② 이성계 ③ 세종 ④ 정도전 ⑤ 이방원"),     // ⑤를 S로
+        ("① ×≤2 ② x<3", "① x≤2 ② x<3"),                                                       // 부등호 앞 x 를 × 로
+        ("① 물 ② 이산화 탄소 ③ 빛 ④ 엽록체 s 산소", "① 물 ② 이산화 탄소 ③ 빛 ④ 엽록체 ⑤ 산소"),          // ⑤를 s로
+        ("③ They was very happy.\n* I am go to school.\n⑤ We is good friends.", "③ They was very happy.\n④ I am go to school.\n⑤ We is good friends."),
+        ("① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ § 설레임", "① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ 설레임"),
+        ("① m/$ ② kg ③ N ④ J ⑤ W", "① m/s ② kg ③ N ④ J ⑤ W"),
+        ("④ I am go to school.\n5 We is good friends.", "④ I am go to school.\n⑤ We is good friends."),
     ]
     for (input, expected) in fixes {
         let fixed = MathOCRFixer.fix(input).trimmingCharacters(in: .whitespaces)
@@ -146,7 +172,7 @@ func runPhotoFixCases() {
     }
     // 바꾸면 안 되는 것
     for keep in ["① 0 ② 1 ③ 2 ④ 3 ⑤ 4", "반지름이 2r인 원", "x = 3", "I have a pen.", "상자 안에 공이 있다.", "① 3 ② 6 ③ 9 ④ 12 ⑤ 18",
-                 "① x = 1 ② x = 2 ③ x = 3 ④ x + 5 = 0"] {
+                 "① x = 1 ② x = 2 ③ x = 3 ④ x + 5 = 0", "① 2 ② 3 ④ 5 ⑤ 6"] {
         let fixed = MathOCRFixer.fix(keep)
         check("사진 교정 아님: \(keep)", fixed == keep, fixed)
     }

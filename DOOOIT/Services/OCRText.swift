@@ -129,6 +129,17 @@ extension OCRService {
         return best
     }
 
+    /// 철자 사전의 추천 낱말이 글자 인식이 흔히 틀리는 모양인지: 한 글자 차이, 또는 rn↔m, cl↔d, vv↔w, li↔h
+    static func isLikelyMisread(token: String, guess: String) -> Bool {
+        let a = token.lowercased(), b = guess.lowercased()
+        guard !b.contains(" ") else { return false }
+        if editDistance(a, b) == 1 { return true }
+        for (x, y) in [("rn", "m"), ("cl", "d"), ("vv", "w"), ("li", "h"), ("ii", "u")] {
+            if a.replacingOccurrences(of: x, with: y) == b || a.replacingOccurrences(of: y, with: x) == b { return true }
+        }
+        return false
+    }
+
     static func editDistance(_ a: String, _ b: String) -> Int {
         let a = Array(a), b = Array(b)
         guard !a.isEmpty else { return b.count }

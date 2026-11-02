@@ -47,6 +47,7 @@ struct CaseResult: Codable {
     var shapeCount: Int? = nil
     /// 사진에서 찾은 쌓은 분수 (막대 + 따로 읽은 분자·분모)
     var fractions: [DebugLine]? = nil
+    var notes: [String]? = nil
 }
 
 func rounded(_ r: CGRect) -> [Double] {
