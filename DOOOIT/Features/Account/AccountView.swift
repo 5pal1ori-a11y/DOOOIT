@@ -17,8 +17,6 @@ struct AccountView: View {
     @AppStorage(SettingsKey.reminderLeadMinutes) private var leadMinutes = 10
     @AppStorage(SettingsKey.liveActivityEnabled) private var liveActivityEnabled = true
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
-    @AppStorage(SettingsKey.dDayTitle) private var dDayTitle = ""
-    @AppStorage(SettingsKey.dDayDate) private var dDayDate: Double = 0
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
 
     @State private var showNameEdit = false
@@ -54,32 +52,15 @@ struct AccountView: View {
                 }
 
                 Section {
-                    HStack(spacing: 12) {
-                        icon("flag.fill", Palette.danger)
-                        TextField("D-Day 이름 (예: 수능)", text: $dDayTitle)
-                    }
-                    DatePicker(selection: dDayBinding, displayedComponents: .date) {
+                    NavigationLink { notificationSettings } label: {
                         HStack(spacing: 12) {
-                            icon("calendar", Palette.danger)
-                            Text("날짜")
+                            icon("bell.badge.fill", Palette.danger)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("알림 설정").foregroundStyle(Palette.ink)
+                                Text("탭하여 설정").font(.caption).foregroundStyle(.secondary)
+                            }
                         }
                     }
-                } header: {
-                    Text("D-Day")
-                }
-
-                Section {
-                    Toggle(isOn: $notificationsEnabled) { item("일정 알림", "bell.badge.fill", Palette.danger) }
-                    Picker(selection: $leadMinutes) {
-                        Text("5분 전").tag(5)
-                        Text("10분 전").tag(10)
-                        Text("15분 전").tag(15)
-                        Text("30분 전").tag(30)
-                    } label: { item("미리 알림", "alarm.fill", Palette.warning) }
-                    Toggle(isOn: $liveActivityEnabled) { item("다이나믹 아일랜드", "capsule.fill", Color(hex: "#1F2433")) }
-                    Toggle(isOn: $autoStartTimer) { item("타이머 자동 시작", "timer", Palette.success) }
-                } header: {
-                    Text("알림 · 타이머")
                 }
 
                 Section("앱") {
@@ -94,13 +75,14 @@ struct AccountView: View {
                 }
 
                 Section {
-                    LabeledContent { Text(appVersion) } label: { item("버전", "info", Color.gray) }
-                    Button { showResetRecords = true } label: { item("공부 기록 초기화", "arrow.counterclockwise", Color.gray) }
-                        .tint(.primary)
-                    Button { showSignOut = true } label: { item("로그아웃", "rectangle.portrait.and.arrow.right", Color.gray) }
-                        .tint(.primary)
-                    Button(role: .destructive) { showDelete = true } label: {
-                        Text("계정 삭제").frame(maxWidth: .infinity, alignment: .center)
+                    NavigationLink { accountSettings } label: {
+                        HStack(spacing: 12) {
+                            icon("person.crop.circle.badge.checkmark", Color.gray)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("계정 설정").foregroundStyle(Palette.ink)
+                                Text("버전 \(appVersion)").font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
                     }
                 }
             }
@@ -123,26 +105,75 @@ struct AccountView: View {
                 Button("취소", role: .cancel) {}
                 Button("저장") { auth.updateName(nameDraft) }
             }
-            .confirmationDialog("로그아웃할까요?", isPresented: $showSignOut, titleVisibility: .visible) {
-                Button("로그아웃", role: .destructive) {
-                    if studyTimer.isActive { studyTimer.stop() }
-                    auth.signOut()
+        }
+    }
+
+    // MARK: 하위 화면
+
+    /// 알림 설정: 일정 알림 · 미리 알림 · 다이나믹 아일랜드 · 타이머 자동 시작
+    private var notificationSettings: some View {
+        List {
+            Section {
+                Toggle(isOn: $notificationsEnabled) { item("일정 알림", "bell.badge.fill", Palette.danger) }
+                Picker(selection: $leadMinutes) {
+                    Text("5분 전").tag(5)
+                    Text("10분 전").tag(10)
+                    Text("15분 전").tag(15)
+                    Text("30분 전").tag(30)
+                } label: { item("미리 알림", "alarm.fill", Palette.warning) }
+                Toggle(isOn: $liveActivityEnabled) { item("다이나믹 아일랜드", "capsule.fill", Color(hex: "#1F2433")) }
+                Toggle(isOn: $autoStartTimer) { item("타이머 자동 시작", "timer", Palette.success) }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background { AppBackground() }
+        .tint(Theme.accent)
+        .navigationTitle("알림 설정")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// 계정 설정: 버전 · 공부 기록 초기화 · 로그아웃 · 계정 삭제
+    private var accountSettings: some View {
+        List {
+            Section {
+                LabeledContent { Text(appVersion) } label: { item("버전", "info", Color.gray) }
+            }
+            Section {
+                Button { showResetRecords = true } label: { item("공부 기록 초기화", "arrow.counterclockwise", Color.gray) }
+                    .tint(.primary)
+                Button { showSignOut = true } label: { item("로그아웃", "rectangle.portrait.and.arrow.right", Color.gray) }
+                    .tint(.primary)
+            }
+            Section {
+                Button(role: .destructive) { showDelete = true } label: {
+                    Text("계정 삭제").frame(maxWidth: .infinity, alignment: .center)
                 }
             }
-            .confirmationDialog("공부 기록을 모두 지울까요?", isPresented: $showResetRecords, titleVisibility: .visible) {
-                Button("초기화", role: .destructive) {
-                    try? context.delete(model: StudySession.self)
-                    try? context.save()
-                }
-            } message: {
-                Text("공부 시간 기록과 연속 공부 일수가 초기화돼요.")
+        }
+        .scrollContentBackground(.hidden)
+        .background { AppBackground() }
+        .tint(Theme.accent)
+        .navigationTitle("계정 설정")
+        .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("로그아웃할까요?", isPresented: $showSignOut, titleVisibility: .visible) {
+            Button("로그아웃", role: .destructive) {
+                if studyTimer.isActive { studyTimer.stop() }
+                auth.signOut()
             }
-            .alert("계정을 삭제할까요?", isPresented: $showDelete) {
-                Button("취소", role: .cancel) {}
-                Button("삭제", role: .destructive, action: deleteAccount)
-            } message: {
-                Text("플랜, 단어, 오답노트, 메모, 공부 기록이 모두 삭제되며 되돌릴 수 없어요.")
+        }
+        .confirmationDialog("공부 기록을 모두 지울까요?", isPresented: $showResetRecords, titleVisibility: .visible) {
+            Button("초기화", role: .destructive) {
+                try? context.delete(model: StudySession.self)
+                try? context.save()
             }
+        } message: {
+            Text("공부 시간 기록과 연속 공부 일수가 초기화돼요.")
+        }
+        .alert("계정을 삭제할까요?", isPresented: $showDelete) {
+            Button("취소", role: .cancel) {}
+            Button("삭제", role: .destructive, action: deleteAccount)
+        } message: {
+            Text("플랜, 단어, 오답노트, 메모, 공부 기록이 모두 삭제되며 되돌릴 수 없어요.")
         }
     }
 
@@ -245,13 +276,6 @@ struct AccountView: View {
     }
 
     // MARK: Helpers
-
-    private var dDayBinding: Binding<Date> {
-        Binding(
-            get: { dDayDate > 0 ? Date(timeIntervalSince1970: dDayDate) : Date().adding(days: 30) },
-            set: { dDayDate = $0.startOfDay.timeIntervalSince1970 }
-        )
-    }
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"

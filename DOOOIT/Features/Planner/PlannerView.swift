@@ -619,8 +619,8 @@ private struct DaySummaryHeader<Trailing: View>: View {
     }
 
     private func summary(done: Int, studyMinutes: Int) -> String {
-        var parts = ["할 일 \(occurrences.count)개", "완료 \(done)개"]
-        if studyMinutes > 0 { parts.append("공부 \(TimeText.duration(minutes: studyMinutes))") }
-        return parts.joined(separator: " · ")
+        let when = day.isSameDay(as: Date()) ? "오늘" : "이날"
+        if done == occurrences.count { return "\(when) 할 일 \(occurrences.count)개를 모두 완료했어요" }
+        return "\(when) 전체 할 일 \(occurrences.count)개 중 \(done)개를 완료했어요"
     }
 }

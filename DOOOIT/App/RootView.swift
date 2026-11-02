@@ -64,13 +64,13 @@ struct MainTabView: View {
             Tab("홈", systemImage: "house.fill", value: AppTab.home) {
                 HomeView(selectedTab: $tab)
             }
-            Tab("공부", systemImage: "book.closed.fill", value: AppTab.study) {
+            Tab("학습", systemImage: "graduationcap.fill", value: AppTab.study) {
                 StudyView()
             }
-            Tab("두잇 AI", systemImage: "sparkles", value: AppTab.ai) {
+            Tab("두잇 AI", systemImage: "wand.and.stars", value: AppTab.ai) {
                 DoitAIView()
             }
-            Tab("플래너", systemImage: "calendar", value: AppTab.planner) {
+            Tab("플래너", systemImage: "calendar.badge.checkmark", value: AppTab.planner) {
                 PlannerView()
             }
             Tab("계정", systemImage: "person.crop.circle.fill", value: AppTab.account) {
