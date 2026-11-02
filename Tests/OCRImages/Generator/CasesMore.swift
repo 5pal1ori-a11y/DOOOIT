@@ -47,8 +47,7 @@ let moreSubjectContents: [Content] = [
         .flow([.e("us "), .circ(3), .u("to understand"), .e(" other people. It also")]),
         .flow([.e("makes us "), .circ(4), .u("more creative"), .e(". That is why we")]),
         .flow([.e("should "), .circ(5), .u("reading"), .e(" every day.")]),
-    ], checkChoices: false,
-       phrases: ["Many people ①believe", "②helps", "③to understand", "④more creative", "⑤reading every day", "is a waste of time."]),
+    ], phrases: ["Many people ①believe", "②helps", "③to understand", "④more creative", "⑤reading every day", "is a waste of time."], checkChoices: false),
     subject("e-order", "english", number: "6.", lines: [
         .flow([.t("주어진 글 다음에 이어질 글의 순서로 가장 적절한 것은?")]),
         .boxed(nil, [[.e("Plants need sunlight to make their own food.")]]),
@@ -66,8 +65,7 @@ let moreSubjectContents: [Content] = [
         .flow([.e("your mistakes. ( "), .circ(2), .e(" ) Good practice needs clear goals.")]),
         .flow([.e("( "), .circ(3), .e(" ) It also needs feedback from others. ( "), .circ(4), .e(" ) With")]),
         .flow([.e("both, you can improve quickly. ( "), .circ(5), .e(" )")]),
-    ], checkChoices: false,
-       phrases: ["But this is not always true.", "practice makes perfect. ( ① )", "your mistakes. ( ② )", "( ③ ) It also needs feedback", "( ④ ) With", "improve quickly. ( ⑤ )"]),
+    ], phrases: ["But this is not always true.", "practice makes perfect. ( ① )", "your mistakes. ( ② )", "( ③ ) It also needs feedback", "( ④ ) With", "improve quickly. ( ⑤ )"], checkChoices: false),
     subject("e-grammar2", "english", number: "8.", lines: [
         .flow([.t("다음 중 어법상 옳은 문장은?")]),
     ], choices: ewords(["I have lived here since 2010.", "If I am you, I would go.", "I'm looking forward to see you.",
