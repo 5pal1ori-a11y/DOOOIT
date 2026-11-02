@@ -100,6 +100,16 @@ struct UnitStudyView: View {
                         completeCard
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
+                    if DoitStudy.isFree(subject) {
+                        // 교과서 자료 없이 모델이 만든 내용
+                        Label("AI가 만든 내용 · 틀릴 수 있어요", systemImage: "sparkles")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Palette.warning)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Palette.warning.opacity(0.12), in: .capsule)
+                        FreeStudyOption(start: nil)
+                    }
                     Group {
                         switch step {
                         case .concept: ConceptStepView(subject: subject, unit: unit, booster: booster, onDone: finish)

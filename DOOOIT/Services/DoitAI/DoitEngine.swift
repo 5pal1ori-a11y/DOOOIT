@@ -618,6 +618,17 @@ enum DoitEngine {
         return has(text, studyWords) || has(text, subjects) || has(text, categories)
     }
 
+    /// 일정 추가 말에서 일정 이름만 ("내일 오후 4시 수학 공부 2시간 추가해줘" → "수학 공부") — "그거 삭제해줘" 같은 이어 말하기용
+    static func planTitle(from text: String) -> String? {
+        var rest = text
+        if let date = findDate(in: rest) { rest = rest.replacingOccurrences(of: date, with: " ") }
+        if let time = findTime(in: rest) { rest = rest.replacingOccurrences(of: time, with: " ") }
+        if let duration = findDuration(in: rest) { rest = rest.replacingOccurrences(of: duration.text, with: " ") }
+        for word in ["매일", "매주", "매달", "매월"] { rest = rest.replacingOccurrences(of: word, with: " ") }
+        let title = cleanTitle(rest)
+        return title.isEmpty ? nil : title
+    }
+
     /// 플랜 이름만 남기기: 명령어·조사 제거
     private static func cleanTitle(_ raw: String) -> String {
         var text = raw

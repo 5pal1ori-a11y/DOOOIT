@@ -16,20 +16,26 @@ enum DoitTutor {
     // MARK: - 1~4. AI 학습 (개념 → 빈칸 → O/X → 문제)
     // 고른 단원의 자료만으로 만들고 따로 검증해요 (자세한 순서는 DoitStudy)
 
+    // 교육과정에 없는 주제(과목 = DoitStudy.freeSubject)는 모델이 만들고 검사해요 (DoitStudyFree)
+
     static func concept(subject: String, unit: String, booster: Bool) async throws -> ConceptNote {
-        try await DoitStudy.makePack(subject: subject, unit: unit, booster: booster).concept
+        if DoitStudy.isFree(subject) { return try await DoitStudy.freeConcept(topic: unit) }
+        return try await DoitStudy.makePack(subject: subject, unit: unit, booster: booster).concept
     }
 
     static func cloze(subject: String, unit: String, count: Int) async throws -> ClozeSet {
-        try await DoitStudy.cloze(subject: subject, unit: unit, count: count)
+        if DoitStudy.isFree(subject) { return try await DoitStudy.freeCloze(topic: unit, count: count) }
+        return try await DoitStudy.cloze(subject: subject, unit: unit, count: count)
     }
 
     static func ox(subject: String, unit: String, count: Int) async throws -> OXSet {
-        try await DoitStudy.ox(subject: subject, unit: unit, count: count)
+        if DoitStudy.isFree(subject) { return try await DoitStudy.freeOX(topic: unit, count: count) }
+        return try await DoitStudy.ox(subject: subject, unit: unit, count: count)
     }
 
     static func problems(subject: String, unit: String, count: Int, hard: Bool) async throws -> ProblemSet {
-        try await DoitStudy.problems(subject: subject, unit: unit, count: count, hard: hard)
+        if DoitStudy.isFree(subject) { return try await DoitStudy.freeProblems(topic: unit, count: count) }
+        return try await DoitStudy.problems(subject: subject, unit: unit, count: count, hard: hard)
     }
 
     // MARK: - 5. 오답노트 단계별 풀이

@@ -49,6 +49,19 @@ final class DoitAssistant {
     @ObservationIgnored private var lastMath: String?
     @ObservationIgnored private var quiz: QuizState?
     @ObservationIgnored private var lastQuizSource: DoitEngine.QuizSource?
+    /// 대화 흐름 (주제·푼 문제·함수·일정·단어) — "그럼 3이면?", "왜?", "그거 단계별로" 같은 이어 말하기용
+    @ObservationIgnored private(set) var dialogue = DoitDialogue.State()
+    /// 이번 말에 대한 답의 종류 (답한 뒤 대화 흐름에 기록)
+    @ObservationIgnored private var turn = TurnNote()
+
+    private struct TurnNote {
+        var question = ""
+        var kind: DoitDialogue.Kind = .chat
+        var topic: String?
+        var fromModel = false
+        var plan: String?
+        var start = 0
+    }
 
     func reset() {
         messages = []
@@ -56,6 +69,7 @@ final class DoitAssistant {
         lastAnswer = nil
         lastMath = nil
         quiz = nil
+        dialogue = DoitDialogue.State()
         DoitEngine.conversationTopic = nil
     }
 
@@ -73,7 +87,9 @@ final class DoitAssistant {
         guard !isResponding, !question.isEmpty || image != nil else { return }
         messages.append(Message(role: .user, text: question, image: image))
         isResponding = true
+        turn = TurnNote(question: question, start: messages.count)
         defer { isResponding = false; status = "" }
+        defer { rememberTurn() }
 
         var photo = lastPhoto
         lastPhoto = nil
@@ -87,6 +103,7 @@ final class DoitAssistant {
 
         // 1) 퀴즈 진행 중이면 답으로 채점
         if image == nil, let reply = await continueQuiz(question) {
+            turn.kind = .quiz
             messages.append(reply)
             return
         }
@@ -97,9 +114,15 @@ final class DoitAssistant {
             return
         }
 
-        // 3) 바로 전 답에 이어서 (모델이 있으면 모델이 더 자세히·쉽게)
-        if image == nil, let previous = lastAnswer, DoitMind.isAvailable, let request = brainFollowUp(question, topic: previous.topic) {
-            await think(question: request, draft: previous.text, origin: .knowledge, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
+        // 3) 모델이 쓴 대화를 이어 가는 말 ("그럼 그건 왜?", "그거 예시는?")은 규칙형 엔진이 가로채지 않고 모델이 앞 대화를 보고 답함
+        //    (일정 추가·타이머 같은 앱 명령, 식이 분명한 수학 문제는 그대로 엔진이)
+        if image == nil, DoitMind.isAvailable, dialogue.fromModel, DoitDialogue.continuesConversation(question), !DoitDialogue.isCommand(question) {
+            await think(question: question, draft: nil, origin: .knowledge, suggestions: ["이걸로 퀴즈 내줘"], topic: dialogue.topic)
+            return
+        }
+        // 바로 전 답에 이어서 (모델이 있으면 모델이 더 자세히·쉽게)
+        if image == nil, let previous = lastAnswer, DoitMind.isAvailable, dialogue.focus != .math, let request = brainFollowUp(question, topic: previous.topic) {
+            await think(question: request, draft: previous.text, origin: .knowledge, suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"], topic: previous.topic)
             return
         }
         if image == nil, let reply = await followUp(question) {
@@ -107,13 +130,44 @@ final class DoitAssistant {
             return
         }
 
-        // 4) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
+        // 4) 앞 대화로 풀리는 이어 말하기 ("그럼 3이면?", "왜?", "그거 단계별로", "x=3일 때는?", "그럼 독일은?")
+        var routed = question
+        if image == nil, dialogue.last != .quiz {
+            switch DoitDialogue.resolve(question, state: dialogue) {
+            case .none:
+                break
+            case .rewrite(let rewritten):
+                if let reply = await followUp(rewritten) {
+                    messages.append(reply)
+                    return
+                }
+                routed = rewritten
+                turn.question = rewritten
+            case .answer(let text, let chips):
+                // 설명을 이어 가는 말은 모델이 있으면 앞 대화를 보고 자기 말로 (수학·계산은 엔진 답 그대로)
+                if DoitMind.isAvailable, dialogue.focus != .math, dialogue.focus != .calc {
+                    await think(question: question, draft: dialogue.answer, origin: .knowledge, suggestions: chips, fallback: text, topic: dialogue.topic)
+                    return
+                }
+                messages.append(Message(role: .assistant, text: text, suggestions: chips))
+                return
+            case .clarify(let text, let chips):
+                if DoitMind.isAvailable, dialogue.hasContext {
+                    await think(question: question, draft: nil, origin: .conversation, suggestions: chips, topic: dialogue.topic)
+                    return
+                }
+                messages.append(Message(role: .assistant, text: text, suggestions: chips))
+                return
+            }
+        }
+
+        // 5) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
         if let image, let analyzed = await analyzePhoto(image, question: question, photo: photo) {
             messages.append(analyzed)
             return
         }
 
-        var reply = DoitEngine.respond(to: question, photo: photo)
+        var reply = DoitEngine.respond(to: routed, photo: photo)
         // 사진으로 실제 작업을 했으면 그 사진은 더 쓰지 않음
         let actions = DoitActions.shared.drainLog()
         if !actions.isEmpty { lastPhoto = nil }
@@ -138,11 +192,25 @@ final class DoitAssistant {
         case .quiz, nil:
             break
         }
-        if reply.text.hasPrefix("**") && reply.suggestions.contains("비슷한 문제 내줘") { lastMath = question }
+        if reply.text.hasPrefix("**") && reply.suggestions.contains("비슷한 문제 내줘") { lastMath = routed }
+        noteKind(of: reply, question: routed, actions: actions)
+
+        // 다른 주제로 샌 답 막기 (질문의 핵심 낱말이 답에 하나도 없음): 모델이 있으면 모델이, 없으면 짐작하지 않고 되물음
+        if image == nil, actions.isEmpty, isGuardable(reply), DoitDialogue.isOffTopic(question: routed, reply: reply.text) {
+            if DoitMind.isAvailable {
+                await think(question: routed, draft: nil, origin: .knowledge, suggestions: [], topic: dialogue.topic)
+                return
+            }
+            turn.kind = .chat
+            let word = DoitDialogue.keywords(routed).first ?? routed
+            messages.append(Message(role: .assistant, text: "'\(word)'은(는) 아직 잘 몰라요. 무엇이 궁금한지 조금 더 자세히 적어 줄래요?",
+                                    suggestions: ["\(word) 설명해줘", "뭐 할 수 있어?"]))
+            return
+        }
 
         // 설명·대화는 모델이 근거를 읽고 자기 말로 (앱 기능·계산·수학 풀이는 엔진 답 그대로)
-        if image == nil, actions.isEmpty, shouldThink(reply, question: question) {
-            await think(question: question, draft: reply.origin == .conversation && !reply.text.hasPrefix("혹시") ? nil : reply.text,
+        if image == nil, actions.isEmpty, shouldThink(reply, question: routed) {
+            await think(question: routed, draft: reply.origin == .conversation && !reply.text.hasPrefix("혹시") ? nil : reply.text,
                         origin: reply.origin, suggestions: reply.suggestions, fallback: reply.text)
             return
         }
@@ -156,6 +224,47 @@ final class DoitAssistant {
             DoitEngine.conversationTopic = topic
         }
         messages.append(Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions))
+    }
+
+    // MARK: - 대화 흐름
+
+    /// 엔진 답의 종류를 이번 말에 적어 둠 (답한 뒤 대화 흐름에 기록)
+    private func noteKind(of reply: DoitEngine.Reply, question: String, actions: [String]) {
+        if reply.text.contains("**답:") || reply.text.contains("\n**답 ") {
+            turn.kind = .math
+        } else if actions.contains(where: { $0.hasPrefix("플랜 추가") }) || reply.text.hasPrefix("[ADD PLAN]") {
+            turn.kind = .plan
+            turn.plan = DoitEngine.planTitle(from: question)
+        } else if !actions.isEmpty {
+            turn.kind = .command
+        } else if question.contains("뜻"), DoitEnglish.lookupWord(in: question) != nil {
+            turn.kind = .word
+        } else {
+            switch reply.origin {
+            case .subject: turn.kind = question.contains(where: \.isNumber) ? .calc : .subject
+            case .knowledge: turn.kind = .knowledge
+            case .conversation: turn.kind = reply.text.hasPrefix("혹시") ? .knowledge : .chat
+            case .command, .math: turn.kind = .command
+            case .chat: turn.kind = .chat
+            }
+        }
+    }
+
+    /// 다른 주제로 샜는지 볼 답 (개념 설명·과목 설명·"혹시 …" 짐작). 앱 명령·수학 풀이·일상 대화는 보지 않음
+    private func isGuardable(_ reply: DoitEngine.Reply) -> Bool {
+        guard reply.deferred == nil, !reply.text.contains("**답:") else { return false }
+        switch reply.origin {
+        case .knowledge, .subject: return true
+        case .conversation: return reply.text.hasPrefix("혹시")
+        case .chat, .command, .math: return false
+        }
+    }
+
+    /// 답한 뒤: 대화 흐름 기록
+    private func rememberTurn() {
+        guard messages.count > turn.start, let reply = messages.last, reply.role == .assistant, !reply.isStreaming else { return }
+        DoitDialogue.update(&dialogue, question: turn.question, reply: reply.text, kind: turn.kind, topic: turn.topic, fromModel: turn.fromModel)
+        if turn.kind == .plan, let plan = turn.plan { dialogue.entities["plan"] = plan }
     }
 
     // MARK: - 모델
@@ -186,17 +295,24 @@ final class DoitAssistant {
     }
 
     /// 근거를 모으고, 모델이 쓰는 답을 조금씩 보여줌. 답이 이상하면 엔진 답(fallback)으로 바꿈
-    private func think(question: String, draft: String?, origin: DoitEngine.Origin, suggestions: [String], fallback: String? = nil) async {
-        let history = messages.dropLast().suffix(6).compactMap { message -> DoitMind.Turn? in
+    /// topic: 지금 이야기 중인 주제 (이어 말하기일 때 모델이 앞 이야기를 잇게)
+    private func think(question: String, draft: String?, origin: DoitEngine.Origin, suggestions: [String], fallback: String? = nil, topic hint: String? = nil) async {
+        // 이전 대화: 학생·두잇 역할 그대로, 토큰 예산 안에서 최근 것부터 (넘친 오래된 대화는 짧게 요약)
+        let turns = messages.dropLast().compactMap { message -> DoitMind.Turn? in
+            guard !message.isStreaming, !message.text.isEmpty else { return nil }
             switch message.role {
-            case .user: return message.text.isEmpty ? nil : DoitMind.Turn(fromUser: true, text: message.text)
-            case .assistant: return message.text.isEmpty ? nil : DoitMind.Turn(fromUser: false, text: message.text)
+            case .user: return DoitMind.Turn(fromUser: true, text: message.text)
+            case .assistant: return DoitMind.Turn(fromUser: false, text: message.text)
             case .notice: return nil
             }
         }
+        let history = DoitMind.budgetHistory(Array(turns), maxTokens: DoitBrain.shared.historyBudget)
+        let topicHint = hint ?? (DoitDialogue.continuesConversation(question) ? dialogue.topic : nil)
         let wantsWeb = origin != .chat
         status = wantsWeb ? "자료를 찾아 읽는 중…" : "생각하는 중…"
-        let context = await DoitMind.gather(question: question, draft: draft, app: origin == .chat ? appSituation() : nil, allowWeb: wantsWeb)
+        // "왜?"처럼 짧은 이어 말하기는 주제를 붙여서 자료를 찾음
+        let searchQuestion = topicHint.map { DoitDialogue.continuesConversation(question) ? "\($0) \(question)" : question } ?? question
+        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: origin == .chat ? appSituation() : nil, allowWeb: wantsWeb)
         status = context.web.isEmpty ? "생각하는 중…" : "찾은 자료를 정리하는 중…"
         messages.append(Message(role: .assistant, text: "", isStreaming: true))
         let index = messages.count - 1
@@ -207,7 +323,9 @@ final class DoitAssistant {
         if reasoning { status = "깊게 생각하는 중…" }
         do {
             for try await chunk in DoitBrain.shared.stream(system: DoitMind.persona,
-                                                           prompt: DoitMind.answerPrompt(question: question, context: context, history: Array(history)),
+                                                           prompt: DoitMind.answerPrompt(question: question, context: context, history: [],
+                                                                                         summary: history.summary, topic: topicHint),
+                                                           history: history.recent,
                                                            maxTokens: reasoning ? 1400 : 600,
                                                            temperature: origin == .chat || origin == .conversation ? 0.6 : 0.4,
                                                            thinking: reasoning) {
@@ -227,6 +345,9 @@ final class DoitAssistant {
             return
         }
         let topic = DoitMind.topic(for: question, context: context)
+        turn.fromModel = true
+        turn.kind = origin == .chat ? .chat : .model
+        turn.topic = DoitDialogue.continuesConversation(question) ? (topicHint ?? topic) : topic
         messages[index].text = text
         messages[index].sources = context.sourceLabels
         messages[index].suggestions = suggestions
@@ -309,7 +430,8 @@ final class DoitAssistant {
             lastAnswer = nil
             return Message(role: .assistant, text: result, actions: DoitActions.shared.drainLog())
         }
-        if q.contains("쉽게") || q.contains("요약") || q.contains("한줄") || q.contains("간단히") {
+        // 수학 풀이 뒤 "더 쉽게"는 대화 흐름(DoitDialogue)이 개념·답으로 짧게
+        if dialogue.focus != .math, q.contains("쉽게") || q.contains("요약") || q.contains("한줄") || q.contains("간단히") {
             let lines = previous.text.components(separatedBy: "\n").filter { !$0.isEmpty && !$0.hasPrefix("출처") }
             let summary = lines.prefix(3).joined(separator: "\n")
             return Message(role: .assistant, text: summary, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"])

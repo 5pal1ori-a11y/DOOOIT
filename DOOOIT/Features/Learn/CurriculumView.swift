@@ -233,10 +233,15 @@ struct CurriculumView: View {
                     Text("딱 맞는 단원이 없어요")
                         .font(.headline)
                         .foregroundStyle(Palette.ink)
-                    Text("자료가 없는 내용은 지어내지 않아요")
+                    Text("교과서 자료에 없는 주제예요")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+
+            // 교과서 자료가 없으면 모델(DOOOIT 1·2)로 만들어 보기
+            FreeStudyOption {
+                open(subject: DoitStudy.freeSubject, unit: DoitStudy.normalizedTopic(trimmed))
             }
 
             if !options.isEmpty {
@@ -503,6 +508,43 @@ struct CurriculumView: View {
     private func open(subject: String, unit: String) {
         Haptics.tap()
         target = StudyTarget(subject: subject, unit: unit)
+    }
+}
+
+/// 교육과정에 없는 주제: 모델이 있으면 "AI로 학습해 보기", 받아 두기만 했으면 켜고 시작, 없으면 받기 안내
+struct FreeStudyOption: View {
+    /// nil이면 시작 버튼 없이 (모델이 없을 때 안내만)
+    var start: (() -> Void)?
+    @State private var brain = DoitBrain.shared
+
+    var body: some View {
+        if brain.isAvailable {
+            if let start {
+                Button(action: start) {
+                    RowLabel(symbol: "wand.and.stars", title: "AI로 학습해 보기", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
+                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                }
+                .buttonStyle(.pressable)
+            }
+        } else if DoitBrain.isSupported, let model = DoitBrain.Model.allCases.first(where: brain.isInstalled), brain.downloading == nil {
+            Button {
+                Haptics.tap()
+                brain.select(model)
+                Task { await brain.prepare() }
+                start?()
+            } label: {
+                RowLabel(symbol: "wand.and.stars", title: "\(model.title) 켜고 AI로 학습", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
+                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+            }
+            .buttonStyle(.pressable)
+        } else if DoitBrain.isSupported {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("AI로 학습하려면 모델이 필요해요")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ModelDownloadCard()
+            }
+        }
     }
 }
 

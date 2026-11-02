@@ -231,7 +231,8 @@ final class DoitBrain {
 
     /// 글을 조금씩 만들어 보냄 (생각 과정 <think>는 걸러서)
     /// thinking: 답하기 전에 속으로 생각(추론)하게 함 — 더 정확하지만 느림, 생각 과정은 걸러서 안 보여 줌
-    func stream(system: String, prompt: String, maxTokens: Int = 700, temperature: Float = 0.6, thinking: Bool = false) -> AsyncThrowingStream<String, Error> {
+    /// history: 이전 대화 (학생·두잇 역할 그대로 Qwen 대화 형식으로 넣음, 학생 말로 시작)
+    func stream(system: String, prompt: String, history: [DoitMind.Turn] = [], maxTokens: Int = 700, temperature: Float = 0.6, thinking: Bool = false) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { @MainActor in
                 guard !self.generating else { continuation.finish(throwing: BrainError.busy); return }
@@ -240,12 +241,14 @@ final class DoitBrain {
                 defer { self.generating = false }
                 #if canImport(MLXLLM)
                 guard let container = self.container else { continuation.finish(throwing: BrainError.notReady); return }
-                let session = ChatSession(
-                    container,
-                    instructions: system,
-                    generateParameters: GenerateParameters(maxTokens: maxTokens, temperature: temperature, topP: 0.9, repetitionPenalty: 1.1),
-                    additionalContext: ["enable_thinking": thinking]
-                )
+                let parameters = GenerateParameters(maxTokens: maxTokens, temperature: temperature, topP: 0.9, repetitionPenalty: 1.1)
+                let session: ChatSession
+                if history.isEmpty {
+                    session = ChatSession(container, instructions: system, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
+                } else {
+                    let turns = history.map { turn -> MLXLMCommon.Chat.Message in turn.fromUser ? .user(turn.text) : .assistant(turn.text) }
+                    session = ChatSession(container, instructions: system, history: turns, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
+                }
                 var filter = ThinkFilter()
                 do {
                     for try await chunk in session.streamResponse(to: prompt) {
@@ -266,11 +269,14 @@ final class DoitBrain {
     }
 
     /// 한 번에 다 만든 답
-    func complete(system: String, prompt: String, maxTokens: Int = 700, temperature: Float = 0.5) async throws -> String {
+    func complete(system: String, prompt: String, history: [DoitMind.Turn] = [], maxTokens: Int = 700, temperature: Float = 0.5, thinking: Bool = false) async throws -> String {
         var text = ""
-        for try await chunk in stream(system: system, prompt: prompt, maxTokens: maxTokens, temperature: temperature) { text += chunk }
+        for try await chunk in stream(system: system, prompt: prompt, history: history, maxTokens: maxTokens, temperature: temperature, thinking: thinking) { text += chunk }
         return text
     }
+
+    /// 이전 대화에 쓸 토큰 예산 (작은 모델은 짧게)
+    var historyBudget: Int { selected == .dooit2 ? 1100 : 600 }
 }
 
 /// 모델이 내보내는 <think>…</think> (생각 과정)를 걸러냄 — 조각으로 나뉘어 와도 처리
