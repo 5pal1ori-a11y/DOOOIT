@@ -27,14 +27,22 @@ extension OCRService {
     }
 
     /// 수학 문제 사진 → 문제 글 (improved: 기본 결과보다 나은 걸 골랐는지)
+    /// 정밀 인식(PaddleOCR-VL)을 받아 두었으면 그걸로 먼저 (두잇 AI 사진 질문), 안 되면 Vision
     static func readMathProblem(_ image: UIImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
         guard let cgImage = upright(image) else { return ("", false) }
+        if precomputed == nil, let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .chatPhoto) {
+            return (text, false)
+        }
         return await readMathProblem(cgImage, thorough: thorough, lines: precomputed)
     }
 
     /// 문제 읽기 + 자신 없이 읽은 줄 (인식 결과 확인 화면에서 표시)
+    /// 정밀 인식이 있으면 그걸로 (줄마다 확신도가 없어 흐린 줄은 비움), 안 되면 Vision
     static func readMathProblemDetailed(_ image: UIImage) async -> (text: String, improved: Bool, unsure: [String]) {
         guard let cgImage = upright(image) else { return ("", false, []) }
+        if let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .mathProblem) {
+            return (text, false, [])
+        }
         return await readMathProblemDetailed(cgImage)
     }
 
