@@ -25,6 +25,8 @@ enum MathSolver {
     /// 객관식(①~⑤)이면 보기를 떼고 풀어서, 값이 같은 보기를 답에 붙여요 ("④ 12").
     static func solve(_ raw: String) -> Solved? {
         if let split = DoitMathExact.splitChoices(raw) {
+            // 보기마다 참·거짓을 확인하는 문제 ("옳은 것", "아닌 것", "모두 고르면", "소수인 것")
+            if let s = DoitMathChoice.solve(body: split.body, choices: split.choices) { return s }
             // "아닌 것은?", "옳지 않은 것은?", "모두 고르면?"은 값 하나를 맞춰 보는 문제가 아님
             guard !has(split.body, ["아닌", "않은", "틀린", "않는", "모두 고르", "옳은 것", "바르게 나타낸 것", "같은 것", "모두 구하"]) else { return nil }
             guard let solved = solveText(split.body) else { return nil }
@@ -34,11 +36,23 @@ enum MathSolver {
     }
 
     private static func solveText(_ raw: String) -> Solved? {
-        let text = DoitAlgebra.normalize(DoitMathExact.tidy(raw))
+        var text = DoitAlgebra.normalize(DoitMathExact.tidy(raw))
+        // "y = x² − 2x + 3 (0 ≤ x ≤ 3)의 최댓값": 괄호 속 범위를 식 밖으로 (식을 읽을 수 있게)
+        if has(text, ["최댓값", "최솟값"]) {
+            text = text.replacingOccurrences(of: #"\(\s*(-?\d+(?:\.\d+)?)\s*(≤|<)\s*x\s*(≤|<)\s*(-?\d+(?:\.\d+)?)\s*\)"#, with: ", $1 $2 x $3 $4 ", options: .regularExpression)
+        }
         let t = text
 
         // 빈칸(□): □를 미지수로. 못 풀면 다른 풀이로 넘기지 않음 (□를 지운 식은 엉뚱한 답이 나와요)
-        if t.contains("□") { return DoitMathExact.blank(t) }
+        if t.contains("□") {
+            switch DoitMathChoice.blanks(t) {
+            case .solved(let s): return s
+            case .refuse: return nil
+            case .pass: return DoitMathExact.blank(t)
+            }
+        }
+        // 새로 더한 유형 (조건제시법, 도수분포표, 상수 여러 개, 지수·로그·삼각방정식, 문장제, 꼭짓점 이름이 붙은 도형 …)
+        if let s = DoitMathMore.solve(t) { return s }
         // 비례식, 상수 구하기, 문장제처럼 모양이 분명한 것부터
         if let s = DoitMathExact.proportion(t) { return s }
         if let s = DoitMathExact.unknownConstant(t) { return s }
