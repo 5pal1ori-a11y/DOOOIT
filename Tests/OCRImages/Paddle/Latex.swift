@@ -85,9 +85,14 @@ enum PaddleText {
     /// LaTeX 한 조각 → 앱 글 모양
     static func latex(_ input: String) -> String {
         var s = input
-        // 수식 구분 기호
-        for d in ["$$", "\\[", "\\]", "\\(", "\\)"] { s = s.replacingOccurrences(of: d, with: " ") }
-        s = s.replacingOccurrences(of: #"(?<!\\)\$"#, with: " ", options: .regularExpression)
+        // 수식 구분 기호 (지움: "2\\(\\sqrt{2}\\)" → "2√2")
+        for d in ["$$", "\\[", "\\]", "\\(", "\\)"] { s = s.replacingOccurrences(of: d, with: "") }
+        s = s.replacingOccurrences(of: #"(?<!\\)\$"#, with: "", options: .regularExpression)
+        // HTML 위·아래 첨자: 2<sup>5</sup> → 2^5
+        s = s.replacingOccurrences(of: #"<sup>\s*2\s*</sup>"#, with: "²", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"<sup>\s*3\s*</sup>"#, with: "³", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"<sup>\s*([^<]*?)\s*</sup>"#, with: "^$1", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"</?sub>"#, with: "", options: .regularExpression)
         s = s.replacingOccurrences(of: #"\\begin\{[a-z*]+\}(\{[^}]*\})?|\\end\{[a-z*]+\}"#, with: " ", options: .regularExpression)
         var chars = Array(s)
         var i = 0
