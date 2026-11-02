@@ -1,0 +1,68 @@
+name: OCR PaddleOCR-VL (Swift)
+
+# 정밀 인식: 앱의 Swift 모델 코드(DOOOIT/Services/PaddleOCR)가 파이썬 mlx-vlm(비교 실험 129/141)과 같은 글을 내는지 맥에서 확인
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "문제 사진 수 (0이면 전부)"
+        required: false
+        default: "0"
+  push:
+    branches:
+      - "paddle-ocr"
+    paths:
+      - ".github/workflows/ocr-paddle-swift.yml"
+      - "Tests/PaddleOCR/**"
+      - "DOOOIT/Services/PaddleOCR/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ocr-paddle-swift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version; sw_vers; sysctl -n hw.memsize
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: mlx-vlm 설치
+        run: python -m pip install "mlx-vlm==0.7.11" huggingface_hub
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-mlx-community_PaddleOCR-VL-1.6-4bit-v1
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/parity/dd/SourcePackages
+          key: parity-spm-${{ hashFiles('Tests/PaddleOCR/Package.swift') }}
+      - name: Swift vs 파이썬
+        env:
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
+          LIMIT: ${{ github.event.inputs.limit || '0' }}
+        run: |
+          bash Tests/PaddleOCR/run.sh "$RUNNER_TEMP/parity" "$LIMIT"
+      - name: 요약
+        if: always()
+        run: cat "$RUNNER_TEMP/parity/parity.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paddle-parity
+          path: |
+            ${{ runner.temp }}/parity/swift.json
+            ${{ runner.temp }}/parity/python.json
+            ${{ runner.temp }}/parity/parity.md
+            ${{ runner.temp }}/parity/build.log
+          retention-days: 7
