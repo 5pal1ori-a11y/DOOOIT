@@ -26,9 +26,16 @@ func ce(_ level: SchoolLevel, _ unit: String, _ names: [String], _ body: String)
 
 enum DoitCurriculum {
     /// 과목 → 개념 목록
-    static var bySubject: [(subject: String, entries: [CurriculumEntry])] {
-        [("국어", korean), ("영어", english), ("수학", math), ("과학", science), ("사회", social)]
-    }
+    static var bySubject: [(subject: String, entries: [CurriculumEntry])] { allSubjects }
+
+    /// 과목별 전체 개념 (기본 사전 + 보충 사전). 한 번만 합쳐 둠
+    static let allSubjects: [(subject: String, entries: [CurriculumEntry])] = [
+        ("국어", korean + koreanMore + koreanFill),
+        ("영어", english + englishMore),
+        ("수학", math + mathMiddleMore + mathMore + mathFill),
+        ("과학", science + scienceMiddleMore + scienceMore + scienceFill),
+        ("사회", social + socialMiddleMore + socialMore + socialFill)
+    ]
 
     /// AI 학습 화면에 보여줄 과목·단원 (예: "중학교 수학" → 단원들)
     static var studySubjects: [(name: String, level: SchoolLevel, subject: String, units: [String])] {
@@ -37,6 +44,7 @@ enum DoitCurriculum {
             for (subject, entries) in bySubject {
                 var units: [String] = []
                 for item in entries where item.level == level && !units.contains(item.unit) { units.append(item.unit) }
+                units = orderedByGrade(units, level: level, subject: subject)
                 if !units.isEmpty { result.append(("\(level.rawValue) \(subject)", level, subject, units)) }
             }
         }

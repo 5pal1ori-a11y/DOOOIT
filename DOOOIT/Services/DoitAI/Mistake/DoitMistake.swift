@@ -59,7 +59,7 @@ enum DoitMathConceptMap {
     static func info(for kind: MathSolver.Kind) -> Info? {
         switch kind {
         case .linear: return Info(concept: "일차방정식", subject: "중학교 수학", unit: "문자와 식")
-        case .system: return Info(concept: "연립방정식", subject: "중학교 수학", unit: "문자와 식")
+        case .system: return Info(concept: "연립방정식", subject: "중학교 수학", unit: "연립일차방정식")
         case .quadraticEquation: return Info(concept: "이차방정식의 풀이", subject: "중학교 수학", unit: "이차방정식")
         case .vertex: return Info(concept: "이차함수의 최대·최소", subject: "공통수학1", unit: "이차방정식과 이차함수")
         case .rootRelation: return Info(concept: "근과 계수의 관계", subject: "공통수학1", unit: "복소수와 이차방정식")
