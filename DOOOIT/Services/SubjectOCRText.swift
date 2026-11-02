@@ -65,6 +65,16 @@ extension OCRService {
                 places.append(nil)
                 continue
             }
+            // 바로 옆에 이미 읽힌 ①~⑤가 있으면 그 글자가 이 동그라미 (번호를 두 번 넣지 않게)
+            if covered.isEmpty {
+                var right = insertAt
+                while right < chars.count, chars[right].isWhitespace { right += 1 }
+                var left = insertAt - 1
+                while left >= 0, chars[left].isWhitespace { left -= 1 }
+                for k in [right, left] where k >= 0 && k < chars.count {
+                    if let n = circledChoices.firstIndex(of: chars[k]) { covered = [k]; anchor = n + 1; break }
+                }
+            }
             let range = covered.isEmpty ? insertAt..<insertAt : (covered.min()!)..<(covered.max()! + 1)
             places.append((li, range, anchor))
         }
@@ -97,7 +107,9 @@ extension OCRService {
         for (i, c) in chars.enumerated() {
             let prev: Character? = i > 0 ? chars[i - 1] : nil
             let next: Character? = i + 1 < chars.count ? chars[i + 1] : nil
-            if c.isASCII && c.isLetter {
+            if c.isWhitespace {
+                continue
+            } else if c.isASCII && c.isLetter {
                 score += 2
             } else if c.isASCII && c.isNumber {
                 // 소문자 낱말 속 숫자("g0", "he1p")는 잘못 읽은 것
@@ -130,35 +142,50 @@ extension OCRService {
         let edits = choiceCircleEdits(lines: korean, circles: circles, lineHeight: lineHeight)
         let circleZones = circles.map { $0.insetBy(dx: -$0.width * 0.1, dy: -$0.height * 0.1) }
 
-        // 영어 전용 결과를 글자 단위로 (동그라미 자리 글자 "1", "(1)"은 뺌)
-        struct EnglishChar { let char: Character; let box: CGRect; let line: Int; let index: Int }
-        var englishChars: [EnglishChar] = []
-        for (li, line) in english.enumerated() {
-            for (i, c) in line.text.enumerated() where !c.isWhitespace {
-                guard i < line.charBoxes.count, let box = line.charBoxes[i] else { continue }
-                if circleZones.contains(where: { $0.contains(CGPoint(x: box.midX, y: box.midY)) }) { continue }
-                englishChars.append(EnglishChar(char: c, box: box, line: li, index: i))
+        // 영어 전용 결과를 낱말 단위로 (Vision은 영어 전용 인식의 글자 상자를 낱말 상자로 주기도 해서 낱말끼리 맞춤).
+        // 동그라미 자리 글자("1", "(1)")는 뺌
+        struct EnglishWord { let text: String; let box: CGRect; let confidence: Float }
+        var englishWords: [EnglishWord] = []
+        for line in english {
+            let chars = Array(line.text)
+            var i = 0
+            while i < chars.count {
+                guard !chars[i].isWhitespace else { i += 1; continue }
+                var j = i
+                while j < chars.count, !chars[j].isWhitespace { j += 1 }
+                // 동그라미 안 글자 빼기 (글자 상자가 따로 있을 때)
+                var kept: [(Character, CGRect)] = []
+                for k in i..<j {
+                    guard k < line.charBoxes.count, let box = line.charBoxes[k] else { continue }
+                    kept.append((chars[k], box))
+                }
+                let distinct = Set(kept.map { "\($0.1.minX),\($0.1.width)" }).count > 1
+                if distinct {
+                    kept.removeAll { item in circleZones.contains { $0.contains(CGPoint(x: item.1.midX, y: item.1.midY)) } }
+                }
+                if let first = kept.first {
+                    var text = String(kept.map(\.0))
+                    let box = kept.dropFirst().reduce(first.1) { $0.union($1.1) }
+                    if !distinct, circleZones.contains(where: { $0.intersects(box) }) {
+                        // 낱말 상자뿐이면 앞에 붙은 번호 모양만 떼어 냄 ("1go" → "go"), 번호 하나뿐이면 버림
+                        if text.range(of: #"^(?:\(?[1-5lI]\)?|[①②③④⑤@©®])$"#, options: .regularExpression) != nil { text = "" }
+                        text = text.replacingOccurrences(of: #"^(?:\(?[1-5lI]\)|[1-5]|[①②③④⑤@©®])(?=[A-Za-z])"#, with: "", options: .regularExpression)
+                    }
+                    if !text.isEmpty { englishWords.append(EnglishWord(text: text, box: box, confidence: line.confidence)) }
+                }
+                i = j
             }
         }
-        func englishText(in box: CGRect, tolerance: CGFloat) -> (text: String, confidence: Float)? {
-            let picked = englishChars.filter { e in
-                let overlap = min(e.box.maxY, box.maxY) - max(e.box.minY, box.minY)
-                guard overlap >= min(e.box.height, box.height) * 0.5 else { return false }
-                return e.box.midX >= box.minX - tolerance && e.box.midX <= box.maxX + tolerance
-            }.sorted { $0.box.minX < $1.box.minX }
-            guard !picked.isEmpty else { return nil }
-            var text = ""
-            for (k, e) in picked.enumerated() {
-                if k > 0 {
-                    let p = picked[k - 1]
-                    let chars = Array(english[e.line].text)
-                    let spaced = p.line != e.line || (p.index + 1 < e.index && chars[(p.index + 1)..<e.index].contains(where: \.isWhitespace))
-                    if spaced { text.append(" ") }
-                }
-                text.append(e.char)
-            }
-            let confidence = Set(picked.map(\.line)).map { english[$0].confidence }.min() ?? 0
-            return (text, confidence)
+        /// 낱말과 상자가 가로로 겹친 길이 (세로로 같은 줄일 때만)
+        func overlapX(_ w: EnglishWord, _ box: CGRect) -> CGFloat {
+            let overlapY = min(w.box.maxY, box.maxY) - max(w.box.minY, box.minY)
+            guard overlapY >= min(w.box.height, box.height) * 0.5 else { return 0 }
+            return max(0, min(w.box.maxX, box.maxX) - max(w.box.minX, box.minX))
+        }
+        func englishText(_ picked: Set<Int>) -> (text: String, confidence: Float)? {
+            let words = picked.map { englishWords[$0] }.sorted { $0.box.minX < $1.box.minX }
+            guard !words.isEmpty else { return nil }
+            return (words.map(\.text).joined(separator: " "), words.map(\.confidence).min() ?? 0)
         }
 
         // 줄(같은 높이 조각들)마다 영어가 대부분인지
@@ -207,14 +234,53 @@ extension OCRService {
             var replacements: [(range: Range<Int>, text: String)] = []
             var usedEnglish = false
             var englishConfidence: Float = 0
-            let tolerance = lineHeight * 0.15
-            for segment in segments {
+            // 영어 전용 낱말마다 가장 많이 겹친 한국어 조각 하나에 줌. 낱말 하나가 글자 있는 조각 여럿에 걸치면("B )," ↔ "B),")
+            // 그 조각들을 한 덩어리로 (같은 낱말이 두 번 들어가지 않게)
+            let segmentBoxes: [CGRect?] = segments.map { segment in
                 let boxes = segment.compactMap(charBox)
-                guard let first = boxes.first else { continue }
-                let box = boxes.dropFirst().reduce(first) { $0.union($1) }
+                guard let first = boxes.first else { return nil }
+                return boxes.dropFirst().reduce(first) { $0.union($1) }
+            }
+            var owner: [Int: Int] = [:]          // 낱말 → 조각
+            var touching: [Int: Set<Int>] = [:]  // 낱말 → 걸친 조각들
+            for (w, word) in englishWords.enumerated() {
+                var best: (segment: Int, overlap: CGFloat)?
+                for (k, box) in segmentBoxes.enumerated() {
+                    guard let box else { continue }
+                    let o = overlapX(word, box)
+                    guard o > 0 else { continue }
+                    if o >= min(word.box.width, box.width) * 0.25 { touching[w, default: []].insert(k) }
+                    if o > (best?.overlap ?? 0) { best = (k, o) }
+                }
+                guard let best, let box = segmentBoxes[best.segment],
+                      best.overlap >= word.box.width * 0.5 || (word.box.midX >= box.minX && word.box.midX <= box.maxX)
+                        || best.overlap >= box.width * 0.6 else { continue }
+                owner[w] = best.segment
+            }
+            // 글자 있는 조각 (보기 번호 ①~⑤는 숫자로 치지 않음)
+            func wordy(_ k: Int) -> Bool {
+                chars[segments[k]].contains { $0.isASCII && ($0.isLetter || $0.isNumber) }
+                    && !chars[segments[k]].contains(where: { isHangul($0) || circledChoices.contains($0) })
+            }
+            var units: [(range: Range<Int>, picked: Set<Int>)] = []
+            var unitOf: [Int] = []
+            for k in segments.indices {
+                let picked = Set(owner.filter { $0.value == k }.map(\.key))
+                if k > 0, let last = units.last, wordy(k), wordy(k - 1), unitOf.last == units.count - 1,
+                   touching.values.contains(where: { $0.contains(k) && $0.contains(k - 1) }),
+                   !(segments[k - 1].upperBound..<segments[k].lowerBound).contains(where: { covered.contains($0) || !chars[$0].isWhitespace }) {
+                    units[units.count - 1] = (last.range.lowerBound..<segments[k].upperBound, last.picked.union(picked))
+                } else {
+                    units.append((segments[k], picked))
+                }
+                unitOf.append(units.count - 1)
+            }
+            for (segment, picked) in units {
                 let original = String(chars[segment])
                 let hangul = original.contains(where: isHangul)
-                guard let found = englishText(in: box, tolerance: tolerance), found.text != original else { continue }
+                // 보기 번호 ①~⑤는 그대로
+                if original.contains(where: { circledChoices.contains($0) }) { continue }
+                guard let found = englishText(picked), found.text != original else { continue }
                 let rep = found.text
                 let touchesHangul = (segment.lowerBound > 0 && isHangul(chars[segment.lowerBound - 1]))
                     || (segment.upperBound < chars.count && isHangul(chars[segment.upperBound]))
@@ -240,7 +306,15 @@ extension OCRService {
                     if touchesHangul, rep.count != original.count { continue }
                     let a = latinScore(rep), b = latinScore(original)
                     let sameShape = original.allSatisfy(\.isASCII) && rep.allSatisfy(\.isASCII) && rep.count == original.count
-                    guard a > b || (a == b && sameShape) else { continue }
+                    // 띄어쓰기만 다르면 영어 전용 쪽 ("IfI" → "If I")
+                    let spacing = rep.filter { !$0.isWhitespace } == original.filter { !$0.isWhitespace }
+                        && rep.filter(\.isWhitespace).count > original.filter(\.isWhitespace).count
+                    // 영어 줄의 영어 낱말끼리는 영어 전용 인식을 믿음 (한국어 인식이 "are"를 "ares"로 바꾸기도 해서), 크게 나쁘지 않으면
+                    let plainWords = { (t: String) in t.allSatisfy { $0.isASCII && ($0.isLetter || " '.,?!".contains($0)) } }
+                    let englishRow = rowOf[li].map { englishMajority(row: $0, excludingHangul: 0, line: li) } ?? false
+                    let trustEnglish = englishRow && plainWords(rep) && plainWords(original) && a >= b - 2 && found.confidence >= 0.5
+                        && rep.split(separator: " ").count == original.split(separator: " ").count
+                    guard a > b || (a == b && (sameShape || spacing)) || trustEnglish else { continue }
                     replacements.append((segment, rep))
                 }
                 usedEnglish = true
@@ -300,11 +374,44 @@ extension OCRService {
 enum SubjectTextFixer {
     /// 영어 낱말 + 과학 기호 정리 (한글 문장은 그대로)
     static func fix(_ text: String) -> String {
-        text.components(separatedBy: "\n").map { line in
+        // 화학 문제(화학식·반응식·이온): 첨자·전하를 닮은 글자로 읽은 것까지 고침
+        let chemistry = ["화학", "반응식", "이온", "분자", "원소", "→", "⇌"].contains { text.contains($0) }
+        let lines = text.components(separatedBy: "\n").map { line in
             var l = fixEnglish(line)
+            if chemistry { l = chemistryLookalikes(l) }
             l = fixScience(l)
+            // 문장 넣기 자리: 번호가 괄호 앞으로 빠져나온 것 "① ( )" → "( ① )"
+            l = l.replacingOccurrences(of: #"([①②③④⑤]) ?\( ?\)"#, with: "( $1 )", options: .regularExpression)
             return l
-        }.joined(separator: "\n")
+        }
+        return passageCircles(lines.joined(separator: "\n"))
+    }
+
+    /// 지문 속 번호 ①~⑤ 중 몇 개를 "@", "©", "S" 같은 기호로 읽은 것: 진짜 번호와 함께 읽는 순서로 1~5가 빠짐없이 맞을 때만 바꿈
+    static func passageCircles(_ text: String) -> String {
+        let circled: [Character] = ["①", "②", "③", "④", "⑤"]
+        let common: Set<String> = ["@", "©", "®", "§", "*", "(D", "Ⓒ", "ⓒ", "•"]
+        let lookalike: [Int: Set<String>] = [1: ["(1", "(1)", "1)", "(l)"], 2: ["(2", "(2)", "2)"], 3: ["(3", "(3)", "3)"],
+                                             4: ["(4", "(4)", "4)"], 5: ["S", "(5", "(5)", "5)", "(S"]]
+        var lines = text.components(separatedBy: "\n").map { $0.components(separatedBy: " ") }
+        var marks: [(line: Int, token: Int, real: Int?)] = []
+        for (li, tokens) in lines.enumerated() {
+            for (ti, token) in tokens.enumerated() {
+                if token.count == 1, let n = circled.firstIndex(of: token.first!) { marks.append((li, ti, n + 1)) }
+                else if common.contains(token) || lookalike.values.contains(where: { $0.contains(token) }) { marks.append((li, ti, nil)) }
+            }
+        }
+        // 진짜 번호가 있고, 기호를 차례대로 채우면 1~5가 정확히 한 번씩
+        guard marks.count == 5, marks.contains(where: { $0.real != nil }), marks.contains(where: { $0.real == nil }) else { return text }
+        for (k, mark) in marks.enumerated() {
+            if let real = mark.real { guard real == k + 1 else { return text } }
+            else {
+                let token = lines[mark.line][mark.token]
+                guard common.contains(token) || lookalike[k + 1]?.contains(token) == true else { return text }
+            }
+        }
+        for (k, mark) in marks.enumerated() where mark.real == nil { lines[mark.line][mark.token] = String(circled[k]) }
+        return lines.map { $0.joined(separator: " ") }.joined(separator: "\n")
     }
 
     // MARK: 영어
@@ -419,8 +526,35 @@ enum SubjectTextFixer {
     static let subscripts: [Character: Character] = ["0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉"]
     static let superscripts: [Character: Character] = ["0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "+": "⁺", "-": "⁻", "−": "⁻"]
 
+    /// 화학 문제에서 첨자·전하를 닮은 글자로 읽은 것: "c02" → "CO2", "02-" → "O2-", "Hz" → "H2", "H,O" → "H2O", "Nat" → "Na+", "Mg'+" → "Mg2+"
+    static func chemistryLookalikes(_ line: String) -> String {
+        var r = line
+        r = r.replacingOccurrences(of: #"(?<![A-Za-z0-9])c(?=[O0]\d)"#, with: "C", options: .regularExpression)
+        r = r.replacingOccurrences(of: #"(?<![A-Za-z0-9])cl(?![A-Za-z])"#, with: "Cl", options: .regularExpression)
+        // 개수 1은 쓰지 않으니 원소 기호 뒤 1은 l ("C1" → "Cl")
+        r = r.replacingOccurrences(of: #"(?<![A-Za-z0-9])C1(?![0-9])"#, with: "Cl", options: .regularExpression)
+        r = r.replacingOccurrences(of: #"(?<![A-Za-z0-9.,])0(?=[A-Z]|\d?[+\-−](?![\d])|\d(?![\d.,]))"#, with: "O", options: .regularExpression)
+        r = r.replacingOccurrences(of: #"(?<=[A-Z]|[A-Z][a-z])z(?![A-Za-z])"#, with: "2", options: .regularExpression)
+        r = r.replacingOccurrences(of: #"(?<=[A-Z]),(?=[A-Z])"#, with: "2", options: .regularExpression)
+        r = r.replacingOccurrences(of: #"(?<=[A-Z]|[A-Z][a-z])['’}`](?=[+\-−])"#, with: "2", options: .regularExpression)
+        // 원소 기호 뒤 t는 + ("Nat" → "Na+"), 낱말로 선 것만
+        r = r.replacingOccurrences(of: #"(?<![A-Za-z])(Na|K|H|Li|Ag|Cu|NH4)t(?![A-Za-z0-9])"#, with: "$1+", options: .regularExpression)
+        // 반응식의 "=" 는 ⇌ (이미 화살표가 없고 + 가 있는 줄)
+        if !r.contains("→"), !r.contains("⇌"), r.contains("+"), r.range(of: #"[A-Z][a-z]?\d?\s?\+\s?\d?[A-Z]"#, options: .regularExpression) != nil {
+            r = r.replacingOccurrences(of: #"(?<=[A-Za-z0-9₀-₉])\s?=+\s?(?=\d?[A-Z])"#, with: " ⇌ ", options: .regularExpression)
+        }
+        return r
+    }
+
     static func fixScience(_ line: String) -> String {
         var result = line
+        result = result.replacingOccurrences(of: "µ", with: "μ")
+        // 위 첨자 2를 ?, ', ° 로 읽은 단위 ("m/s'" → "m/s²")
+        result = result.replacingOccurrences(of: #"(?<![A-Za-z])m/s['’°"](?![A-Za-z0-9])"#, with: "m/s²", options: .regularExpression)
+        if line.contains(where: { "①②③④⑤".contains($0) }) {
+            result = result.replacingOccurrences(of: #"(?<![A-Za-z])m/s\?(?=\s|$)"#, with: "m/s²", options: .regularExpression)
+        }
+        result = result.replacingOccurrences(of: "시간(S)", with: "시간(s)")
         // 기호 모양 통일
         result = result.replacingOccurrences(of: "℃", with: "°C")
         result = result.replacingOccurrences(of: #"(?<=\d)\s?[º˚]\s?C(?![A-Za-z])"#, with: " °C", options: .regularExpression)
@@ -433,7 +567,11 @@ enum SubjectTextFixer {
         result = result.replacingOccurrences(of: #"(?<![A-Za-z])A([HTtEV])(?=\s?[<>=≤≥])"#, with: "Δ$1", options: .regularExpression)
         // 단위
         result = result.replacingOccurrences(of: #"(?<![A-Za-z])m/\$"#, with: "m/s", options: .regularExpression)
-        result = result.replacingOccurrences(of: #"(?<![A-Za-z])(k?m)[l|I]([sh])(?![A-Za-z])"#, with: "$1/$2", options: .regularExpression)
+        result = result.replacingOccurrences(of: #"(?<![A-Za-z])[Il|]?(k?m)[l|I]([sh])(?![A-Za-z])"#, with: "$1/$2", options: .regularExpression)
+        // 위 첨자 3을 ', ), ° 로 읽은 단위 ("g/cm'" → "g/cm³")
+        result = result.replacingOccurrences(of: #"(?<![A-Za-z])(g|kg)/(c?m)['’)°](?![A-Za-z0-9])"#, with: "$1/$2³", options: .regularExpression)
+        // 짝짓기 보기의 겹친 줄표 "밀도 - -g/cm³"
+        result = result.replacingOccurrences(of: #"(?<=\s)- ?-(?=\S)"#, with: "- ", options: .regularExpression)
         result = result.replacingOccurrences(of: #"(?<![A-Za-z])m/s\^?2(?![0-9])"#, with: "m/s²", options: .regularExpression)
         result = result.replacingOccurrences(of: #"(?<![A-Za-z])(g|kg)/(c?m)\^?3(?![0-9])"#, with: "$1/$2³", options: .regularExpression)
         result = result.replacingOccurrences(of: #"(?<=\d)(\s?)([kcm]?m)\^?2(?![0-9A-Za-z])"#, with: "$1$2²", options: .regularExpression)
@@ -441,13 +579,20 @@ enum SubjectTextFixer {
         // Ω를 Q로, μ를 u로 읽은 것 (숫자 뒤 단위 자리에서만)
         result = result.replacingOccurrences(of: #"(?<=\d)(\s?)(k|M)?Q(?![A-Za-z])"#, with: "$1$2Ω", options: .regularExpression)
         result = result.replacingOccurrences(of: #"(?<=\d)(\s?)u([mAgLs])(?![A-Za-z])"#, with: "$1μ$2", options: .regularExpression)
+        // 저항 문제에서 Ω를 2로 읽은 것: "저항이 10 2인" → "10 Ω인"
+        if line.contains("저항") {
+            result = result.replacingOccurrences(of: #"(?<=\d) (?:2|Q|O)(?=[인의이을짜])"#, with: " Ω", options: .regularExpression)
+        }
+        // 보기 값 "5 V"의 5를 S로 읽은 것
+        result = result.replacingOccurrences(of: #"(?<=[①②③④⑤] )S ?(V|A|W|J|N|g|kg|mm|cm|m|mL|L)(?![A-Za-z])"#, with: "5 $1", options: .regularExpression)
         return fixFormulas(result)
     }
 
     /// 화학식 숫자 → 아래 첨자, 이온 전하 → 위 첨자 ("H2O" → "H₂O", "C02" → "CO₂", "Ca2+" → "Ca²⁺", "SO42-" → "SO₄²⁻")
     static func fixFormulas(_ line: String) -> String {
         guard line.contains(where: { $0.isASCII && $0.isUppercase }) else { return line }
-        let pattern = #"(?<![A-Za-z0-9₀-₉])(\d{0,2})([A-Z(][A-Za-z0-9()]*?)(\d?[+\-−])?(?![A-Za-z0-9+\-−])"#
+        // 전하 + 뒤에 다른 화학식이 오면 반응식의 + ("N2+ 3H2")
+        let pattern = #"(?<![A-Za-z0-9₀-₉])(\d{0,2})([A-Z(][A-Za-z0-9()]*?)(\d?[+\-−](?!\s*\d*[A-Z(]))?(?![A-Za-z0-9])(?![+\-−][A-Za-z0-9])"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return line }
         let ns = line as NSString
         var result = line
@@ -475,6 +620,8 @@ enum SubjectTextFixer {
             if c == ")" { parts.append(.close); i += 1; continue }
             if c.isUppercase || (c == "0" && i > 0) {
                 let letter: Character = c == "0" ? "O" : c
+                // "AI" → Al (A는 원소가 아님)
+                if c == "A", i + 1 < chars.count, chars[i + 1] == "I" { parts.append(.element("Al")); i += 2; zeroFixed = true; continue }
                 if c == "0" { zeroFixed = true }
                 if i + 1 < chars.count, chars[i + 1].isLowercase, elements.contains(String(letter) + String(chars[i + 1])) {
                     parts.append(.element(String(letter) + String(chars[i + 1])))
@@ -485,6 +632,14 @@ enum SubjectTextFixer {
                 } else {
                     return nil
                 }
+                continue
+            }
+            // 개수 1은 쓰지 않음 → 원소 기호의 l ("C1" → Cl)
+            if c == "1", case .element(let e)? = parts.last, e.count == 1, elements.contains(e + "l"),
+               !(i + 1 < chars.count && chars[i + 1].isNumber) {
+                parts[parts.count - 1] = .element(e + "l")
+                zeroFixed = true
+                i += 1
                 continue
             }
             if c.isNumber {

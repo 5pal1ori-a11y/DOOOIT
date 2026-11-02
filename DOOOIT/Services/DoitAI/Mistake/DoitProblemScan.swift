@@ -94,6 +94,9 @@ enum DoitProblemScan {
             // 모두 자음 조합이면 함께 바꿈 (진짜 자음이 하나라도 있거나 <보기> 항목이 있을 때). 아니면 진짜 자음이 든 것만
             if mapped.allSatisfy(isJamoList), real.contains(true) || !box.items.isEmpty {
                 result.choices = mapped
+            } else if mapped.filter(isJamoList).count * 2 > mapped.count, real.contains(true) || !box.items.isEmpty {
+                // 대부분이 자음 조합이면 바꿀 수 있는 것만 바꿈 (하나를 잘못 읽어도 나머지는 살림)
+                result.choices = result.choices.indices.map { isJamoList(mapped[$0]) ? mapped[$0] : result.choices[$0] }
             } else {
                 result.choices = result.choices.indices.map { real[$0] ? mapped[$0] : result.choices[$0] }
             }
@@ -206,8 +209,8 @@ enum DoitProblemScan {
     /// 자음 대신 읽히는 글자 (첫 낱자 ᄀ·ᄂ·ᄃ, 숫자 7, 영어 L·C 등)
     private static let jamoLookalikes: [Character: Character] = [
         "ᄀ": "ㄱ", "7": "ㄱ", "ㄱ": "ㄱ",
-        "ᄂ": "ㄴ", "L": "ㄴ", "ㄴ": "ㄴ", "└": "ㄴ",
-        "ᄃ": "ㄷ", "C": "ㄷ", "c": "ㄷ", "⊏": "ㄷ", "匚": "ㄷ", "ㄷ": "ㄷ",
+        "ᄂ": "ㄴ", "L": "ㄴ", "ㄴ": "ㄴ", "└": "ㄴ", "1": "ㄴ", "4": "ㄴ",
+        "ᄃ": "ㄷ", "C": "ㄷ", "c": "ㄷ", "⊏": "ㄷ", "匚": "ㄷ", "ㄷ": "ㄷ", "[": "ㄷ",
         "ᄅ": "ㄹ", "ㄹ": "ㄹ", "己": "ㄹ",
         "ᄆ": "ㅁ", "ㅁ": "ㅁ", "口": "ㅁ",
     ]
@@ -227,9 +230,11 @@ enum DoitProblemScan {
     static func boxItems(in lines: [String]) -> (lines: [String], items: [String]) {
         // 머리글 "<보기>" (뒤에 첫 항목을 이어 쓴 것도). "<보기>에서 고른 것은?" 같은 질문 줄은 아님
         func headerRest(_ line: String) -> Substring? {
-            guard let r = line.range(of: #"^[<〈《\[(［]?\s*보\s*기\s*[>〉》\])］]?\s*"#, options: .regularExpression) else { return nil }
+            guard let r = line.range(of: #"^[•·\-_.\s]*[<〈《\[(［]?\s*보\s*기\s*[>〉》\])］]?\s*"#, options: .regularExpression) else { return nil }
             let rest = line[r.upperBound...]
-            return rest.isEmpty || itemMark(rest, expected: "ㄱ") != nil ? rest : nil
+            // 상자 테두리를 "-", "_" 로 읽은 것은 머리글 뒤 찌꺼기
+            let trimmed = rest.drop { "-—–_=~|.·─ ".contains($0) }
+            return trimmed.isEmpty || itemMark(trimmed, expected: "ㄱ") != nil ? trimmed : nil
         }
         let header = lines.firstIndex { headerRest($0) != nil }
         var out = lines
@@ -263,6 +268,11 @@ enum DoitProblemScan {
                 for (m, body) in parts { items.append("\(m). " + body.trimmingCharacters(in: .whitespaces)) }
                 let fixed = parts.map { "\($0.0). " + $0.1.trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
                 out[i] = i == header ? out[i].replacingOccurrences(of: String(line), with: fixed) : fixed
+            } else if let expected, items[items.count - 1].hasSuffix(".") || items[items.count - 1].hasSuffix("다"), line.count >= 4 {
+                // 앞 항목이 문장으로 끝났으면 자음 표시("ㄷ.")를 못 읽은 다음 항목
+                let body = line.trimmingCharacters(in: .whitespaces)
+                items.append("\(expected). " + body)
+                out[i] = "\(expected). " + body
             } else {
                 // 앞 항목이 다음 줄로 이어짐
                 items[items.count - 1] += " " + line.trimmingCharacters(in: .whitespaces)
@@ -280,7 +290,7 @@ enum DoitProblemScan {
 
     /// 조합 선택지 "7, C" → "ㄱ, ㄷ" (모두 자음 하나씩일 때만)
     static func jamoCombination(_ choice: String) -> String {
-        let parts = choice.split(whereSeparator: { $0 == "," || $0 == " " || $0 == "，" || $0 == "、" || $0 == "·" }).map(String.init)
+        let parts = choice.split(whereSeparator: { ", ，、·=.;".contains($0) }).map(String.init)
         var marks: [Character] = []
         for part in parts {
             // "ㄱㄴ"처럼 붙여 읽은 것도

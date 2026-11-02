@@ -371,12 +371,29 @@ func runSubjectOCRCases() {
         ("크기가 20 um일 때", "크기가 20 μm일 때"),
         ("(A) He is in the B2 room. NaCl, HCl, CO", "(A) He is in the B2 room. NaCl, HCl, CO"),
         ("(가) (나) (다) 실험 A, B, C", "(가) (나) (다) 실험 A, B, C"),
+        ("N2+ 3H2 → 2NH3", "N₂ + 3H₂ → 2NH₃"),
+        ("NaC1 과 AI3+", "NaCl 과 Al³⁺"),
+        ("AI technology", "AI technology"),
+        ("① m/s' ② 2 m/s°", "① m/s² ② 2 m/s²"),
+        ("세포 크기 20 µm", "세포 크기 20 μm"),
     ]
     for (input, expected) in science {
         let fixed = SubjectTextFixer.fix(input)
         check("과학 기호: \(input)", fixed.replacingOccurrences(of: "  ", with: " ") == expected.replacingOccurrences(of: "  ", with: " ")
               || fixed.filter { !$0.isWhitespace } == expected.filter { !$0.isWhitespace }, fixed)
     }
+
+    // 화학 문제의 닮은 글자 (문서에 화학식·이온 낱말이 있을 때만)
+    let chem = SubjectTextFixer.fix("다음 이온 중 전하의 크기가 가장 큰 것은?\n① Nat ② Cl- ③ Mg'+ ④ AI3+ ⑤ 02-")
+    check("화학 닮은 글자: 이온", chem.hasSuffix("① Na⁺ ② Cl⁻ ③ Mg²⁺ ④ Al³⁺ ⑤ O²⁻"), chem)
+    let chem2 = SubjectTextFixer.fix("물질의 화학식은?\n① H,O ② c02 ③ 02 ④ Hz ⑤ Nz")
+    check("화학 닮은 글자: 화학식", chem2.hasSuffix("① H₂O ② CO₂ ③ O₂ ④ H₂ ⑤ N₂"), chem2)
+    let chem3 = SubjectTextFixer.fix("다음은 화학 반응식이다.\nN2 + 3H2 = 2NH3")
+    check("화학 닮은 글자: 반응식 =", chem3.hasSuffix("N₂ + 3H₂ ⇌ 2NH₃"), chem3)
+    check("화학 아닌 글의 0·z는 그대로", SubjectTextFixer.fix("① 02 ② Hz ③ 0.5") == "① 02 ② Hz ③ 0.5", SubjectTextFixer.fix("① 02 ② Hz ③ 0.5"))
+    check("보기 값 숫자 + 단위는 지우지 않음", MathOCRFixer.cleanChoiceMarks("① 1 m/s² ② 2 m/s² ③ 3 cm") == "① 1 m/s² ② 2 m/s² ③ 3 cm", MathOCRFixer.cleanChoiceMarks("① 1 m/s² ② 2 m/s² ③ 3 cm"))
+    check("영어 보기의 I는 지우지 않음", MathOCRFixer.cleanChoiceMarks("① I have lived here.") == "① I have lived here.")
+    check("지문 속 번호 채우기", SubjectTextFixer.passageCircles("Many people @ believe\nreading ② helps us ® to\nmakes us ④ more, should S reading") == "Many people ① believe\nreading ② helps us ③ to\nmakes us ④ more, should ⑤ reading")
 
     // 두 번 읽기 합치기: 영어가 대부분인 보기 줄의 한글 조각("go" → "영")은 영어 전용 결과로, 동그라미 자리는 번호로
     let koreanLine = glyphLine("1영 ② goes ③ going A gone ⑤ to go", x: 0.1, y: 0.5)

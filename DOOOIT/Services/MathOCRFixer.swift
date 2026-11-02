@@ -638,7 +638,11 @@ enum MathOCRFixer {
                         || (lookalike[n + 1] ?? []).contains(junk)
                     let after = tokens[i + 2]
                     let afterIsChoice = after.count == 1 && after.first.map { circledDigits.contains($0) } == true
-                    if isJunk, !afterIsChoice { tokens.remove(at: i + 1); continue }
+                    // 영어 문장 보기의 "I" ("① I have lived …")는 번호 찌꺼기가 아님
+                    let englishI = junk == "I" && after.range(of: #"^[a-z']{2,}"#, options: .regularExpression) != nil
+                    // 번호와 같은 숫자 뒤에 단위가 오면 보기 값 ("③ 3 m/s²", "② 2 cm")
+                    let valueWithUnit = junk == number && after.range(of: #"^(?:[kcmμµn]?m|[km]?g|m?L|s|h|V|A|W|J|N|Ω|°C|℃|%|Hz|Pa|cal|kcal|m/s|km/h|개|명|번|배|cm²|cm³|m²|m³)(?![A-Za-z])"#, options: .regularExpression) != nil
+                    if isJunk, !afterIsChoice, !englishI, !valueWithUnit { tokens.remove(at: i + 1); continue }
                 }
                 i += 1
             }

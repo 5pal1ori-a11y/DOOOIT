@@ -25,6 +25,13 @@ for old in stored where filter.isEmpty || old.id.contains(filter) {
         // 합치기(두 번 읽은 줄 + 동그라미)부터 지금 코드로
         let merged = readings.map { OCRService.subjectMerge(korean: glyphLines($0.korean), english: glyphLines($0.english), circles: $0.circles.map(rect)) }
         let chosen = OCRService.chooseSubjectReading(merged)
+        // 원인 찾기: OCR_DEBUG=<이름> 이면 사진마다 합친 줄을 보여 줌
+        if let debug = ProcessInfo.processInfo.environment["OCR_DEBUG"], !debug.isEmpty, old.id.contains(debug) {
+            for (k, lines) in merged.enumerated() {
+                print("  [\(k)\(k == chosen.index ? " 고름" : "")] 동그라미 \(readings[k].circles.count)개")
+                for line in lines { print("    \(String(format: "%.2f", line.confidence)) \(line.text)") }
+            }
+        }
         result.mathLines = debugLines(chosen.lines)
         result.subjectChosen = chosen.index
         let unsure = chosen.lines.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }

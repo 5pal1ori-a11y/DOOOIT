@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DIR="$(cd "${1:?결과 폴더}" && pwd)"
 FILTER="${2:-}"
 if [ -z "${INSIDE_RUNNER:-}" ] && ! command -v swiftc >/dev/null 2>&1; then
-  exec docker run --rm -e INSIDE_RUNNER=1 -v "$ROOT":/src -v "$DIR":/cases -w /src mirror.gcr.io/library/swift:6.1 bash Tests/OCRImages/replay.sh /cases "$FILTER"
+  exec docker run --rm -e INSIDE_RUNNER=1 -e OCR_DEBUG="${OCR_DEBUG:-}" -v "$ROOT":/src -v "$DIR":/cases -w /src mirror.gcr.io/library/swift:6.1 bash Tests/OCRImages/replay.sh /cases "$FILTER"
 fi
 BUILD="$(mktemp -d)"
 cd "$ROOT/DOOOIT"
