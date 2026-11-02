@@ -16,24 +16,28 @@ struct UnitProgress: Codable, Hashable {
     var nextStep: LearnStep? { LearnStep.allCases.first { !done.contains($0.rawValue) } }
 }
 
+/// 진행 기록은 저장소의 기록 하나(목록)에 모아 둠
+/// (SwiftData 조회 조건에 글자 앞부분 비교를 쓰면 기기에서 앱이 멈출 수 있어서, 정확한 키 하나로만 찾음)
 @MainActor
 enum LearnProgress {
-    static let prefix = "progress|"
+    static let indexKey = "learn-progress-index"
 
-    static func key(_ subject: String, _ unit: String) -> String { prefix + subject + "|" + unit }
+    /// 모든 단원 진행 (최근에 한 것부터)
+    static func all(context: ModelContext) -> [UnitProgress] {
+        ContentCache.load([UnitProgress].self, key: indexKey, context: context) ?? []
+    }
 
     static func load(subject: String, unit: String, context: ModelContext) -> UnitProgress? {
-        ContentCache.load(UnitProgress.self, key: key(subject, unit), context: context)
+        all(context: context).first { $0.subject == subject && $0.unit == unit }
     }
 
     static func mark(_ step: LearnStep, subject: String, unit: String, context: ModelContext) {
-        var progress = load(subject: subject, unit: unit, context: context) ?? UnitProgress(subject: subject, unit: unit)
+        var list = all(context: context)
+        var progress = list.first { $0.subject == subject && $0.unit == unit } ?? UnitProgress(subject: subject, unit: unit)
         if !progress.done.contains(step.rawValue) { progress.done.append(step.rawValue) }
-        ContentCache.save(progress, key: key(subject, unit), context: context)
-    }
-
-    static func decode(_ item: StudyContent) -> UnitProgress? {
-        try? JSONDecoder().decode(UnitProgress.self, from: item.data)
+        list.removeAll { $0.subject == subject && $0.unit == unit }
+        list.insert(progress, at: 0)
+        ContentCache.save(list, key: indexKey, context: context)
     }
 
     /// 같은 과목에서 바로 다음 단원
@@ -49,8 +53,8 @@ enum LearnProgress {
 /// 검색(직접 입력) → 이어서 하기 → 학교급 · 과목 → 다시 볼 단원
 struct CurriculumView: View {
     @Query private var records: [QuizRecord]
-    @Query(filter: #Predicate<StudyContent> { $0.key.starts(with: "progress|") }, sort: \StudyContent.createdAt, order: .reverse)
-    private var progressItems: [StudyContent]
+    @Environment(\.modelContext) private var context
+    @State private var progresses: [UnitProgress] = []
 
     @State private var query = ""
     @AppStorage("learn.level") private var levelRaw = LevelFilter.middle.rawValue
@@ -105,7 +109,6 @@ struct CurriculumView: View {
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespaces) }
 
-    private var progresses: [UnitProgress] { progressItems.compactMap(LearnProgress.decode) }
 
     var body: some View {
         ScrollView {
@@ -133,6 +136,7 @@ struct CurriculumView: View {
         .scrollDismissesKeyboard(.interactively)
         .background { AppBackground() }
         .navigationTitle("단원별 AI 학습")
+        .onAppear { progresses = LearnProgress.all(context: context) }
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $target) { item in
             UnitStudyView(subject: item.subject, unit: item.unit)
@@ -490,7 +494,8 @@ struct SubjectUnitsView: View {
     let subject: CurriculumSubject
 
     @Query private var records: [QuizRecord]
-    @Query(filter: #Predicate<StudyContent> { $0.key.starts(with: "progress|") }) private var progressItems: [StudyContent]
+    @Environment(\.modelContext) private var context
+    @State private var allProgress: [UnitProgress] = []
 
     /// 대단원끼리 묶음 (대단원 이름이 과목 이름과 같으면 한 묶음)
     private var chapters: [(name: String, units: [CurriculumUnit])] {
@@ -506,7 +511,7 @@ struct SubjectUnitsView: View {
     }
 
     var body: some View {
-        let progresses = progressItems.compactMap(LearnProgress.decode).filter { $0.subject == subject.name }
+        let progresses = allProgress.filter { $0.subject == subject.name }
         let done = progresses.filter(\.isComplete).count
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
@@ -551,6 +556,7 @@ struct SubjectUnitsView: View {
         }
         .background { AppBackground() }
         .navigationTitle(subject.name)
+        .onAppear { allProgress = LearnProgress.all(context: context) }
         .navigationBarTitleDisplayMode(.inline)
     }
 }

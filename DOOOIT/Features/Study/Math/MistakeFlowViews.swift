@@ -12,17 +12,26 @@ struct FlowHeader: View {
     var trailingColor: Color = Theme.accent
 
     var body: some View {
+        // 번호 + 제목만 (아이콘은 빼서 깔끔하게)
         HStack(spacing: 10) {
             Text("\(number)")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
+                .monospacedDigit()
+                .foregroundStyle(Theme.accent)
                 .frame(width: 24, height: 24)
-                .background(AccentGradient.linear, in: .circle)
-            Label(title, systemImage: symbol)
+                .background(Theme.accent.opacity(0.12), in: .circle)
+            Text(title)
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
             Spacer(minLength: 0)
-            if let trailing { TagLabel(text: trailing, color: trailingColor) }
+            if let trailing {
+                Text(trailing)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(trailingColor)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(trailingColor.opacity(0.12), in: .capsule)
+            }
         }
     }
 }

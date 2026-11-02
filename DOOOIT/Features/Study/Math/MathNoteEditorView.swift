@@ -28,8 +28,9 @@ struct MathNoteEditorView: View {
     @State private var textSelection: TextSelection?
     @State private var isEditingText = false
 
+    /// 문제 확인 → 풀이·학습 → 필기 순서
     enum EditorTab: String, CaseIterable, Identifiable {
-        case note = "필기", grade = "학습", text = "문제"
+        case text = "문제", grade = "풀이·학습", note = "필기"
         var id: String { rawValue }
     }
 
@@ -40,25 +41,24 @@ struct MathNoteEditorView: View {
         GeometryReader { geo in
             let pageWidth = max(geo.size.width - 32, 100)
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 18) {
                     infoCard
-                    Picker("보기", selection: $tab.animation(.snappy)) {
-                        ForEach(EditorTab.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
+                    tabBar
 
                     switch tab {
                     case .note:
                         page(width: pageWidth)
                     case .grade:
                         // 학습 순서: 채점 → 오답 원인 → 풀이(과정 채점·단계별 풀이) → 유사 문제 → 재도전 → 취약 개념
-                        MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
-                        if note.isRecognitionConfirmed {
-                            MistakeAnalysisCard(note: note)
-                            WorkCheckCard(note: note)
-                            WrittenSolutionCard(note: note)
-                            SimilarProblemsCard(note: note)
-                            WeakConceptBadge(note: note)
+                        VStack(spacing: 14) {
+                            MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
+                            if note.isRecognitionConfirmed {
+                                MistakeAnalysisCard(note: note)
+                                WorkCheckCard(note: note)
+                                WrittenSolutionCard(note: note)
+                                SimilarProblemsCard(note: note)
+                                WeakConceptBadge(note: note)
+                            }
                         }
                     case .text:
                         recognizedCard
@@ -126,18 +126,68 @@ struct MathNoteEditorView: View {
 
     // MARK: Info
 
+    /// 머리말: 문제 사진 · 제목 · 단원 · 상태
     private var infoCard: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .center, spacing: 14) {
+            Color.clear
+                .frame(width: 64, height: 64)
+                .background { GridPaperBackground() }
+                .overlay {
+                    if let data = note.thumbnailData, let thumb = UIImage(data: data) {
+                        Image(uiImage: thumb).resizable().scaledToFill()
+                    } else {
+                        Image(systemName: "function").font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
+                    }
+                }
+                .clipShape(.rect(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06)))
             VStack(alignment: .leading, spacing: 4) {
                 TextField("제목", text: $note.title)
-                    .font(.headline)
-                TextField("단원 (예: 이차함수, 계산 실수)", text: $note.unit)
-                    .font(.caption)
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(Palette.ink)
+                TextField("단원 (예: 이차함수)", text: $note.unit)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            TagLabel(text: note.status.title, symbol: note.status.symbol, color: note.status.color)
+            Text(note.status.title)
+                .font(.caption.weight(.bold))
+                .foregroundStyle(note.status.color)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(note.status.color.opacity(0.12), in: .capsule)
         }
-        .padding(.horizontal, 4)
+        .softCard(cornerRadius: 22, padding: 14)
+    }
+
+    /// 밑줄 탭 (문제 · 풀이·학습 · 필기)
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(EditorTab.allCases) { item in
+                let isOn = tab == item
+                Button {
+                    withAnimation(.snappy) { tab = item }
+                    Haptics.tap()
+                } label: {
+                    VStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Text(item.rawValue)
+                            if item == .text && !note.isRecognitionConfirmed {
+                                Circle().fill(Palette.warning).frame(width: 6, height: 6)
+                            }
+                        }
+                        .font(.subheadline.weight(isOn ? .bold : .medium))
+                        .foregroundStyle(isOn ? Palette.ink : Color.secondary)
+                        Capsule()
+                            .fill(isOn ? Palette.ink : Color.clear)
+                            .frame(width: 32, height: 3)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.top, 2)
     }
 
     // MARK: Page
@@ -477,8 +527,8 @@ struct MathNoteEditorView: View {
             image = UIImage(data: data)
         }
         annotations = note.annotations
-        // 인식 결과를 아직 확인하지 않았으면 문제 탭부터
-        if !note.isRecognitionConfirmed { tab = .text }
+        // 인식 결과를 아직 확인하지 않았으면 문제 탭부터, 확인했으면 풀이·학습부터
+        tab = note.isRecognitionConfirmed ? .grade : .text
         if note.scan == nil, !note.recognizedText.isEmpty { rescan(note.recognizedText) }
     }
 
