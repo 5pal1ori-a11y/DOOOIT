@@ -293,6 +293,8 @@ final class MathNote {
     var conceptKey: String = ""
     /// 과목 (예: 중학교 수학)
     var subject: String = ""
+    /// AI와 함께 풀기 진행 기록 (GuidedSolveProgress JSON: 힌트 수 · 시도 · 풀었는지). 예전 노트는 nil
+    var guidedSolveData: Data?
 
     var stepAnswers: [String] {
         get { stepAnswersData.flatMap { try? JSONDecoder().decode([String].self, from: $0) } ?? [] }
@@ -429,6 +431,10 @@ extension MathNote {
     var ladder: PracticeLadder? {
         get { ladderData.flatMap { try? JSONDecoder().decode(PracticeLadder.self, from: $0) } }
         set { ladderData = newValue.flatMap { try? JSONEncoder().encode($0) } }
+    }
+    var guidedSolve: GuidedSolveProgress? {
+        get { guidedSolveData.flatMap { try? JSONDecoder().decode(GuidedSolveProgress.self, from: $0) } }
+        set { guidedSolveData = newValue.flatMap { try? JSONEncoder().encode($0) } }
     }
 }
 

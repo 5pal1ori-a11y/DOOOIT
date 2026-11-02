@@ -57,6 +57,7 @@ struct MathNoteEditorView: View {
                     case .grade where !subject.isMath:
                         // 수학이 아닌 과목: 채점 → 틀린 이유 → 해설 → 다시 풀기 → 취약 개념
                         VStack(spacing: 14) {
+                            GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             if note.isRecognitionConfirmed {
                                 SubjectCauseCard(note: note)
@@ -68,6 +69,7 @@ struct MathNoteEditorView: View {
                     case .grade:
                         // 학습 순서: 채점 → 오답 원인 → 풀이(과정 채점·단계별 풀이) → 유사 문제 → 재도전 → 취약 개념
                         VStack(spacing: 14) {
+                            GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             if note.isRecognitionConfirmed {
                                 MistakeAnalysisCard(note: note)
