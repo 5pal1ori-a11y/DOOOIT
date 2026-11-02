@@ -62,7 +62,8 @@ struct CurriculumView: View {
     @State private var target: StudyTarget?
     @State private var choices: [StudyScope] = []
     @State private var choicesMessage = ""
-    @State private var notFound: String?
+    /// 직접 적은 말로 단원을 못 찾았을 때 (화면 안에 안내 + 비슷한 단원)
+    @State private var missed: (query: String, options: [StudyScope])?
 
     /// 학습할 단원 (교육과정 이름 그대로)
     struct StudyTarget: Hashable, Identifiable {
@@ -149,11 +150,6 @@ struct CurriculumView: View {
         } message: {
             Text(choicesMessage)
         }
-        .alert("단원을 찾지 못했어요", isPresented: Binding(get: { notFound != nil }, set: { if !$0 { notFound = nil } })) {
-            Button("확인", role: .cancel) { notFound = nil }
-        } message: {
-            Text(notFound ?? "")
-        }
     }
 
     // MARK: 검색
@@ -201,6 +197,11 @@ struct CurriculumView: View {
             }
             .buttonStyle(.pressable)
 
+            if let missed, missed.query == trimmed {
+                missedCard(missed.options)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             if !matches.isEmpty {
                 SectionTitle("찾은 단원")
                 VStack(spacing: 0) {
@@ -217,6 +218,85 @@ struct CurriculumView: View {
                 .softCardBackground(cornerRadius: 20)
             }
         }
+    }
+
+    /// 단원을 못 찾았을 때: 이유 대신 할 수 있는 것 (비슷한 단원 · 이렇게 적어 보기)
+    private func missedCard(_ options: [StudyScope]) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: "text.magnifyingglass")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Palette.warning)
+                    .frame(width: 42, height: 42)
+                    .background(Palette.warning.opacity(0.14), in: .rect(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("딱 맞는 단원이 없어요")
+                        .font(.headline)
+                        .foregroundStyle(Palette.ink)
+                    Text("자료가 없는 내용은 지어내지 않아요")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if !options.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("혹시 이 단원인가요?")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(options, id: \.key) { option in
+                        Button {
+                            open(subject: option.subjectName, unit: option.unit)
+                        } label: {
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(option.unit)
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(Palette.ink)
+                                    Text(option.subjectName)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 12)
+                            .background(Palette.cardInset, in: .rect(cornerRadius: 14))
+                        }
+                        .buttonStyle(.pressable)
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("이렇게 적어 보세요")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(["중2 일차함수", "중3 삼각비", "고1 다항식", "초5 약수와 배수", "중2 과학 전기"], id: \.self) { example in
+                            Button {
+                                query = example
+                                startTyped()
+                            } label: {
+                                Text(example)
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(Theme.accent)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(Theme.accent.opacity(0.1), in: .capsule)
+                            }
+                            .buttonStyle(.pressable)
+                        }
+                    }
+                }
+                .scrollClipDisabled()
+            }
+        }
+        .softCard(cornerRadius: 22, padding: 18)
     }
 
     // MARK: 이어서 하기
@@ -414,13 +494,9 @@ struct CurriculumView: View {
         case .ambiguous(let options):
             choicesMessage = "'\(trimmed)'은(는) 여러 단원으로 해석돼요."
             choices = options
-        case .notFound(let message, let suggestions):
-            if suggestions.isEmpty {
-                notFound = message
-            } else {
-                choicesMessage = message
-                choices = suggestions
-            }
+        case .notFound(_, let suggestions):
+            Haptics.error()
+            withAnimation(.snappy) { missed = (trimmed, suggestions) }
         }
     }
 

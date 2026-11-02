@@ -55,7 +55,9 @@ struct MathNoteEditorView: View {
                             if note.isRecognitionConfirmed {
                                 MistakeAnalysisCard(note: note)
                                 WorkCheckCard(note: note)
-                                WrittenSolutionCard(note: note)
+                                WrittenSolutionCard(note: note) {
+                                    withAnimation(.snappy) { tab = .text; isEditingText = true }
+                                }
                                 SimilarProblemsCard(note: note)
                                 WeakConceptBadge(note: note)
                             }

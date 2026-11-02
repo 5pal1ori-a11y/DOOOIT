@@ -4,6 +4,8 @@ import SwiftUI
 /// 오답노트의 서술형 단계별 풀이 (직접 풀기 / 개념 / 모범 답안)
 struct WrittenSolutionCard: View {
     @Bindable var note: MathNote
+    /// 못 푸는 문제일 때 '문제 글 고치기' (문제 탭으로)
+    var onEditProblem: () -> Void = {}
     @Environment(\.modelContext) private var context
 
     enum Tab: String, CaseIterable, Identifiable {
@@ -14,6 +16,8 @@ struct WrittenSolutionCard: View {
     @State private var tab: Tab = .problem
     @State private var working = false
     @State private var error: String?
+    /// 풀이 엔진이 풀지 못한 문제 (알림창 대신 카드 안에서 안내)
+    @State private var unsolved = false
     @State private var myAnswers: [String] = []
 
     private var solution: WrittenSolution? {
@@ -49,6 +53,8 @@ struct WrittenSolutionCard: View {
                     }
                 }
                 .padding(.vertical, 8)
+            } else if unsolved {
+                unsolvedState
             } else {
                 emptyState
             }
@@ -108,6 +114,75 @@ struct WrittenSolutionCard: View {
             }
             .buttonStyle(.glassProminent)
             .disabled(note.recognizedText.isEmpty)
+        }
+    }
+
+    /// 못 푸는 문제: 왜 그런지 짧게 + 바로 할 수 있는 것
+    private var unsolvedState: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "questionmark.bubble")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Palette.warning)
+                    .frame(width: 42, height: 42)
+                    .background(Palette.warning.opacity(0.14), in: .rect(cornerRadius: 12))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("아직 풀 수 없는 문제예요")
+                        .font(.headline)
+                        .foregroundStyle(Palette.ink)
+                    Text("틀린 풀이를 지어내지 않으려고 멈췄어요")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // 읽은 문제 글 (대부분 글자가 잘못 읽혀서 못 풀어요)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("읽은 문제")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines))
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(12)
+            .background(Palette.cardInset, in: .rect(cornerRadius: 14))
+
+            VStack(alignment: .leading, spacing: 8) {
+                tip("textformat", "숫자·기호가 다르게 읽혔다면 고친 뒤 다시 시도해 주세요")
+                tip("chart.xyaxis.line", "그림·표가 필요한 문제는 필요한 값을 문제 글에 적어 주세요")
+            }
+
+            HStack(spacing: 10) {
+                Button {
+                    onEditProblem()
+                } label: {
+                    Label("문제 글 고치기", systemImage: "pencil")
+                        .font(.subheadline.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                }
+                .buttonStyle(.glass)
+                Button {
+                    Task { await generate() }
+                } label: {
+                    Label("다시 시도", systemImage: "arrow.clockwise")
+                        .font(.subheadline.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                }
+                .buttonStyle(.glassProminent)
+            }
+        }
+    }
+
+    private func tip(_ symbol: String, _ text: String) -> some View {
+        Label {
+            Text(text).font(.footnote).foregroundStyle(.secondary)
+        } icon: {
+            Image(systemName: symbol).font(.footnote).foregroundStyle(Theme.accent)
         }
     }
 
@@ -269,7 +344,11 @@ struct WrittenSolutionCard: View {
             let result = try await DoitTutor.solution(for: note.recognizedText)
             note.solutionData = try? JSONEncoder().encode(result)
             try? context.save()
+            unsolved = false
             tab = .problem
+        } catch DoitTutor.TutorError.cannotSolve(_) {
+            Haptics.error()
+            withAnimation(.snappy) { unsolved = true }
         } catch {
             self.error = error.localizedDescription
         }
