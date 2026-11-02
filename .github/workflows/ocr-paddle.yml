@@ -1,0 +1,194 @@
+name: OCR PaddleOCR-VL
+
+# 비교 실험: 같은 테스트 사진을 앱의 Vision 인식과 PaddleOCR-VL(mlx-vlm)로 읽고, 앱의 글자 정리·문제 나누기 코드로 똑같이 채점해 표로 비교
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "사진 이름 필터 (비우면 전부)"
+        required: false
+        default: ""
+      models:
+        description: 'PaddleOCR-VL MLX 모델 목록 (JSON, 예: ["OpenGryd/PaddleOCR-VL-1.6-MLX-16bit"])'
+        required: false
+        default: ""
+  push:
+    branches:
+      - "ocr-harness-paddle"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ocr-paddle-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEFAULT_MODELS: '["OpenGryd/PaddleOCR-VL-1.6-MLX-16bit","huggingfinger0/PaddleOCR-VL-1.5-4bit"]'
+  # 빠른 확인: 고르게 이만큼만 읽음 (비우면 전부)
+  PADDLE_LIMIT: "8"
+
+jobs:
+  # 앱 그대로 (Vision): 속도를 재려고 한 장씩, 원인 찾기용 읽기는 빼고
+  vision:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          sw_vers; sysctl -n machdep.cpu.brand_string hw.memsize hw.ncpu
+      - name: Vision으로 읽기
+        env:
+          OCR_JOBS: "1"
+          OCR_NO_DUMP: "1"
+          OCR_WRAP: "/usr/bin/time -l"
+          FILTER: ${{ github.event.inputs.filter }}
+        run: |
+          set -o pipefail
+          bash Tests/OCRImages/run.sh "$RUNNER_TEMP/ocr" "$FILTER" 2>&1 | tee "$RUNNER_TEMP/vision-log.txt"
+          cp "$RUNNER_TEMP/vision-log.txt" "$RUNNER_TEMP/ocr/"
+          grep -E "maximum resident set size|real" "$RUNNER_TEMP/vision-log.txt" | tail -3 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: vision
+          path: |
+            ${{ runner.temp }}/ocr/cases.json
+            ${{ runner.temp }}/ocr/results.json
+            ${{ runner.temp }}/ocr/vision-log.txt
+          retention-days: 7
+
+  models:
+    runs-on: ubuntu-latest
+    outputs:
+      list: ${{ steps.pick.outputs.list }}
+    steps:
+      - id: pick
+        env:
+          INPUT: ${{ github.event.inputs.models }}
+        run: echo "list=${INPUT:-$DEFAULT_MODELS}" >> "$GITHUB_OUTPUT"
+      # 어떤 MLX 변환이 있는지, 크기·라이선스 (기록용)
+      - name: 모델 찾아보기
+        run: |
+          python3 - <<'EOF'
+          import json, urllib.request
+          def get(url):
+              with urllib.request.urlopen(url, timeout=30) as r:
+                  return json.load(r)
+          found = get("https://huggingface.co/api/models?search=PaddleOCR-VL&limit=200&full=true")
+          for m in sorted(found, key=lambda m: -m.get("downloads", 0)):
+              tags = m.get("tags", [])
+              lic = next((t for t in tags if t.startswith("license:")), "")
+              print(f"{m['id']:60s} dl={m.get('downloads',0):>8} {lic} {'mlx' if 'mlx' in tags else ''} {m.get('lastModified','')[:10]}")
+          print()
+          for repo in [m["id"] for m in found if "mlx" in m.get("tags", [])][:40] + ["PaddlePaddle/PaddleOCR-VL", "PaddlePaddle/PaddleOCR-VL-1.5"]:
+              try:
+                  files = get(f"https://huggingface.co/api/models/{repo}/tree/main?recursive=true")
+                  size = sum(f.get("lfs", {}).get("size", f.get("size", 0)) for f in files if f.get("type") == "file")
+                  info = get(f"https://huggingface.co/api/models/{repo}")
+                  card = info.get("cardData") or {}
+                  print(f"{repo:60s} {size/1e9:6.2f} GB  license={card.get('license')} base={card.get('base_model')}")
+              except Exception as e:
+                  print(f"{repo:60s} ? {e}")
+          EOF
+
+  paddle:
+    needs: models
+    runs-on: macos-26
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        model: ${{ fromJSON(needs.models.outputs.list) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          sw_vers; sysctl -n machdep.cpu.brand_string hw.memsize hw.ncpu
+          system_profiler SPDisplaysDataType || true
+      - name: 테스트 사진 만들기
+        run: |
+          mkdir -p "$RUNNER_TEMP/gen" "$RUNNER_TEMP/ocr"
+          swiftc -O -swift-version 5 Tests/OCRImages/Generator/*.swift Tests/OCRImages/Shared/CaseSpec.swift -o "$RUNNER_TEMP/gen/ocr-generate"
+          "$RUNNER_TEMP/gen/ocr-generate" "$RUNNER_TEMP/ocr"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: .github/workflows/ocr-paddle.yml
+      - name: mlx-vlm 설치
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "mlx-vlm==0.7.11" huggingface_hub
+          python -c "import mlx.core as mx; print('mlx', mx.__version__, 'metal', mx.metal.is_available()); a = mx.ones((256,256)); print(mx.sum(a @ a))"
+      - name: 모델 이름 (캐시 키)
+        id: key
+        env:
+          MODEL: ${{ matrix.model }}
+        run: echo "slug=$(echo "$MODEL" | tr '/' '_')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface/hub
+          key: hf-${{ steps.key.outputs.slug }}-v1
+      - name: PaddleOCR-VL로 읽기
+        env:
+          MODEL: ${{ matrix.model }}
+          FILTER: ${{ github.event.inputs.filter }}
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
+        run: |
+          python Tests/OCRImages/Paddle/read.py "$RUNNER_TEMP/ocr" "$RUNNER_TEMP/ocr/paddle.json" \
+            --model "$MODEL" --filter "$FILTER" --deadline 4200 2>&1 | tee "$RUNNER_TEMP/ocr/paddle-log.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: paddle-${{ steps.key.outputs.slug }}
+          path: |
+            ${{ runner.temp }}/ocr/paddle.json
+            ${{ runner.temp }}/ocr/paddle-log.txt
+          retention-days: 7
+
+  compare:
+    needs: [vision, paddle]
+    if: always()
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/art
+      - name: 채점·비교
+        run: |
+          cd "$RUNNER_TEMP/art"
+          ls -R . | head -30
+          mkdir -p "$RUNNER_TEMP/cmp"
+          cp vision/cases.json "$RUNNER_TEMP/cmp/"
+          VISION=-
+          [ -f vision/results.json ] && cp vision/results.json "$RUNNER_TEMP/cmp/" && VISION="$RUNNER_TEMP/cmp/results.json"
+          ENGINES=()
+          for d in paddle-*; do
+            [ -f "$d/paddle.json" ] || continue
+            name="${d#paddle-}"; name="${name#*_}"
+            cp "$d/paddle.json" "$RUNNER_TEMP/cmp/$d.json"
+            ENGINES+=("$name=$RUNNER_TEMP/cmp/$d.json")
+          done
+          grep -E "maximum resident set size" vision/vision-log.txt || true
+          bash "$GITHUB_WORKSPACE/Tests/OCRImages/paddle-score.sh" "$RUNNER_TEMP/cmp" "$VISION" "${ENGINES[@]}"
+          cat "$RUNNER_TEMP/cmp/comparison.md" >> "$GITHUB_STEP_SUMMARY"
+      # 아티팩트를 못 받는 환경에서도 다시 채점할 수 있게 읽은 글을 로그에 담음
+      - name: Dump readings to log
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/cmp"
+          echo "=====PADDLE-BEGIN====="
+          tar czf - cases.json results.json paddle-*.json | base64 -b 100
+          echo "=====PADDLE-END====="

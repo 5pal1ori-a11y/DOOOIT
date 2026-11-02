@@ -48,7 +48,10 @@ func runProblem(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
     result.unsure = trace.unsure
     result.baseText = trace.base
     result.readings = trace.readings
-    await rawDump(await OCRService.deskewed(source), result: &result)
+    // OCR_NO_DUMP=1: 원인 찾기용 읽기를 빼고 앱이 하는 일만 (속도 비교용)
+    if ProcessInfo.processInfo.environment["OCR_NO_DUMP"] == nil {
+        await rawDump(await OCRService.deskewed(source), result: &result)
+    }
     evaluateProblem(spec, text: trace.text, unsure: trace.unsure, result: &result)
 }
 

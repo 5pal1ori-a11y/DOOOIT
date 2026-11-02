@@ -33,4 +33,5 @@ cp "$HERE/Runner/main.swift" "$SRC/main.swift"
 swiftc -swift-version 5 "$SRC"/*.swift -o "$BUILD/ocr-runner"
 
 echo "▶ 읽기"
-"$BUILD/ocr-runner" "$OUT" "$FILTER"
+# OCR_WRAP="/usr/bin/time -l": 읽기 도구의 최대 메모리 재기
+${OCR_WRAP:-} "$BUILD/ocr-runner" "$OUT" "$FILTER"
