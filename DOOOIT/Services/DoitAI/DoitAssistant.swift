@@ -161,6 +161,12 @@ final class DoitAssistant {
             }
         }
 
+        // 4-2) 문제 유형·과목 묻기: "이 문제 무슨 유형이야?", "이거 무슨 과목?", "영어 문제 유형 알려줘"
+        if let reply = problemTypeReply(routed, photo: photo) {
+            messages.append(reply)
+            return
+        }
+
         // 5) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
         if let image, let analyzed = await analyzePhoto(image, question: question, photo: photo) {
             messages.append(analyzed)
@@ -609,6 +615,50 @@ final class DoitAssistant {
     }
 
     /// 사진 읽기: 문제·필기용(검은 글자 위주)과 단어장용(영어-뜻 짝)
+    /// 문제 유형 사전으로 "무슨 유형/과목인지" 답하기 (문제 글은 질문 속 글 → 사진 → 바로 전 문제 순)
+    private func problemTypeReply(_ question: String, photo: DoitEngine.PhotoContext?) -> Message? {
+        // "취약 유형 학습" 같은 말은 빼고, 유형을 묻는 말일 때만
+        let asksType = question.range(of: #"(무슨|어떤|어느|뭔|무엇)\s*(문제\s*)?유형|유형\s*(이|은|는|을|좀)?\s*(뭐|알려|말해|설명)|문제\s*유형"#, options: .regularExpression) != nil
+        let asksSubject = question.range(of: #"(무슨|어떤|어느|뭔)\s*과목"#, options: .regularExpression) != nil
+        guard asksType || asksSubject else { return nil }
+        // 묻는 말을 빼고 남은 문제 글
+        var target = question.replacingOccurrences(
+            of: #"(이|그|위|이번|저)?\s*(문제|거|건|것)?\s*(는|은|의)?\s*(무슨|어떤|어느|뭔|무엇)?\s*(문제\s*)?(유형|과목)\s*(이야|이에요|인가요|인지|야|이지|일까|은|는|을|를|좀)?\s*(알려\s*줘|알려\s*주세요|말해\s*줘|뭐야|봐\s*줘)?\s*[?？.!]*"#,
+            with: " ", options: .regularExpression).trimmingCharacters(in: .whitespacesAndNewlines)
+        if target.count < 8, let text = photo?.text, !text.isEmpty { target = text }
+        if target.count < 8, let math = lastMath { target = math }
+
+        // 문제 없이 과목만 말하면 그 과목의 유형 목록 ("영어 문제 유형 알려줘")
+        let subjects = ["국어", "영어", "수학", "과학", "사회", "역사", "윤리", "물리학", "화학", "생명과학", "지구과학", "한국사", "세계사", "한국지리", "세계지리", "경제", "정치와 법", "사회·문화", "생활과 윤리", "윤리와 사상", "도덕", "문학", "독서", "문법"]
+        if asksType, target.count < 14, let subject = subjects.first(where: { question.contains($0) }) {
+            let list = DoitProblemTypes.types(subject: subject)
+            guard !list.isEmpty else { return nil }
+            var seen = Set<String>()
+            let names = list.map(\.name).filter { seen.insert($0).inserted }
+            let shown = names.prefix(20).map { "· " + $0 }.joined(separator: "\n")
+            return Message(role: .assistant, text: "\(subject) 문제 유형 \(names.count)가지 중 자주 나오는 것\n\(shown)\n\n문제를 보내면 어떤 유형인지와 푸는 법을 알려줄게요.",
+                           suggestions: ["이 문제 무슨 유형이야?"])
+        }
+        guard target.count >= 8 else {
+            return Message(role: .assistant, text: "문제 글이나 사진을 같이 보내 주세요. 유형과 푸는 법을 알려줄게요.")
+        }
+        let guess = DoitSubjectDetector.detect(target)
+        let matches = DoitProblemTypes.classify(target, subjectHint: guess?.broad)
+        guard let best = matches.first else {
+            if let guess, asksSubject {
+                return Message(role: .assistant, text: "과목 · \(guess.noteLabel)")
+            }
+            return Message(role: .assistant, text: "어떤 유형인지 확실하지 않아요. 문제의 질문 부분(예: \"~로 가장 적절한 것은?\")까지 보내 주세요.")
+        }
+        var lines: [String] = []
+        if let guess { lines.append("과목 · \(guess.noteLabel)") }
+        lines.append(DoitProblemTypes.explain(best))
+        if matches.count > 1, matches[1].score >= best.score - 0.08, matches[1].type.name != best.type.name {
+            lines.append("비슷한 유형 · \(matches[1].type.name)")
+        }
+        return Message(role: .assistant, text: lines.joined(separator: "\n"), suggestions: ["이 유형 문제 푸는 팁 더 알려줘"])
+    }
+
     private func read(_ image: UIImage) async -> DoitEngine.PhotoContext {
         let text = await OCRService.readMathProblem(image).text
         let wordLines = (try? await OCRService.recognize(image)) ?? []
