@@ -1,87 +1,89 @@
 import SwiftUI
 
-/// 앱 실행 애니메이션: D O O O I T → 세 개의 O가 하나로 합쳐짐 → D O I T
+/// 앱 실행 화면: 로고가 부드럽게 떠오르고 → 워드마크 → 한 줄 문구 → 다음 화면으로 (약 1.1초)
+/// 화면 위에 덮이는 장식일 뿐이라 앱 시작 작업을 막지 않음
 struct SplashView: View {
     var onFinish: () -> Void
 
-    @State private var appeared = false
-    @State private var merged = false
-    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var showLogo = false
+    @State private var showWordmark = false
     @State private var showTagline = false
-    @State private var glow = false
-
-    private let fontSize: CGFloat = 72
-
-    private var oWidth: CGFloat { fontSize * 0.80 }
-    private var dWidth: CGFloat { fontSize * 0.72 }
-    private var iWidth: CGFloat { fontSize * 0.30 }
-    private var tWidth: CGFloat { fontSize * 0.64 }
+    @State private var bloom = false
+    @State private var finished = false
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            BrandBackdrop(animated: false, intensity: bloom ? 1 : 0.35)
 
-            // 합쳐질 때 퍼지는 빛
+            // 로고 뒤로 퍼지는 빛
             Circle()
-                .fill(
-                    RadialGradient(colors: [Color.white.opacity(0.35), .clear],
-                                   center: .center, startRadius: 0, endRadius: 180)
-                )
-                .frame(width: 360, height: 360)
-                .scaleEffect(glow ? 1.2 : 0.2)
-                .opacity(glow ? 0 : (merged ? 0.9 : 0))
+                .fill(RadialGradient(colors: [Theme.accent.opacity(0.45), Theme.accent.opacity(0)],
+                                     center: .center, startRadius: 0, endRadius: 170))
+                .frame(width: 340, height: 340)
+                .scaleEffect(reduceMotion ? 1 : (bloom ? 1.15 : 0.5))
+                .opacity(bloom ? 0.9 : 0)
+                .offset(y: -44)
+                .accessibilityHidden(true)
 
-            VStack(spacing: 22) {
-                HStack(spacing: 0) {
-                    letter("D", width: dWidth, index: 0, x: merged ? oWidth : 0)
-                    letter("O", width: oWidth, index: 1, x: merged ? oWidth : 0)
-                    letter("O", width: oWidth, index: 2, x: 0)
-                        .scaleEffect(pulse ? 1.16 : 1)
-                    letter("O", width: oWidth, index: 3, x: merged ? -oWidth : 0)
-                    letter("I", width: iWidth, index: 4, x: merged ? -oWidth : 0)
-                    letter("T", width: tWidth, index: 5, x: merged ? -oWidth : 0)
-                }
+            VStack(spacing: 0) {
+                BrandLogo(size: 112)
+                    .scaleEffect(reduceMotion ? 1 : (showLogo ? 1 : 0.82))
+                    .opacity(showLogo ? 1 : 0)
+                    .blur(radius: reduceMotion || showLogo ? 0 : 14)
+                    .padding(.bottom, 28)
 
-                Text("계획하고, 집중하고, 해내다.")
+                BrandWordmark(size: 40)
+                    .scaleEffect(reduceMotion ? 1 : (showWordmark ? 1 : 0.94))
+                    .opacity(showWordmark ? 1 : 0)
+                    .blur(radius: reduceMotion || showWordmark ? 0 : 8)
+                    .offset(y: reduceMotion || showWordmark ? 0 : 8)
+                    .padding(.bottom, 10)
+
+                Text("오늘 할 일, 끝까지 두잇")
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .tracking(0.3)
+                    .foregroundStyle(.secondary)
                     .opacity(showTagline ? 1 : 0)
-                    .offset(y: showTagline ? 0 : 8)
+                    .offset(y: reduceMotion || showTagline ? 0 : 6)
             }
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("DOOOIT, 오늘 할 일, 끝까지 두잇")
         .task { await play() }
     }
 
-    private func letter(_ character: String, width: CGFloat, index: Int, x: CGFloat) -> some View {
-        Text(character)
-            .font(.system(size: fontSize, weight: .black))
-            .foregroundStyle(.white)
-            .frame(width: width)
-            .offset(x: x, y: appeared ? 0 : 34)
-            .opacity(appeared ? 1 : 0)
-            .blur(radius: appeared ? 0 : 10)
-            .animation(.spring(response: 0.55, dampingFraction: 0.72).delay(Double(index) * 0.07), value: appeared)
-            .animation(.spring(response: 0.62, dampingFraction: 0.8), value: merged)
-    }
-
     private func play() async {
-        try? await Task.sleep(for: .milliseconds(200))
-        appeared = true
-
-        try? await Task.sleep(for: .milliseconds(1100))
-        merged = true
-
-        try? await Task.sleep(for: .milliseconds(520))
-        withAnimation(.spring(response: 0.25, dampingFraction: 0.45)) { pulse = true }
-        withAnimation(.easeOut(duration: 0.9)) { glow = true }
-
-        try? await Task.sleep(for: .milliseconds(220))
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
-            pulse = false
-            showTagline = true
+        if reduceMotion {
+            // 움직임 없이 짧게 나타났다가 넘어감
+            withAnimation(.easeOut(duration: 0.25)) {
+                showLogo = true
+                showWordmark = true
+                showTagline = true
+                bloom = true
+            }
+            try? await Task.sleep(for: .milliseconds(750))
+            finish()
+            return
         }
 
-        try? await Task.sleep(for: .milliseconds(1000))
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.78)) { showLogo = true }
+        withAnimation(.easeOut(duration: 0.7)) { bloom = true }
+
+        try? await Task.sleep(for: .milliseconds(160))
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) { showWordmark = true }
+
+        try? await Task.sleep(for: .milliseconds(160))
+        withAnimation(.easeOut(duration: 0.35)) { showTagline = true }
+
+        try? await Task.sleep(for: .milliseconds(780))
+        finish()
+    }
+
+    private func finish() {
+        guard !finished else { return }
+        finished = true
         onFinish()
     }
 }
