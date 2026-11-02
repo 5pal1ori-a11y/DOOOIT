@@ -23,13 +23,22 @@ enum WordParser {
                 merged.append(word)
             }
         }
-        // 4) 흐리게 읽힌 줄에서 나온 단어는 "확인 필요"
+        // 4) 흐리게 읽힌 줄에서 나온 단어, 숫자·기호를 글자로 고친 단어는 "확인 필요"
         for i in merged.indices {
-            let term = merged[i].term.lowercased()
-            let source = lines.filter { fixOCRTerm($0.text).lowercased().contains(term) }
-            if let worst = source.map(\.confidence).min(), worst < 0.5 { merged[i].unsure = true }
+            let pattern = termPattern(merged[i].term)
+            let sources = lines.filter { fixOCRTerm($0.text).range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil }
+            if let worst = sources.map(\.confidence).min(), worst < 0.5 { merged[i].unsure = true }
+            if !sources.isEmpty, !sources.contains(where: { $0.text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil }) {
+                merged[i].unsure = true
+            }
         }
         return merged
+    }
+
+    /// 단어가 다른 낱말 속 글자로 잡히지 않게 ("run"이 "brunch"에 걸리지 않게)
+    private static func termPattern(_ term: String) -> String {
+        let words = term.split(separator: " ").map { NSRegularExpression.escapedPattern(for: String($0)) }
+        return "(?<![A-Za-z])" + words.joined(separator: #"\s+"#) + "(?![A-Za-z])"
     }
 
     /// 두 단(왼쪽·오른쪽에 각각 "단어 + 뜻")으로 된 페이지면 단마다 나눔.
@@ -51,13 +60,14 @@ enum WordParser {
             if crossing * 10 <= lines.count {
                 let left = lines.filter { Double($0.box.maxX) <= x + 0.005 }
                 let right = lines.filter { Double($0.box.minX) >= x - 0.005 }
-                // 양쪽 단이 같은 높이에 나란히 있어야 함
+                // 양쪽 단이 같은 높이에 나란히 있어야 함 (짧은 단의 절반 이상 겹침)
                 let leftTop: CGFloat = left.map(\.box.maxY).max() ?? 0
                 let rightTop: CGFloat = right.map(\.box.maxY).max() ?? 0
                 let leftBottom: CGFloat = left.map(\.box.minY).min() ?? 1
                 let rightBottom: CGFloat = right.map(\.box.minY).min() ?? 1
                 let overlap = Double(min(leftTop, rightTop) - max(leftBottom, rightBottom))
-                if isMixedColumn(left), isMixedColumn(right), overlap > 0.2 {
+                let shorter = Double(min(leftTop - leftBottom, rightTop - rightBottom))
+                if isMixedColumn(left), isMixedColumn(right), overlap > 0.1, overlap > shorter * 0.5 {
                     let better: Bool
                     if let current = best {
                         better = crossing < current.crossing || (crossing == current.crossing && abs(x - 0.5) < abs(current.x - 0.5))
@@ -89,16 +99,77 @@ enum WordParser {
             }
         }
 
-        let texts = rows.map { row in row.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ") }
+        let joined = rows.map { row in normalizeRow(row.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ")) }
+        // 머리말·꼬리말·쪽수, 유의어만 남은 빈 줄은 버림
+        var texts: [String] = []
+        for (i, text) in joined.enumerated() where !text.trimmingCharacters(in: .whitespaces).isEmpty {
+            if !isHeader(text, next: i + 1 < joined.count ? joined[i + 1] : nil) { texts.append(text) }
+        }
         // 시중 단어장(표제어 + [발음] + 품사 + 뜻 + 예시 구·예문)은 품사 표시를 기준으로 읽음
         return isBookPage(texts) ? parseBook(texts) : parseList(texts)
     }
 
+    // MARK: - 줄 다듬기
+
+    /// 한 줄을 읽기 좋게: 괄호 품사 "[명]" "(n.)" → "명" "n.", /발음/ 지우기, 유의어·반의어(= glad, ↔ sad, 유 glad)·cf. 참고 지우기
+    static func normalizeRow(_ text: String) -> String {
+        var t = text
+        t = t.replacingOccurrences(of: #"[\(\[](명|동|형|부|전|접|대|감|자|타)[\]\)]"#, with: "$1", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?<![가-힣])(명|동|형|부|전|접|대|감)\]"#, with: "$1", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"[\(\[](n|v|vt|vi|adj|adv|ad|prep|conj|pron|int)\.?[\)\]]"#, with: "$1.",
+                                   options: [.regularExpression, .caseInsensitive])
+        t = t.replacingOccurrences(of: #"(^|\s)/[^/\s가-힣]{1,30}/(?=\s|$)"#, with: "$1", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"\(?\s*(=|≒|≈|↔|⇔|≠|<->|\bsyn\.|\bant\.|\bopp\.|(?<![가-힣])(유의어|반의어|동의어|유|반))\s*[A-Za-z][A-Za-z ,'’\-]*\)?"#,
+                                   with: " ", options: [.regularExpression, .caseInsensitive])
+        t = t.replacingOccurrences(of: #"\s\(?cf\.\s.*$"#, with: "", options: [.regularExpression, .caseInsensitive])
+        return t
+    }
+
+    private static let headerPhrases: Set<String> = [
+        "word list", "wordlist", "words", "word", "vocabulary", "voca", "vocab", "check up", "checkup", "word check", "word test",
+        "review test", "daily test", "self test", "quick check", "todays words", "today s words", "key words", "new words",
+        "word meaning", "word meanings", "words meanings", "english korean", "meaning", "meanings", "idioms", "phrasal verbs",
+        "expressions", "key expressions", "review", "exercise", "exercises", "practice"
+    ]
+    private static let koreanHeaders: Set<String> = [
+        "단어", "뜻", "의미", "영어", "한글", "한국어", "우리말", "영단어", "품사", "발음", "예문", "번호", "체크", "확인", "단어장", "어휘", "해석"
+    ]
+
+    /// 머리말·꼬리말·쪽수 ("DAY 01", "Unit 3 Food", "Word List", "p. 34", "© 2024 …", "단어 뜻", "1일차")
+    /// 뜻 없는 영어 머리말은 바로 아래가 뜻만 있는 줄이면 세로형 단어로 봄 ("Review" / "복습하다")
+    static func isHeader(_ text: String, next: String?) -> Bool {
+        let s = text.trimmingCharacters(in: .whitespaces)
+        let lower = s.lowercased()
+        func matches(_ pattern: String, _ target: String) -> Bool { target.range(of: pattern, options: .regularExpression) != nil }
+        if matches(#"^(day|unit|lesson|chapter|part|step|week|stage|section|level|round|set|test|quiz|review|ch\.)\s*[-.#:]?\s*\d{1,3}(?!\d)"#, lower) { return true }
+        if matches(#"^(p\.?|pp\.|page)\s*\d{1,4}$"#, lower) || matches(#"^\d{1,4}\s*/\s*\d{1,4}$"#, lower) { return true }
+        if lower.contains("©") || lower.contains("www.") || lower.contains("http") || lower.contains(".com") || lower.contains("copyright") { return true }
+        let hasHangul = matches("[가-힣]", s)
+        let hasLatin = matches("[A-Za-z]", s)
+        if hasHangul, !hasLatin {
+            if matches(#"^(제\s*)?\d{1,3}\s*(일차|일째|강|과|단원|회|주차)"#, s) { return true }
+            let tokens = s.split(whereSeparator: { $0 == " " || $0 == "|" || $0 == "/" }).map(String.init)
+            return !tokens.isEmpty && tokens.allSatisfy { koreanHeaders.contains($0) }
+        }
+        if hasLatin, !hasHangul {
+            let phrase = lower.replacingOccurrences(of: #"[^a-z]+"#, with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+            guard headerPhrases.contains(phrase) else { return false }
+            if let next, matches("[가-힣]", next), !matches("[A-Za-z]{2,}", next) { return false }
+            return true
+        }
+        return false
+    }
+
     /// 영어 낱말 속에 끼어든 숫자·기호를 비슷한 글자로 ("app1e" → "apple", "5mall" → "small", "c0ntinent" → "continent")
-    /// 숫자만 있는 낱말(번호·쪽수)은 그대로 둠
+    /// 숫자만 있는 낱말(번호·쪽수)은 그대로 둠. 낱말 앞뒤에 붙은 "|"는 표 테두리라 지움
     static func fixOCRTerm(_ text: String) -> String {
         let map: [Character: Character] = ["0": "o", "1": "l", "5": "s", "|": "l", "$": "s"]
-        return text.split(separator: " ", omittingEmptySubsequences: false).map { token -> String in
+        return text.split(separator: " ", omittingEmptySubsequences: false).map { piece -> String in
+            var token = Substring(piece)
+            if token.contains(where: { $0.isASCII && $0.isLetter }) {
+                while token.first == "|" { token = token.dropFirst() }
+                while token.last == "|" { token = token.dropLast() }
+            }
             let letters = token.filter { $0.isASCII && $0.isLetter }.count
             guard letters >= 2, token.contains(where: { map[$0] != nil }),
                   !token.contains(where: { $0.isNumber && map[$0] == nil }) else { return String(token) }
@@ -127,40 +198,100 @@ enum WordParser {
                 afterExample = true
                 continue
             }
-            let (term, meaning) = split(text)
-            if term.isEmpty, !meaning.isEmpty, afterExample || looksLikeKoreanSentence(meaning) {
+            // 한 줄에 "단어 뜻 단어 뜻"이 이어진 경우 ("happy 행복한 / happiness 행복")
+            for segment in splitPairs(text) {
+                let row = splitRow(segment)
+                // "예문. 해석" 이 한 줄에 같이 있음
+                if row.sentence {
+                    afterExample = false
+                    continue
+                }
+                let (term, meaning) = (row.term, row.meaning)
+                if term.isEmpty, !meaning.isEmpty, afterExample || looksLikeKoreanSentence(meaning) {
+                    afterExample = false
+                    continue
+                }
                 afterExample = false
-                continue
-            }
-            afterExample = false
 
-            switch (term.isEmpty, meaning.isEmpty) {
-            case (false, false):
-                result.append(ParsedWord(term: term, meaning: meaning))
-                pendingTerm = nil
-            case (false, true):
-                // 뜻이 다음 줄에 있는 세로형 단어장
-                if let pending = pendingTerm {
-                    result.append(ParsedWord(term: pending, meaning: ""))
-                }
-                pendingTerm = term
-            case (true, false):
-                if let pending = pendingTerm {
-                    result.append(ParsedWord(term: pending, meaning: meaning))
+                switch (term.isEmpty, meaning.isEmpty) {
+                case (false, false):
+                    // 앞 단어는 뜻 없이 끝남 (학생이 확인 화면에서 채움)
+                    if let pending = pendingTerm { result.append(ParsedWord(term: pending, meaning: "")) }
+                    result.append(ParsedWord(term: term, meaning: meaning))
                     pendingTerm = nil
-                } else if !result.isEmpty {
-                    // 앞 단어 뜻의 연장
-                    let last = result[result.count - 1]
-                    result[result.count - 1].meaning = last.meaning.isEmpty ? meaning : last.meaning + ", " + meaning
+                case (false, true):
+                    // 뜻이 다음 줄에 있는 세로형 단어장
+                    if let pending = pendingTerm {
+                        result.append(ParsedWord(term: pending, meaning: ""))
+                    }
+                    pendingTerm = term
+                case (true, false):
+                    if let pending = pendingTerm {
+                        result.append(ParsedWord(term: pending, meaning: meaning))
+                        pendingTerm = nil
+                    } else if !result.isEmpty {
+                        // 앞 단어 뜻의 연장
+                        let last = result[result.count - 1]
+                        result[result.count - 1].meaning = last.meaning.isEmpty ? meaning : last.meaning + ", " + meaning
+                    }
+                case (true, true):
+                    break
                 }
-            case (true, true):
-                break
             }
         }
         if let pending = pendingTerm {
             result.append(ParsedWord(term: pending, meaning: ""))
         }
         return result.map { ParsedWord(term: $0.term, meaning: cleanMeaning($0.meaning)) }
+    }
+
+    /// 낱말 종류: 한글이 든 낱말 / 영어 낱말(품사 표시·번호 제외) / 기호
+    private enum TokenKind { case hangul, latin, other }
+    private static func kind(_ token: String) -> TokenKind {
+        if token.range(of: "[가-힣ㄱ-ㅎ]", options: .regularExpression) != nil { return .hangul }
+        if token.range(of: "[A-Za-z]", options: .regularExpression) != nil, !isPOS(token) { return .latin }
+        return .other
+    }
+
+    /// "apple 사과 banana 바나나" → ["apple 사과", "banana 바나나"]
+    /// 뜻 뒤에 영어 낱말(4개 이하, 문장 아님) + 한글 뜻이 또 나오면 새 단어. 괄호 안이나 A·B 같은 한 글자는 뜻의 일부
+    static func splitPairs(_ text: String) -> [String] {
+        let tokens = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        var cuts: [Int] = []
+        var seenLatin = false, seenHangul = false
+        var depth = 0
+        var i = 0
+        while i < tokens.count {
+            let k = kind(tokens[i])
+            if k == .latin, seenLatin, seenHangul, depth == 0 {
+                var j = i
+                while j < tokens.count, kind(tokens[j]) == .latin { j += 1 }
+                let run = tokens[i..<j]
+                let wordLike = run.contains { $0.filter { $0.isASCII && $0.isLetter }.count >= 2 }
+                let sentence = run.last.map { ".?!".contains($0.last ?? " ") } ?? false
+                if j < tokens.count, kind(tokens[j]) == .hangul, run.count <= 4, wordLike, !sentence {
+                    cuts.append(i)
+                    seenHangul = false
+                }
+                for t in run { depth += t.filter { $0 == "(" }.count - t.filter { $0 == ")" }.count }
+                i = j
+                continue
+            }
+            if k == .latin { seenLatin = true }
+            if k == .hangul, seenLatin { seenHangul = true }
+            depth = max(0, depth + tokens[i].filter { $0 == "(" }.count - tokens[i].filter { $0 == ")" }.count)
+            i += 1
+        }
+        guard !cuts.isEmpty else { return [text] }
+        var segments: [String] = []
+        var start = 0
+        for cut in cuts + [tokens.count] {
+            var piece = Array(tokens[start..<cut])
+            while let last = piece.last, last == "/" || last == "|" || last == "," { piece.removeLast() }
+            if !piece.isEmpty { segments.append(piece.joined(separator: " ")) }
+            start = cut
+        }
+        return segments
     }
 
     // MARK: - 시중 단어장 (품사 표시 기준)
@@ -175,7 +306,7 @@ enum WordParser {
     static func stripNoise(_ text: String) -> String {
         var t = text
         t = t.replacingOccurrences(of: #"[\[\(][^\]\)가-힣]{1,30}[\]\)]"#, with: " ", options: .regularExpression)
-        t = t.replacingOccurrences(of: #"(?<![A-Za-z가-힣])\d{1,4}(?![A-Za-z가-힣])"#, with: " ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?<![A-Za-z가-힣\d])\d{1,4}(?![A-Za-z가-힣\d])"#, with: " ", options: .regularExpression)
         t = t.replacingOccurrences(of: #"(?<![가-힣])[ㄱ-ㅎㅏ-ㅣ]+(?![가-힣])"#, with: " ", options: .regularExpression)
         t = t.replacingOccurrences(of: #"[□■☐☑✓✔•…]+"#, with: " ", options: .regularExpression)
         return t
@@ -194,24 +325,44 @@ enum WordParser {
     static func parseBook(_ texts: [String]) -> [ParsedWord] {
         // 1) 글을 영어 덩어리 / 한글 덩어리(품사로 시작하면 품사 덩어리) / 줄바꿈·"/" 으로 나눔
         var pieces: [Piece] = []
+        /// 페이지 순서대로 내보내려고 단어마다 나온 자리(덩어리 번호)를 함께 둠
+        var found: [(order: Int, word: ParsedWord)] = []
         func push(_ word: String) {
             let hasHangul = word.range(of: "[가-힣]", options: .regularExpression) != nil
             let hasLatin = word.range(of: "[A-Za-z]", options: .regularExpression) != nil
             if isPOS(word) {
                 pieces.append(.korean([word], pos: true))
             } else if hasHangul {
-                if case .korean(let words, let pos)? = pieces.last { pieces[pieces.count - 1] = .korean(words + [word], pos: pos) }
-                else { pieces.append(.korean([word], pos: false)) }
+                if case .korean(let words, let pos)? = pieces.last {
+                    pieces[pieces.count - 1] = .korean(words + [word], pos: pos)
+                } else if case .lineBreak? = pieces.last, pieces.count >= 2, case .korean(let words, true) = pieces[pieces.count - 2],
+                          words.count == 1 || words.last?.hasSuffix(",") == true {
+                    // 품사만 있던 줄, 또는 쉼표로 끝난 뜻은 다음 줄로 이어짐 ("동 버리다," / "포기하다")
+                    pieces.removeLast()
+                    pieces[pieces.count - 1] = .korean(words + [word], pos: true)
+                } else {
+                    pieces.append(.korean([word], pos: false))
+                }
             } else if hasLatin {
                 if case .english(let words)? = pieces.last { pieces[pieces.count - 1] = .english(words + [word]) }
                 else { pieces.append(.english([word])) }
             } else if case .korean(let words, let pos)? = pieces.last {
-                // 기호(~, 쉼표 등)는 앞의 뜻에 붙임
+                // 기호(~, 쉼표, ① 등)는 앞의 뜻에 붙임
                 pieces[pieces.count - 1] = .korean(words + [word], pos: pos)
             }
         }
         for text in texts {
-            for raw in stripNoise(text).components(separatedBy: " ") where !raw.isEmpty {
+            // 번호·체크박스가 붙은 품사 없는 줄은 목록처럼 한 줄이 단어 하나 ("□ give up 포기하다")
+            if isMarkedRow(text), !stripNoise(text).split(separator: " ").contains(where: { isPOS(String($0)) }) {
+                let (term, meaning) = split(text)
+                let cleaned = cleanMeaning(meaning)
+                if !term.isEmpty, !cleaned.isEmpty { found.append((pieces.count, ParsedWord(term: term, meaning: cleaned))) }
+                pieces.append(.lineBreak)
+                continue
+            }
+            // 뜻 번호 "1. 2." "(1)"은 지우기 전에 ①로 바꿔 둠 (뜻 사이 쉼표가 됨)
+            let numbered = text.replacingOccurrences(of: #"(\s)(\(\d{1,2}\)|\d{1,2}[.)])(?=\s*[가-힣])"#, with: "$1①", options: .regularExpression)
+            for raw in stripNoise(numbered).components(separatedBy: " ") where !raw.isEmpty {
                 if raw == "/" { pieces.append(.slash); continue }
                 push(raw)
             }
@@ -219,7 +370,6 @@ enum WordParser {
         }
 
         // 2) 품사 덩어리마다 표제어 찾기
-        var result: [ParsedWord] = []
         var used = Set<Int>()
         var lastOwner: (index: Int, piece: Int)?
         for (i, piece) in pieces.enumerated() {
@@ -227,7 +377,7 @@ enum WordParser {
             let meaning = cleanMeaning(words.joined(separator: " "))
             // 바로 앞이 같은 단어의 다른 품사면 이어 붙임 ("instant 형 즉각적인 명 순간")
             if let owner = lastOwner, owner.piece == i - 1 {
-                result[owner.index].meaning += ", " + meaning
+                found[owner.index].word.meaning += ", " + meaning
                 lastOwner = (owner.index, i)
                 continue
             }
@@ -249,59 +399,140 @@ enum WordParser {
             let term = cleanTerm(termWords.joined(separator: " "))
             guard !term.isEmpty else { continue }
             used.insert(owner)
-            result.append(ParsedWord(term: term, meaning: meaning))
-            lastOwner = (result.count - 1, i)
+            found.append((owner, ParsedWord(term: term, meaning: meaning)))
+            lastOwner = (found.count - 1, i)
         }
         // 3) 품사 표시 없이 "영어 한 낱말 + 뜻"만 있는 줄도 단어로 (예시 구·예문은 여러 낱말이라 빠짐)
+        //    표제어만 있는 줄 바로 아래 줄이 뜻뿐이면 그것도 ("apple [ǽpl]" / "사과")
+        func isBreak(_ index: Int) -> Bool {
+            guard index >= 0, index < pieces.count else { return true }
+            if case .lineBreak = pieces[index] { return true }
+            return false
+        }
         for (i, piece) in pieces.enumerated() where !used.contains(i) {
-            guard case .english(let words) = piece, words.count == 1, i + 1 < pieces.count,
-                  case .korean(let meaningWords, false) = pieces[i + 1] else { continue }
+            guard case .english(let words) = piece, words.count == 1 else { continue }
+            var meaningWords: [String]?
+            if i + 1 < pieces.count, case .korean(let after, false) = pieces[i + 1] {
+                meaningWords = after
+            } else if isBreak(i - 1), isBreak(i + 1), i + 2 < pieces.count, case .korean(let below, false) = pieces[i + 2], isBreak(i + 3) {
+                meaningWords = below
+            }
+            guard let meaningWords else { continue }
             let meaning = cleanMeaning(meaningWords.joined(separator: " "))
             let term = cleanTerm(words[0])
-            if !term.isEmpty, !meaning.isEmpty, !looksLikeKoreanSentence(meaning) { result.append(ParsedWord(term: term, meaning: meaning)) }
+            if !term.isEmpty, !meaning.isEmpty, !looksLikeKoreanSentence(meaning) { found.append((i, ParsedWord(term: term, meaning: meaning))) }
         }
-        return result
+        return found.enumerated().sorted { ($0.element.order, $0.offset) < ($1.element.order, $1.offset) }.map(\.element.word)
     }
 
-    /// 뜻 정리: 발음·번호 지우기, 예문 해석 같은 문장 조각 빼기, 끝의 영어 낱말 떼기
+    /// 줄 앞에 번호나 체크박스가 있는지 ("001 ", "1. ", "□ ")
+    private static func isMarkedRow(_ text: String) -> Bool {
+        text.range(of: #"^\s*([□■☐☑✓✔•·\*]|\d{1,4}([.)]|\s))"#, options: .regularExpression) != nil
+    }
+
+    /// 뜻 정리: 뜻 번호(①, 1.)는 쉼표로, 발음·번호 지우기, 예문 해석 같은 문장 조각 빼기, 끝의 영어 낱말 떼기
     static func cleanMeaning(_ raw: String) -> String {
-        var t = stripExample(from: stripNoise(raw))
+        var t = normalizeEnumeration(raw).replacingOccurrences(of: #"[;；]"#, with: ",", options: .regularExpression)
+        t = stripExample(from: stripNoise(t))
         t = t.replacingOccurrences(of: #"\s+[A-Za-z][A-Za-z\-']*\s*$"#, with: "", options: .regularExpression)
         let parts = t.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty && !looksLikeKoreanSentence($0) }
+            .filter { !$0.isEmpty && !looksLikeKoreanSentence($0) && $0.range(of: "[가-힣A-Za-z]", options: .regularExpression) != nil }
         t = parts.joined(separator: ", ")
         t = t.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
-        return t.trimmingCharacters(in: CharacterSet(charactersIn: " ,/"))
+        return t.trimmingCharacters(in: CharacterSet(charactersIn: " ,/;:.|=-："))
+    }
+
+    /// "사과 ② 능금", "명 ① 은행 ② 둑", "달리다 2. 운영하다" → 뜻 번호를 쉼표로 (맨 앞 번호는 지움)
+    private static func normalizeEnumeration(_ text: String) -> String {
+        let spaced = text.replacingOccurrences(of: "([①-⑳])", with: " $1 ", options: .regularExpression)
+        var out: [String] = []
+        var hasContent = false, needComma = false
+        for token in spaced.split(whereSeparator: \.isWhitespace).map(String.init) {
+            if token.range(of: #"^([①-⑳]|\d{1,2}[.)]|\(\d{1,2}\))$"#, options: .regularExpression) != nil {
+                if hasContent { needComma = true }
+                continue
+            }
+            if needComma, let last = out.last {
+                if !last.hasSuffix(",") { out[out.count - 1] = last + "," }
+                needComma = false
+            }
+            out.append(token)
+            if !isPOS(token), token.range(of: "[가-힣A-Za-z]", options: .regularExpression) != nil { hasContent = true }
+        }
+        return out.joined(separator: " ")
     }
 
     /// "1. apple n. 사과, 능금" → ("apple", "n. 사과, 능금")
     static func split(_ raw: String) -> (term: String, meaning: String) {
-        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        // 번호, 체크박스 제거
-        s = s.replacingOccurrences(of: #"^[\(\[]?\d{1,4}[\.\)\]:]?\s*"#, with: "", options: .regularExpression)
-        s = s.replacingOccurrences(of: #"^[□■☐☑✓✔•·\-\*]+\s*"#, with: "", options: .regularExpression)
+        let row = splitRow(raw)
+        return row.sentence ? ("", row.meaning) : (row.term, row.meaning)
+    }
 
-        guard let hangulRange = s.range(of: #"[가-힣ㄱ-ㅎ]"#, options: .regularExpression) else {
-            return (cleanTerm(s), "")
+    /// 한 줄을 단어/뜻으로. sentence = 영어 예문 + 해석이 한 줄에 있음
+    private static func splitRow(_ raw: String) -> (term: String, meaning: String, sentence: Bool) {
+        var s = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 번호, 체크박스, 표 테두리 제거 ("5mall" 같은 낱말 속 숫자는 남김)
+        s = s.replacingOccurrences(of: #"^[\(\[]?\d{1,4}(?:[\.\)\]:]\s*|\s+)"#, with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"^[□■☐☑✓✔•·\-\*\|–—]+\s*"#, with: "", options: .regularExpression)
+        s = s.replacingOccurrences(of: #"^\d{1,4}[\.\)]\s*"#, with: "", options: .regularExpression)
+
+        var tokens = s.split(whereSeparator: \.isWhitespace).map(String.init)
+        // 띄어쓰기 없이 붙은 "apple사과" → "apple" "사과" (소문자가 든 두 글자 이상 영어 + 한글일 때만, "A와" "TV를"은 그대로)
+        if let glued = tokens.firstIndex(where: { kind($0) == .hangul }),
+           let match = tokens[glued].firstMatch(of: #/^([A-Za-z][A-Za-z'’\-]+)([가-힣ㄱ-ㅎ~(].*)$/#),
+           match.1.contains(where: \.isLowercase) {
+            tokens.replaceSubrange(glued...glued, with: [String(match.1), String(match.2)])
+        }
+        guard let first = tokens.firstIndex(where: { kind($0) == .hangul }) else {
+            return (cleanTerm(stripTermNoise(s)), "", false)
         }
 
-        var termPart = String(s[..<hangulRange.lowerBound])
-        var meaningPart = String(s[hangulRange.lowerBound...])
+        // 한글이 먼저 나오고 끝에 영어가 있음 ("사과 - apple")
+        if first == 0, let lastHangul = tokens.lastIndex(where: { kind($0) == .hangul }) {
+            let tail = tokens[(lastHangul + 1)...]
+            let head = tokens[...lastHangul]
+            if tail.contains(where: { kind($0) == .latin }), tail.count <= 6, !head.contains(where: { kind($0) == .latin }) {
+                let term = cleanTerm(stripTermNoise(tail.joined(separator: " ")))
+                if !term.isEmpty { return (term, stripExample(from: head.joined(separator: " ")), false) }
+            }
+        }
+
+        var meaningTokens = Array(tokens[first...])
+        tokens = Array(tokens[..<first])
+        // 단어 끝의 기호: "~"·"(" 는 뜻의 시작 ("be good at ~을", "employ (사람을"), 나머지(-, :, |, ①)는 버림
+        while let last = tokens.last, kind(last) != .latin, !isPOS(last) {
+            tokens.removeLast()
+            if last.contains("~") || last.contains("(") { meaningTokens.insert(last, at: 0) }
+        }
+        var termPart = tokens.joined(separator: " ")
+        var meaningPart = meaningTokens.joined(separator: " ")
 
         // 단어 뒤에 붙은 품사 표시는 뜻 쪽으로 이동 (n. v. adj. ...)
         if let posRange = termPart.range(
-            of: #"\s(n|v|vt|vi|a|ad|adj|adv|prep|conj|pron|int|phr)\.?\s*$"#,
+            of: #"(^|\s)((n|v|a)\.|(vt|vi|ad|adj|adv|prep|conj|pron|int|phr)\.?)\s*$"#,
             options: [.regularExpression, .caseInsensitive]
         ) {
             let pos = termPart[posRange].trimmingCharacters(in: .whitespaces)
             termPart = String(termPart[..<posRange.lowerBound])
             meaningPart = pos + " " + meaningPart
         }
+        termPart = stripTermNoise(termPart)
+
+        // 영어 예문 + 해석이 한 줄에 ("She is kind to everyone. 그녀는 …")
+        let trimmedTerm = termPart.trimmingCharacters(in: .whitespaces)
+        if trimmedTerm.split(separator: " ").count >= 3, let last = trimmedTerm.last, ".?!\"”".contains(last) {
+            return ("", meaningPart, true)
+        }
 
         // 뜻 뒤에 붙은 예문 떼기 ("용감한 She was brave." / "용감한 예) …" / "용감한 ex. …")
         meaningPart = stripExample(from: meaningPart)
         meaningPart = meaningPart.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (cleanTerm(termPart), meaningPart)
+        return (cleanTerm(termPart), meaningPart, false)
+    }
+
+    /// 단어 쪽의 [발음]·(= 다른 철자) 같은 한글 없는 괄호 지우기
+    private static func stripTermNoise(_ text: String) -> String {
+        text.replacingOccurrences(of: #"[\[\(][^\]\)가-힣]{1,30}[\]\)]"#, with: " ", options: .regularExpression)
     }
 
     // MARK: 예문 거르기
@@ -322,26 +553,31 @@ enum WordParser {
         guard words.count >= 3 else { return false }
         if let last = s.last, ".?!\"”".contains(last) { return true }
         let first = String(words[0])
+        // "I like apples", "She runs fast" 처럼 대문자 주어로 시작하는 세 낱말 이상
+        if ["I", "You", "He", "She", "We", "They", "It"].contains(first) { return true }
         let function: Set<String> = ["i", "you", "he", "she", "it", "we", "they", "this", "that", "there", "my", "his", "her", "our", "their",
                                      "is", "are", "was", "were", "am", "will", "can", "do", "does", "did", "have", "has", "had", "the"]
         let hasFunction = words.dropFirst().contains { function.contains($0.lowercased()) } || function.contains(first.lowercased())
         return first.first?.isUppercase == true && hasFunction && words.count >= 4
     }
 
-    /// 한글 문장인지 (예문 해석): 마침표로 끝나거나, 띄어쓰기가 많고 "~다/~요"로 끝남 ("포기하다" 같은 뜻은 아님)
+    /// 한글 문장인지 (예문 해석): 마침표로 끝나거나, 띄어쓰기가 많고 주어(~은/는/이/가)가 있으며 "~다/~요"로 끝남
+    /// ("포기하다", "(해야 할 일을) 미루다", "A와 B 둘 다" 같은 뜻은 아님)
     static func looksLikeKoreanSentence(_ raw: String) -> Bool {
         let s = raw.trimmingCharacters(in: .whitespaces)
         guard s.count >= 8, !s.contains(",") else { return false }
         if s.hasSuffix(".") || s.hasSuffix("?") || s.hasSuffix("!") { return true }
-        let spaces = s.filter { $0 == " " }.count
-        return spaces >= 3 && (s.hasSuffix("다") || s.hasSuffix("요"))
+        let core = s.replacingOccurrences(of: #"\([^)]*\)"#, with: " ", options: .regularExpression)
+        let words = core.split(separator: " ")
+        guard words.count >= 4, let last = words.last, last.hasSuffix("다") || last.hasSuffix("요") else { return false }
+        return words.dropLast().contains { word in ["은", "는", "이", "가"].contains { word.hasSuffix($0) } }
     }
 
     /// 뜻 뒤에 이어 붙은 예문 잘라내기
     static func stripExample(from meaning: String) -> String {
         var m = meaning
         // 예문 표시가 나오면 거기서 자름
-        for marker in [#"\s(e\.\s?g\.?|eg\.|ex[.):]|예\)|예:|예문|ⓔ|▶|►|→)"#] {
+        for marker in [#"\s(e\.\s?g\.?|eg\.|ex[.):]|예\)|예:|예문|ⓔ|▶|►|→|cf\.)"#] {
             if let range = m.range(of: marker, options: [.regularExpression, .caseInsensitive]) { m = String(m[..<range.lowerBound]) }
         }
         // 영어 낱말이 세 개 이상 이어지면 예문으로 보고 자름 ("용감한 She was brave.")
@@ -357,13 +593,13 @@ enum WordParser {
         let filtered = String(raw.unicodeScalars.filter { allowed.contains($0) })
         let term = filtered
             .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
-            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "-~")))
+            .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "-~'’")))
 
-        // 영어 글자가 있어야 하고, 예문처럼 긴 문장은 제외
-        guard term.range(of: "[A-Za-z]", options: .regularExpression) != nil else { return "" }
+        // 영어 글자가 두 개 이상 있어야 하고 (쪽수 "p." 같은 한 글자 제외), 예문처럼 긴 문장은 제외
+        guard term.filter({ $0.isASCII && $0.isLetter }).count >= 2 else { return "" }
         guard term.range(of: "[가-힣]", options: .regularExpression) == nil else { return "" }
         let wordCount = term.split(separator: " ").count
-        guard wordCount <= 4, term.count <= 40 else { return "" }
+        guard wordCount <= 6, term.count <= 50 else { return "" }
         return term
     }
 }
