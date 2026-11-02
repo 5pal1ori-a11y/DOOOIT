@@ -751,7 +751,6 @@ enum OCRService {
                 continuation.resume(returning: (request.results ?? []).map(\.boundingBox))
             }
         }
-        guard !boxes.isEmpty else { return (image, 0) }
         let w = small.width, h = small.height
         var gray = [UInt8](repeating: 255, count: w * h)
         let drawn: Bool = gray.withUnsafeMutableBytes { buffer in
@@ -769,8 +768,11 @@ enum OCRService {
             guard x0 <= x1, y0 <= y1 else { continue }
             for y in y0...y1 { for x in x0...x1 { keep[y * w + x] = true } }
         }
-        for i in 0..<(w * h) where !keep[i] { gray[i] = 255 }
-        guard let angle = TextSkew.angle(gray: gray, width: w, height: h, maxDegrees: 6),
+        var masked = gray
+        for i in 0..<(w * h) where !keep[i] { masked[i] = 255 }
+        // 글줄 자리만으로 못 재면 (빠른 글자 찾기가 기운 줄을 일부만 찾은 경우) 사진 전체로
+        guard let angle = TextSkew.angle(gray: masked, width: w, height: h, maxDegrees: 6)
+                ?? TextSkew.angle(gray: gray, width: w, height: h, maxDegrees: 5),
               let rotated = rotated(image, degrees: -angle) else { return (image, 0) }
         return (rotated, angle)
     }
