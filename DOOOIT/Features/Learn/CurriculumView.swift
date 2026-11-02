@@ -53,7 +53,7 @@ struct CurriculumView: View {
     private var progressItems: [StudyContent]
 
     @State private var query = ""
-    @State private var level: LevelFilter = .all
+    @AppStorage("learn.level") private var levelRaw = LevelFilter.middle.rawValue
     @FocusState private var searching: Bool
     @State private var target: StudyTarget?
     @State private var choices: [StudyScope] = []
@@ -67,19 +67,41 @@ struct CurriculumView: View {
         var id: String { subject + "|" + unit }
     }
 
+    /// 학교급: 초등학교 · 중학교 · 고등학교(고1 공통과목 포함) · 대학교
     enum LevelFilter: String, CaseIterable, Identifiable {
-        case all = "전체", common = "고1 공통", elementary = "초등", middle = "중학교", high = "고등학교", university = "대학교"
+        case elementary = "초등학교", middle = "중학교", high = "고등학교", university = "대학교"
         var id: String { rawValue }
 
-        func matches(_ subject: CurriculumSubject) -> Bool {
-            let isCommon = Curriculum.highSchoolCommon.contains { $0.name == subject.name }
+        var symbol: String {
             switch self {
-            case .all: return true
-            case .common: return isCommon
-            default: return !isCommon && subject.name.hasPrefix(rawValue)
+            case .elementary: return "pencil"
+            case .middle: return "book.fill"
+            case .high: return "graduationcap.fill"
+            case .university: return "building.columns.fill"
             }
         }
+
+        /// 과목 이름 앞에 붙은 학교급 (예: "초등 수학", "중학교 과학")
+        var namePrefix: String { self == .elementary ? "초등" : rawValue }
+
+        static func isCommon(_ subject: CurriculumSubject) -> Bool {
+            Curriculum.highSchoolCommon.contains { $0.name == subject.name }
+        }
+
+        func matches(_ subject: CurriculumSubject) -> Bool {
+            if Self.isCommon(subject) { return self == .high }
+            return subject.name.hasPrefix(namePrefix)
+        }
+
+        /// 타일에 보일 이름: 학교급은 빼고 과목만 ("중학교 수학" → "수학")
+        func shortName(_ subject: CurriculumSubject) -> String {
+            guard !Self.isCommon(subject), subject.name.hasPrefix(namePrefix) else { return subject.name }
+            let rest = subject.name.dropFirst(namePrefix.count).trimmingCharacters(in: .whitespaces)
+            return rest.isEmpty ? subject.name : rest
+        }
     }
+
+    private var level: LevelFilter { LevelFilter(rawValue: levelRaw) ?? .middle }
 
     private var trimmed: String { query.trimmingCharacters(in: .whitespaces) }
 
@@ -237,30 +259,8 @@ struct CurriculumView: View {
 
     private var subjectSection: some View {
         let subjects = Curriculum.subjects.filter(level.matches)
-        return VStack(alignment: .leading, spacing: 12) {
-            SectionTitle("과목")
-            ScrollView(.horizontal) {
-                HStack(spacing: 8) {
-                    ForEach(LevelFilter.allCases) { item in
-                        let isOn = level == item
-                        Button {
-                            withAnimation(.snappy) { level = item }
-                            Haptics.tap()
-                        } label: {
-                            Text(item.rawValue)
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14)
-                                .frame(height: 34)
-                                .foregroundStyle(isOn ? Color.white : Palette.ink)
-                                .background(isOn ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.white), in: .capsule)
-                                .overlay(Capsule().strokeBorder(Color.primary.opacity(isOn ? 0 : 0.08)))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-            .scrollIndicators(.hidden)
+        return VStack(alignment: .leading, spacing: 14) {
+            levelTabs
 
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
                 ForEach(subjects) { subject in
@@ -272,20 +272,72 @@ struct CurriculumView: View {
                     .buttonStyle(.pressable)
                 }
             }
+            .id(level)
+            .transition(.opacity)
         }
+    }
+
+    /// 학교급 네 칸 (아이콘 + 이름)
+    private var levelTabs: some View {
+        HStack(spacing: 4) {
+            ForEach(LevelFilter.allCases) { item in
+                let isOn = level == item
+                Button {
+                    withAnimation(.snappy) { levelRaw = item.rawValue }
+                    Haptics.tap()
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: item.symbol).font(.subheadline.weight(.semibold))
+                        Text(item.rawValue).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .foregroundStyle(isOn ? Color.white : Color.secondary)
+                    .background(isOn ? Theme.accent : Color.clear, in: .rect(cornerRadius: 14))
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isOn ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .softCardBackground(cornerRadius: 18)
+    }
+
+    /// 과목마다 색 (국어·영어·수학·과학·사회)
+    private func color(for subject: CurriculumSubject) -> Color {
+        let name = subject.name
+        if name.contains("국어") { return Color(hex: "#FF6B6B") }
+        if name.contains("영어") { return Color(hex: "#4D8DFF") }
+        if name.contains("수학") { return Theme.accent }
+        if name.contains("과학") { return Palette.success }
+        if name.contains("사회") || name.contains("역사") { return Palette.warning }
+        return Theme.accent
     }
 
     private func subjectTile(_ subject: CurriculumSubject) -> some View {
         let done = progresses.filter { $0.subject == subject.name && $0.isComplete }.count
         let ratio = subject.units.isEmpty ? 0 : Double(done) / Double(subject.units.count)
+        let tint = color(for: subject)
         return VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: subject.symbol)
-                .font(.headline)
-                .foregroundStyle(Theme.accent)
-                .frame(width: 40, height: 40)
-                .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 12))
+            HStack {
+                Image(systemName: subject.symbol)
+                    .font(.headline)
+                    .foregroundStyle(tint)
+                    .frame(width: 40, height: 40)
+                    .background(tint.opacity(0.12), in: .rect(cornerRadius: 12))
+                Spacer(minLength: 0)
+                if LevelFilter.isCommon(subject) {
+                    Text("고1 공통")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.06), in: .capsule)
+                }
+            }
             VStack(alignment: .leading, spacing: 2) {
-                Text(subject.name)
+                Text(level.shortName(subject))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
@@ -294,7 +346,7 @@ struct CurriculumView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            LinearProgressBar(value: ratio, height: 4)
+            LinearProgressBar(value: ratio, color: tint, height: 4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .softCard(cornerRadius: 20, padding: 14)
