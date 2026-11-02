@@ -2,14 +2,13 @@ import Charts
 import SwiftData
 import SwiftUI
 
-/// 홈: 인사 → 주간 스트립 → 오늘 요약 카드 → 오늘의 플랜 → 오늘의 단어 → 이번 주 차트
+/// 홈: 인사 → 오늘 요약 카드 → 오늘의 플랜 → 오늘의 단어 → 이번 주 차트
 /// (흰 카드 · 큰 숫자 · 구역 제목을 같은 모양으로 맞춤)
 struct HomeView: View {
     @Binding var selectedTab: AppTab
 
     @Environment(AuthManager.self) private var auth
     @Environment(StudyTimer.self) private var studyTimer
-    @Environment(PlannerRouter.self) private var router
 
     @Query(sort: \Plan.startDate) private var plans: [Plan]
     @Query(sort: \StudySession.start, order: .reverse) private var sessions: [StudySession]
@@ -33,16 +32,8 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 24) {
                         header(now: now)
                             .appearAnimation()
-                        WeekStrip(selected: now) { day in openPlanner(day) }
-                            .appearAnimation(delay: 0.05)
                         focusPanel(now: now)
                             .appearAnimation(delay: 0.1)
-                        NavigationLink { RankingView() } label: {
-                            RowLabel(symbol: "trophy.fill", color: Palette.warning, title: "공부 랭킹", subtitle: "오늘 다른 학생들과 공부 시간 겨루기")
-                                .softCardBackground(cornerRadius: 20)
-                        }
-                        .buttonStyle(.pressable)
-                        .appearAnimation(delay: 0.12)
                         plansSection(now: now)
                             .appearAnimation(delay: 0.15)
                         wordMemoCard(now: now)
@@ -68,13 +59,6 @@ struct HomeView: View {
                 PlanEditorView(target: .edit(plan))
             }
         }
-    }
-
-    private func openPlanner(_ day: Date) {
-        router.selectedDate = day.startOfDay
-        router.mode = .day
-        router.scrollRequest += 1
-        selectedTab = .planner
     }
 
     // MARK: Header
@@ -130,13 +114,14 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
-                    Text("오늘 공부한 시간").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(studyTimer.isActive ? "오늘 공부한 시간 · 집중 중" : "오늘 공부한 시간")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(studyTimer.isActive ? Palette.success : .secondary)
                     Spacer()
-                    if studyTimer.isActive {
-                        Label("집중 중", systemImage: "circle.fill")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(Palette.success)
-                            .symbolEffect(.pulse, options: .repeating)
+                    NavigationLink { RankingView() } label: {
+                        Label("랭킹", systemImage: "trophy.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
                     }
                 }
                 Text(TimeText.duration(seconds: seconds))
@@ -185,31 +170,15 @@ struct HomeView: View {
 
             if occurrences.isEmpty {
                 Button { showNewPlan = true } label: {
-                    HStack(spacing: 12) {
-                        IconBadge(symbol: "calendar.badge.plus", size: 40)
-                        Text("오늘 등록된 플랜이 없어요. 눌러서 오늘의 목표를 추가해보세요")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.leading)
-                        Spacer(minLength: 0)
-                    }
-                    .softCard(cornerRadius: 20, padding: 16)
+                    RowLabel(symbol: "plus", title: "오늘 할 일 추가", subtitle: "아직 등록된 플랜이 없어요", chevron: false)
+                        .softCardBackground(cornerRadius: 20)
                 }
                 .buttonStyle(.pressable)
                 .padding(.top, 4)
             } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(occurrences.prefix(3)) { occurrence in
-                        PlanTimelineRow(occurrence: occurrence) { editingPlan = occurrence.plan }
-                    }
-                    if occurrences.count > 3 {
-                        Button("+\(occurrences.count - 3)개 더 보기") { showAllPlans = true }
-                            .font(.subheadline.weight(.bold))
-                            .padding(.leading, 64)
-                            .padding(.top, 4)
-                    }
+                PlanListCard(occurrences: Array(occurrences.prefix(3))) { occurrence in
+                    PlanTimelineRow(occurrence: occurrence) { editingPlan = occurrence.plan }
                 }
-                .softCard(cornerRadius: 22, padding: 14)
                 .padding(.top, 4)
             }
         }

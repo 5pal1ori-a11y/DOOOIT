@@ -20,10 +20,10 @@ extension View {
     }
 }
 
-/// 테마 색 그라데이션 (강조 카드·버튼용)
+/// 강조 색 (예전엔 그라데이션 — 깔끔하게 한 색으로 통일. 이름은 그대로 두어 모든 화면에 한 번에 적용)
 enum AccentGradient {
     static var linear: LinearGradient {
-        LinearGradient(colors: [Theme.accent, Theme.accent.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [Theme.accent, Theme.accent], startPoint: .top, endPoint: .bottom)
     }
 }
 
@@ -134,28 +134,7 @@ struct ProgressRing: View {
     }
 }
 
-/// 공책 느낌의 배경 (줄 + 빨간 여백선)
-struct NotePaperBackground: View {
-    var body: some View {
-        Canvas { ctx, size in
-            ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(Palette.paper))
-            var y: CGFloat = 56
-            while y < size.height {
-                var line = Path()
-                line.move(to: CGPoint(x: 0, y: y))
-                line.addLine(to: CGPoint(x: size.width, y: y))
-                ctx.stroke(line, with: .color(Palette.paperLine), lineWidth: 1)
-                y += 36
-            }
-            var margin = Path()
-            margin.move(to: CGPoint(x: 34, y: 0))
-            margin.addLine(to: CGPoint(x: 34, y: size.height))
-            ctx.stroke(margin, with: .color(Palette.paperMargin), lineWidth: 1.5)
-        }
-    }
-}
-
-/// 메모지 카드
+/// 단어 카드 (예전 메모지 모양 → 깔끔한 흰 카드)
 struct NotePaperCard<Content: View>: View {
     @ViewBuilder var content: Content
 
@@ -163,19 +142,8 @@ struct NotePaperCard<Content: View>: View {
         content
             .frame(maxWidth: .infinity, minHeight: 280)
             .padding(.vertical, 30)
-            .padding(.leading, 50)
-            .padding(.trailing, 24)
-            .background { NotePaperBackground() }
-            .clipShape(.rect(cornerRadius: 22))
-            .overlay(alignment: .top) {
-                // 테이프
-                RoundedRectangle(cornerRadius: 3)
-                    .fill(Theme.accent.opacity(0.35))
-                    .frame(width: 86, height: 22)
-                    .rotationEffect(.degrees(-3))
-                    .offset(y: -10)
-            }
-            .shadow(color: .black.opacity(0.2), radius: 18, y: 10)
+            .padding(.horizontal, 24)
+            .softCardBackground(cornerRadius: 24)
     }
 }
 

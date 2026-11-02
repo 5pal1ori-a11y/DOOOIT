@@ -97,6 +97,7 @@ struct WeekStrip: View {
 
 // MARK: - 타임라인 형태의 플랜 행 (홈 · 플래너 공용)
 
+/// 할 일 한 줄 (체크리스트처럼): 체크 원 · 제목 · 시간과 카테고리 · 색 표시
 struct PlanTimelineRow: View {
     let occurrence: PlanOccurrence
     var onOpen: () -> Void
@@ -107,81 +108,68 @@ struct PlanTimelineRow: View {
         let plan = occurrence.plan
         let done = occurrence.isCompleted
 
-        HStack(alignment: .top, spacing: 8) {
-            Text(plan.isAllDay ? "종일" : occurrence.start.kr("HH:mm"))
-                .font(.caption.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(width: 42, alignment: .leading)
-                .padding(.top, 15)
+        HStack(spacing: 12) {
+            Button {
+                withAnimation(.snappy) { plan.toggleCompleted(on: occurrence.day) }
+                try? context.save()
+                Haptics.tap()
+            } label: {
+                Image(systemName: done ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(done ? plan.color : Color.secondary.opacity(0.6))
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(done ? "완료 취소" : "완료로 표시")
 
-            ZStack(alignment: .top) {
-                Rectangle()
-                    .fill(Color.primary.opacity(0.1))
-                    .frame(width: 2)
-                    .frame(maxHeight: .infinity)
-                Circle()
-                    .fill(plan.color)
-                    .frame(width: 12, height: 12)
-                    .padding(.top, 17)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(plan.title)
+                    .font(.body.weight(.medium))
+                    .strikethrough(done)
+                    .foregroundStyle(done ? Color.secondary : Palette.ink)
+                    .lineLimit(1)
+                subtitle
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            .frame(width: 14)
-
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(plan.title)
-                        .font(.body.weight(.semibold))
-                        .strikethrough(done)
-                        .foregroundStyle(done ? Color.secondary : Palette.ink)
-                        .lineLimit(1)
-                    subtitle
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-                Button {
-                    withAnimation(.snappy) { plan.toggleCompleted(on: occurrence.day) }
-                    try? context.save()
-                    Haptics.tap()
-                } label: {
-                    Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
-                        .foregroundStyle(done ? plan.color : Color.secondary)
-                        .contentTransition(.symbolEffect(.replace))
-                        .symbolEffect(.bounce, value: done)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(done ? "완료 취소" : "완료로 표시")
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .background(plan.color.opacity(done ? 0.05 : (plan.isStudy ? 0.13 : 0.06)), in: .rect(cornerRadius: 16))
-            .overlay(alignment: .leading) {
-                if plan.isStudy {
-                    UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
-                        .fill(plan.color)
-                        .frame(width: 4)
-                }
-            }
-            .clipShape(.rect(cornerRadius: 16))
-            .opacity(done ? 0.75 : 1)
-            .animation(Motion.spring, value: done)
-            .contentShape(.rect(cornerRadius: 16))
-            .onTapGesture(perform: onOpen)
-            .padding(.vertical, 3)
+            Spacer(minLength: 0)
+            Capsule()
+                .fill(plan.color)
+                .frame(width: 4, height: 26)
+                .opacity(done ? 0.4 : 1)
         }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onOpen)
     }
 
     private var subtitle: Text {
         let plan = occurrence.plan
         let name = plan.category?.name ?? (plan.isStudy ? "공부" : "일반")
+        let time = plan.isAllDay ? "종일" : "\(occurrence.start.kr("a h:mm")) – \(occurrence.end.kr("h:mm"))"
         if plan.isStudy {
-            let base = Text("\(Image(systemName: "timer")) \(name) · \(TimeText.duration(minutes: plan.durationMinutes))")
-            return plan.lockApps ? Text("\(base) · \(Image(systemName: "lock.fill")) 앱 잠금") : base
+            let base = Text("\(time) · \(name) · \(TimeText.duration(minutes: plan.durationMinutes))")
+            return plan.lockApps ? Text("\(base) · \(Image(systemName: "lock.fill"))") : base
         }
-        if plan.isAllDay { return Text(name) }
-        return Text("\(name) · \(occurrence.end.kr("a h:mm"))까지")
+        return Text("\(time) · \(name)")
+    }
+}
+
+/// 할 일 목록 카드 (줄 사이 구분선)
+struct PlanListCard<Row: View>: View {
+    let occurrences: [PlanOccurrence]
+    @ViewBuilder var row: (PlanOccurrence) -> Row
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(occurrences.enumerated()), id: \.element.id) { index, occurrence in
+                row(occurrence)
+                if index < occurrences.count - 1 { Divider().padding(.leading, 52) }
+            }
+        }
+        .softCardBackground(cornerRadius: 20)
     }
 }
 

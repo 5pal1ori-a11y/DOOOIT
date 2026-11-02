@@ -30,7 +30,10 @@ struct PlannerView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        PillSegmentedControl(items: PlannerMode.allCases, selection: $router.mode) { $0.title }
+                        Picker("보기", selection: $router.mode) {
+                            ForEach(PlannerMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                        }
+                        .pickerStyle(.segmented)
 
                         Group {
                             if router.mode == .month {
@@ -99,47 +102,35 @@ struct PlannerView: View {
 
     private var monthContent: some View {
         VStack(alignment: .leading, spacing: 18) {
-            HStack(spacing: 10) {
+            // 달 이동: 꺾쇠 두 개 + "오늘" (애플 캘린더처럼 단순하게)
+            HStack(spacing: 4) {
                 Text(month.kr("yyyy년 M월"))
                     .font(.title2.weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .contentTransition(.numericText())
                 Spacer()
-                GlassEffectContainer(spacing: 8) {
-                    HStack(spacing: 8) {
-                        Button { changeMonth(-1) } label: {
-                            Image(systemName: "chevron.left").frame(width: 36, height: 36)
+                if !month.isSameMonth(as: Date()) || !router.selectedDate.isSameDay(as: Date()) {
+                    Button("오늘") {
+                        withAnimation(.smooth) {
+                            month = Date().startOfMonth
+                            router.selectedDate = Date().startOfDay
                         }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.interactive(), in: .circle)
-
-                        Button {
-                            withAnimation(.smooth) {
-                                month = Date().startOfMonth
-                                router.selectedDate = Date().startOfDay
-                            }
-                        } label: {
-                            Text("오늘")
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14)
-                                .frame(height: 36)
-                        }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.interactive(), in: .capsule)
-
-                        Button { changeMonth(1) } label: {
-                            Image(systemName: "chevron.right").frame(width: 36, height: 36)
-                        }
-                        .buttonStyle(.plain)
-                        .glassEffect(.regular.interactive(), in: .circle)
                     }
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.trailing, 6)
                 }
+                Button { changeMonth(-1) } label: { Image(systemName: "chevron.left").frame(width: 36, height: 36) }
+                    .accessibilityLabel("이전 달")
+                Button { changeMonth(1) } label: { Image(systemName: "chevron.right").frame(width: 36, height: 36) }
+                    .accessibilityLabel("다음 달")
             }
+            .font(.body.weight(.semibold))
+            .padding(.horizontal, 4)
 
             CalendarGrid(month: month, selected: Binding(get: { router.selectedDate }, set: { router.selectedDate = $0 }), plans: plans)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 14)
-                .softCardBackground(cornerRadius: 24)
+                .softCardBackground(cornerRadius: 20)
                 .id(month)
                 .transition(.asymmetric(insertion: .move(edge: slideEdge).combined(with: .opacity), removal: .opacity))
                 .gesture(
@@ -167,14 +158,8 @@ struct PlannerView: View {
         let selected = router.selectedDate
         let occurrences = plans.occurrences(on: selected)
         return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(selected.kr("M월 d일 EEEE")).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
-                if selected.isSameDay(as: Date()) { TagLabel(text: "오늘") }
-                Spacer()
-                Button("타임라인으로 보기") {
-                    withAnimation(.smooth) { router.mode = .day }
-                }
-                .font(.subheadline.weight(.semibold))
+            SectionTitle(title: selected.kr("M월 d일 EEEE") + (selected.isSameDay(as: Date()) ? " · 오늘" : "")) {
+                Button("시간표") { withAnimation(.smooth) { router.mode = .day } }
             }
             if occurrences.isEmpty {
                 Button { editorTarget = .new(selected) } label: {
@@ -191,8 +176,7 @@ struct PlannerView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 4)
             } else {
-                VStack(alignment: .leading, spacing: 2) {
-                ForEach(occurrences) { occurrence in
+                PlanListCard(occurrences: occurrences) { occurrence in
                     PlanTimelineRow(occurrence: occurrence) { editorTarget = .edit(occurrence.plan) }
                         .contextMenu {
                             Button { editorTarget = .edit(occurrence.plan) } label: { Label("수정", systemImage: "pencil") }
@@ -205,8 +189,6 @@ struct PlannerView: View {
                             }
                         }
                 }
-                }
-                .softCard(cornerRadius: 22, padding: 14)
                 .padding(.top, 4)
             }
         }
@@ -233,7 +215,7 @@ struct PlannerView: View {
             DayTimelineView(day: router.selectedDate, plans: plans) { plan in
                 editorTarget = .edit(plan)
             }
-            .softCard(cornerRadius: 24, padding: 14)
+            .softCard(cornerRadius: 20, padding: 14)
         }
     }
 
@@ -486,10 +468,9 @@ private struct DayCell: View {
                 .frame(width: 36, height: 36)
                 .background {
                     if isSelected {
-                        Circle().fill(AccentGradient.linear)
-                            .shadow(color: Theme.accent.opacity(0.3), radius: 5, y: 2)
+                        Circle().fill(Theme.accent)
                     } else if isToday {
-                        Circle().stroke(Theme.accent, lineWidth: 1.5)
+                        Circle().fill(Theme.accent.opacity(0.12))
                     }
                 }
 
