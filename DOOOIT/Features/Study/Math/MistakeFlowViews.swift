@@ -42,7 +42,7 @@ struct ProblemReviewCard: View {
     @Bindable var note: MathNote
     var onEdit: () -> Void
 
-    private var scan: ProblemScan { note.scan ?? DoitProblemScan.scan(note.recognizedText) }
+    private var scan: ProblemScan { note.scan ?? DoitProblemScan.scan(note.recognizedText, math: note.subjectKind.isMath) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -128,7 +128,8 @@ struct ProblemReviewCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("문제 유형 (채점 방법)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
             Picker("문제 유형", selection: Binding(get: { note.kind ?? scan.kind }, set: { note.kind = $0 })) {
-                ForEach(ProblemKind.allCases) { Text($0.title).tag($0) }
+                // 수학이 아닌 과목은 '수학 계산' 채점이 없음
+                ForEach(ProblemKind.allCases.filter { note.subjectKind.isMath || $0 != .math }) { Text($0.title).tag($0) }
             }
             .pickerStyle(.segmented)
         }
@@ -188,8 +189,14 @@ struct MistakeGradingCard: View {
     var onNeedConfirm: () -> Void
     @Environment(\.modelContext) private var context
 
-    private var kind: ProblemKind { note.kind ?? note.scan?.kind ?? .shortAnswer }
+    private var subject: NoteSubject { note.subjectKind }
+    private var kind: ProblemKind {
+        let k = note.kind ?? note.scan?.kind ?? .shortAnswer
+        return !subject.isMath && k == .math ? .shortAnswer : k
+    }
     private var choices: [String] { note.scan?.choices ?? [] }
+    /// O/X로 답하는 문제 (수학이 아닌 과목)
+    private var isOX: Bool { !subject.isMath && kind == .shortAnswer && DoitSubjectNote.isOXQuestion(note.recognizedText, answerKey: note.correctAnswer) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -198,7 +205,7 @@ struct MistakeGradingCard: View {
             if !note.isRecognitionConfirmed {
                 lockedView
             } else {
-                Text("\(kind.title) 문제예요. " + hint).font(.caption).foregroundStyle(.secondary)
+                Text(subject.isMath ? "\(kind.title) 문제예요. " + hint : hint).font(.caption).foregroundStyle(.secondary)
                 answerInputs
                 Button(action: grade) {
                     Label(note.grade == nil ? "채점하기" : "다시 채점하기", systemImage: "checkmark").frame(maxWidth: .infinity).frame(height: 38)
@@ -212,6 +219,13 @@ struct MistakeGradingCard: View {
     }
 
     private var hint: String {
+        if !subject.isMath {
+            switch kind {
+            case .multipleChoice: return "고른 번호로 채점해요"
+            case .essay: return "핵심 내용으로 부분 점수를 매겨요"
+            default: return isOX ? "O·X로 채점해요" : (subject == .english ? "대소문자·띄어쓰기·문장부호는 무시해요" : "띄어쓰기·기호는 무시해요")
+            }
+        }
         switch kind {
         case .multipleChoice: return "고른 번호를 누르면 선택지로 자동 채점해요."
         case .shortAnswer: return "띄어쓰기·기호는 무시하고, 정답이 여러 개면 | 로 나눠 적어요."
@@ -249,11 +263,26 @@ struct MistakeGradingCard: View {
             }
         } else if kind == .essay {
             field("내 답", text: $note.myAnswer, axis: .vertical, placeholder: "내가 쓴 답")
+        } else if isOX {
+            HStack(spacing: 8) {
+                Text("내 답").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                ForEach(["O", "X"], id: \.self) { mark in
+                    let picked = DoitSubjectNote.oxValue(note.myAnswer) == (mark == "O")
+                    Button { note.myAnswer = mark; Haptics.tap() } label: {
+                        Text(mark)
+                            .font(.headline)
+                            .frame(width: 44, height: 44)
+                            .foregroundStyle(picked ? .white : Palette.ink)
+                            .background(picked ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         } else {
             field("내 답", text: $note.myAnswer, placeholder: "풀이 후 답을 입력")
         }
         field(kind == .essay ? "모범 답안" : "정답", text: $note.correctAnswer, axis: kind == .essay ? .vertical : .horizontal,
-              placeholder: kind == .essay ? "모범 답안이나 채점 기준 (핵심 내용)" : (kind == .math ? "비우면 두잇이 직접 풀어서 확인" : "정답 (여러 개면 | 로 구분)"))
+              placeholder: kind == .essay ? "모범 답안이나 채점 기준 (핵심 내용)" : (kind == .math ? "비우면 두잇이 직접 풀어서 확인" : (isOX ? "O 또는 X" : "정답 (여러 개면 | 로 구분)")))
     }
 
     private func field(_ title: String, text: Binding<String>, axis: Axis = .horizontal, placeholder: String) -> some View {
@@ -315,7 +344,7 @@ struct MistakeGradingCard: View {
 
     private func grade() {
         let result = DoitGrader.grade(.init(kind: kind, student: note.myAnswer, answerKey: note.correctAnswer,
-                                            choices: choices, problem: note.scan?.body ?? note.recognizedText))
+                                            choices: choices, problem: note.scan?.body ?? note.recognizedText, subject: subject))
         if result.verdict == .needsReview || (kind == .essay) {
             withAnimation(.snappy) { note.grade = result }
             return
@@ -334,7 +363,7 @@ struct MistakeGradingCard: View {
         if result.verdict == .wrong || result.verdict == .partial {
             let work = note.workCheckData.flatMap { try? JSONDecoder().decode(DoitWorkChecker.Report.self, from: $0) }
             let analysis = DoitMistake.analyze(.init(problem: note.scan?.body ?? note.recognizedText, kind: kind, student: note.myAnswer, grade: result,
-                                                     choices: choices, conditions: note.scan?.conditions ?? [], work: work))
+                                                     choices: choices, conditions: note.scan?.conditions ?? [], work: work, subject: subject))
             note.analysis = analysis
             cause = analysis?.cause.rawValue
             Haptics.error()

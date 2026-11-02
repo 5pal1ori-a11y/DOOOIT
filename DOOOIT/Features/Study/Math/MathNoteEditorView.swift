@@ -34,6 +34,8 @@ struct MathNoteEditorView: View {
         var id: String { rawValue }
     }
 
+    private var subject: NoteSubject { note.subjectKind }
+
     private let inkColors: [Color] = [.black, Color(hex: "#2563EB"), Color(hex: "#DC2626"), Color(hex: "#16A34A"), Color(hex: "#F59E0B")]
     private let writingAreaHeight: CGFloat = 760
 
@@ -48,6 +50,17 @@ struct MathNoteEditorView: View {
                     switch tab {
                     case .note:
                         page(width: pageWidth)
+                    case .grade where !subject.isMath:
+                        // 수학이 아닌 과목: 채점 → 틀린 이유 → 해설 → 다시 풀기 → 취약 개념
+                        VStack(spacing: 14) {
+                            MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
+                            if note.isRecognitionConfirmed {
+                                SubjectCauseCard(note: note)
+                                SubjectExplainCard(note: note)
+                                SubjectRetryCard(note: note)
+                                WeakConceptBadge(note: note)
+                            }
+                        }
                     case .grade:
                         // 학습 순서: 채점 → 오답 원인 → 풀이(과정 채점·단계별 풀이) → 유사 문제 → 재도전 → 취약 개념
                         VStack(spacing: 14) {
@@ -124,6 +137,11 @@ struct MathNoteEditorView: View {
         .onDisappear(perform: save)
         // 문제 글을 고치면 다시 나눔 (흐리게 읽은 줄 표시는 그 줄이 남아 있을 때만)
         .onChange(of: note.recognizedText) { _, text in rescan(text) }
+        // 과목을 바꾸면 그 과목 방식으로 다시 나눔
+        .onChange(of: note.subject) { _, _ in
+            if !subject.isMath, note.kind == .math { note.kind = nil }
+            rescan(note.recognizedText)
+        }
     }
 
     // MARK: Info
@@ -138,7 +156,7 @@ struct MathNoteEditorView: View {
                     if let data = note.thumbnailData, let thumb = UIImage(data: data) {
                         Image(uiImage: thumb).resizable().scaledToFill()
                     } else {
-                        Image(systemName: "function").font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: subject.symbol).font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
                     }
                 }
                 .clipShape(.rect(cornerRadius: 14))
@@ -147,9 +165,18 @@ struct MathNoteEditorView: View {
                 TextField("제목", text: $note.title)
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Palette.ink)
-                TextField("단원 (예: 이차함수)", text: $note.unit)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Menu {
+                        Picker("과목", selection: $note.subjectKind) {
+                            ForEach(NoteSubject.allCases) { Text($0.rawValue).tag($0) }
+                        }
+                    } label: {
+                        SubjectTag(subject: subject)
+                    }
+                    TextField(subject.isMath ? "단원 (예: 이차함수)" : "단원", text: $note.unit)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
             Text(note.status.title)
                 .font(.caption.weight(.bold))
@@ -426,16 +453,18 @@ struct MathNoteEditorView: View {
                     .scrollContentBackground(.hidden)
                     .padding(10)
                     .background(Color.black.opacity(0.04), in: .rect(cornerRadius: 14))
-                MathSymbolBar { symbol in insertSymbol(symbol) }
-                Text("x² 는 ^2, 루트는 √( ) 로 써도 보기 좋게 바뀌어요.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                if subject.isMath {
+                    MathSymbolBar { symbol in insertSymbol(symbol) }
+                    Text("x² 는 ^2, 루트는 √( ) 로 써도 보기 좋게 바뀌어요.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             } else if note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text("아직 읽은 문제가 없어요. \"고치기\"를 눌러 직접 입력해주세요.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                Text(MathSymbolBar.pretty(note.recognizedText))
+                Text(subject.isMath ? MathSymbolBar.pretty(note.recognizedText) : note.recognizedText)
                     .font(.system(size: 18, design: .serif))
                     .lineSpacing(8)
                     .foregroundStyle(Palette.ink)
@@ -476,7 +505,7 @@ struct MathNoteEditorView: View {
     private func apply(_ text: String, message: String) {
         previousText = note.recognizedText
         note.recognizedText = text
-        if note.correctAnswer.isEmpty, let answer = MathGrader.extractAnswer(from: text) {
+        if note.correctAnswer.isEmpty, let answer = subject.isMath ? MathGrader.extractAnswer(from: text) : DoitSubjectNote.printedAnswer(in: text) {
             note.correctAnswer = answer
         }
         withAnimation { textMessage = message }
@@ -487,6 +516,14 @@ struct MathNoteEditorView: View {
         defer { isRecognizing = false }
         note.thumbnailData = problem.jpegForStorage(maxDimension: 400, quality: 0.6)
         note.problemImageData = problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
+        guard subject.isMath else {
+            // 수학이 아닌 과목: 한글·영어 문장 그대로 (수식 교정 없이)
+            let read = await SubjectOCR.read(problem)
+            note.isRecognitionConfirmed = false
+            apply(read.text, message: read.text.isEmpty ? "글자를 찾지 못했어요" : "다시 읽었어요")
+            rescan(read.text, unsure: read.unsure)
+            return
+        }
         let result = await OCRService.readMathProblemDetailed(problem)
         // 새로 읽은 문제는 사용자가 확인하기 전까지 확정하지 않음
         note.isRecognitionConfirmed = false
@@ -539,7 +576,7 @@ struct MathNoteEditorView: View {
     private func rescan(_ text: String, unsure: [String]? = nil) {
         let previous = note.scan?.doubts.filter { $0.reason.hasPrefix("글자가") }.map(\.text) ?? []
         let low = (unsure ?? previous).filter { text.contains($0) }
-        note.scan = DoitProblemScan.scan(text, lowConfidence: low, graphNote: note.scan?.graphNote)
+        note.scan = DoitProblemScan.scan(text, lowConfidence: low, graphNote: note.scan?.graphNote, math: subject.isMath)
     }
 
     private func saveAnnotations() {

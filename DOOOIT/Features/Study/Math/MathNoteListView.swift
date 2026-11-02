@@ -13,6 +13,10 @@ struct MathNoteListView: View {
     @Query private var weakConcepts: [WeakConcept]
 
     @State private var filter: Filter = .all
+    /// 과목 고르기 (nil = 전체)
+    @State private var subjectFilter: NoteSubject?
+    /// 새 문제를 넣을 과목 (마지막에 쓴 과목)
+    @AppStorage("mistakeNote.lastSubject") private var addSubjectRaw = NoteSubject.math.rawValue
     @State private var showScanner = false
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
@@ -28,16 +32,24 @@ struct MathNoteListView: View {
     @State private var openedNote: MathNote?
     @State private var errorMessage: String?
 
+    private var addSubject: NoteSubject { NoteSubject(rawValue: addSubjectRaw) ?? .math }
+
+    /// 고른 과목의 노트 (과목 거르기는 메모리에서)
+    private var scoped: [MathNote] {
+        guard let subjectFilter else { return notes }
+        return notes.filter { $0.subjectKind == subjectFilter }
+    }
+
     private var filtered: [MathNote] {
         switch filter {
-        case .all: return notes
-        case .unsolved: return notes.filter { $0.status == .unsolved }
-        case .wrong: return notes.filter { $0.status == .wrong }
-        case .correct: return notes.filter { $0.status == .correct }
+        case .all: return scoped
+        case .unsolved: return scoped.filter { $0.status == .unsolved }
+        case .wrong: return scoped.filter { $0.status == .wrong }
+        case .correct: return scoped.filter { $0.status == .correct }
         }
     }
 
-    private func count(_ status: NoteStatus) -> Int { notes.filter { $0.status == status }.count }
+    private func count(_ status: NoteStatus) -> Int { scoped.filter { $0.status == status }.count }
 
     var body: some View {
         ScrollView {
@@ -57,6 +69,7 @@ struct MathNoteListView: View {
                         .buttonStyle(.pressable)
                         .appearAnimation(delay: 0.04)
                     }
+                    subjectChips
                     filterChips
                     if filtered.isEmpty {
                         Text("해당하는 문제가 없어요")
@@ -73,6 +86,7 @@ struct MathNoteListView: View {
             .padding(.top, 4)
             .padding(.bottom, 32)
             .animation(Motion.spring, value: filter)
+            .animation(Motion.spring, value: subjectFilter)
             .animation(Motion.spring, value: notes.count)
         }
         .scrollIndicators(.hidden)
@@ -84,6 +98,7 @@ struct MathNoteListView: View {
                     Button { openScanner() } label: { Label("문제 촬영", systemImage: "doc.viewfinder") }
                     Button { showPhotoPicker = true } label: { Label("앨범에서 선택", systemImage: "photo.on.rectangle") }
                     Button { createBlank() } label: { Label("문제 직접 입력", systemImage: "square.and.pencil") }
+                    subjectPicker
                     NavigationLink { WeakConceptListView() } label: { Label("취약 개념 보기", systemImage: "scope") }
                 } label: {
                     Image(systemName: "plus")
@@ -131,7 +146,8 @@ struct MathNoteListView: View {
 
     /// 맨 위: 복습할 문제 수 · 상태별 개수 · 정답률 링 · 문제 찍기
     private var summaryCard: some View {
-        let toReview = count(.wrong) + count(.unsolved)
+        // 맞힌 문제라도 다시 풀 날이 된 과목 문제는 복습에 넣음
+        let toReview = count(.wrong) + count(.unsolved) + scoped.filter { $0.status == .correct && $0.isReviewDue }.count
         let graded = count(.wrong) + count(.correct)
         let ratio = graded == 0 ? 0 : Double(count(.correct)) / Double(graded)
         return VStack(alignment: .leading, spacing: 18) {
@@ -163,8 +179,23 @@ struct MathNoteListView: View {
         .softCard(cornerRadius: 26, padding: 20)
     }
 
+    /// 새 문제의 과목 고르기
+    private var subjectPicker: some View {
+        Picker("과목", selection: $addSubjectRaw) {
+            ForEach(NoteSubject.allCases) { Label($0.rawValue, systemImage: $0.symbol).tag($0.rawValue) }
+        }
+    }
+
     private var captureButtons: some View {
         HStack(spacing: 10) {
+            Menu { subjectPicker } label: {
+                Text(addSubject.rawValue)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(addSubject.color)
+                    .frame(width: 52, height: 52)
+                    .background(addSubject.color.opacity(0.12), in: .rect(cornerRadius: 16))
+            }
+            .accessibilityLabel("과목 \(addSubject.rawValue)")
             Button { openScanner() } label: {
                 Label("틀린 문제 찍기", systemImage: "camera.fill")
             }
@@ -181,6 +212,42 @@ struct MathNoteListView: View {
         }
     }
 
+    /// 과목 고르기 (개수 함께). 과목을 고르면 새 문제도 그 과목으로
+    private var subjectChips: some View {
+        ScrollView(.horizontal) {
+            HStack(spacing: 8) {
+                chip(title: "전체", number: notes.count, color: nil, isOn: subjectFilter == nil) { subjectFilter = nil }
+                ForEach(NoteSubject.allCases) { item in
+                    chip(title: item.rawValue, number: notes.filter { $0.subjectKind == item }.count, color: item.color, isOn: subjectFilter == item) {
+                        subjectFilter = item
+                        addSubjectRaw = item.rawValue
+                    }
+                }
+            }
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private func chip(title: String, number: Int, color: Color?, isOn: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.snappy) { action() }
+            Haptics.tap()
+        } label: {
+            HStack(spacing: 5) {
+                if let color { Circle().fill(color).frame(width: 7, height: 7) }
+                Text(title)
+                Text("\(number)").monospacedDigit().opacity(0.7)
+            }
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .foregroundStyle(isOn ? Palette.card : Palette.ink)
+            .background(isOn ? AnyShapeStyle(Palette.ink) : AnyShapeStyle(Palette.card), in: .capsule)
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(isOn ? 0 : 0.08)))
+        }
+        .buttonStyle(.plain)
+    }
+
     /// 상태 고르기 (개수 함께)
     private var filterChips: some View {
         HStack(spacing: 8) {
@@ -188,7 +255,7 @@ struct MathNoteListView: View {
                 let isOn = filter == item
                 let number: Int = {
                     switch item {
-                    case .all: return notes.count
+                    case .all: return scoped.count
                     case .unsolved: return count(.unsolved)
                     case .wrong: return count(.wrong)
                     case .correct: return count(.correct)
@@ -239,7 +306,7 @@ struct MathNoteListView: View {
 
     private var emptyState: some View {
         VStack(spacing: 20) {
-            Image(systemName: "function")
+            Image(systemName: addSubject.symbol)
                 .font(.system(size: 30, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 72, height: 72)
@@ -275,6 +342,7 @@ struct MathNoteListView: View {
 
     private func createBlank() {
         let note = MathNote(title: "오답 \(notes.count + 1)", imageData: nil, thumbnailData: nil, recognizedText: "")
+        note.subjectKind = addSubject
         // 직접 적는 문제도 다 적은 뒤 "이대로 확정"을 눌러야 채점·풀이를 시작
         note.recognitionRaw = "pending"
         context.insert(note)
@@ -316,7 +384,12 @@ struct MathNoteListView: View {
     private func create(from pairs: [(original: UIImage, problem: UIImage)]) async {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
+        let subject = addSubject
         for (i, pair) in pairs.enumerated() {
+            guard subject.isMath else {
+                created.append(await createSubjectNote(pair, subject: subject, index: i))
+                continue
+            }
             // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
             let read = await OCRService.readMathProblemDetailed(pair.problem)
             let text = read.text
@@ -341,6 +414,25 @@ struct MathNoteListView: View {
         withAnimation { isProcessing = false }
         if created.count == 1 { openedNote = created.first }
     }
+
+    /// 수학이 아닌 과목: 한글·영어 문장 그대로 읽고 (수식 교정 없이), 선택지·정답 표기만 나눔
+    private func createSubjectNote(_ pair: (original: UIImage, problem: UIImage), subject: NoteSubject, index: Int) async -> MathNote {
+        let read = await SubjectOCR.read(pair.problem)
+        let note = MathNote(
+            title: DoitSubjectNote.title(from: read.text) ?? "오답 \(notes.count + index + 1)",
+            imageData: pair.original.jpegForStorage(maxDimension: 2000),
+            thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
+            recognizedText: read.text,
+            correctAnswer: DoitSubjectNote.printedAnswer(in: read.text) ?? ""
+        )
+        note.subjectKind = subject
+        note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
+        note.recognitionRaw = "pending"
+        note.scan = DoitProblemScan.scan(read.text, lowConfidence: read.unsure, math: false)
+        note.kind = note.scan?.kind
+        context.insert(note)
+        return note
+    }
 }
 
 /// 그래프 분석 결과를 문제에 붙일 짧은 글 (식을 찾지 못하면 그렇다고만)
@@ -363,7 +455,7 @@ private struct MathNoteRow: View {
                     if let data = note.thumbnailData, let image = UIImage(data: data) {
                         Image(uiImage: image).resizable().scaledToFill()
                     } else {
-                        Image(systemName: "function").font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: note.subjectKind.symbol).font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
                     }
                 }
                 .clipShape(.rect(cornerRadius: 12))
@@ -374,12 +466,20 @@ private struct MathNoteRow: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    SubjectTag(subject: note.subjectKind)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
             Spacer(minLength: 8)
+            if note.isReviewDue {
+                Image(systemName: "arrow.counterclockwise.circle.fill")
+                    .foregroundStyle(Palette.warning)
+                    .accessibilityLabel("다시 풀 차례")
+            }
             Text(note.status.title)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(note.status.color)

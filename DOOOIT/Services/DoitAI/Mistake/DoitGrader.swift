@@ -39,6 +39,8 @@ enum DoitGrader {
         var problem: String = ""
         /// 서술형 채점 기준 (핵심 내용들). 비어 있으면 정답 문장에서 뽑음
         var rubric: [String] = []
+        /// 과목 (수학이 아니면 풀이 엔진으로 정답을 만들지 않고, 영어는 대소문자·축약형 차이도 같은 답으로)
+        var subject: NoteSubject = .math
     }
 
     static func grade(_ input: Input) -> GradeResult {
@@ -48,7 +50,7 @@ enum DoitGrader {
         }
         var key = input.answerKey.trimmingCharacters(in: .whitespacesAndNewlines)
         var source = "입력한 정답"
-        if key.isEmpty, input.kind == .math || input.kind == .multipleChoice, let solved = MathSolver.solve(input.problem) {
+        if key.isEmpty, input.subject.isMath, input.kind == .math || input.kind == .multipleChoice, let solved = MathSolver.solve(input.problem) {
             // 정답을 모르면 두잇 풀이 엔진이 직접 풀어서 (객관식이면 그 값의 보기를 찾아서)
             key = solved.answer
             source = "두잇 풀이 엔진 (직접 풀어서 구함)"
@@ -61,7 +63,7 @@ enum DoitGrader {
         var result: GradeResult
         switch input.kind {
         case .multipleChoice: result = gradeChoice(student, key: key, choices: input.choices)
-        case .shortAnswer: result = gradeShort(student, keys: alternatives(key))
+        case .shortAnswer: result = input.subject.isMath ? gradeShort(student, keys: alternatives(key)) : gradeSubjectShort(student, keys: alternatives(key), subject: input.subject)
         // 수학 답의 "또는"은 해를 이어 쓴 것이라 나누지 않음 ("x = 2 또는 x = 3")
         case .math: result = gradeMath(student, keys: alternatives(key, splitOr: false))
         case .essay: result = gradeEssay(student, key: key, rubric: input.rubric)
@@ -134,6 +136,47 @@ enum DoitGrader {
         }
         return GradeResult(verdict: .wrong, score: 0, method: "글자 비교 (띄어쓰기·기호 무시)", reasons: ["정답은 '\(keys.joined(separator: "' 또는 '"))'이에요."],
                            answerUsed: keys.joined(separator: " / "), answerSource: "")
+    }
+
+    // MARK: - 단답형 (수학이 아닌 과목)
+
+    /// 영어 답 정리: 대소문자·문장부호·띄어쓰기·축약형(don't = do not) 차이 무시
+    static func normalizeEnglish(_ s: String) -> String {
+        var t = " " + s.lowercased().replacingOccurrences(of: "’", with: "'").replacingOccurrences(of: "‘", with: "'") + " "
+        let contractions: [(String, String)] = [("won't", "will not"), ("can't", "cannot"), ("shan't", "shall not"), ("n't", " not"),
+                                                ("'re", " are"), ("'m", " am"), ("'ll", " will"), ("'ve", " have"), ("can not", "cannot")]
+        for (from, to) in contractions { t = t.replacingOccurrences(of: from, with: to) }
+        return t.filter { $0.isLetter || $0.isNumber }
+    }
+
+    /// 영어 낱말 위주의 답인지
+    static func isEnglishAnswer(_ s: String) -> Bool {
+        let letters = s.filter(\.isLetter)
+        return !letters.isEmpty && letters.allSatisfy(\.isASCII)
+    }
+
+    /// 수학이 아닌 과목의 단답형: O/X, 영어(대소문자·축약형), 한국어(띄어쓰기·끝말) 차이 무시
+    static func gradeSubjectShort(_ student: String, keys: [String], subject: NoteSubject) -> GradeResult {
+        let shown = keys.joined(separator: " / ")
+        let answers = keys.compactMap(DoitSubjectNote.oxValue)
+        if let mine = DoitSubjectNote.oxValue(student), !answers.isEmpty {
+            let right = answers.contains(mine)
+            return GradeResult(verdict: right ? .correct : .wrong, score: right ? 1 : 0, method: "O/X 비교",
+                               reasons: [right ? "정답이에요." : "정답은 \(answers[0] ? "O" : "X")예요."], answerUsed: shown, answerSource: "")
+        }
+        if isEnglishAnswer(student) {
+            let mine = normalizeEnglish(student)
+            if let key = keys.first(where: { isEnglishAnswer($0) && normalizeEnglish($0) == mine }) {
+                return GradeResult(verdict: .correct, score: 1, method: "영어 비교 (대소문자·띄어쓰기·문장부호 무시)", reasons: ["정답 '\(key)'과(와) 같아요."],
+                                   answerUsed: shown, answerSource: "")
+            }
+            // 철자가 한두 글자 다르면 확인 요청 (영어는 철자도 답이라 맞다고 정하지 않음)
+            if let close = keys.first(where: { let k = normalizeEnglish($0); return k.count >= 4 && editDistance(mine, k) <= (k.count >= 6 ? 2 : 1) }) {
+                return GradeResult(verdict: .needsReview, score: 0.5, method: "영어 비교", reasons: ["정답 '\(close)'과(와) 철자가 조금 달라요."],
+                                   answerUsed: shown, answerSource: "")
+            }
+        }
+        return gradeShort(student, keys: keys)
     }
 
     static func editDistance(_ a: String, _ b: String) -> Int {

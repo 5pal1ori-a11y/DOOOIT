@@ -181,7 +181,7 @@ struct HomeView: View {
             }
             .buttonStyle(.pressable)
             NavigationLink { MathNoteListView() } label: {
-                tile(symbol: "function", color: Palette.danger, value: "\(unsolved)개", label: "복습할 오답")
+                tile(symbol: "pencil.and.list.clipboard", color: Palette.danger, value: "\(unsolved)개", label: "복습할 오답")
             }
             .buttonStyle(.pressable)
         }

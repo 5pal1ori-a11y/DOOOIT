@@ -43,15 +43,16 @@ enum DoitProblemScan {
     /// - text: 읽은 글 (사용자가 고친 글이어도 됨)
     /// - lowConfidence: 글자 인식이 자신 없어 한 줄들
     /// - graphNote: 그림 분석 결과 (그래프가 있으면)
-    static func scan(_ raw: String, lowConfidence: [String] = [], graphNote: String? = nil) -> ProblemScan {
+    /// - math: false면 수학이 아닌 과목 (수식 찾기·수학 유형 판단을 하지 않고, 정답 표기는 줄 맨 앞의 것만)
+    static func scan(_ raw: String, lowConfidence: [String] = [], graphNote: String? = nil, math: Bool = true) -> ProblemScan {
         var result = ProblemScan()
         let text = raw.replacingOccurrences(of: "\r", with: "")
         var lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
 
         // 1) 사진에 적힌 정답 ("정답: ③")은 문제에서 빼서 따로
-        if let answer = MathGrader.extractAnswer(from: text) {
+        if let answer = math ? MathGrader.extractAnswer(from: text) : DoitSubjectNote.printedAnswer(in: text) {
             result.printedAnswer = answer
-            lines.removeAll { $0.range(of: #"^(정답|답)\s*[:：)]"#, options: .regularExpression) != nil }
+            lines.removeAll { $0.range(of: #"^(정답|답)\s*[:：)]"#, options: .regularExpression) != nil || (!math && DoitSubjectNote.printedAnswer(in: $0) != nil) }
         }
 
         // 2) 선택지: 줄마다 ①~⑤ / (1)~(5) / 1) ~ 5), 한 줄에 여러 개도
@@ -92,10 +93,10 @@ enum DoitProblemScan {
         result.question = sentences.last(where: isQuestion) ?? sentences.last ?? ""
 
         // 6) 수식: 수식다운 덩어리
-        result.formulas = formulas(in: result.body + "\n" + result.choices.joined(separator: "\n"))
+        if math { result.formulas = formulas(in: result.body + "\n" + result.choices.joined(separator: "\n")) }
 
         result.graphNote = graphNote
-        result.kind = guessKind(body: result.body, choices: result.choices, question: result.question)
+        result.kind = guessKind(body: result.body, choices: result.choices, question: result.question, math: math)
 
         // 7) 불확실한 부분: 인식이 자신 없던 줄 + 수식이 이상한 곳
         var doubts: [ProblemScan.Doubt] = []
@@ -206,11 +207,11 @@ enum DoitProblemScan {
         return endings.contains { s.hasSuffix($0) || s.hasSuffix($0 + ".") || s.contains($0 + "?") }
     }
 
-    static func guessKind(body: String, choices: [String], question: String) -> ProblemKind {
+    static func guessKind(body: String, choices: [String], question: String, math: Bool = true) -> ProblemKind {
         if choices.count >= 3 { return .multipleChoice }
         let q = question.replacingOccurrences(of: " ", with: "")
         if ["서술하시오", "설명하시오", "논하시오", "까닭을쓰", "이유를쓰", "과정을쓰"].contains(where: { q.contains($0) }) { return .essay }
-        if DoitMath.looksLikeMath(body) || MathSolver.solve(body) != nil { return .math }
+        if math, DoitMath.looksLikeMath(body) || MathSolver.solve(body) != nil { return .math }
         return .shortAnswer
     }
 

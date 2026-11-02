@@ -2914,3 +2914,24 @@ extension DoitEnglish {
             + EngIdioms.idioms.map { ([$0.display, $0.key], "\($0.display): \($0.meaning)\n예문: \($0.example) — \($0.exampleKo)" + ($0.note.isEmpty ? "" : "\n주의: \($0.note)")) }
     }
 }
+
+// MARK: - 오답노트 해설용 (영어 문제의 정답·선택지 단어)
+
+extension DoitEnglish {
+    private static let hintStopWords: Set<String> = [
+        "the", "and", "for", "are", "was", "were", "you", "your", "this", "that", "with", "have", "has", "had", "not", "but",
+        "his", "her", "she", "they", "them", "what", "which", "who", "from", "can", "will", "there", "their", "its", "our", "one"
+    ]
+
+    /// 뜻을 보여 줄 만한 영어 단어들 (세 글자 이상, 흔한 기능어 빼고)
+    static func wordsForHints(in text: String) -> [String] {
+        EngText.englishWords(in: text).filter { $0.count >= 3 && !hintStopWords.contains($0) && !EngText.lookupStopWords.contains($0) }
+    }
+
+    /// 단어 한 줄 설명 (내장 사전 · 동사 변화). 모르면 nil
+    static func wordNote(_ word: String) -> String? {
+        EngWords.meaningReply(word.lowercased())?
+            .replacingOccurrences(of: "**", with: "")
+            .replacingOccurrences(of: "\n", with: " · ")
+    }
+}

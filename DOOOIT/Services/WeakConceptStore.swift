@@ -6,13 +6,27 @@ import SwiftData
 enum WeakConceptStore {
     /// 노트의 개념 (수학은 풀이 엔진이 알아낸 유형, 그 밖에는 노트의 단원)
     static func concept(for note: MathNote) -> (key: String, subject: String, unit: String, concept: String) {
-        if let solved = MathSolver.solve(note.recognizedText), let info = DoitMathConceptMap.info(for: solved.kind) {
+        let kind = note.subjectKind
+        if kind.isMath, let solved = MathSolver.solve(note.recognizedText), let info = DoitMathConceptMap.info(for: solved.kind) {
             return ("\(info.subject)|\(info.unit)|\(info.concept)", info.subject, info.unit, info.concept)
         }
         let unit = note.unit.trimmingCharacters(in: .whitespaces)
         let subject = note.subject.isEmpty ? "기타" : note.subject
-        let concept = unit.isEmpty ? (note.title.isEmpty ? "기타" : note.title) : unit
+        // 수학이 아닌 과목: 단원이 없으면 문제에 나온 개념 (교육과정 사전), 그것도 없으면 제목
+        let found = kind.isMath || !unit.isEmpty ? nil
+            : DoitSubjectNote.concepts(problem: note.scan?.body ?? note.recognizedText, choices: note.scan?.choices ?? [], subject: kind, limit: 1).first?.title
+        let concept = unit.isEmpty ? (found ?? (note.title.isEmpty ? "기타" : note.title)) : unit
         return ("\(subject)|\(unit)|\(concept)", subject, unit, concept)
+    }
+
+    /// 오답 원인을 직접 고쳤을 때: 앞서 기록한 원인 대신 새 원인으로 (풀이 횟수는 그대로)
+    static func changeCause(note: MathNote, from old: String?, to new: String, context: ModelContext) {
+        guard !note.conceptKey.isEmpty, let item = find(note.conceptKey, context: context), old != new else { return }
+        var causes = item.causes
+        if let old, let count = causes[old] { causes[old] = count > 1 ? count - 1 : nil }
+        causes[new, default: 0] += 1
+        item.causes = causes
+        try? context.save()
     }
 
     static func find(_ key: String, context: ModelContext) -> WeakConcept? {

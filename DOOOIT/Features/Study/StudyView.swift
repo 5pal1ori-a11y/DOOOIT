@@ -21,7 +21,7 @@ struct StudyView: View {
                             tile(symbol: "character.book.closed.fill", color: Theme.accent, title: "영어 단어", detail: wordDetail)
                         }
                         NavigationLink { MathNoteListView() } label: {
-                            tile(symbol: "function", color: Palette.success, title: "오답노트", detail: noteDetail)
+                            tile(symbol: "pencil.and.list.clipboard", color: Palette.success, title: "오답노트", detail: noteDetail)
                         }
                         NavigationLink { MemoListView() } label: {
                             tile(symbol: "note.text", color: Palette.warning, title: "메모장", detail: memos.isEmpty ? "메모 쓰기" : "\(memos.count)개")

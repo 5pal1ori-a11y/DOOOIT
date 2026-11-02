@@ -10,8 +10,18 @@ struct MistakeAnalysis: Codable, Equatable {
         case condition = "조건 누락"
         case process = "풀이 과정 오류"
         case careless = "단순 실수"
+        // 수학이 아닌 과목 (직접 고르는 원인)
+        case vocabulary = "단어 몰랐음"
+        case grammar = "문법 몰랐음"
+        case reading = "해석 실수"
+        case choiceMix = "선지 착각"
+        case memorization = "암기 부족"
+        case time = "시간 부족"
         case other = "기타"
         case unknown = "판단 불가"
+
+        /// 고르는 칩에 쓰는 짧은 이름
+        var label: String { self == .concept ? "개념 몰랐음" : rawValue }
     }
     enum Certainty: String, Codable {
         /// 풀이 과정 등 직접 근거가 있음
@@ -84,12 +94,15 @@ enum DoitMistake {
         var conditions: [String] = []
         /// 풀이 과정 채점 결과 (적었으면)
         var work: DoitWorkChecker.Report?
+        /// 과목 (수학이 아니면 풀이 엔진을 쓰지 않음)
+        var subject: NoteSubject = .math
     }
 
     static func analyze(_ input: Input) -> MistakeAnalysis? {
         let verdict = input.grade.verdict
         guard verdict == .wrong || verdict == .partial else { return nil }
-        let solved = MathSolver.solve(input.problem)
+        let math = input.subject.isMath
+        let solved = math ? MathSolver.solve(input.problem) : nil
         let info = solved.flatMap { DoitMathConceptMap.info(for: $0.kind) }
         let concept = info?.concept ?? solved?.topic
         var analysis = MistakeAnalysis(cause: .unknown, certainty: .unknown, explanation: "", evidence: [],
@@ -113,7 +126,7 @@ enum DoitMistake {
         }
 
         // 2) 답의 모양으로 짐작 (수학)
-        if analysis.cause == .unknown, input.kind == .math || input.kind == .multipleChoice {
+        if analysis.cause == .unknown, math, input.kind == .math || input.kind == .multipleChoice {
             let studentValue = input.kind == .multipleChoice ? choiceValue(input.student, choices: input.choices) : input.student
             let answerText = solved?.answer ?? input.grade.answerUsed
             if let mine = studentValue.flatMap(DoitGrader.valueSet), let answer = DoitGrader.valueSet(answerText) ?? DoitGrader.valueSet(input.grade.answerUsed) {
@@ -121,11 +134,14 @@ enum DoitMistake {
             }
         }
 
-        // 3) 단답형: 다른 개념 이름과 헷갈림 / 철자
-        if analysis.cause == .unknown, input.kind == .shortAnswer {
-            let key = DoitGrader.alternatives(input.grade.answerUsed.replacingOccurrences(of: " / ", with: "|")).first ?? input.grade.answerUsed
-            if let other = DoitKnowledge.entry(named: input.student), DoitGrader.normalizeText(other.title) != DoitGrader.normalizeText(key) {
-                analysis.evidence.append("적은 답 '\(input.student)'은(는) 다른 개념의 이름이에요")
+        // 3) 단답형 (수학이 아닌 과목은 객관식도 고른 보기 글로): 다른 개념 이름과 헷갈림 / 철자
+        let pickedText = !math && input.kind == .multipleChoice ? choiceValue(input.student, choices: input.choices) : nil
+        let keyChoiceText = !math && input.kind == .multipleChoice ? choiceText(input.grade.answerUsed, choices: input.choices) : nil
+        if analysis.cause == .unknown, input.kind == .shortAnswer || (pickedText != nil && keyChoiceText != nil) {
+            let student = pickedText ?? input.student
+            let key = keyChoiceText ?? (DoitGrader.alternatives(input.grade.answerUsed.replacingOccurrences(of: " / ", with: "|")).first ?? input.grade.answerUsed)
+            if let other = DoitKnowledge.entry(named: student), DoitGrader.normalizeText(other.title) != DoitGrader.normalizeText(key) {
+                analysis.evidence.append("적은 답 '\(student)'은(는) 다른 개념의 이름이에요")
                 set(&analysis, .concept, .estimated, "'\(other.title)'과(와) '\(key)'을(를) 헷갈린 것 같아요. 두 개념의 차이를 다시 정리해요.")
                 analysis.missedConcepts = [key, other.title]
                 if let keyEntry = DoitKnowledge.entry(named: key) {
@@ -133,14 +149,14 @@ enum DoitMistake {
                 }
                 analysis.review.append("\(other.title): \(firstSentence(other.body))")
                 analysis.direction = "문제에서 묻는 것이 '\(key)'의 특징인지 '\(other.title)'의 특징인지 구별해요."
-            } else if let shared = sharedEntry(input.student, key) {
+            } else if let shared = sharedEntry(student, key) {
                 // 같은 개념 설명에 함께 나오는 말 (예: 세포 소기관 속 '미토콘드리아'와 '엽록체')
-                analysis.evidence.append("'\(input.student)'와(과) '\(key)'는 '\(shared.names.first ?? "")'에서 함께 배우는 말이에요")
-                set(&analysis, .concept, .estimated, "'\(input.student)'와(과) '\(key)'를 헷갈린 것 같아요. 각각 무슨 일을 하는지 구별해서 정리해요.")
-                analysis.missedConcepts = [key, input.student]
-                analysis.review += DoitStudy.sentences(of: shared.body).filter { $0.contains(key) || $0.contains(input.student) }.prefix(3)
+                analysis.evidence.append("'\(student)'와(과) '\(key)'는 '\(shared.names.first ?? "")'에서 함께 배우는 말이에요")
+                set(&analysis, .concept, .estimated, "'\(student)'와(과) '\(key)'를 헷갈린 것 같아요. 각각 무슨 일을 하는지 구별해서 정리해요.")
+                analysis.missedConcepts = [key, student]
+                analysis.review += DoitStudy.sentences(of: shared.body).filter { $0.contains(key) || $0.contains(student) }.prefix(3)
                 analysis.direction = "'\(shared.names.first ?? key)'의 설명에서 '\(key)'의 역할을 다시 확인해요."
-            } else if DoitGrader.editDistance(DoitGrader.normalizeText(input.student), DoitGrader.normalizeText(key)) <= 2, key.count >= 3 {
+            } else if pickedText == nil, DoitGrader.editDistance(DoitGrader.normalizeText(student), DoitGrader.normalizeText(key)) <= 2, key.count >= 3 {
                 analysis.evidence.append("정답과 한두 글자만 달라요")
                 set(&analysis, .careless, .estimated, "거의 맞았어요. 철자나 글자를 한 번 더 확인해요.")
             } else if let keyEntry = DoitKnowledge.entry(named: key) {
@@ -163,7 +179,8 @@ enum DoitMistake {
 
         // 5) 그래도 모르면: 확정하지 않음
         if analysis.cause == .unknown {
-            analysis.explanation = "답만으로는 왜 틀렸는지 알 수 없어요. 아래 '풀이 과정 채점'에 풀이를 적으면 어디서 틀렸는지 찾아 드릴게요."
+            analysis.explanation = math ? "답만으로는 왜 틀렸는지 알 수 없어요. 아래 '풀이 과정 채점'에 풀이를 적으면 어디서 틀렸는지 찾아 드릴게요."
+                : "왜 틀렸는지 골라 주세요."
             analysis.certainty = .unknown
         }
 
@@ -175,7 +192,7 @@ enum DoitMistake {
             analysis.review.insert("핵심 개념: \(solved.concept)", at: 0)
         }
         analysis.startLevel = [.concept, .formula].contains(analysis.cause) ? 1 : 2
-        analysis.next = nextSteps(for: analysis)
+        analysis.next = math ? nextSteps(for: analysis) : ["개념 카드 다시 보기", "내일 다시 풀기"]
         return analysis
     }
 
@@ -247,6 +264,12 @@ enum DoitMistake {
         }
     }
 
+    /// 채점 결과의 정답 표시("3번 (went)")에서 보기 글
+    private static func choiceText(_ answerUsed: String, choices: [String]) -> String? {
+        guard let m = answerUsed.firstMatch(of: #/^(\d+)번/#), let n = Int(m.1), choices.indices.contains(n - 1) else { return nil }
+        return choices[n - 1]
+    }
+
     private static func choiceValue(_ student: String, choices: [String]) -> String? {
         guard let n = DoitGrader.choiceNumber(student, choices: choices), choices.indices.contains(n - 1) else { return nil }
         return choices[n - 1]
@@ -269,6 +292,8 @@ enum DoitMistake {
             list.append("문제에서 조건과 묻는 것에 밑줄 긋고 유사 문제 3단계 풀기")
         case .process:
             list.append("틀린 줄부터 다시 풀어 보고 유사 문제 2단계부터 풀기")
+        case .vocabulary, .grammar, .reading, .choiceMix, .memorization, .time:
+            list.append("개념 다시 보기 → 원래 문제 다시 풀기")
         case .other, .unknown:
             list.append("풀이 과정을 적어서 어디서 틀렸는지 확인하기")
             list.append("유사 문제 2단계부터 풀기")

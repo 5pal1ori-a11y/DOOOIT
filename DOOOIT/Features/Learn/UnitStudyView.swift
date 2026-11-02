@@ -786,13 +786,14 @@ struct ProblemStepView: View {
         note.subject = subject
         note.unit = unit
         note.recognitionRaw = "confirmed"
-        note.scan = DoitProblemScan.scan(text)
+        note.scan = DoitProblemScan.scan(text, math: note.subjectKind.isMath)
         note.kind = .multipleChoice
         note.myAnswer = "\(picked)"
         let result = DoitGrader.grade(.init(kind: .multipleChoice, student: note.myAnswer, answerKey: note.correctAnswer, choices: Array(item.choices.prefix(5)), problem: item.question))
         note.grade = result
         note.status = .wrong
-        note.analysis = DoitMistake.analyze(.init(problem: item.question, kind: .multipleChoice, student: note.myAnswer, grade: result, choices: Array(item.choices.prefix(5))))
+        note.analysis = DoitMistake.analyze(.init(problem: item.question, kind: .multipleChoice, student: note.myAnswer, grade: result, choices: Array(item.choices.prefix(5)),
+                                                  subject: note.subjectKind))
         note.solutionData = try? JSONEncoder().encode(WrittenSolution(concept: unit, steps: item.steps.map { SolutionStep(hint: "풀이", work: $0) }, finalAnswer: item.finalAnswer))
         context.insert(note)
         WeakConceptStore.recordGrade(note: note, correct: false, source: "AI 학습", cause: note.analysis?.cause.rawValue, context: context)

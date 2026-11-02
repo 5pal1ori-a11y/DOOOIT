@@ -400,6 +400,11 @@ enum SeedData {
 // MARK: - AI 오답노트 도우미 (JSON 필드 읽기·쓰기)
 
 extension MathNote {
+    /// 과목 (subject 글로 저장. 예전 노트는 비어 있어서 수학, AI 학습에서 온 "중학교 과학"은 과학)
+    var subjectKind: NoteSubject {
+        get { NoteSubject.from(subject) }
+        set { subject = newValue.rawValue }
+    }
     var kind: ProblemKind? {
         get { ProblemKind(rawValue: kindRaw) }
         set { kindRaw = newValue?.rawValue ?? "" }
