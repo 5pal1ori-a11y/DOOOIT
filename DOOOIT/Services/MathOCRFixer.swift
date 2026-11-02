@@ -344,14 +344,15 @@ enum MathOCRFixer {
             let segment = result[result.index(after: lower)..<upper]
             // 보기 값 뒤 빈칸 다음에 오는 낯선 기호 하나
             // (앞 보기의 값 다음, 뒤에 이 보기의 값이 올 때만: "② 3 ④ 5"의 3은 ②의 값이라 그대로)
-            let junk = #"(?:[©®@Ⓒⓒ®OD*•§]|"# + String(k + 1) + ")"
+            // ④는 "A", "a"로도 읽힘
+            let junk = #"(?:[©®@Ⓒⓒ®OD*•§]|"# + String(k + 1) + (k == 3 ? "|A|a" : "") + ")"
             if let m = segment.range(of: #"(?<=\S\s)"# + junk + #"(?=\s+[^\s①②③④⑤])"#, options: .regularExpression) {
                 result.replaceSubrange(m, with: String(missing))
             }
         }
         // 맨 앞 ①을 l, 1, (1, @ 처럼 읽음: "l 빠르다 ② 예쁘다" → "① 빠르다 ② 예쁘다" (② 앞 같은 줄, 줄 처음에서만)
         if !result.contains("①"), result.contains("②") {
-            result = result.replacingOccurrences(of: #"(?m)^([ \t]*)(?:l|I|\||1|\(1\)?|\(l\)?|\(D|D|@|©|®|O)(?=[ \t]+[^\s①②③④⑤][^\n①②③④⑤]*[ \t]②)"#,
+            result = result.replacingOccurrences(of: #"(?m)^([ \t]*)(?:l|I|\||1|\(1\)?|\(l\)?|\(D|D|@|©|®|O|\()(?=[ \t]+[^\s①②③④⑤][^\n①②③④⑤]*[ \t]②)"#,
                                                  with: "$1①", options: .regularExpression)
         }
         // 맨 끝 ⑤를 S, 5), (5, @ 처럼 읽음: "④ 높다 S 푸르다" → "④ 높다 ⑤ 푸르다" (④ 뒤 같은 줄이나 다음 줄 처음)

@@ -741,19 +741,83 @@ enum OCRService {
 
     // MARK: 수학이 아닌 과목 (SubjectOCR)
 
-    /// 국어·영어·과학·사회 문제 사진: 한글·영어 문장을 그대로 (수식 교정 없이), 보기 번호만 정리.
+    /// 국어·영어·과학·사회 문제 사진: 한글·영어 문장을 그대로 (수식 교정 없이), 보기 번호·영어 낱말·과학 기호만 정리.
     /// 바로 세운 뒤 펜 자국을 지운 사진과 원본 중 더 잘 읽힌 쪽
     static func readSubjectProblem(_ image: CGImage) async -> (text: String, unsure: [String], lines: [OCRLine]) {
-        let straight = await deskewed(image)
-        var best: [OCRLine] = []
-        var bestScore = -1.0
-        for candidate in [inkOnly(straight), straight].compactMap({ $0 }) {
-            let lines = ((try? await recognize(candidate)) ?? [])
-                .filter { $0.confidence >= 0.3 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
-            let score = lines.reduce(0.0) { $0 + Double($1.text.count) * Double($1.confidence) }
-            if score > bestScore { best = lines; bestScore = score }
+        let trace = await readSubjectTrace(image)
+        return (trace.text, trace.unsure, trace.lines)
+    }
+
+    /// 수학이 아닌 과목 읽기 단계별 결과 (사진 테스트에서 다시 채점·원인 찾기에도 씀)
+    struct SubjectTrace {
+        struct Reading {
+            var korean: [OCRGlyphLine] = []
+            var english: [OCRGlyphLine] = []
+            /// 동그라미 번호로 판정한 모양 상자
+            var circles: [CGRect] = []
+            /// 합친 줄 (흐린 줄 빼기 전)
+            var lines: [OCRLine] = []
         }
-        return (subjectText(best), best.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }, best)
+        /// [펜 자국 지운 사진, 원래 사진]
+        var readings: [Reading] = []
+        var chosen = 0
+        var skew: Double = 0
+        var lines: [OCRLine] = []
+        var text = ""
+        var unsure: [String] = []
+    }
+
+    static func readSubjectTrace(_ image: CGImage) async -> SubjectTrace {
+        var trace = SubjectTrace()
+        let straight = await deskew(image)
+        trace.skew = straight.angle
+        // 두 사진을 동시에 읽음
+        async let plainRead = subjectReading(straight.image)
+        if let ink = inkOnly(straight.image) { trace.readings.append(await subjectReading(ink)) }
+        trace.readings.append(await plainRead)
+        let chosen = chooseSubjectReading(trace.readings.map(\.lines))
+        trace.chosen = chosen.index
+        trace.lines = chosen.lines
+        trace.text = subjectText(chosen.lines)
+        trace.unsure = chosen.lines.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }
+        return trace
+    }
+
+    /// 사진 한 장을 한국어+영어 / 영어 전용으로 읽고 동그라미 번호를 찾아 합침
+    static func subjectReading(_ image: CGImage) async -> SubjectTrace.Reading {
+        let cgImage = scaled(image, maxDimension: 3000)
+        async let koreanRead = try? observe(cgImage, languages: ["ko-KR", "en-US"], correction: true)
+        // 영어 문장은 철자 교정을 켠 영어 전용 인식이 가장 잘 읽음
+        async let englishRead = try? observe(cgImage, languages: ["en-US"], correction: true)
+        async let circleRead = detectCircles(cgImage)
+        var reading = SubjectTrace.Reading()
+        reading.korean = glyphLines(await koreanRead ?? [])
+        reading.english = glyphLines(await englishRead ?? [])
+        let heights = reading.korean.map(\.box.height).sorted()
+        let median = heights.isEmpty ? 0 : heights[heights.count / 2]
+        reading.circles = await circleRead.filter { MathOCRFixer.isChoiceCircle($0, lineHeight: median) }.map(\.box)
+        reading.lines = subjectMerge(korean: reading.korean, english: reading.english, circles: reading.circles)
+        return reading
+    }
+
+    /// Vision 결과 → 글자마다 상자가 있는 줄
+    static func glyphLines(_ observations: [VNRecognizedTextObservation]) -> [OCRGlyphLine] {
+        observations.compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            let text = candidate.string
+            var boxes: [CGRect?] = []
+            var index = text.startIndex
+            while index < text.endIndex {
+                let next = text.index(after: index)
+                if text[index].isWhitespace {
+                    boxes.append(nil)
+                } else {
+                    boxes.append((try? candidate.boundingBox(for: index..<next))?.boundingBox)
+                }
+                index = next
+            }
+            return OCRGlyphLine(text: text, confidence: candidate.confidence, box: observation.boundingBox, charBoxes: boxes)
+        }
     }
 
     // MARK: 기울어진 사진 바로 세우기
