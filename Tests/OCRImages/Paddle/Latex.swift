@@ -209,6 +209,42 @@ enum PaddleText {
         }
     }
 
+    /// "Spotting:" 결과 → 줄 상자: 줄마다 글자 뒤에 <|LOC_n|> 여덟 개(네 점 x,y, 0~1000, 위가 0) → OCRLine (Vision 좌표: 아래가 0)
+    /// 앱이 Vision으로 읽기 전에 사진을 바로 세우듯, 줄 윗변 기울기의 중앙값만큼 좌표를 돌려 놓음
+    static func spotLines(_ raw: String) -> [OCRLine] {
+        let loc = try! NSRegularExpression(pattern: #"<\|LOC_(\d+)\|>"#)
+        var items: [(text: String, points: [(Double, Double)])] = []
+        for line in raw.components(separatedBy: "\n") {
+            let ns = line as NSString
+            let matches = loc.matches(in: line, range: NSRange(location: 0, length: ns.length))
+            guard matches.count >= 4 else { continue }
+            let numbers = matches.map { Double(ns.substring(with: $0.range(at: 1))) ?? 0 }
+            let text = latex(loc.stringByReplacingMatches(in: line, range: NSRange(location: 0, length: ns.length), withTemplate: ""))
+                .trimmingCharacters(in: .whitespaces)
+            guard !text.isEmpty else { continue }
+            var points: [(Double, Double)] = []
+            var k = 0
+            while k + 1 < numbers.count { points.append((numbers[k] / 1000, numbers[k + 1] / 1000)); k += 2 }
+            items.append((text, points))
+        }
+        // 기울기: 네 점이면 윗변(1번→2번 점)의 각도
+        let angles = items.compactMap { item -> Double? in
+            guard item.points.count >= 4 else { return nil }
+            let (a, b) = (item.points[0], item.points[1])
+            guard b.0 - a.0 > 0.03 else { return nil }
+            return atan2(b.1 - a.1, b.0 - a.0)
+        }.sorted()
+        let angle = angles.isEmpty ? 0 : angles[angles.count / 2]
+        let (c, s) = (cos(-angle), sin(-angle))
+        return items.map { item in
+            let rotated = item.points.map { p in ((p.0 - 0.5) * c - (p.1 - 0.5) * s + 0.5, (p.0 - 0.5) * s + (p.1 - 0.5) * c + 0.5) }
+            let xs = rotated.map(\.0), ys = rotated.map(\.1)
+            let minX = xs.min()!, maxX = xs.max()!, minY = ys.min()!, maxY = ys.max()!
+            return OCRLine(text: item.text, confidence: 0.9,
+                           box: CGRect(x: minX, y: 1 - maxY, width: max(maxX - minX, 0.001), height: max(maxY - minY, 0.001)))
+        }
+    }
+
     /// 단어장용: 줄 → OCRLine (줄마다 위에서 아래로, 표의 칸마다 왼쪽에서 오른쪽으로 상자를 나눠 줌; Vision 좌표처럼 아래가 0)
     static func lines(_ rows: [[String]]) -> [OCRLine] {
         let n = max(rows.count, 1)

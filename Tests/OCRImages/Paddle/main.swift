@@ -6,9 +6,10 @@ import AppKit
 // PaddleOCR-VL 비교 채점 (맥·리눅스): PaddleOCR-VL이 읽은 글을 앱이 OCR 다음에 쓰는 코드 그대로 돌려 Vision 결과와 비교
 //   ocr-paddle-score <cases 폴더> <Vision results.json | -> <이름=paddle.json>... → 표를 화면에 + comparison.md, paddle-results.json
 // 방법(variant)
-// - app:   LaTeX → 앱 글 모양 → 수학: MathOCRFixer.fix / 과목: 보기 번호 정리(subjectText와 같은 단계) / 단어장: WordParser(+철자 확인) → DoitProblemScan
-// - latex: LaTeX → 앱 글 모양만 (앱 교정 없이) → DoitProblemScan
-// - raw:   모델 글 그대로 → DoitProblemScan
+// - app:   LaTeX → 앱 글 모양 → 수학: MathOCRFixer.fix / 과목: 보기 번호 정리(subjectText와 같은 단계) → DoitProblemScan
+//          단어장: "Spotting:" 줄 상자 + "OCR:" 글 두 읽기 → WordParser(bestWords, 앱의 두 번 읽기와 같음) + 철자 확인
+// - latex: LaTeX → 앱 글 모양만 (앱 교정 없이) → DoitProblemScan / 단어장: "OCR:" 글(표는 칸마다 상자) → WordParser
+// - raw:   모델 글 그대로 → DoitProblemScan / 단어장: "OCR:" 글 줄마다 → WordParser
 
 struct PaddleReading: Codable {
     var id: String
@@ -18,6 +19,11 @@ struct PaddleReading: Codable {
     var generationTokens: Int?
     var peakGB: Double?
     var error: String?
+    /// 단어장: "Spotting:"으로 읽은 글자+자리 (<|LOC_n|>)
+    var spot: String?
+    var spotSeconds: Double?
+    var spotTokens: Int?
+    var spotError: String?
 }
 
 struct PaddleRun: Codable {
@@ -85,7 +91,13 @@ func score(_ spec: CaseSpec, _ reading: PaddleReading, variant: String) -> CaseR
         let rows: [[String]] = variant == "raw"
             ? raw.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.map { [$0] }
             : PaddleText.rows(raw)
-        var words = OCRService.bestWords([PaddleText.lines(rows)])
+        // app: 앱처럼 두 번 읽은 것(Spotting 줄 상자 + OCR 글)을 bestWords로 (더 많이 찾은 쪽, 빠진 뜻은 다른 쪽에서)
+        var readings = [PaddleText.lines(rows)]
+        if variant == "app", let spot = reading.spot {
+            let spotted = PaddleText.spotLines(spot)
+            if !spotted.isEmpty { readings.insert(spotted, at: 0) }
+        }
+        var words = OCRService.bestWords(readings)
         if variant == "app" { words = MainActor.assumeIsolated { words.map(spellChecked) } }
         evaluateWords(spec, words: words, result: &result)
         result.text = raw
@@ -158,7 +170,11 @@ func speedRow(_ name: String, _ seconds: [Double]) -> String {
     return "| \(name) | \(String(format: "%.2fs", seconds.reduce(0, +) / Double(seconds.count))) | \(String(format: "%.2fs", sorted[sorted.count / 2])) | \(String(format: "%.2fs", sorted.last!)) | \(String(format: "%.2fs", rest.reduce(0, +) / Double(rest.count))) |\n"
 }
 if !visionSame.isEmpty { report += speedRow("Vision (앱)", visionSame.map(\.seconds)) }
-for engine in engines { report += speedRow(engine.name, engine.run.cases.map(\.seconds)) }
+for engine in engines {
+    report += speedRow(engine.name + " OCR:", engine.run.cases.map(\.seconds))
+    let spot = engine.run.cases.compactMap(\.spotSeconds)
+    if !spot.isEmpty { report += speedRow(engine.name + " Spotting: (단어장)", spot) }
+}
 for engine in engines {
     let tokens = engine.run.cases.compactMap(\.generationTokens)
     let prompt = engine.run.cases.compactMap(\.promptTokens)
