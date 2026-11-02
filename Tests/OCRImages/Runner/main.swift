@@ -2,6 +2,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
+import Vision
 
 // 사진 테스트 실행 (맥): 앱과 같은 OCRCore/OCRText/MathOCRFixer/WordParser/DoitProblemScan으로 읽고 정답과 비교
 //   ocr-runner <cases 폴더> [이름 필터] → 결과를 화면에 + results.json, summary.md
@@ -50,9 +51,33 @@ func runProblem(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
         text = OCRService.bestReading(base: base, others: readings).text
     }
     result.mathLines = debugLines(lines)
+    await rawDump(source, result: &result)
     result.unsure = OCRService.unsureLines(lines)
     result.baseText = base
     evaluateProblem(spec, text: text, unsure: result.unsure, result: &result)
+}
+
+/// 원인 찾기용: Vision이 읽은 그대로 (merge 전)
+func rawDump(_ image: CGImage, result: inout CaseResult) async {
+    let prepared = OCRService.scaled(image, maxDimension: 3000)
+    async let korean = try? OCRService.observe(prepared, languages: ["ko-KR", "en-US"], correction: true)
+    async let english = try? OCRService.observe(prepared, languages: ["en-US"], correction: false)
+    async let rects = OCRService.detectRectangles(prepared)
+    async let shapes = OCRService.detectCircles(prepared)
+    func dump(_ observations: [VNRecognizedTextObservation]) -> [DebugLine] {
+        observations.compactMap { o in
+            o.topCandidates(1).first.map { DebugLine(text: $0.string, confidence: $0.confidence, box: rounded(o.boundingBox)) }
+        }
+    }
+    let k = await korean ?? []
+    result.rawKorean = dump(k)
+    result.rawEnglish = dump(await english ?? [])
+    result.rects = await rects.map(rounded)
+    let all = await shapes
+    let heights = k.map(\.boundingBox.height).sorted()
+    let median = heights.isEmpty ? 0 : heights[heights.count / 2]
+    result.shapeCount = all.count
+    result.circles = all.filter { MathOCRFixer.isChoiceCircle($0, lineHeight: median) }.map { rounded($0.box) }
 }
 
 /// 앱: readWords = 원래 사진 + 고대비 사진 읽기 → bestWords → 철자 확인 → 뜻 있는 것만 보여 줌

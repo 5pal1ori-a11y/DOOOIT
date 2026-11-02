@@ -35,6 +35,16 @@ struct CaseResult: Codable {
     var words: [String] = []
     /// 단어장: [원래 사진 읽기, 고대비 사진 읽기]
     var wordLines: [[DebugLine]] = []
+    /// 원인 찾기용: 원래 사진을 한국어+영어 / 영어 전용으로 읽은 그대로, 찾은 네모 상자, 동그라미 번호 후보
+    var rawKorean: [DebugLine]? = nil
+    var rawEnglish: [DebugLine]? = nil
+    var rects: [[Double]]? = nil
+    var circles: [[Double]]? = nil
+    var shapeCount: Int? = nil
+}
+
+func rounded(_ r: CGRect) -> [Double] {
+    [r.minX, r.minY, r.width, r.height].map { (Double($0) * 100_000).rounded() / 100_000 }
 }
 
 /// 비교용: 띄어쓰기 없애고 기호 모양 통일
@@ -48,8 +58,7 @@ func norm(_ s: String) -> String {
 }
 
 func debugLines(_ lines: [OCRLine]) -> [DebugLine] {
-    lines.map { DebugLine(text: $0.text, confidence: $0.confidence,
-                          box: [$0.box.minX, $0.box.minY, $0.box.width, $0.box.height].map { (Double($0) * 100_000).rounded() / 100_000 }) }
+    lines.map { DebugLine(text: $0.text, confidence: $0.confidence, box: rounded($0.box)) }
 }
 
 func ocrLines(_ lines: [DebugLine]) -> [OCRLine] {

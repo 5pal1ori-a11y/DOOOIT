@@ -50,6 +50,20 @@ jobs:
           cat "$RUNNER_TEMP/ocr/summary.md" >> "$GITHUB_STEP_SUMMARY"
           cp "$RUNNER_TEMP/ocr-log.txt" "$RUNNER_TEMP/ocr/"
 
+      # 아티팩트를 못 받는 환경에서도 다시 채점(replay.sh)할 수 있게 결과와 작게 줄인 사진을 로그에 담음
+      - name: Dump results to log
+        if: always()
+        run: |
+          cd "$RUNNER_TEMP/ocr"
+          echo "=====RESULTS-BEGIN====="
+          tar czf - cases.json results.json | base64 -b 100
+          echo "=====RESULTS-END====="
+          mkdir -p small
+          for f in images/*.jpg; do sips -Z 900 -s formatOptions 45 "$f" --out "small/$(basename "$f")" >/dev/null; done
+          echo "=====IMAGES-BEGIN====="
+          tar czf - small | base64 -b 100
+          echo "=====IMAGES-END====="
+
       - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
