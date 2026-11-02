@@ -22,19 +22,60 @@ enum MathSolver {
     static func kind(of text: String) -> Kind? { solve(text)?.kind }
 
     /// 문장을 보고 알맞은 풀이를 찾아 풂 (못 풀면 nil)
+    /// 객관식(①~⑤)이면 보기를 떼고 풀어서, 값이 같은 보기를 답에 붙여요 ("④ 12").
     static func solve(_ raw: String) -> Solved? {
-        let text = DoitAlgebra.normalize(raw)
+        if let split = DoitMathExact.splitChoices(raw) {
+            // "아닌 것은?", "옳지 않은 것은?", "모두 고르면?"은 값 하나를 맞춰 보는 문제가 아님
+            guard !has(split.body, ["아닌", "않은", "틀린", "않는", "모두 고르", "옳은 것", "바르게 나타낸 것", "같은 것", "모두 구하"]) else { return nil }
+            guard let solved = solveText(split.body) else { return nil }
+            return DoitMathExact.pickChoice(solved, from: split.choices)
+        }
+        return solveText(raw)
+    }
+
+    private static func solveText(_ raw: String) -> Solved? {
+        let text = DoitAlgebra.normalize(DoitMathExact.tidy(raw))
         let t = text
 
+        // 빈칸(□): □를 미지수로. 못 풀면 다른 풀이로 넘기지 않음 (□를 지운 식은 엉뚱한 답이 나와요)
+        if t.contains("□") { return DoitMathExact.blank(t) }
+        // 비례식, 상수 구하기, 문장제처럼 모양이 분명한 것부터
+        if let s = DoitMathExact.proportion(t) { return s }
+        if let s = DoitMathExact.unknownConstant(t) { return s }
+        if DoitMathExact.mentionsConstant(t) { return nil }
+        if let s = DoitMathExact.limit(t) { return s }
+        if let s = DoitMathWord.solve(t) { return s }
+
         // 0) 문자 a, b, c로 쓴 식의 전개: (a+b)² → 여러 문자 다항식으로 계산
-        if has(t, ["전개", "정리", "곱셈 공식", "곱셈공식"]), !t.contains(where: { "xyz".contains($0) }),
+        if has(t, ["전개", "정리", "곱셈 공식", "곱셈공식", "간단히"]), !t.contains(where: { "xyz".contains($0) }),
            t.range(of: #"[abc]"#, options: .regularExpression) != nil, let s = expandLetters(t) { return s }
 
         // 1) 키워드가 분명한 유형부터
+        if let s = DoitMathExact.movePoint(t) { return s }
+        if let moved = DoitMathExact.moveGraph(t) {
+            if moved.poly.degree == 2, has(t, ["꼭짓점", "최댓값", "최솟값", "축의 방정식"]) {
+                var s = vertex(moved.poly, asks: t)
+                s.steps = moved.steps + s.steps
+                return s
+            }
+            return Solved(kind: .function, topic: "그래프의 이동", concept: "x축 방향으로 m, y축 방향으로 n만큼 평행이동: x 대신 x − m, y 대신 y − n을 넣어요.",
+                          steps: moved.steps, answer: "y = \(DoitMath.describe(moved.poly))")
+        }
         if let s = DoitMathTopics.sets(t) { return s }
         if let s = DoitMathTopics.functionGraph(t) { return s }
         if let s = DoitAlgebra.solveCalculus(t) { return s }
         if let f = function(in: t), f.degree == 2, has(t, ["꼭짓점", "최댓값", "최솟값", "최대", "최소", "축의 방정식"]) { return vertex(f, asks: t) }
+        // 그래프와 x축의 교점 = f(x) = 0 의 실근
+        if has(t, ["x축과 만나", "x축의 교점", "x축과의 교점", "x축과 만나는"]), !has(t, ["둘러싸인", "넓이"]), let f = function(in: t), f.degree >= 1 {
+            let roots = DoitAlgebra.realRoots(f)
+            let answer = roots.isEmpty ? "x축과 만나지 않아요" : "x = " + roots.map(\.label).joined(separator: ", ")
+            var steps = [SolutionStep(hint: "x축 위의 점은 y = 0", work: "\(DoitMath.describe(f)) = 0")]
+            if let factored = DoitAlgebra.factor(f), !factored.isTrivial { steps.append(SolutionStep(hint: "인수분해하면", work: "\(factored.text) = 0")) }
+            steps.append(SolutionStep(hint: "x좌표는", work: answer))
+            return Solved(kind: .function, topic: "그래프와 x축의 교점", concept: "그래프가 x축과 만나는 점의 x좌표는 y = 0 으로 놓은 방정식의 실근이에요.", steps: steps, answer: answer)
+        }
+        // 몫을 묻거나 이차식 이상으로 나누면 직접 나눗셈
+        if has(t, ["몫"]) || (has(t, ["나머지"]) && divisorRoot(in: t) == nil), let s = DoitMathExact.division(t) { return s }
         if has(t, ["나머지"]), let r = divisorRoot(in: t), let f = function(in: t) ?? polynomialBefore(t, marker: "을") ?? equationPoly(in: t) {
             return remainder(f, at: r)
         }
@@ -47,11 +88,14 @@ enum MathSolver {
         if let s = DoitMathTopics.coordinate(t) { return s }
         if let s = DoitMathTopics.geometry(t) { return s }
         if t.range(of: #"\d\s*i|i\s*\^|\(\s*\d[^)]*i\s*\)|\bi\b"#, options: .regularExpression) != nil, let s = DoitMathTopics.complex(t) { return s }
+        // 단항식의 곱셈·나눗셈 (지수법칙): 다항식으로 바꾸면 8차를 넘거나 ÷ 4x² 를 못 다뤄요
+        if let s = DoitMathExact.monomial(t) { return s }
 
         // 2) 식의 모양으로
+        if t.contains("|"), !t.contains("="), !t.contains("x"), let s = DoitMathExact.absoluteCalc(t) { return s }
         if t.contains("|"), let s = DoitAlgebra.solveAbsoluteEquation(t) { return s }
         if t.contains(where: { "<>≤≥".contains($0) }), let s = DoitAlgebra.solveInequality(t) { return s }
-        if t.contains("y") || t.contains("z"), let s = DoitAlgebra.solveSystem(t) { return s }
+        if t.contains("y") || t.contains("z"), let s = DoitAlgebra.solveSystem(t) { return DoitMathExact.systemValue(s, text: t) ?? s }
         if has(t, ["인수분해"]) {
             let expression = DoitAlgebra.extract(t)
             if let p = DoitAlgebra.parse(expression.split(separator: "=").first.map(String.init) ?? expression)?.univariate,
@@ -62,12 +106,30 @@ enum MathSolver {
                               answer: factored.isTrivial ? "유리수 범위에서 더 인수분해되지 않아요" : factored.text)
             }
         }
+        if has(t, ["인수분해"]), let s = DoitMathExact.factorTwoLetters(t) { return s }
+        // 수식 속에 x, y, z가 아닌 문자(2a + 3b)가 남아 있으면, 그 문자를 지운 식으로 계산하면 틀려요
+        if DoitMathExact.hasStrayLetters(t) { return nil }
         if let poly = equationPoly(in: t) {
             if poly.degree == 2, has(t, ["두 근의 합", "두 근의 곱", "근의 합", "근의 곱", "α+β", "αβ", "α + β", "α²", "α^2", "1/α", "(α", "두 근을 α"]) { return roots(poly, asks: t) }
             if poly.degree >= 3 { return DoitAlgebra.solveHigherEquation(poly, original: t) }
             if poly.degree == 2, has(t, ["판별식", "근의 종류", "실근", "허근", "중근"]) && !has(t, ["구해", "풀어"]) { return discriminant(poly) }
             if poly.degree >= 1, let result = DoitMath.solveEquation(DoitMath.extractExpression(t)) {
-                return equation(poly, result: result)
+                var solved = equation(poly, result: result)
+                // "두 근 중 큰 근은?", "음수인 근은?"
+                if poly.degree == 2, has(t, ["큰 근", "작은 근", "양수인 근", "음수인 근", "양의 근", "음의 근"]) {
+                    let roots = DoitAlgebra.realRoots(poly)
+                    var picked: DoitAlgebra.Root?
+                    if roots.count == 2 {
+                        if has(t, ["큰 근"]) { picked = roots[1] }
+                        else if has(t, ["작은 근"]) { picked = roots[0] }
+                        else if has(t, ["양수인 근", "양의 근"]) { let p = roots.filter { $0.value > 0 }; picked = p.count == 1 ? p[0] : nil }
+                        else { let n = roots.filter { $0.value < 0 }; picked = n.count == 1 ? n[0] : nil }
+                    }
+                    guard let root = picked else { return nil }
+                    solved.steps.append(SolutionStep(hint: "두 근 \(roots.map(\.label).joined(separator: ", ")) 중에서", work: root.label))
+                    solved.answer = root.label
+                }
+                return solved
             }
         }
         if let s = DoitMathTopics.calculate(t) { return s }
@@ -91,7 +153,7 @@ enum MathSolver {
             switch c { case "a": return "x"; case "b": return "y"; case "c": return "z"; default: return c }
         })
         let expression = DoitAlgebra.extract(swapped)
-        guard expression.count >= 3, !expression.contains("="), let poly = DoitAlgebra.parse(expression), poly.degree >= 2 else { return nil }
+        guard expression.count >= 3, !expression.contains("="), let poly = DoitAlgebra.parse(expression), poly.degree >= 1 else { return nil }
         func back(_ s: String) -> String {
             String(s.map { c -> Character in
                 switch c { case "x": return "a"; case "y": return "b"; case "z": return "c"; default: return c }
@@ -185,6 +247,12 @@ enum MathSolver {
         ]
         var answer: String
         let compact = text.replacingOccurrences(of: " ", with: "")
+        if let asked = DoitMathExact.rootExpression(poly, asks: text), !["α", "β"].contains(asked.expression) {
+            let shown = asked.expression.replacingOccurrences(of: "^2", with: "²").replacingOccurrences(of: "^3", with: "³").replacingOccurrences(of: "*", with: "×")
+            steps.append(SolutionStep(hint: "\(shown)을(를) α + β, αβ로 나타내 계산하면", work: "\(shown) = \(DoitMath.fraction(asked.value))"))
+            return Solved(kind: .rootRelation, topic: "근과 계수의 관계", concept: "이차방정식 ax² + bx + c = 0 의 두 근을 α, β라 하면 α + β = −b/a, αβ = c/a 예요. 대칭식은 합과 곱으로 바꿔 계산해요.",
+                          steps: steps, answer: DoitMath.fraction(asked.value))
+        }
         if has(compact, ["α²+β²", "α^2+β^2"]) {
             let v = sumValue * sumValue - 2 * productValue
             steps.append(SolutionStep(hint: "α² + β² = (α + β)² − 2αβ", work: "(\(sum))² − 2×(\(product)) = \(DoitMath.fraction(v))"))
@@ -230,7 +298,7 @@ enum MathSolver {
 
     /// "x³−2x+1을 x−2로 나눈" 처럼 f(x) 없이 쓴 다항식
     private static func polynomialBefore(_ text: String, marker: String) -> DoitMath.Poly? {
-        guard let range = text.range(of: #"x\s*[-+]\s*\d+\s*(으로|로)\s*나눈"#, options: .regularExpression) else { return nil }
+        guard let range = text.range(of: #"\d*\s*x\s*[-+]\s*\d+\s*(으로|로)\s*나[누눈눌]"#, options: .regularExpression) else { return nil }
         let before = String(text[..<range.lowerBound])
         let expression = DoitMath.extractExpression(before)
         guard let p = DoitMath.polynomial(expression), p.degree >= 1 else { return nil }
@@ -249,10 +317,9 @@ enum MathSolver {
     /// "x − 2로 나눈" → 2
     static func divisorRoot(in text: String) -> Double? {
         let t = DoitAlgebra.normalize(text)
-        guard let range = t.range(of: #"x\s*[-+]\s*\d+\s*(으로|로)\s*나눈"#, options: .regularExpression) else { return nil }
-        let part = String(t[range])
-        let number = Double(part.filter(\.isNumber)) ?? 0
-        return part.contains("+") ? -number : number
+        guard t.range(of: #"x\s*[-+]\s*\d+(?:\.\d+)?\s*(으로|로)\s*나[누눈눌]"#, options: .regularExpression) != nil else { return nil }
+        // "2x − 1로 나눈" 처럼 x의 계수가 있어도
+        return DoitMathExact.divisorValue(t)
     }
 }
 

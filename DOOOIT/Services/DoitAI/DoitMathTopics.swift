@@ -45,7 +45,7 @@ enum DoitMathTopics {
         // 특수각 정확한 값
         if let exact = specialAngle(t) { return exact }
         var expression = t
-        for word in ["계산해줘", "계산해", "계산", "얼마야", "얼마", "구해줘", "값은", "값", "의 값", "?", "은", "는", "을", "를"] {
+        for word in ["계산해줘", "계산해", "계산", "얼마야", "얼마", "구해줘", "의 값", "값은", "값", "?", "은", "는", "을", "를"] {
             expression = expression.replacingOccurrences(of: word, with: " ")
         }
         expression = expression.replacingOccurrences(of: "°", with: "").replacingOccurrences(of: "도", with: "")
@@ -53,11 +53,11 @@ enum DoitMathTopics {
         let subscripts: [Character: Character] = ["₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9"]
         expression = String(expression.map { subscripts[$0] ?? $0 })
         expression = expression.replacingOccurrences(of: #"log_?(\d+)\s+(\d+(?:\.\d+)?)"#, with: "log_$1($2)", options: .regularExpression)
-        expression = expression.replacingOccurrences(of: #"log(\d+)\("#, with: "log_$1(", options: .regularExpression)
+        expression = expression.replacingOccurrences(of: #"log_?(\d+)\s*\("#, with: "log_$1(", options: .regularExpression)
         expression = expression.trimmingCharacters(in: .whitespaces)
         guard expression.range(of: "[가-힣]", options: .regularExpression) == nil else {
             // 한글이 섞여 있으면 수식 부분만
-            let allowed = Set("0123456789.+-*/^()!%√ sincotalgpe")
+            let allowed = Set("0123456789.+-*/^()!%√ sincotalgpe_")
             let pieces: [String] = expression.split(whereSeparator: { (ch: Character) -> Bool in !allowed.contains(ch) }).map { String($0) }
             let run = pieces.max(by: { $0.count < $1.count }) ?? ""
             return evaluateText(run, original: text)
@@ -68,6 +68,8 @@ enum DoitMathTopics {
     private static func evaluateText(_ expression: String, original: String) -> Solved? {
         let trimmed = expression.trimmingCharacters(in: .whitespaces)
         guard trimmed.count >= 2, trimmed.contains(where: \.isNumber) || trimmed.contains("π") || trimmed.contains("pi") else { return nil }
+        // 분수·제곱근·특수각은 소수로 바꾸지 않고 정확한 값으로 (2/3 + 1/4 = 11/12, √12 + √27 = 5√3)
+        if let exact = DoitMathExact.exactCalc(trimmed, original: original) { return exact }
         var parser = CalcParser(chars: Array(trimmed.replacingOccurrences(of: " ", with: "")))
         guard let value = parser.expression(), parser.i == parser.chars.count, value.isFinite else { return nil }
         var answer: String
@@ -368,6 +370,28 @@ enum DoitMathTopics {
         var symbol: (String, Int, Int)?
         if let m = plain.firstMatch(of: #/(\d+)\s*([PCHΠ])\s*(\d+)/#), let n = Int(String(m.1)), let r = Int(String(m.3)) { symbol = (String(m.2), n, r) }
         else if let m = plain.firstMatch(of: #/([PCH])\(\s*(\d+)\s*,\s*(\d+)\s*\)/#), let n = Int(String(m.2)), let r = Int(String(m.3)) { symbol = (String(m.1), n, r) }
+        // 기호가 여러 개거나 다른 계산이 섞이면 (₅P₂ + ₅C₂) 값으로 바꿔 넣고 계산
+        let symbolPattern = #"(\d+)\s*([PCH])\s*(\d+)"#
+        let allSymbols = DoitMathExact.matches(plain, symbolPattern)
+        if symbol != nil, !allSymbols.isEmpty {
+            var rest = plain
+            for m in allSymbols { rest = rest.replacingOccurrences(of: m[0], with: " ") }
+            if allSymbols.count > 1 || rest.range(of: #"[0-9]\s*[+\-*/]|[+\-*/]\s*[0-9]|[+\-*/^]"#, options: .regularExpression) != nil {
+                var expression = plain
+                var shown: [String] = []
+                for m in allSymbols {
+                    guard let n = Int(m[1]), let r = Int(m[3]), n <= 30, r <= n else { return nil }
+                    let value = m[2] == "P" ? permutation(n, r) : m[2] == "C" ? combination(n, r) : combination(n + r - 1, r)
+                    expression = expression.replacingOccurrences(of: m[0], with: "(\(int(value)))")
+                    shown.append("\(m[1])\(m[2])\(m[3]) = \(int(value))")
+                }
+                let allowed = Set("0123456789.+-*/^()! ")
+                let runs = expression.split(whereSeparator: { !allowed.contains($0) }).map { String($0).trimmingCharacters(in: .whitespaces) }
+                guard let run = runs.max(by: { $0.count < $1.count }), let value = DoitMathExact.exactValue(run), let r = value.rational else { return nil }
+                return Solved(kind: .counting, topic: "순열과 조합의 계산", concept: "ₙPᵣ = n!/(n−r)!, ₙCᵣ = ₙPᵣ/r! 를 각각 구한 뒤 계산해요.",
+                              steps: [SolutionStep(hint: "각각의 값", work: shown.joined(separator: ", ")), SolutionStep(hint: "계산하면", work: r.text)], answer: r.text)
+            }
+        }
         if let (kind, n, r) = symbol, n <= 170, r <= 170 {
             switch kind {
             case "P":
@@ -394,8 +418,16 @@ enum DoitMathTopics {
         }
 
         // 문장형: "5명 중 2명을 뽑는", "6명을 일렬로", "원형으로 앉는", "회장과 부회장"
-        let counted = t.matches(of: #/(\d+)\s*(명|개|권|장|가지|자리|팀|곳)/#).compactMap { Int(String($0.1)) }
+        var counted = t.matches(of: #/(\d+)\s*(명|개|권|장|가지|자리|팀|곳)/#).compactMap { Int(String($0.1)) }
+        // "네 사람", "다섯 명" 처럼 한글로 쓴 수
+        if counted.isEmpty, let m = DoitMathExact.match(t, #"(?<![가-힣])(두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:명|사람|개|권|장|자리|팀)"#) {
+            let words = ["두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9, "열": 10]
+            if let n = words[m[1]] { counted = [n] }
+        }
         guard !counted.isEmpty, has(t, ["경우의 수", "방법의 수", "가지 수", "몇 가지", "방법은", "경우는", "뽑", "고르", "세우", "앉", "나열", "배열", "만들 수 있는"]) else { return nil }
+        // 수가 셋 이상이거나 (남학생 4명, 여학생 3명 중 2명), 숫자 카드·확률은 여기서 풀지 않음 (틀린 답 방지)
+        guard counted.count <= 2, !has(t, ["카드", "확률", "적어도", "이웃", "포함", "주사위", "동전"]) else { return nil }
+        if counted.count == 2, t.range(of: #"\d+\s*(?:명|개|권|장|가지|자리|팀|곳)\s*(?:,|과|와|및)\s*[가-힣]*\s*\d+\s*(?:명|개|권|장)"#, options: .regularExpression) != nil { return nil }
         let n = counted[0]
         let roles = ["부회장", "총무", "서기", "반장", "부반장", "1등", "2등", "3등", "금메달", "은메달", "동메달"].filter { t.contains($0) }.count
             + (t.replacingOccurrences(of: "부회장", with: "").contains("회장") ? 1 : 0)
@@ -432,7 +464,13 @@ enum DoitMathTopics {
 
     static func statistics(_ text: String) -> Solved? {
         guard has(text, ["평균", "중앙값", "최빈값", "분산", "표준편차", "범위", "중간값"]) else { return nil }
-        let values = numbers(in: text)
+        // "평균이 85점일 때"처럼 평균이 조건이면 자료로 계산하면 안 됨 (문장제 풀이에서 따로)
+        guard text.range(of: #"(?:평균|분산|중앙값|표준편차)(?:이|은|는)\s*-?\d"#, options: .regularExpression) == nil else { return nil }
+        // "5개의 변량 2, 4, 6"의 5처럼 개수를 자료로 세지 않게: 쉼표로 나열된 자료가 있으면 그것만
+        let listed = DoitMathWord.dataList(DoitAlgebra.normalize(text)).flatMap { items in items.compactMap { Double($0) } }
+        let values = (listed?.count ?? 0) >= 2 ? listed! : numbers(in: text)
+        // "시험 범위는 1단원부터 3단원까지"처럼 '범위'만 있고 자료가 없으면 통계가 아님
+        if !has(text, ["평균", "중앙값", "최빈값", "분산", "표준편차", "중간값"]), listed == nil, values.count < 3 { return nil }
         guard values.count >= 2 else { return nil }
         let n = Double(values.count)
         let mean = values.reduce(0, +) / n
@@ -488,6 +526,7 @@ enum DoitMathTopics {
     static func numberTheory(_ text: String) -> Solved? {
         let values = numbers(in: text).filter { $0 > 0 && $0 == $0.rounded() && $0 < 1e12 }.map { Int($0) }
         guard !values.isEmpty else { return nil }
+        if text.range(of: #"(?:최대공약수|최소공배수)(?:가|는|이)\s*\d"#, options: .regularExpression) != nil { return nil }
         if has(text, ["최대공약수", "최소공배수", "GCD", "LCM", "gcd", "lcm"]), values.count >= 2 {
             let g = values.reduce(0) { DoitAlgebra.gcd($0, $1) }
             let l = values.reduce(1) { $0 / DoitAlgebra.gcd($0, $1) * $1 }
@@ -499,6 +538,34 @@ enum DoitMathTopics {
             let asksGCD = has(text, ["최대공약수", "GCD", "gcd"]) && !has(text, ["최소공배수", "LCM", "lcm"])
             return Solved(kind: .numberTheory, topic: "최대공약수와 최소공배수", concept: "두 수 A, B에 대해 A × B = 최대공약수 × 최소공배수 예요.",
                           steps: steps, answer: asksLCM ? "최소공배수 \(l)" : asksGCD ? "최대공약수 \(g)" : "최대공약수 \(g), 최소공배수 \(l)")
+        }
+        // 공약수·공배수: 최대공약수의 약수, 최소공배수의 배수 ("100 이하" 같은 범위 수는 빼고)
+        if has(text, ["공약수", "공배수"]) && !has(text, ["최대공약수", "최소공배수"]) {
+            var list = values
+            var limit: Int?
+            if let m = text.firstMatch(of: #/(\d+)\s*(이하|미만|보다\s*작은)/#), let v = Int(String(m.1)) {
+                limit = String(m.2) == "이하" ? v : v - 1
+                if let index = list.firstIndex(of: v) { list.remove(at: index) }
+            }
+            guard list.count >= 2 else { return nil }
+            let g = list.reduce(0) { DoitAlgebra.gcd($0, $1) }
+            let l = list.reduce(1) { $0 / DoitAlgebra.gcd($0, $1) * $1 }
+            let names = list.map(String.init).joined(separator: ", ")
+            if has(text, ["공약수"]) {
+                let ds = DoitAlgebra.divisors(g)
+                let steps = [SolutionStep(hint: "\(names)의 최대공약수", work: String(g)), SolutionStep(hint: "공약수는 최대공약수의 약수", work: ds.map(String.init).joined(separator: ", "))]
+                let answer = has(text, ["개수", "몇 개"]) ? "\(ds.count)개" : has(text, ["합"]) ? "공약수의 합 \(ds.reduce(0, +))" : ds.map(String.init).joined(separator: ", ")
+                return Solved(kind: .numberTheory, topic: "공약수", concept: "두 수의 공약수는 최대공약수의 약수와 같아요.", steps: steps, answer: answer)
+            }
+            var steps = [SolutionStep(hint: "\(names)의 최소공배수", work: String(l))]
+            if let n = limit, has(text, ["개수", "몇 개"]) {
+                steps.append(SolutionStep(hint: "공배수는 최소공배수의 배수: \(n) ÷ \(l)의 몫", work: "\(n / l)"))
+                return Solved(kind: .numberTheory, topic: "공배수", concept: "두 수의 공배수는 최소공배수의 배수와 같아요.", steps: steps, answer: "\(n / l)개")
+            }
+            if has(text, ["가장 작은"]) {
+                return Solved(kind: .numberTheory, topic: "공배수", concept: "두 수의 공배수 중 가장 작은 수가 최소공배수예요.", steps: steps, answer: String(l))
+            }
+            return nil
         }
         let n = values[0]
         if has(text, ["소인수분해"]) {
@@ -598,9 +665,10 @@ enum DoitMathTopics {
             let slope = parts.count == 2 && parts[1] != 0 ? first / parts[1] : first
             let p = pts[0]
             var line = DoitMath.Poly(); line.c[1] = slope; line.c[0] = p.y - slope * p.x
-            return Solved(kind: .coordinate, topic: "직선의 방정식", concept: "기울기 m, 점 (x₁, y₁)을 지나는 직선: y − y₁ = m(x − x₁)",
-                          steps: [SolutionStep(hint: "y − y₁ = m(x − x₁)", work: "y − (\(f(p.y))) = \(f(slope))(x − (\(f(p.x))))")],
-                          answer: "y = \(DoitMath.describe(line))")
+            let solved = Solved(kind: .coordinate, topic: "직선의 방정식", concept: "기울기 m, 점 (x₁, y₁)을 지나는 직선: y − y₁ = m(x − x₁)",
+                                steps: [SolutionStep(hint: "y − y₁ = m(x − x₁)", work: "y − (\(f(p.y))) = \(f(slope))(x − (\(f(p.x))))")],
+                                answer: "y = \(DoitMath.describe(line))")
+            return intercept(solved, line: line, asks: t)
         }
         guard pts.count >= 2 else { return circle(t) ?? lineInfo(t) }
         let a = pts[0], b = pts[1]
@@ -641,15 +709,16 @@ enum DoitMathTopics {
             return Solved(kind: .coordinate, topic: "두 점을 지나는 직선의 기울기", concept: "기울기 = (y의 증가량) / (x의 증가량)",
                           steps: [SolutionStep(hint: "(y₂ − y₁)/(x₂ − x₁)", work: "(\(f(b.y)) − (\(f(a.y))))/(\(f(b.x)) − (\(f(a.x))))")], answer: f(s))
         }
-        if has(t, ["직선", "방정식"]) {
+        if has(t, ["직선", "방정식", "일차함수", "함수의 식", "그래프의 식"]) {
             guard b.x != a.x else {
                 return Solved(kind: .coordinate, topic: "직선의 방정식", concept: "x좌표가 같은 두 점을 지나는 직선은 y축에 평행해요.", steps: [], answer: "x = \(f(a.x))")
             }
             let s = (b.y - a.y) / (b.x - a.x)
             var line = DoitMath.Poly(); line.c[1] = s; line.c[0] = a.y - s * a.x
-            return Solved(kind: .coordinate, topic: "두 점을 지나는 직선", concept: "기울기를 먼저 구하고, y − y₁ = m(x − x₁)에 넣어요.",
-                          steps: [SolutionStep(hint: "기울기", work: "m = \(f(s))"), SolutionStep(hint: "점 \(a.label)을 지나므로", work: "y − (\(f(a.y))) = \(f(s))(x − (\(f(a.x))))")],
-                          answer: "y = \(DoitMath.describe(line))")
+            let solved = Solved(kind: .coordinate, topic: "두 점을 지나는 직선", concept: "기울기를 먼저 구하고, y − y₁ = m(x − x₁)에 넣어요.",
+                                steps: [SolutionStep(hint: "기울기", work: "m = \(f(s))"), SolutionStep(hint: "점 \(a.label)을 지나므로", work: "y − (\(f(a.y))) = \(f(s))(x − (\(f(a.x))))")],
+                                answer: "y = \(DoitMath.describe(line))")
+            return intercept(solved, line: line, asks: t)
         }
         if has(t, ["거리", "길이", "AB", "선분"]) {
             let d2 = (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y)
@@ -660,6 +729,21 @@ enum DoitMathTopics {
                           answer: text + (text.contains("√") && !text.contains("≈") ? " (≈ \(DoitMath.format(d2.squareRoot(), digits: 5)))" : ""))
         }
         return nil
+    }
+
+    /// 직선을 구한 뒤 "y절편은?", "x절편은?"을 물으면 그 값으로
+    private static func intercept(_ solved: Solved, line: DoitMath.Poly, asks t: String) -> Solved {
+        var out = solved
+        let asksY = t.range(of: #"y\s*절편(?:은|을|의\s*값|을\s*구)"#, options: .regularExpression) != nil
+        let asksX = t.range(of: #"x\s*절편(?:은|을|의\s*값|을\s*구)"#, options: .regularExpression) != nil
+        if asksY && !asksX {
+            out.steps.append(SolutionStep(hint: "y절편은 x = 0일 때의 y값", work: f(line[0])))
+            out.answer = "y절편 \(f(line[0]))"
+        } else if asksX && !asksY, abs(line[1]) > 1e-12 {
+            out.steps.append(SolutionStep(hint: "x절편은 y = 0일 때의 x값", work: f(-line[0] / line[1])))
+            out.answer = "x절편 \(f(-line[0] / line[1]))"
+        }
+        return out
     }
 
     /// "3x + 4y − 5 = 0", "y = 2x + 1" → (a, b, c)  ax + by + c = 0
@@ -708,44 +792,56 @@ enum DoitMathTopics {
     // MARK: - 8. 도형 공식
 
     static func geometry(_ text: String) -> Solved? {
-        var t = text
-        // 한글 수 + 각형: 육각형 → 6각형
-        let koreanNumbers = [("십이", 12), ("십", 10), ("구", 9), ("팔", 8), ("칠", 7), ("육", 6), ("오", 5), ("사", 4)]
-        for (word, n) in koreanNumbers { t = t.replacingOccurrences(of: word + "각형", with: "\(n)각형") }
+        // 넓이·부피 단위의 ²·³ (cm², cm^3)는 수로 세지 않음
+        var t = text.replacingOccurrences(of: #"(cm|mm|km|m)\s*\^\s*[23]|㎠|㎤|cm²|cm³|m²|m³"#, with: "$1", options: .regularExpression)
+        // 원주율이 주어지면 그 값으로 계산 ("원주율은 3.14")
+        var piValue: Double?
+        if let m = t.firstMatch(of: #/원주율(?:은|는|을|를)?\s*(3(?:\.\d+)?)/#), let v = Double(String(m.1)) {
+            piValue = v
+            t = t.replacingOccurrences(of: String(m.0), with: " ")
+        }
+        t = t.replacingOccurrences(of: "원주율", with: " ")
+        // 한글 수 + 각형: 육각형 → 6각형 (다각형 판별에만 씀. 정사각형·직사각형 판별은 원래 글자로)
+        var polygonText = t
+        let koreanNumbers = [("십이", 12), ("십", 10), ("구", 9), ("팔", 8), ("칠", 7), ("육", 6), ("오", 5), ("사", 4), ("삼", 3)]
+        for (word, n) in koreanNumbers { polygonText = polygonText.replacingOccurrences(of: word + "각형", with: "\(n)각형") }
         let v = numbers(in: t).filter { $0 > 0 }
-        guard !v.isEmpty else { return nil }
+        guard !v.isEmpty else { return polygon(polygonText, t) }
         func piText(_ k: Double) -> String {
+            if let p = piValue { return DoitMath.format(k * p, digits: 8) }
             let coefficient = abs(k - 1) < 1e-12 ? "" : f(k)
             return "\(coefficient.contains("/") ? "(\(coefficient))" : coefficient)π (≈ \(DoitMath.format(k * .pi, digits: 6)))"
         }
+        let piName = piValue.map { DoitMath.format($0) } ?? "π"
+        func step(_ hint: String, _ work: String) -> [SolutionStep] { [SolutionStep(hint: hint, work: work)] }
         let r = v[0]
         // 반지름/지름
         let radius = has(t, ["지름"]) && !has(t, ["반지름"]) ? r / 2 : r
-        if has(t, ["원"]) && !has(t, ["원기둥", "원뿔", "원의 방정식", "원순열", "원형"]) && has(t, ["넓이", "둘레", "원주", "면적"]) {
+        if has(t, ["원"]) && !has(t, ["원기둥", "원뿔", "원의 방정식", "원순열", "원형", "원짜리", "원가", "원에", "원을 냈"]) && has(t, ["넓이", "둘레", "원주", "면적"]) {
             if has(t, ["둘레", "원주"]) {
-                return Solved(kind: .geometry, topic: "원의 둘레", concept: "원의 둘레 = 2πr", steps: [SolutionStep(hint: "r = \(f(radius))", work: "2π × \(f(radius))")], answer: piText(2 * radius))
+                return Solved(kind: .geometry, topic: "원의 둘레", concept: "원의 둘레 = 2πr = 지름 × π", steps: step("반지름 r = \(f(radius))", "2 × \(piName) × \(f(radius))"), answer: piText(2 * radius))
             }
-            return Solved(kind: .geometry, topic: "원의 넓이", concept: "원의 넓이 = πr²", steps: [SolutionStep(hint: "r = \(f(radius))", work: "π × \(f(radius))²")], answer: piText(radius * radius))
+            return Solved(kind: .geometry, topic: "원의 넓이", concept: "원의 넓이 = πr²", steps: step("반지름 r = \(f(radius))", "\(piName) × \(f(radius))²"), answer: piText(radius * radius))
         }
         if has(t, ["부채꼴"]), v.count >= 2 {
             let angle = v[1]
             if has(t, ["호", "길이"]) && !has(t, ["넓이"]) {
-                return Solved(kind: .geometry, topic: "부채꼴의 호의 길이", concept: "호의 길이 = 2πr × (중심각/360°)", steps: [SolutionStep(hint: "2π × \(f(r)) × \(f(angle))/360", work: "")], answer: piText(2 * r * angle / 360))
+                return Solved(kind: .geometry, topic: "부채꼴의 호의 길이", concept: "호의 길이 = 2πr × (중심각/360°)", steps: step("2π × \(f(r)) × \(f(angle))/360", f(2 * r * angle / 360) + "π"), answer: piText(2 * r * angle / 360))
             }
-            return Solved(kind: .geometry, topic: "부채꼴의 넓이", concept: "부채꼴의 넓이 = πr² × (중심각/360°)", steps: [SolutionStep(hint: "π × \(f(r))² × \(f(angle))/360", work: "")], answer: piText(r * r * angle / 360))
+            return Solved(kind: .geometry, topic: "부채꼴의 넓이", concept: "부채꼴의 넓이 = πr² × (중심각/360°)", steps: step("π × \(f(r))² × \(f(angle))/360", f(r * r * angle / 360) + "π"), answer: piText(r * r * angle / 360))
         }
-        if has(t, ["구"]) && !has(t, ["구해", "구하", "구간", "구성"]) || has(t, ["구의"]) {
-            if has(t, ["겉넓이", "표면적"]) { return Solved(kind: .geometry, topic: "구의 겉넓이", concept: "구의 겉넓이 = 4πr²", steps: [SolutionStep(hint: "4π × \(f(radius))²", work: "")], answer: piText(4 * radius * radius)) }
-            if has(t, ["부피"]) { return Solved(kind: .geometry, topic: "구의 부피", concept: "구의 부피 = (4/3)πr³", steps: [SolutionStep(hint: "(4/3)π × \(f(radius))³", work: "")], answer: piText(4 * pow(radius, 3) / 3)) }
+        if has(t, ["구"]) && !has(t, ["구해", "구하", "구간", "구성", "각형"]) || has(t, ["구의"]) {
+            if has(t, ["겉넓이", "표면적"]) { return Solved(kind: .geometry, topic: "구의 겉넓이", concept: "구의 겉넓이 = 4πr²", steps: step("4π × \(f(radius))²", f(4 * radius * radius) + "π"), answer: piText(4 * radius * radius)) }
+            if has(t, ["부피"]) { return Solved(kind: .geometry, topic: "구의 부피", concept: "구의 부피 = (4/3)πr³", steps: step("(4/3)π × \(f(radius))³", f(4 * pow(radius, 3) / 3) + "π"), answer: piText(4 * pow(radius, 3) / 3)) }
         }
         if has(t, ["원기둥"]), v.count >= 2 {
             let h = v[1]
-            if has(t, ["겉넓이"]) { return Solved(kind: .geometry, topic: "원기둥의 겉넓이", concept: "겉넓이 = 2πr² + 2πrh", steps: [SolutionStep(hint: "밑넓이×2 + 옆넓이", work: "2π×\(f(radius))² + 2π×\(f(radius))×\(f(h))")], answer: piText(2 * radius * radius + 2 * radius * h)) }
-            return Solved(kind: .geometry, topic: "원기둥의 부피", concept: "부피 = πr²h", steps: [SolutionStep(hint: "밑넓이 × 높이", work: "π×\(f(radius))²×\(f(h))")], answer: piText(radius * radius * h))
+            if has(t, ["겉넓이"]) { return Solved(kind: .geometry, topic: "원기둥의 겉넓이", concept: "겉넓이 = 2πr² + 2πrh", steps: step("밑넓이×2 + 옆넓이", "2π×\(f(radius))² + 2π×\(f(radius))×\(f(h))"), answer: piText(2 * radius * radius + 2 * radius * h)) }
+            return Solved(kind: .geometry, topic: "원기둥의 부피", concept: "부피 = 밑넓이 × 높이 = πr²h", steps: step("밑넓이 × 높이", "π×\(f(radius))²×\(f(h))"), answer: piText(radius * radius * h))
         }
         if has(t, ["원뿔"]), v.count >= 2 {
             let h = v[1]
-            return Solved(kind: .geometry, topic: "원뿔의 부피", concept: "부피 = (1/3)πr²h", steps: [SolutionStep(hint: "(1/3) × 밑넓이 × 높이", work: "(1/3)π×\(f(radius))²×\(f(h))")], answer: piText(radius * radius * h / 3))
+            return Solved(kind: .geometry, topic: "원뿔의 부피", concept: "부피 = (1/3)πr²h", steps: step("(1/3) × 밑넓이 × 높이", "(1/3)π×\(f(radius))²×\(f(h))"), answer: piText(radius * radius * h / 3))
         }
         if has(t, ["빗변", "피타고라스"]), v.count >= 2 {
             let a = v[0], b = v[1]
@@ -753,55 +849,74 @@ enum DoitMathTopics {
                 let hyp = max(a, b), leg = min(a, b)
                 let other = hyp * hyp - leg * leg
                 return Solved(kind: .geometry, topic: "피타고라스 정리", concept: "직각삼각형에서 a² + b² = c² (c는 빗변)",
-                              steps: [SolutionStep(hint: "c² − a²", work: "\(f(hyp))² − \(f(leg))² = \(f(other))")], answer: DoitAlgebra.sqrtText(other))
+                              steps: [SolutionStep(hint: "c² − a²", work: "\(f(hyp))² − \(f(leg))² = \(f(other))"), SolutionStep(hint: "제곱근", work: "√\(f(other)) = \(DoitAlgebra.sqrtText(other))")], answer: DoitAlgebra.sqrtText(other))
             }
             let c2 = a * a + b * b
             return Solved(kind: .geometry, topic: "피타고라스 정리", concept: "직각삼각형에서 a² + b² = c² (c는 빗변)",
-                          steps: [SolutionStep(hint: "a² + b²", work: "\(f(a))² + \(f(b))² = \(f(c2))")], answer: "빗변 " + DoitAlgebra.sqrtText(c2))
+                          steps: [SolutionStep(hint: "a² + b²", work: "\(f(a))² + \(f(b))² = \(f(c2))"), SolutionStep(hint: "제곱근", work: "√\(f(c2)) = \(DoitAlgebra.sqrtText(c2))")], answer: "빗변 " + DoitAlgebra.sqrtText(c2))
         }
         if has(t, ["정삼각형"]) && has(t, ["넓이", "높이"]) {
             let a = v[0]
-            if has(t, ["높이"]) && !has(t, ["넓이"]) { return Solved(kind: .geometry, topic: "정삼각형의 높이", concept: "높이 = (√3/2)a", steps: [], answer: "\(f(a / 2))√3") }
-            return Solved(kind: .geometry, topic: "정삼각형의 넓이", concept: "넓이 = (√3/4)a²", steps: [SolutionStep(hint: "(√3/4) × \(f(a))²", work: "")], answer: "\(f(a * a / 4))√3 (≈ \(DoitMath.format(a * a * 3.squareRoot() / 4, digits: 6)))")
+            if has(t, ["높이"]) && !has(t, ["넓이"]) { return Solved(kind: .geometry, topic: "정삼각형의 높이", concept: "높이 = (√3/2)a", steps: step("(√3/2) × \(f(a))", "\(f(a / 2))√3"), answer: "\(f(a / 2))√3") }
+            return Solved(kind: .geometry, topic: "정삼각형의 넓이", concept: "넓이 = (√3/4)a²", steps: step("(√3/4) × \(f(a))²", "\(f(a * a / 4))√3"), answer: "\(f(a * a / 4))√3 (≈ \(DoitMath.format(a * a * 3.squareRoot() / 4, digits: 6)))")
         }
-        if has(t, ["삼각형"]) && has(t, ["넓이"]) && v.count >= 2 && !has(t, ["("]) {
-            return Solved(kind: .geometry, topic: "삼각형의 넓이", concept: "삼각형의 넓이 = 밑변 × 높이 ÷ 2", steps: [SolutionStep(hint: "\(f(v[0])) × \(f(v[1])) ÷ 2", work: "")], answer: f(v[0] * v[1] / 2))
+        if has(t, ["삼각형"]) && !has(t, ["정삼각형", "직각삼각형"]) && has(t, ["넓이"]) && v.count == 2 && !has(t, ["("]) {
+            return Solved(kind: .geometry, topic: "삼각형의 넓이", concept: "삼각형의 넓이 = 밑변 × 높이 ÷ 2", steps: step("\(f(v[0])) × \(f(v[1])) ÷ 2", f(v[0] * v[1] / 2)), answer: f(v[0] * v[1] / 2))
         }
-        if has(t, ["사다리꼴"]) && v.count >= 3 {
-            return Solved(kind: .geometry, topic: "사다리꼴의 넓이", concept: "(윗변 + 아랫변) × 높이 ÷ 2", steps: [SolutionStep(hint: "(\(f(v[0])) + \(f(v[1]))) × \(f(v[2])) ÷ 2", work: "")], answer: f((v[0] + v[1]) * v[2] / 2))
+        if has(t, ["사다리꼴"]) && v.count == 3 {
+            return Solved(kind: .geometry, topic: "사다리꼴의 넓이", concept: "(윗변 + 아랫변) × 높이 ÷ 2", steps: step("(\(f(v[0])) + \(f(v[1]))) × \(f(v[2])) ÷ 2", f((v[0] + v[1]) * v[2] / 2)), answer: f((v[0] + v[1]) * v[2] / 2))
         }
-        if has(t, ["마름모"]) && v.count >= 2 {
-            return Solved(kind: .geometry, topic: "마름모의 넓이", concept: "두 대각선의 곱 ÷ 2", steps: [], answer: f(v[0] * v[1] / 2))
+        if has(t, ["마름모"]) && v.count == 2 {
+            return Solved(kind: .geometry, topic: "마름모의 넓이", concept: "두 대각선의 곱 ÷ 2", steps: step("\(f(v[0])) × \(f(v[1])) ÷ 2", f(v[0] * v[1] / 2)), answer: f(v[0] * v[1] / 2))
         }
-        if has(t, ["직육면체"]) && v.count >= 3 {
-            if has(t, ["겉넓이"]) { return Solved(kind: .geometry, topic: "직육면체의 겉넓이", concept: "2(ab + bc + ca)", steps: [], answer: f(2 * (v[0] * v[1] + v[1] * v[2] + v[2] * v[0]))) }
-            return Solved(kind: .geometry, topic: "직육면체의 부피", concept: "가로 × 세로 × 높이", steps: [], answer: f(v[0] * v[1] * v[2]))
+        if has(t, ["평행사변형"]) && has(t, ["넓이"]) && v.count == 2 {
+            return Solved(kind: .geometry, topic: "평행사변형의 넓이", concept: "밑변 × 높이", steps: step("\(f(v[0])) × \(f(v[1]))", f(v[0] * v[1])), answer: f(v[0] * v[1]))
         }
-        if has(t, ["정육면체"]) {
-            if has(t, ["겉넓이"]) { return Solved(kind: .geometry, topic: "정육면체의 겉넓이", concept: "6a²", steps: [], answer: f(6 * r * r)) }
-            return Solved(kind: .geometry, topic: "정육면체의 부피", concept: "a³", steps: [], answer: f(r * r * r))
-        }
-        if has(t, ["직사각형"]) && v.count >= 2 {
-            if has(t, ["둘레"]) { return Solved(kind: .geometry, topic: "직사각형의 둘레", concept: "2 × (가로 + 세로)", steps: [], answer: f(2 * (v[0] + v[1]))) }
-            return Solved(kind: .geometry, topic: "직사각형의 넓이", concept: "가로 × 세로", steps: [], answer: f(v[0] * v[1]))
-        }
-        if has(t, ["정사각형"]) {
-            if has(t, ["대각선"]) { return Solved(kind: .geometry, topic: "정사각형의 대각선", concept: "한 변이 a일 때 대각선 = √2 a", steps: [], answer: "\(f(r))√2") }
-            if has(t, ["둘레"]) { return Solved(kind: .geometry, topic: "정사각형의 둘레", concept: "4a", steps: [], answer: f(4 * r)) }
-            return Solved(kind: .geometry, topic: "정사각형의 넓이", concept: "a²", steps: [], answer: f(r * r))
-        }
-        if let m = t.firstMatch(of: #/(?:정)?(\d+)\s*각형/#), let n = Int(String(m.1)), n >= 3 {
-            if has(t, ["대각선"]) {
-                return Solved(kind: .geometry, topic: "다각형의 대각선 개수", concept: "n각형의 대각선 개수 = n(n − 3)/2", steps: [SolutionStep(hint: "\(n)(\(n) − 3)/2", work: "")], answer: "\(n * (n - 3) / 2)개")
+        if has(t, ["직육면체"]) && v.count == 3 {
+            if has(t, ["겉넓이"]) {
+                let area = 2 * (v[0] * v[1] + v[1] * v[2] + v[2] * v[0])
+                return Solved(kind: .geometry, topic: "직육면체의 겉넓이", concept: "2(ab + bc + ca) (서로 다른 세 면의 넓이의 합 × 2)", steps: step("2 × (\(f(v[0]))×\(f(v[1])) + \(f(v[1]))×\(f(v[2])) + \(f(v[2]))×\(f(v[0])))", f(area)), answer: f(area))
             }
-            if has(t, ["내각의 합", "내각의합"]) {
-                return Solved(kind: .geometry, topic: "다각형의 내각의 합", concept: "n각형의 내각의 합 = 180° × (n − 2)", steps: [SolutionStep(hint: "180° × (\(n) − 2)", work: "")], answer: "\(180 * (n - 2))°")
+            return Solved(kind: .geometry, topic: "직육면체의 부피", concept: "가로 × 세로 × 높이", steps: step("\(f(v[0])) × \(f(v[1])) × \(f(v[2]))", f(v[0] * v[1] * v[2])), answer: f(v[0] * v[1] * v[2]))
+        }
+        if has(t, ["정육면체"]) && v.count == 1 {
+            if has(t, ["겉넓이"]) { return Solved(kind: .geometry, topic: "정육면체의 겉넓이", concept: "한 면의 넓이 × 6 = 6a²", steps: step("\(f(r)) × \(f(r)) × 6", f(6 * r * r)), answer: f(6 * r * r)) }
+            return Solved(kind: .geometry, topic: "정육면체의 부피", concept: "a³", steps: step("\(f(r)) × \(f(r)) × \(f(r))", f(r * r * r)), answer: f(r * r * r))
+        }
+        if has(t, ["직사각형"]) && v.count == 2 {
+            if has(t, ["대각선"]) { let d2 = v[0] * v[0] + v[1] * v[1]; return Solved(kind: .geometry, topic: "직사각형의 대각선", concept: "대각선 = √(가로² + 세로²)", steps: step("√(\(f(v[0]))² + \(f(v[1]))²)", "√\(f(d2))"), answer: DoitAlgebra.sqrtText(d2)) }
+            if has(t, ["둘레"]) { return Solved(kind: .geometry, topic: "직사각형의 둘레", concept: "2 × (가로 + 세로)", steps: step("2 × (\(f(v[0])) + \(f(v[1])))", f(2 * (v[0] + v[1]))), answer: f(2 * (v[0] + v[1]))) }
+            return Solved(kind: .geometry, topic: "직사각형의 넓이", concept: "가로 × 세로", steps: step("\(f(v[0])) × \(f(v[1]))", f(v[0] * v[1])), answer: f(v[0] * v[1]))
+        }
+        if has(t, ["정사각형"]) && v.count == 1 && !has(t, ["넓이가", "둘레가", "둘레의 길이가"]) {
+            if has(t, ["대각선"]) { return Solved(kind: .geometry, topic: "정사각형의 대각선", concept: "한 변이 a일 때 대각선 = √2 a", steps: step("√(\(f(r))² + \(f(r))²)", "√\(f(2 * r * r))"), answer: "\(f(r))√2") }
+            if has(t, ["둘레"]) { return Solved(kind: .geometry, topic: "정사각형의 둘레", concept: "4a", steps: step("4 × \(f(r))", f(4 * r)), answer: f(4 * r)) }
+            return Solved(kind: .geometry, topic: "정사각형의 넓이", concept: "a²", steps: step("\(f(r)) × \(f(r))", f(r * r)), answer: f(r * r))
+        }
+        return polygon(polygonText, t)
+    }
+
+    /// n각형의 대각선 개수, 내각의 합, 정다각형의 한 내각·외각
+    private static func polygon(_ polygonText: String, _ t: String) -> Solved? {
+        func step(_ hint: String, _ work: String) -> [SolutionStep] { [SolutionStep(hint: hint, work: work)] }
+        if let m = polygonText.firstMatch(of: #/(정)?(\d+)\s*각형/#), let n = Int(String(m.2)), n >= 3 {
+            let regular = m.1 != nil
+            if has(t, ["대각선"]) && !has(t, ["대각선의 길이", "대각선 길이"]) {
+                return Solved(kind: .geometry, topic: "다각형의 대각선 개수", concept: "n각형의 대각선 개수 = n(n − 3)/2", steps: step("\(n)(\(n) − 3)/2", "\(n * (n - 3) / 2)"), answer: "\(n * (n - 3) / 2)개")
             }
-            if has(t, ["한 내각", "내각의 크기"]) {
-                return Solved(kind: .geometry, topic: "정다각형의 한 내각", concept: "정n각형의 한 내각 = 180° × (n − 2) / n", steps: [], answer: "\(f(Double(180 * (n - 2)) / Double(n)))°")
+            if has(t, ["내각"]) && has(t, ["합"]) {
+                return Solved(kind: .geometry, topic: "다각형의 내각의 합", concept: "n각형의 내각의 합 = 180° × (n − 2)", steps: step("180° × (\(n) − 2)", "\(180 * (n - 2))°"), answer: "\(180 * (n - 2))°")
             }
-            if has(t, ["외각"]) {
-                return Solved(kind: .geometry, topic: "정다각형의 한 외각", concept: "외각의 합은 항상 360°, 정n각형의 한 외각 = 360°/n", steps: [], answer: "\(f(360 / Double(n)))°")
+            if has(t, ["외각"]) && has(t, ["합"]) {
+                return Solved(kind: .geometry, topic: "다각형의 외각의 합", concept: "다각형의 외각의 합은 항상 360°", steps: step("외각의 합", "360°"), answer: "360°")
+            }
+            if regular && has(t, ["한 내각", "내각의 크기"]) {
+                let one = Double(180 * (n - 2)) / Double(n)
+                return Solved(kind: .geometry, topic: "정다각형의 한 내각", concept: "정n각형의 한 내각 = 180° × (n − 2) / n",
+                              steps: [SolutionStep(hint: "내각의 합 = 180° × (\(n) − 2)", work: "\(180 * (n - 2))°"), SolutionStep(hint: "\(n)으로 나누면", work: "\(f(one))°")], answer: "\(f(one))°")
+            }
+            if regular && has(t, ["외각"]) {
+                return Solved(kind: .geometry, topic: "정다각형의 한 외각", concept: "외각의 합은 항상 360°, 정n각형의 한 외각 = 360°/n", steps: step("360° ÷ \(n)", "\(f(360 / Double(n)))°"), answer: "\(f(360 / Double(n)))°")
             }
         }
         return nil
@@ -840,6 +955,37 @@ enum DoitMathTopics {
             a1 = x1
             if abs((x2 - x1) - (x3 - x2)) < 1e-12 { d = x2 - x1 }
             else if x1 != 0, x2 != 0, abs(x2 / x1 - x3 / x2) < 1e-12 { r = x2 / x1 }
+        }
+        // 일반항: aₙ = dn + (a − d), aₙ = a·rⁿ⁻¹
+        if let a = a1, nth == nil, has(t, ["일반항"]) {
+            if let d {
+                var general = DoitMath.Poly(); general.c[1] = d; general.c[0] = a - d
+                let formula = "aₙ = " + DoitMath.describe(general).replacingOccurrences(of: "x", with: "n")
+                return Solved(kind: .sequence, topic: "등차수열의 일반항", concept: "첫째항 a, 공차 d인 등차수열: aₙ = a + (n − 1)d",
+                              steps: [SolutionStep(hint: "aₙ = a + (n − 1)d 에 넣으면", work: "\(f(a)) + (n − 1) × \(f(d))"), SolutionStep(hint: "정리하면", work: formula)], answer: formula)
+            }
+            if let r {
+                let formula = "aₙ = \(f(a) == "1" ? "" : f(a) + " × ")\(r < 0 ? "(\(f(r)))" : f(r))ⁿ⁻¹"
+                return Solved(kind: .sequence, topic: "등비수열의 일반항", concept: "첫째항 a, 공비 r인 등비수열: aₙ = arⁿ⁻¹",
+                              steps: [SolutionStep(hint: "aₙ = arⁿ⁻¹ 에 넣으면", work: formula)], answer: formula)
+            }
+        }
+        // "50은 제몇 항인가?"
+        if let a = a1, let m = t.firstMatch(of: #/(-?\d+(?:\.\d+)?)\s*(?:은|는|이|가)\s*제\s*몇\s*(?:번째\s*)?항/#), let target = Double(String(m.1)) {
+            if let d, d != 0 {
+                let k = (target - a) / d + 1
+                guard k >= 1, abs(k - k.rounded()) < 1e-9 else { return nil }
+                return Solved(kind: .sequence, topic: "등차수열", concept: "aₙ = a + (n − 1)d 에 값을 넣어 n을 구해요.",
+                              steps: [SolutionStep(hint: "aₙ = \(f(a)) + (n − 1) × \(f(d)) = \(f(target))", work: "n − 1 = \(f(k - 1))"), SolutionStep(hint: "n을 구하면", work: "n = \(Int(k.rounded()))")],
+                              answer: "제\(Int(k.rounded()))항")
+            }
+            if let r, abs(r) > 1, a != 0 {
+                var value = a, k = 1
+                while abs(value) < abs(target) - 1e-9 && k < 200 { value *= r; k += 1 }
+                guard abs(value - target) < 1e-9 else { return nil }
+                return Solved(kind: .sequence, topic: "등비수열", concept: "aₙ = arⁿ⁻¹ 에 값을 넣어 n을 구해요.",
+                              steps: [SolutionStep(hint: "\(f(a)) × \(f(r))ⁿ⁻¹ = \(f(target))", work: "\(f(r))ⁿ⁻¹ = \(f(target / a)) → n = \(k)")], answer: "제\(k)항")
+            }
         }
         guard let a = a1, let n = nth, n >= 1, n <= 10000 else { return nil }
         if let d {

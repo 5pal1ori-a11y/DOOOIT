@@ -762,6 +762,36 @@ enum DoitAlgebra {
         }
         guard let solution = total, count > 0 else { return nil }
         if count > 1 { steps.append(SolutionStep(hint: "각 부등식의 해의 공통 범위는?", work: intervalText(solution))) }
+        // 정수(자연수) x의 개수·합·가장 큰 값
+        if has(normalized, ["정수", "자연수"]), has(normalized, ["개수", "몇 개", "합", "가장 큰", "가장 작은", "최댓값", "최솟값", "모두 구", "모두 쓰"]) {
+            let natural = has(normalized, ["자연수"])
+            var integers: [Int] = []
+            for i in solution {
+                guard i.low.isFinite || natural, i.high.isFinite, i.high - (i.low.isFinite ? i.low : 0) <= 5000 else { integers = []; break }
+                var k = Int(max(i.low.isFinite ? i.low : 1, natural ? 1 : -1e9).rounded(.up))
+                while Double(k) <= i.high && integers.count < 10000 {
+                    let inside = (Double(k) > i.low || (i.lowIn && abs(Double(k) - i.low) < 1e-12)) && (Double(k) < i.high || (i.highIn && abs(Double(k) - i.high) < 1e-12))
+                    if inside && (!natural || k >= 1) && !integers.contains(k) { integers.append(k) }
+                    k += 1
+                }
+            }
+            let bounded = solution.allSatisfy { $0.high.isFinite && ($0.low.isFinite || natural) && $0.high - ($0.low.isFinite ? $0.low : 0) <= 5000 }
+            if bounded {
+                integers.sort()
+                let label = natural ? "자연수" : "정수"
+                steps.append(SolutionStep(hint: "범위 안의 \(label) x", work: integers.isEmpty ? "없어요" : integers.map(String.init).joined(separator: ", ")))
+                var answer: String?
+                if has(normalized, ["개수", "몇 개"]) { answer = "\(integers.count)개" }
+                else if has(normalized, ["모두 구", "모두 쓰"]) { answer = integers.isEmpty ? "없어요" : integers.map(String.init).joined(separator: ", ") }
+                else if has(normalized, ["합"]) { answer = "\(integers.reduce(0, +))" }
+                else if has(normalized, ["가장 큰", "최댓값"]), let top = integers.last { answer = "\(top)" }
+                else if has(normalized, ["가장 작은", "최솟값"]), let low = integers.first { answer = "\(low)" }
+                if let answer {
+                    return MathSolver.Solved(kind: .inequality, topic: "부등식을 만족하는 \(label)", concept: "부등식의 해를 구한 뒤, 그 범위에 들어가는 \(label)를 세어요. 경계값이 포함되는지(≤, <) 꼭 확인해요.",
+                                             steps: steps, answer: answer)
+                }
+            }
+        }
         return MathSolver.Solved(kind: .inequality, topic: count > 1 ? "연립부등식" : "부등식",
                                  concept: "이차 이상 부등식은 f(x) = 0 의 근을 기준으로 구간을 나누고, 각 구간에서 f(x)의 부호를 확인해요. 음수를 곱하거나 나누면 부등호 방향이 바뀌어요.",
                                  steps: steps, answer: intervalText(solution))
@@ -953,16 +983,34 @@ enum DoitAlgebra {
     private static func number(_ s: Substring) -> Double? { Double(String(s).replacingOccurrences(of: " ", with: "")) }
 
     static func solveCalculus(_ text: String) -> MathSolver.Solved? {
-        let t = normalize(text)
+        var t = normalize(text)
+        // ∫₀², ∫_1^3, ∫_{1}^{3} → 구간 [a, b]로 (식을 읽을 때 위끝·아래끝이 섞이지 않게)
+        let subscripts: [Character: Character] = ["₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9", "₋": "-"]
+        if t.contains("∫") {
+            var plain = ""
+            var inSub = false
+            for ch in t {
+                if let d = subscripts[ch] { if !inSub { plain.append("_"); inSub = true }; plain.append(d) } else { inSub = false; plain.append(ch) }
+            }
+            t = plain
+            if let m = t.firstMatch(of: #/∫\s*_\s*\{?\s*(-?\d+(?:\.\d+)?)\s*\}?\s*\^\s*\{?\s*(-?\d+(?:\.\d+)?)\s*\}?/#) {
+                t = t.replacingOccurrences(of: String(m.0), with: " 구간 [\(m.1), \(m.2)] ∫ ")
+            } else if t.range(of: #"∫\s*[_^]"#, options: .regularExpression) != nil {
+                return nil
+            }
+        }
+        // 곡선과 x축으로 둘러싸인 넓이
+        if has(t, ["둘러싸인"]), has(t, ["x축"]), has(t, ["넓이"]) { return enclosedArea(t) }
         let wantsIntegral = has(t, ["적분", "∫", "넓이를 구", "부정적분", "정적분"])
-        let wantsDerivative = has(t, ["미분", "도함수", "접선", "f'(", "증가", "감소", "극대", "극소", "극값"])
+        let wantsDerivative = has(t, ["미분", "도함수", "접선", "f'(", "증가", "감소", "극대", "극소", "극값", "극댓값", "극솟값"])
         guard wantsIntegral || wantsDerivative, let poly = calculusTarget(t), poly.degree >= 1 || wantsIntegral else { return nil }
         let fText = DoitMath.describe(poly)
 
         if wantsIntegral {
             guard let F = integrate(poly) else { return nil }
             var bounds: (Double, Double)?
-            if let m = t.firstMatch(of: #/(-?\d+(?:\.\d+)?)\s*(?:부터|에서)\s*(-?\d+(?:\.\d+)?)\s*까지/#), let a = number(m.1), let b = number(m.2) { bounds = (a, b) }
+            if let m = t.firstMatch(of: #/구간\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/#), let a = number(m.1), let b = number(m.2) { bounds = (a, b) }
+            else if let m = t.firstMatch(of: #/(-?\d+(?:\.\d+)?)\s*(?:부터|에서)\s*(-?\d+(?:\.\d+)?)\s*까지/#), let a = number(m.1), let b = number(m.2) { bounds = (a, b) }
             else if let m = t.firstMatch(of: #/\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/#), let a = number(m.1), let b = number(m.2) { bounds = (a, b) }
             var steps = [SolutionStep(hint: "xⁿ 을 적분하면 xⁿ⁺¹/(n+1)", work: "∫(\(fText))dx = \(DoitMath.describe(F)) + C")]
             if let (a, b) = bounds {
@@ -978,6 +1026,13 @@ enum DoitAlgebra {
         var point: Double?
         if let m = t.firstMatch(of: #/x\s*=\s*(-?\d+(?:\.\d+)?)\s*(?:에서|일 때|일때|인)/#) { point = number(m.1) }
         else if let m = t.firstMatch(of: #/f'\((-?\d+(?:\.\d+)?)\)/#) { point = number(m.1) }
+        else if has(t, ["접선"]) {
+            // "곡선 위의 점 (3, 3)에서의 접선": 점이 곡선 위에 있을 때만 (밖의 점에서 그은 접선은 여기서 풀지 않음)
+            let pts = DoitMathTopics.points(in: t)
+            guard pts.count == 1 else { return nil }
+            guard abs(DoitMath.value(poly, at: pts[0].x) - pts[0].y) < 1e-9 else { return nil }
+            point = pts[0].x
+        }
 
         if has(t, ["접선"]), let a = point {
             let slope = DoitMath.value(d, at: a), y0 = DoitMath.value(poly, at: a)
@@ -985,10 +1040,13 @@ enum DoitAlgebra {
             steps.append(SolutionStep(hint: "접선의 기울기는 f'(\(f(a)))", work: "f'(\(f(a))) = \(f(slope))"))
             let intercept = y0 - slope * a
             var line = Poly(); line.c[1] = slope; line.c[0] = intercept
+            if has(t, ["접선의 기울기"]) {
+                return MathSolver.Solved(kind: .derivative, topic: "접선의 기울기", concept: "x = a 에서의 접선의 기울기는 미분계수 f'(a)예요.", steps: steps, answer: f(slope))
+            }
             steps.append(SolutionStep(hint: "y − f(a) = f'(a)(x − a)", work: "y − (\(f(y0))) = \(f(slope))(x − (\(f(a))))"))
             return MathSolver.Solved(kind: .derivative, topic: "접선의 방정식", concept: "x = a 에서의 접선: y = f'(a)(x − a) + f(a)", steps: steps, answer: "y = \(DoitMath.describe(line))")
         }
-        if has(t, ["극대", "극소", "극값", "증가", "감소"]) {
+        if has(t, ["극대", "극소", "극값", "극댓값", "극솟값", "증가", "감소"]) {
             let critical = realRoots(d)
             steps.append(SolutionStep(hint: "f'(x) = 0 이 되는 x는?", work: critical.isEmpty ? "없어요" : critical.map(\.label).joined(separator: ", ")))
             var extrema: [String] = []
@@ -999,9 +1057,13 @@ enum DoitAlgebra {
             }
             let increasing = solveSign(d, op: ">").set, decreasing = solveSign(d, op: "<").set
             steps.append(SolutionStep(hint: "f'(x)의 부호로 증가·감소를 보면", work: "증가: \(intervalText(increasing)), 감소: \(intervalText(decreasing))"))
+            // 극댓값만(극솟값만) 물으면 그것만
+            var asked = extrema
+            if has(t, ["극댓값", "극대값"]) && !has(t, ["극솟값", "극소값"]) { asked = extrema.filter { $0.contains("극댓값") } }
+            if has(t, ["극솟값", "극소값"]) && !has(t, ["극댓값", "극대값"]) { asked = extrema.filter { $0.contains("극솟값") } }
             return MathSolver.Solved(kind: .derivative, topic: "함수의 증가·감소와 극값",
                                      concept: "f'(x) > 0 이면 증가, f'(x) < 0 이면 감소. f'(x)의 부호가 +에서 −로 바뀌면 극대, −에서 +로 바뀌면 극소예요.",
-                                     steps: steps, answer: extrema.isEmpty ? "극값이 없어요" : extrema.joined(separator: ", "))
+                                     steps: steps, answer: asked.isEmpty ? (extrema.isEmpty ? "극값이 없어요" : "\(has(t, ["극댓값"]) ? "극댓값" : "극솟값")이 없어요") : asked.joined(separator: ", "))
         }
         if let a = point {
             let value = DoitMath.value(d, at: a)
@@ -1009,6 +1071,37 @@ enum DoitAlgebra {
             return MathSolver.Solved(kind: .derivative, topic: "미분계수", concept: "x = a 에서의 미분계수 f'(a)는 그 점에서 접선의 기울기예요.", steps: steps, answer: f(value))
         }
         return MathSolver.Solved(kind: .derivative, topic: "도함수", concept: "(xⁿ)' = nxⁿ⁻¹, (상수)' = 0, 합의 미분은 각각 미분해서 더해요.", steps: steps, answer: "f'(x) = \(DoitMath.describe(d))")
+    }
+
+    /// 곡선 y = f(x)와 x축 (및 두 직선 x = a, x = b)으로 둘러싸인 부분의 넓이
+    private static func enclosedArea(_ t: String) -> MathSolver.Solved? {
+        var cleaned = t
+        var lo: Double?, hi: Double?
+        if let m = t.firstMatch(of: #/x\s*=\s*(-?\d+(?:\.\d+)?)\s*,\s*x\s*=\s*(-?\d+(?:\.\d+)?)/#), let a = number(m.1), let b = number(m.2) {
+            lo = min(a, b); hi = max(a, b)
+            cleaned = cleaned.replacingOccurrences(of: String(m.0), with: " ")
+        }
+        guard let poly = MathSolver.function(in: cleaned), poly.degree >= 1, let F = integrate(poly) else { return nil }
+        let roots = realRoots(poly).map(\.value)
+        if lo == nil {
+            guard roots.count >= 2 else { return nil }
+            lo = roots.first; hi = roots.last
+        }
+        guard let a = lo, let b = hi, a < b else { return nil }
+        let cuts = [a] + roots.filter { $0 > a + 1e-12 && $0 < b - 1e-12 } + [b]
+        var area = 0.0
+        var pieces: [String] = []
+        for k in 0..<(cuts.count - 1) {
+            let part = DoitMath.value(F, at: cuts[k + 1]) - DoitMath.value(F, at: cuts[k])
+            area += abs(part)
+            pieces.append("|∫ \(f(cuts[k]))~\(f(cuts[k + 1]))| = \(f(abs(part)))")
+        }
+        return MathSolver.Solved(kind: .integral, topic: "곡선과 x축 사이의 넓이",
+                                 concept: "넓이 = ∫ₐᵇ |f(x)| dx. f(x)의 부호가 바뀌는 곳(x축과 만나는 점)에서 나눠서 각각 절댓값을 더해요.",
+                                 steps: [SolutionStep(hint: "부정적분 F(x)", work: "\(DoitMath.describe(F)) + C"),
+                                         SolutionStep(hint: "구간 [\(f(a)), \(f(b))]에서 x축과 만나는 점으로 나누면", work: pieces.joined(separator: ", ")),
+                                         SolutionStep(hint: "모두 더하면", work: f(area))],
+                                 answer: f(area))
     }
 
     // MARK: - 함수 (함숫값, 합성함수, 역함수)

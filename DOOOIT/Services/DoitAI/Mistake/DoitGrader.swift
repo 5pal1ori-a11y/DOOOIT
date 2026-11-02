@@ -83,6 +83,8 @@ enum DoitGrader {
         let t = text.trimmingCharacters(in: .whitespaces)
         let map: [Character: Int] = ["①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5]
         if let first = t.first, let n = map[first], t.count <= 2 { return n }
+        // "④ 12"처럼 번호 뒤에 보기 내용이 붙은 답
+        if let first = t.first, let n = map[first], t.dropFirst().first?.isWhitespace == true { return n }
         let digits = t.replacingOccurrences(of: #"[()번\s.)]"#, with: "", options: .regularExpression)
         if let n = Int(digits), (1...max(5, choices.count)).contains(n), t.count <= 4 { return n }
         if let index = choices.firstIndex(where: { normalizeText($0) == normalizeText(t) }) { return index + 1 }

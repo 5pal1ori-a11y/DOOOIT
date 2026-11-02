@@ -94,7 +94,11 @@ enum DoitMath {
                 if abs(root - root.rounded()) < 1e-9 {
                     return Result(title: "이차방정식", steps: steps, answer: "x = \(fraction(min(x1, x2))) 또는 x = \(fraction(max(x1, x2)))")
                 }
-                let exact = "x = (\(format(-b)) ± √\(format(d))) / \(format(2 * a))"
+                var exact = "x = (\(format(-b)) ± √\(format(d))) / \(format(2 * a))"
+                if let simple = simplifiedRoots(a, b, d) {
+                    steps.append("근의 공식에 넣으면 \(exact) → 근호 안을 간단히 하고 약분하면")
+                    exact = "x = \(simple)"
+                }
                 return Result(title: "이차방정식", steps: steps,
                               answer: "\(exact)\n≈ \(format(min(x1, x2), digits: 4)), \(format(max(x1, x2), digits: 4))")
             }
@@ -109,6 +113,20 @@ enum DoitMath {
         default:
             return Result(title: "방정식", steps: steps, answer: "삼차 이상 방정식은 아직 풀 수 없어요. 인수분해할 수 있는지 먼저 살펴보세요.")
         }
+    }
+
+    /// (−b ± √D) / 2a 를 p ± q√m 꼴로 (a, b, D가 정수일 때). 예: (−4 ± √12)/2 → −2 ± √3
+    private static func simplifiedRoots(_ a: Double, _ b: Double, _ d: Double) -> String? {
+        guard [a, b, d].allSatisfy({ abs($0 - $0.rounded()) < 1e-9 && abs($0) < 1e9 }), d > 0 else { return nil }
+        let root = DoitAlgebra.simplifyRoot(Int(d.rounded()))
+        guard root.inside > 1 else { return nil }
+        var p = Int((-b).rounded()), q = root.outside, r = Int((2 * a).rounded())
+        if r < 0 { p = -p; r = -r }
+        let g = DoitAlgebra.gcd(DoitAlgebra.gcd(p, q), r)
+        p /= g; q /= g; r /= g
+        let radical = (q == 1 ? "" : String(q)) + "√\(root.inside)"
+        if r == 1 { return p == 0 ? "±\(radical)" : "\(p < 0 ? "−" : "")\(abs(p)) ± \(radical)" }
+        return p == 0 ? "±\(radical)/\(r)" : "(\(p < 0 ? "−" : "")\(abs(p)) ± \(radical))/\(r)"
     }
 
     // MARK: 다항식 (최고 4차까지)
