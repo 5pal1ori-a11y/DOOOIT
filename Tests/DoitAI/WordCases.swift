@@ -247,7 +247,12 @@ func runWordCases() {
 
     for (n, c) in cases.enumerated() {
         let got = wcFormat(WordParser.parse(c.lines))
-        check("단어 사진 \(n + 1). \(c.name)", got == c.expect, "결과 \(got)\n    기대 \(c.expect)")
+        // 뜻에는 품사 표시를 남기지 않음 (예전 기대값의 "n. 사과" → "사과")
+        let expect = c.expect.components(separatedBy: " | ").map { pair -> String in
+            guard let eq = pair.firstIndex(of: "=") else { return pair }
+            return String(pair[..<eq]) + "=" + WordParser.stripPartOfSpeech(String(pair[pair.index(after: eq)...]))
+        }.joined(separator: " | ")
+        check("단어 사진 \(n + 1). \(c.name)", got == expect, "결과 \(got)\n    기대 \(expect)")
     }
 
     // MARK: 확인 필요 (흐리게 읽힘·철자 교정)
@@ -263,3 +268,33 @@ func runWordCases() {
     let vertical = WordParser.parse(wcLines(["resilient", "회복력 있는", "abundant", "풍부한"], confidence: [0: 0.4]))
     check("단어 사진: 세로형 단어 줄 흐림", unsure(vertical) == "resilient=true | abundant=false", unsure(vertical))
 }
+
+// MARK: - 뜻에 섞인 품사 표시
+
+func runPartOfSpeechCases() {
+    let cases: [(String, String)] = [
+        ("명) 사과", "사과"),
+        ("명)사과, 능금", "사과, 능금"),
+        ("[동] 달리다, 운영하다", "달리다, 운영하다"),
+        ("(형) 행복한", "행복한"),
+        ("<부> 빨리", "빨리"),
+        ("가장 큰 명", "가장 큰"),
+        ("부사 빨리, 곧", "빨리, 곧"),
+        ("n. 사과", "사과"),
+        ("adj. 행복한 adv. 행복하게", "행복한 행복하게"),
+        ("명 순간 형 즉각적인", "순간 즉각적인"),
+        ("동 버리다, 포기하다", "버리다, 포기하다"),
+        ("명: 대륙", "대륙"),
+    ]
+    for (input, expected) in cases {
+        let out = WordParser.stripPartOfSpeech(input)
+        check("품사 지우기: \(input)", out == expected, out)
+    }
+    // 뜻인 한 글자는 남김
+    for keep in ["부, 재산", "명사", "동쪽", "형님", "대학", "전기", "감사하다", "자동차", "부사관"] {
+        check("품사 아님: \(keep)", WordParser.stripPartOfSpeech(keep) == keep, WordParser.stripPartOfSpeech(keep))
+    }
+    let parsed = WordParser.cleanMeaning("명) 가장 큰 것, 최대 부사")
+    check("cleanMeaning 품사 지움", parsed == "가장 큰 것, 최대", parsed)
+}
+

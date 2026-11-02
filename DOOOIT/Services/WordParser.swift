@@ -481,9 +481,33 @@ enum WordParser {
             .filter { !$0.isEmpty && !looksLikeKoreanSentence($0) && $0.range(of: "[가-힣A-Za-z]", options: .regularExpression) != nil }
             // 뜻에 한글이 있으면, 영어만 있는 쉼표 칸은 유의어 (품사 표시 n. 같은 건 남김)
             .filter { !hasKorean || $0.range(of: "[가-힣]", options: .regularExpression) != nil || isPOS($0) }
-        t = parts.joined(separator: ", ")
+        t = stripPartOfSpeech(parts.joined(separator: ", "))
         t = t.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
         return t.trimmingCharacters(in: CharacterSet(charactersIn: " ,/;:.|=-："))
+    }
+
+    /// 뜻에 섞인 품사 표시 지우기: "명) 사과", "[동] 달리다", "가장 큰 명", "부사 빨리", "n. 사과"
+    /// 괄호 없는 한 글자(명·부…)는 같은 칸에 다른 말이 있을 때만 지움 ("부, 재산"의 '부'는 뜻일 수 있음)
+    static func stripPartOfSpeech(_ meaning: String) -> String {
+        let fullWords = #"(명사|동사|형용사|부사|전치사|접속사|대명사|감탄사|조동사|관사|자동사|타동사)"#
+        let short = #"(명|동|형|부|전|접|대|감|자|타|자동|타동)"#
+        let parts = meaning.components(separatedBy: ",").map { raw -> String in
+            var part = raw
+            // 괄호·점이 붙은 품사는 어디 있든 지움: (명) [동] <형> 명) 부. 명:
+            part = part.replacingOccurrences(of: "[\\(\\[<{]\\s*(\(fullWords)|\(short))\\s*([\\)\\]>}]|(?=\\s))", with: " ", options: .regularExpression)
+            part = part.replacingOccurrences(of: "(?<![가-힣])(\(fullWords)|\(short))[\\)\\]>.:](?![가-힣])|(?<![가-힣])(\(fullWords)|\(short))[\\)\\]>](?=[가-힣])", with: " ", options: .regularExpression)
+            // 영어 품사 표시 n. v. adj. …
+            part = part.replacingOccurrences(of: #"(?i)(?<![A-Za-z])\(?(n|v|vt|vi|a|adj|adv|ad|prep|conj|pron|int)\.\)?(?![A-Za-z])"#, with: " ", options: .regularExpression)
+            // 품사 이름 낱말 (명사·부사 …)이 따로 떨어져 있으면
+            var tokens = part.split(separator: " ").map(String.init)
+            if tokens.count > 1 { tokens.removeAll { $0.range(of: "^\(fullWords)$", options: .regularExpression) != nil } }
+            // 괄호 없는 한 글자 품사: 다른 말과 같이 있을 때만
+            if tokens.count > 1 {
+                tokens.removeAll { $0.range(of: "^\(short)$", options: .regularExpression) != nil }
+            }
+            return tokens.joined(separator: " ").trimmingCharacters(in: .whitespaces)
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
     /// "사과 ② 능금", "명 ① 은행 ② 둑", "달리다 2. 운영하다" → 뜻 번호를 쉼표로 (맨 앞 번호는 지움)
