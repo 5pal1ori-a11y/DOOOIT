@@ -136,12 +136,7 @@ struct PlanEditorView: View {
                         }
                         Toggle(isOn: lockBinding) {
                             Label {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("다른 앱 잠금")
-                                    Text("공부 시간 동안 DOOOIT 말고 다른 앱을 잠가요")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
+                                Text("다른 앱 잠금")
                             } icon: {
                                 Image(systemName: "lock.fill")
                             }
@@ -150,9 +145,9 @@ struct PlanEditorView: View {
                         Text("공부 설정")
                     } footer: {
                         if lockApps {
-                            Text("\(startTime.kr("a h:mm"))부터 \(endTime.kr("a h:mm"))까지 다른 앱이 잠기고, 끝나면 자동으로 풀려요. 중간에 타이머를 끝내면 잠금도 함께 해제돼요.")
+                            Text("\(startTime.kr("a h:mm")) ~ \(endTime.kr("a h:mm")) 잠금")
                         } else {
-                            Text("시작 \(leadMinutes)분 전에 다이나믹 아일랜드로 알려드리고, 시간이 되면 공부 타이머가 자동으로 시작돼요.")
+                            Text("\(leadMinutes)분 전 알림 · 타이머 자동 시작")
                         }
                     }
                 } else {
@@ -399,9 +394,6 @@ struct TimePickerSheet: View {
                     .datePickerStyle(.wheel)
                     .labelsHidden()
                     .environment(\.locale, Locale(identifier: "ko_KR"))
-                Text("돌려서 고른 뒤 완료를 누르면 시간이 설정돼요.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
             .padding(.horizontal)
             .navigationTitle(title)

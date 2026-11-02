@@ -112,9 +112,6 @@ struct UnitStudyView: View {
                     .id(step)
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                             removal: .move(edge: .leading).combined(with: .opacity)))
-                    Text("교육과정 자료로 만들고 단원·근거·정답을 검증한 내용만 보여줘요. 교과서와 함께 확인하세요.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(20)
                 .padding(.bottom, 40)
@@ -826,7 +823,7 @@ struct WeakStepView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("틀렸던 문제를 다시 확인해요").font(.headline)
             if items.isEmpty {
-                Label("아직 틀린 문제가 없어요. 빈칸·O/X·문제 단계를 먼저 풀어보세요.", systemImage: "checkmark.seal")
+                Label("아직 틀린 문제가 없어요", systemImage: "checkmark.seal")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

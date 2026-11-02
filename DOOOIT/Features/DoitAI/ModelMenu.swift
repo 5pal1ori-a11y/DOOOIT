@@ -170,7 +170,7 @@ struct LearnedNotesSheet: View {
                         reload()
                     }
                 } footer: {
-                    Text("배운 내용은 계정마다 따로, 이 기기에만 저장돼요. 다음에 비슷한 질문을 받으면 이 내용을 근거로 답해요.\n\nDOOOIT 1·2는 Apache-2.0 라이선스의 오픈소스 언어 모델을 바탕으로 해요.")
+                    Text("이 기기에만 저장돼요 · DOOOIT 1·2는 Apache-2.0 오픈소스 모델 기반")
                 }
             }
             .navigationTitle("배운 내용")

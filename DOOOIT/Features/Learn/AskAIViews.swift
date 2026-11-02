@@ -95,7 +95,7 @@ struct AskAIComposer: View {
                     }
                     .buttonStyle(.borderless)
                 } footer: {
-                    Text("사진 속 문제·글자·그래프를 두잇 AI가 읽고 답해요. AI 답은 틀릴 수 있어요.")
+                    Text("AI 답은 틀릴 수 있어요")
                 }
             }
             .navigationTitle("새 질문")
@@ -211,7 +211,7 @@ struct AIQuestionDetailView: View {
                     }
                 }
 
-                Text("AI 답변은 틀릴 수 있어요. 중요한 내용은 교과서나 선생님께 꼭 확인하세요.")
+                Text("AI 답은 틀릴 수 있어요")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }

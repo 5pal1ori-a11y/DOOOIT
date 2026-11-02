@@ -393,7 +393,7 @@ struct TimerAccessoryView: View {
         if let next = plans.occurrences(on: now).first(where: { $0.plan.isStudy && !$0.plan.isAllDay && $0.start > now }) {
             return "다음: \(next.plan.title) \(next.start.kr("a h:mm"))"
         }
-        return "타이머를 눌러 집중 시간을 기록하세요"
+        return "탭해서 시작"
     }
 }
 
@@ -436,9 +436,6 @@ struct AmbientSoundSheet: View {
                     }
                     .padding(.horizontal, 4)
 
-                    Text("다시 누르면 꺼져요. 공부를 마치면 자동으로 꺼지고, 화면을 꺼도 계속 들려요.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
                 .padding(20)
             }

@@ -80,8 +80,6 @@ struct AccountView: View {
                     Toggle(isOn: $autoStartTimer) { item("타이머 자동 시작", "timer", Palette.success) }
                 } header: {
                     Text("알림 · 타이머")
-                } footer: {
-                    Text("공부 일정이 시작되면 타이머가 자동으로 켜져요.")
                 }
 
                 Section("앱") {

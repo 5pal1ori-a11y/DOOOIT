@@ -85,10 +85,6 @@ struct DoitAIView: View {
                 Text("무엇을 도와드릴까요?")
                     .font(.title2.weight(.bold))
                     .foregroundStyle(Palette.ink)
-                Text("두잇 AI로 공부 계획부터 문제 풀이까지 편하게 물어보세요.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
             }
             ModelDownloadCard()
                 .padding(.top, 8)

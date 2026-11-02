@@ -22,7 +22,7 @@ struct CategoryManagerView: View {
             } header: {
                 Text("공부 과목")
             } footer: {
-                Text("공부 플랜에서 고르는 과목이에요. 공부 시간 통계도 과목별로 모여요.")
+                Text("통계가 과목별로 모여요")
             }
 
             Section {
@@ -33,7 +33,7 @@ struct CategoryManagerView: View {
             } header: {
                 Text("일반 카테고리")
             } footer: {
-                Text("약속, 개인 일정처럼 알림만 받는 일반 플랜에 쓰여요.")
+                Text("약속·개인 일정용")
             }
         }
         .navigationTitle("카테고리")
