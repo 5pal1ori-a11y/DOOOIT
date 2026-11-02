@@ -64,7 +64,7 @@ enum OCRService {
                             chosen = candidates.filter { $0.confidence >= best.confidence - 0.15 }
                                 .min { mathPenalty($0.string) < mathPenalty($1.string) } ?? best
                         }
-                        return OCRLine(text: chosen.string, confidence: max(chosen.confidence, best.confidence * 0.9), box: observation.boundingBox)
+                        return OCRLine(text: chosen.string, confidence: adjustedConfidence(chosen.string, max(chosen.confidence, best.confidence * 0.9)), box: observation.boundingBox)
                     }
                     continuation.resume(returning: lines)
                 } catch {
@@ -448,7 +448,7 @@ enum OCRService {
             }
             let text = String(result).replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespaces)
-            return OCRLine(text: text, confidence: best.confidence, box: observation.boundingBox)
+            return OCRLine(text: text, confidence: adjustedConfidence(text, best.confidence), box: observation.boundingBox)
         }
         return lines.compactMap { $0 }
     }

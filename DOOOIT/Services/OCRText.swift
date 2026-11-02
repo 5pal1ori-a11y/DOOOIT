@@ -35,12 +35,34 @@ extension OCRService {
         }
     }
 
-    /// 검은 글자만 읽은 결과가 원래보다 확실히 적으면 (얇은 글씨가 지워진 경우) 원래 결과 사용
+    /// Vision은 ①~⑤가 든 줄의 신뢰도를 글자가 멀쩡해도 늘 낮게(0.3) 줌 (사진 테스트에서 확인).
+    /// 그대로 두면 printedText가 손글씨로 보고 보기 줄을 통째로 버림 → 보기 번호가 든 줄은 올려 줌
+    static func adjustedConfidence(_ text: String, _ confidence: Float) -> Float {
+        text.contains(where: { "①②③④⑤⑥⑦⑧⑨⑩".contains($0) }) ? max(confidence, 0.6) : confidence
+    }
+
+    /// 검은 글자만 읽은 결과가 원래보다 확실히 적으면 (얇은 글씨가 지워진 경우) 원래 결과 사용.
+    /// 검은 글자만 남기면 기울어진 가는 x가 지워져 "x2"가 "22"가 되기도 해서, 같은 자리 줄은 수식이 더 자연스러운 쪽으로
     static func chooseInkReading(original: [OCRLine], ink inkLines: [OCRLine]) -> [OCRLine] {
         guard !inkLines.isEmpty else { return original }
         let inkCount = printedText(from: inkLines).count
         let originalCount = printedText(from: original).count
-        return inkCount >= originalCount * 7 / 10 ? inkLines : original
+        guard inkCount >= originalCount * 7 / 10 else { return original }
+        return inkLines.map { line in
+            guard let match = original.first(where: { overlapRatio($0.box, line.box) > 0.6 }), match.text != line.text else { return line }
+            let a = MathOCRFixer.fix(line.text), b = MathOCRFixer.fix(match.text)
+            // 같은 줄(한글이 같고 길이가 비슷)일 때만 비교
+            guard a.filter(isHangul) == b.filter(isHangul), abs(a.count - b.count) <= 3,
+                  readingScore(b) >= readingScore(a) + 2 else { return line }
+            return OCRLine(text: match.text, confidence: max(line.confidence, match.confidence), box: line.box)
+        }
+    }
+
+    /// 두 상자가 겹친 넓이 / 작은 상자 넓이
+    static func overlapRatio(_ a: CGRect, _ b: CGRect) -> CGFloat {
+        let i = a.intersection(b)
+        guard !i.isNull, i.width > 0, i.height > 0 else { return 0 }
+        return (i.width * i.height) / max(1e-9, min(a.width * a.height, b.width * b.height))
     }
 
     /// 기본 결과와 다른 방법으로 읽은 결과들 중 수식이 가장 자연스러운 쪽
@@ -68,6 +90,8 @@ extension OCRService {
             let hangul = line.filter(isHangul).count
             let formula = String(line.filter { !isHangul($0) })
             score += hangul / 2 + mathScore(formula)
+            // 한글 바로 뒤 "=" 는 변수(y, x)를 놓친 것 ("일차함수= 2x-3")
+            score -= 3 * line.matches(of: #/[가-힣]\s?=/#).count
         }
         // 보기 번호를 읽은 쪽을 더 믿음
         score += text.filter { "①②③④⑤".contains($0) }.count * 4

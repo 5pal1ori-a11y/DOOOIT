@@ -87,13 +87,16 @@ func runPhotoFixCases() {
         ("(x+ 3) 2= x² + 6x+ [", "(x+ 3)²= x² + 6x+ □"),                    // 맨 끝 빈칸을 [ 로
         ("16. 다음 식의 안에 알맞은 수는?", "16. 다음 식의 □ 안에 알맞은 수는?"),   // 빠진 □
         ("_ 안에 알맞은 분수를 구하시오.", "□ 안에 알맞은 분수를 구하시오."),
+        ("l 빠르다 ② 예쁘다 ③ 달리다\n④ 높다 ⑤ 푸르다", "① 빠르다 ② 예쁘다 ③ 달리다\n④ 높다 ⑤ 푸르다"),   // ①을 l로
+        ("① 왕건 ② 이성계 ③ 세종 ④ 정도전 S 이방원", "① 왕건 ② 이성계 ③ 세종 ④ 정도전 ⑤ 이방원"),     // ⑤를 S로
     ]
     for (input, expected) in fixes {
         let fixed = MathOCRFixer.fix(input).trimmingCharacters(in: .whitespaces)
         check("사진 교정: \(input.prefix(24))", fixed == expected, fixed)
     }
     // 바꾸면 안 되는 것
-    for keep in ["① 0 ② 1 ③ 2 ④ 3 ⑤ 4", "반지름이 2r인 원", "x = 3", "I have a pen.", "상자 안에 공이 있다.", "① 3 ② 6 ③ 9 ④ 12 ⑤ 18"] {
+    for keep in ["① 0 ② 1 ③ 2 ④ 3 ⑤ 4", "반지름이 2r인 원", "x = 3", "I have a pen.", "상자 안에 공이 있다.", "① 3 ② 6 ③ 9 ④ 12 ⑤ 18",
+                 "① x = 1 ② x = 2 ③ x = 3 ④ x + 5 = 0"] {
         let fixed = MathOCRFixer.fix(keep)
         check("사진 교정 아님: \(keep)", fixed == keep, fixed)
     }
@@ -120,6 +123,15 @@ func runPhotoFixCases() {
                    OCRLine(text: "③ 위험한", confidence: 0.9, box: CGRect(x: 0.45, y: 0.53, width: 0.12, height: 0.04)),
                    OCRLine(text: "④ 정직한", confidence: 0.9, box: CGRect(x: 0.65, y: 0.545, width: 0.12, height: 0.04))]
     let printed = OCRService.printedText(from: slanted)
+    // Vision은 ①이 든 줄 신뢰도를 0.3으로 줌 → 보기 줄이 버려지면 안 됨
+    let lowChoice = [OCRLine(text: "다음 중 일차방정식 2x+3=11의 해는?", confidence: 1, box: CGRect(x: 0.03, y: 0.64, width: 0.42, height: 0.15)),
+                     OCRLine(text: "① 2", confidence: OCRService.adjustedConfidence("① 2", 0.3), box: CGRect(x: 0.035, y: 0.336, width: 0.045, height: 0.13)),
+                     OCRLine(text: "② 3", confidence: OCRService.adjustedConfidence("② 3", 0.3), box: CGRect(x: 0.22, y: 0.336, width: 0.045, height: 0.13))]
+    check("신뢰도 낮은 보기 줄도 남김", OCRService.printedText(from: lowChoice).contains("① 2   ② 3"), OCRService.printedText(from: lowChoice))
+    // 검은 글자만 읽은 쪽이 x를 놓치면 같은 자리 원래 줄
+    let ink = [OCRLine(text: "5. 이차방정식 22- 5x+ 6= 0의 두 근의 합을", confidence: 0.5, box: CGRect(x: 0.03, y: 0.62, width: 0.44, height: 0.15))]
+    let orig = [OCRLine(text: "5. 이차방정식 x2 - 5x+ 6= 0의 두 근의 합을", confidence: 0.5, box: CGRect(x: 0.035, y: 0.624, width: 0.442, height: 0.145))]
+    check("검은 글자 읽기가 x를 놓치면 원래 줄", OCRService.chooseInkReading(original: orig, ink: ink).first?.text.hasPrefix("5. 이차방정식 x2") == true)
     check("비스듬한 보기 줄 한 번씩", printed.components(separatedBy: "풍부한").count == 2, printed)
 }
 

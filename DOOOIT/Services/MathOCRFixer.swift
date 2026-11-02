@@ -272,6 +272,16 @@ enum MathOCRFixer {
                 result.replaceSubrange(m, with: String(missing))
             }
         }
+        // 맨 앞 ①을 l, 1, (1, @ 처럼 읽음: "l 빠르다 ② 예쁘다" → "① 빠르다 ② 예쁘다" (② 앞 같은 줄, 줄 처음에서만)
+        if !result.contains("①"), result.contains("②") {
+            result = result.replacingOccurrences(of: #"(?m)^([ \t]*)(?:l|I|\||1|\(1\)?|\(l\)?|\(D|D|@|©|®|O)(?=[ \t]+[^\s①②③④⑤][^\n①②③④⑤]*[ \t]②)"#,
+                                                 with: "$1①", options: .regularExpression)
+        }
+        // 맨 끝 ⑤를 S, 5), (5, @ 처럼 읽음: "④ 높다 S 푸르다" → "④ 높다 ⑤ 푸르다" (④ 뒤 같은 줄이나 다음 줄 처음)
+        if !result.contains("⑤"), result.contains("④") {
+            result = result.replacingOccurrences(of: #"(④[^\n①②③⑤]*?[ \t]|④[^\n①②③⑤]*\n[ \t]*)(?:S|5\)|\(5\)?|\(S\)?|@|©|®|O)(?=[ \t]+\S)"#,
+                                                 with: "$1⑤", options: .regularExpression)
+        }
         return result
     }
 

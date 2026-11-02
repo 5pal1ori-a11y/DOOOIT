@@ -22,7 +22,8 @@ for old in stored where filter.isEmpty || old.id.contains(filter) {
         let words = OCRService.bestWords(old.wordLines.map(ocrLines))
         evaluateWords(spec, words: words, result: &result)
     } else {
-        let lines = ocrLines(old.mathLines)
+        // 예전 결과에도 지금 신뢰도 보정을 적용 (같은 값이면 그대로)
+        let lines = ocrLines(old.mathLines).map { OCRLine(text: $0.text, confidence: OCRService.adjustedConfidence($0.text, $0.confidence), box: $0.box) }
         let base = MathOCRFixer.fix(OCRService.printedText(from: lines))
         let text = base.isEmpty ? base : OCRService.bestReading(base: base, others: old.readings).text
         result.baseText = base
