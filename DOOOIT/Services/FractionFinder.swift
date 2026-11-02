@@ -117,17 +117,30 @@ enum FractionFinder {
                 mask[y * width + x] = bg >= 90 && Int(gray[y * width + x]) * 10 < bg * 7
             }
         }
-        // 절반 가까이 어두운 칸은 글자가 아니라 종이 밖 배경·그림 (종이 가장자리가 긴 선으로 잡히지 않게)
+        // 절반 가까이 어두운 칸이 이웃 칸까지 이어지면 글자가 아니라 종이 밖 배경·그림
+        // (종이 가장자리가 긴 선으로 잡히지 않게. 굵은 글자 한 칸만 어두운 것은 그대로)
         var counts = [Int](repeating: 0, count: bw * bh)
         for y in 0..<height {
             let by = y / block
             for x in 0..<width where mask[y * width + x] { counts[by * bw + x / block] += 1 }
         }
+        let dense = counts.map { $0 * 100 > block * block * 45 }
+        var clear = [Bool](repeating: false, count: bw * bh)
+        for by in 0..<bh {
+            for bx in 0..<bw where dense[by * bw + bx] {
+                var neighbors = 0
+                for dy in -1...1 {
+                    for dx in -1...1 where dx != 0 || dy != 0 {
+                        let yy = by + dy, xx = bx + dx
+                        if yy >= 0, yy < bh, xx >= 0, xx < bw, dense[yy * bw + xx] { neighbors += 1 }
+                    }
+                }
+                clear[by * bw + bx] = neighbors >= 3
+            }
+        }
         for y in 0..<height {
             let by = y / block
-            for x in 0..<width where mask[y * width + x] && counts[by * bw + x / block] * 100 > block * block * 45 {
-                mask[y * width + x] = false
-            }
+            for x in 0..<width where mask[y * width + x] && clear[by * bw + x / block] { mask[y * width + x] = false }
         }
         return mask
     }

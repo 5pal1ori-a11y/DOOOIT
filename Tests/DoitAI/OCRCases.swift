@@ -135,6 +135,9 @@ func runFractionFinderCases() {
     check("음수 분자는 그대로", MathOCRFixer.fractionPart("-3") == "-3")
     check("한글은 분자 아님", MathOCRFixer.fractionPart("늘") == nil)
     check("빈 글은 분자 아님", MathOCRFixer.fractionPart("") == nil)
+    check("빗금 분수 읽기", MathOCRFixer.fractionParts("3/4").map { $0.numerator == "3" && $0.denominator == "4" } == true)
+    check("빗금을 l로", MathOCRFixer.fractionParts("1l2").map { $0.numerator == "1" && $0.denominator == "2" } == true)
+    check("빗금 없으면 아님", MathOCRFixer.fractionParts("12") == nil && MathOCRFixer.fractionParts("x/") == nil)
     check("분수 글", MathOCRFixer.fractionText("x+1", "2") == "(x+1)/2" && MathOCRFixer.fractionText("12", "35") == "12/35"
           && MathOCRFixer.fractionText("x", "3") == "x/3", MathOCRFixer.fractionText("x+1", "2"))
 }

@@ -156,38 +156,47 @@ enum OCRService {
         note?("막대 \(bars.count)개 (글자 크기 \(Int(page.size))px, 배율 \(String(format: "%.2f", scale)))")
         guard !bars.isEmpty, bars.count <= 24 else { return [] }
 
-        // 분자·분모를 원래 사진에서 잘라 한 줄에 하나씩 쌓은 "읽기 종이"를 만들어 한 번에 읽음
-        let pieceHeight = 64.0, gap = 56.0, margin = 40.0
-        var pieces: [CGImage?] = []
-        for bar in bars {
-            for (k, part) in [bar.numerator, bar.denominator].enumerated() {
-                // 막대 쪽으로는 넓히지 않음 (막대가 "-"로 읽히지 않게)
-                let pad = 2.0
-                let top = Double(part.y) - (k == 0 ? pad : 0), bottom = Double(part.y + part.height) + (k == 0 ? 0 : pad)
-                let rect = CGRect(x: (Double(part.x) - pad) / scale, y: top / scale,
-                                  width: (Double(part.width) + pad * 2) / scale, height: (bottom - top) / scale)
-                    .integral.intersection(CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight))
-                pieces.append(rect.isNull || rect.width < 2 || rect.height < 2 ? nil : cgImage.cropping(to: rect))
-            }
+        // 분자·분모를 원래 사진에서 잘라 "분자 / 분모"로 한 줄에 놓은 "읽기 종이"를 만들어 한 번에 읽음
+        // (숫자 하나만 따로 두면 글자 인식이 못 읽는 일이 많아서, 사이에 빗금을 그려 "3/4" 같은 한 덩어리로)
+        let pieceHeight = 64.0, gap = 72.0, margin = 96.0, slash = pieceHeight * 0.55, space = pieceHeight * 0.18
+        func crop(_ part: (x: Int, y: Int, width: Int, height: Int), numerator: Bool) -> CGImage? {
+            // 막대 쪽으로는 넓히지 않음 (막대가 "-"로 읽히지 않게)
+            let pad = 2.0
+            let top = Double(part.y) - (numerator ? pad : 0), bottom = Double(part.y + part.height) + (numerator ? 0 : pad)
+            let rect = CGRect(x: (Double(part.x) - pad) / scale, y: top / scale,
+                              width: (Double(part.width) + pad * 2) / scale, height: (bottom - top) / scale)
+                .integral.intersection(CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight))
+            return rect.isNull || rect.width < 2 || rect.height < 2 ? nil : cgImage.cropping(to: rect)
         }
-        let widths = pieces.map { piece -> Double in
+        func scaledWidth(_ piece: CGImage?) -> Double {
             guard let piece else { return 0 }
             return Double(piece.width) * pieceHeight / Double(max(1, piece.height))
         }
-        let sheetWidth = Int((widths.max() ?? 0) + margin * 2)
-        let sheetHeight = Int(Double(pieces.count) * (pieceHeight + gap) + gap)
+        let rows = bars.map { (numerator: crop($0.numerator, numerator: true), denominator: crop($0.denominator, numerator: false)) }
+        let rowWidths = rows.map { scaledWidth($0.numerator) + scaledWidth($0.denominator) + slash + space * 2 }
+        let sheetWidth = Int((rowWidths.max() ?? 0) + margin * 2)
+        let sheetHeight = Int(Double(rows.count) * (pieceHeight + gap) + gap)
         guard sheetWidth > 0, sheetHeight > 0,
               let sheet = CGContext(data: nil, width: sheetWidth, height: sheetHeight, bitsPerComponent: 8, bytesPerRow: 0,
                                     space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return [] }
         sheet.interpolationQuality = .high
         sheet.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
         sheet.fill(CGRect(x: 0, y: 0, width: sheetWidth, height: sheetHeight))
+        sheet.setStrokeColor(red: 0, green: 0, blue: 0, alpha: 1)
+        sheet.setLineWidth(pieceHeight / 11)
         var rowCenters: [Double] = []   // Vision 좌표 (아래가 0)
-        for (k, piece) in pieces.enumerated() {
+        for (k, row) in rows.enumerated() {
             let top = gap + Double(k) * (pieceHeight + gap)
+            let y = Double(sheetHeight) - top - pieceHeight
             rowCenters.append(1 - (top + pieceHeight / 2) / Double(sheetHeight))
-            guard let piece else { continue }
-            sheet.draw(piece, in: CGRect(x: margin, y: Double(sheetHeight) - top - pieceHeight, width: widths[k], height: pieceHeight))
+            var x = margin
+            if let n = row.numerator { sheet.draw(n, in: CGRect(x: x, y: y, width: scaledWidth(n), height: pieceHeight)) }
+            x += scaledWidth(row.numerator) + space
+            sheet.move(to: CGPoint(x: x, y: y))
+            sheet.addLine(to: CGPoint(x: x + slash, y: y + pieceHeight))
+            sheet.strokePath()
+            x += slash + space
+            if let d = row.denominator { sheet.draw(d, in: CGRect(x: x, y: y, width: scaledWidth(d), height: pieceHeight)) }
         }
         guard let sheetImage = sheet.makeImage() else { return [] }
         let observations: [VNRecognizedTextObservation] = await withCheckedContinuation { continuation in
@@ -198,7 +207,7 @@ enum OCRService {
                 continuation.resume(returning: request.results ?? [])
             }
         }
-        var texts = Array(repeating: "", count: pieces.count)
+        var texts = Array(repeating: "", count: rows.count)
         for observation in observations {
             guard let text = observation.topCandidates(1).first?.string else { continue }
             let mid = Double(observation.boundingBox.midY)
@@ -209,12 +218,11 @@ enum OCRService {
         note?("읽기 종이 \(sheetWidth)x\(sheetHeight): " + texts.map { "[\($0)]" }.joined(separator: " "))
         var result: [BarFraction] = []
         for (k, bar) in bars.enumerated() {
-            guard let numerator = MathOCRFixer.fractionPart(texts[k * 2]),
-                  let denominator = MathOCRFixer.fractionPart(texts[k * 2 + 1]) else { continue }
+            guard let parts = MathOCRFixer.fractionParts(texts[k]) else { continue }
             // Vision 좌표: 분자 맨 위 ~ 분모 맨 아래
             let box = CGRect(x: Double(bar.x0) / Double(w), y: 1 - Double(bar.denominatorBottom + 1) / Double(h),
                              width: Double(bar.x1 - bar.x0 + 1) / Double(w), height: Double(bar.denominatorBottom - bar.numeratorTop + 1) / Double(h))
-            result.append(BarFraction(box: box, text: MathOCRFixer.fractionText(numerator, denominator)))
+            result.append(BarFraction(box: box, text: MathOCRFixer.fractionText(parts.numerator, parts.denominator)))
         }
         return result
     }
@@ -550,6 +558,10 @@ enum OCRService {
                     let y0 = Int((1 - line.maxY - line.height * 0.15) * CGFloat(ink.height)), y1 = Int((1 - line.minY + line.height * 0.15) * CGFloat(ink.height))
                     return ink.extent(x0: x0, x1: x1, y0: y0, y1: y1)
                 }
+                // 이 줄 숫자들의 보통 높이 (지수는 그보다 확실히 작음)
+                let digitHeights = chars.indices.filter { chars[$0].isASCII && chars[$0].isNumber }
+                    .compactMap { i in charBox(i).flatMap(extent).map { $0.bottom - $0.top + 1 } }.sorted()
+                let typical = digitHeights.count >= 3 ? digitHeights[digitHeights.count / 2] : nil
                 for i in chars.indices.dropFirst() where chars[i].isASCII && chars[i].isNumber {
                     let base = chars[i - 1]
                     guard base.isASCII && (base.isLetter || base.isNumber) || base == ")",
@@ -557,7 +569,7 @@ enum OCRService {
                           let digitBox = charBox(i), let baseBox = charBox(i - 1),
                           let d = extent(digitBox), let b = extent(baseBox),
                           FractionFinder.isSuperscript(base: b, digit: d) else { continue }
-                    // 이미 지수로 표시됐거나 다음 글자도 같은 높이의 지수 숫자면 첫 숫자 앞에만
+                    if let typical, Double(d.bottom - d.top + 1) > Double(typical) * 0.85 { continue }
                     insertions.append((i, "^"))
                 }
             }

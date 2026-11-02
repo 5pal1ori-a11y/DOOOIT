@@ -217,6 +217,21 @@ enum MathOCRFixer {
         return t
     }
 
+    /// "분자 / 분모"로 읽은 한 줄 → 분자, 분모 (빗금을 1, l, | 로 읽은 경우도)
+    static func fractionParts(_ raw: String) -> (numerator: String, denominator: String)? {
+        let t = raw.filter { !$0.isWhitespace }
+        var cut: String.Index?
+        if let slash = t.firstIndex(where: { "/⁄∕÷".contains($0) }) {
+            cut = slash
+        } else if t.count == 3, let mid = t.index(t.startIndex, offsetBy: 1, limitedBy: t.endIndex), "|lI1".contains(t[mid]) {
+            // "3|4", "3l4": 가운데 한 글자가 빗금
+            cut = mid
+        }
+        guard let cut, let numerator = fractionPart(String(t[..<cut])),
+              let denominator = fractionPart(String(t[t.index(after: cut)...])) else { return nil }
+        return (numerator, denominator)
+    }
+
     /// 분자·분모 → "a/b" (여러 글자 식은 괄호로)
     static func fractionText(_ numerator: String, _ denominator: String) -> String {
         func wrap(_ t: String) -> String {
