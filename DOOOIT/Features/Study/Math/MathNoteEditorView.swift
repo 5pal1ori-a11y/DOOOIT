@@ -28,9 +28,9 @@ struct MathNoteEditorView: View {
     @State private var textSelection: TextSelection?
     @State private var isEditingText = false
 
-    /// 문제 확인 → 풀이·학습 → 필기 순서
+    /// 문제 확인 → 풀이 → 필기 순서
     enum EditorTab: String, CaseIterable, Identifiable {
-        case text = "문제", grade = "풀이·학습", note = "필기"
+        case text = "문제", grade = "풀이", note = "필기"
         var id: String { rawValue }
     }
 
@@ -55,8 +55,9 @@ struct MathNoteEditorView: View {
                     case .note:
                         page(width: pageWidth)
                     case .grade where !subject.isMath:
-                        // 수학이 아닌 과목: 채점 → 틀린 이유 → 해설 → 다시 풀기 → 취약 개념
+                        // 수학이 아닌 과목: AI 풀이 → 채점 → 틀린 이유 → 해설 → 다시 풀기 → 취약 개념
                         VStack(spacing: 14) {
+                            AISolutionCard(note: note) { withAnimation(.snappy) { tab = .text; isEditingText = true } }
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             if note.isRecognitionConfirmed {
@@ -67,8 +68,9 @@ struct MathNoteEditorView: View {
                             }
                         }
                     case .grade:
-                        // 학습 순서: 채점 → 오답 원인 → 과정 채점 → 재도전 → 취약 개념
+                        // AI 풀이 → 채점 → 오답 원인 → 과정 채점 → 재도전 → 취약 개념
                         VStack(spacing: 14) {
+                            AISolutionCard(note: note) { withAnimation(.snappy) { tab = .text; isEditingText = true } }
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             if note.isRecognitionConfirmed {
@@ -203,7 +205,7 @@ struct MathNoteEditorView: View {
         .softCard(cornerRadius: 22, padding: 14)
     }
 
-    /// 밑줄 탭 (문제 · 풀이·학습 · 필기)
+    /// 밑줄 탭 (문제 · 풀이 · 필기)
     private var tabBar: some View {
         HStack(spacing: 0) {
             ForEach(EditorTab.allCases) { item in
@@ -585,7 +587,7 @@ struct MathNoteEditorView: View {
             image = UIImage(data: data)
         }
         annotations = note.annotations
-        // 인식 결과를 아직 확인하지 않았으면 문제 탭부터, 확인했으면 풀이·학습부터
+        // 인식 결과를 아직 확인하지 않았으면 문제 탭부터, 확인했으면 풀이부터
         tab = note.isRecognitionConfirmed ? .grade : .text
         if note.scan == nil, !note.recognizedText.isEmpty { rescan(note.recognizedText) }
         // 예전 노트: 문제 유형만 찾아 붙임 (과목·글은 그대로)

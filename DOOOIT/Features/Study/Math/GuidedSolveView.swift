@@ -3,7 +3,7 @@ import SwiftUI
 
 // AI와 함께 풀기: 답은 숨기고, 묻는 것 → 힌트 1·2·3 → 내 답 확인 → 풀이 순서로 같이 풀어요 (모든 과목)
 
-// MARK: - 들어가는 카드 (풀이·학습 탭)
+// MARK: - 들어가는 카드 (풀이 탭)
 
 struct GuidedSolveEntryCard: View {
     @Bindable var note: MathNote

@@ -388,11 +388,11 @@ enum DoitChat {
         let hour = Calendar.current.component(.hour, from: c.now)
         let line: String
         switch hour {
-        case 5..<11: line = pick(["좋은 아침이에요! ☀️", "안녕하세요, 상쾌한 아침이에요!"])
+        case 5..<11: line = pick(["안녕하세요, 좋은 아침이에요! ☀️", "안녕하세요, 상쾌한 아침이에요!"])
         case 11..<14: line = "안녕하세요! 점심은 챙겨 먹었어요?"
         case 14..<18: line = pick(["안녕하세요! 오후도 힘내봐요.", "반가워요! 나른한 오후, 같이 집중해봐요."])
         case 18..<23: line = "안녕하세요! 오늘 하루 어땠어요?"
-        default: line = "늦은 시간까지 수고가 많아요. 너무 무리하지 말아요!"
+        default: line = "안녕하세요! 늦은 시간까지 수고가 많아요. 너무 무리하지 말아요!"
         }
         var status = ""
         if c.todayMinutes > 0 { status = " 오늘 벌써 \(duration(c.todayMinutes)) 공부했어요." }
@@ -409,7 +409,7 @@ enum DoitChat {
     private static func tired(_ c: Context) -> Answer {
         let hour = Calendar.current.component(.hour, from: c.now)
         if hour >= 23 || hour < 5 {
-            return Answer(text: "많이 늦었어요. 지금은 억지로 버티기보다 자는 게 더 남는 장사예요. 자는 동안 뇌가 오늘 공부한 걸 정리해 줘요. 남은 건 내일 아침 플랜으로 옮겨둘까요?",
+            return Answer(text: "많이 늦었어요. 지금은 억지로 버티기보다 잠을 자는 게 더 남는 장사예요. 자는 동안 뇌가 오늘 공부한 걸 정리해 줘요. 남은 건 내일 아침 플랜으로 옮겨둘까요?",
                           suggestions: ["내일 오전 8시 복습 추가해줘", "타이머 종료해줘"])
         }
         return Answer(text: pick([

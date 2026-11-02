@@ -290,7 +290,8 @@ struct SubjectExplainCard: View {
                     Text(correctText).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
                 }
             }
-            if let solution, !solution.steps.isEmpty {
+            // AI 풀이 카드에서 이미 보여 준 풀이는 다시 쓰지 않음
+            if let solution, solution.source == nil, !solution.steps.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     sectionTitle("풀이")
                     ForEach(Array(solution.steps.enumerated()), id: \.offset) { _, step in

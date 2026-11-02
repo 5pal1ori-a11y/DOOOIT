@@ -105,6 +105,10 @@ struct WrittenSolution: Codable {
     var concept: String
     var steps: [SolutionStep]
     var finalAnswer: String
+    /// 누가 풀었는지 ("engine" 풀이 엔진 · "model" 두잇 1·2) — 예전 풀이는 nil
+    var source: String? = nil
+    /// 풀 때의 문제 글 (문제 글을 고치면 다시 풂)
+    var problem: String? = nil
 }
 
 struct SimilarProblem: Codable, Hashable {

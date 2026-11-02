@@ -6,7 +6,7 @@ import SwiftUI
 /// 맞히면 올라가고, 틀리면 개념을 다시 보여주고 쉬운 문제로. 모든 풀이는 취약 개념 숙련도에 기록돼요.
 struct SimilarProblemsCard: View {
     @Bindable var note: MathNote
-    /// 유사 문제 단계 학습 없이 원래 문제 재도전만 (오답노트 풀이·학습 탭)
+    /// 유사 문제 단계 학습 없이 원래 문제 재도전만 (오답노트 풀이 탭)
     var retryOnly = false
     @Environment(\.modelContext) private var context
 
