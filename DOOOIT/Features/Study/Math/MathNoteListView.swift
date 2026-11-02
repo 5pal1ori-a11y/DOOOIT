@@ -19,6 +19,11 @@ struct MathNoteListView: View {
     @State private var isProcessing = false
     @State private var cropQueue: [UIImage] = []
     @State private var cropItem: CropItem?
+    /// 문제 번호로 자동으로 나눈 페이지 (확인 화면)
+    @State private var splitItem: SplitItem?
+    /// 자동 나누기 화면에서 "직접 자르기"를 고른 페이지 (다음에 바로 직접 자르기)
+    @State private var manualQueue: [UIImage] = []
+    @State private var isDetecting = false
     @State private var croppedPairs: [(original: UIImage, problem: UIImage)] = []
     @State private var openedNote: MathNote?
     @State private var errorMessage: String?
@@ -87,8 +92,21 @@ struct MathNoteListView: View {
         }
         .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 10, straighten: true) { images in
             cropQueue = images
+            manualQueue = []
             croppedPairs = []
             nextCrop()
+        }
+        .sheet(item: $splitItem, onDismiss: nextCrop) { item in
+            ProblemSplitView(item: item) { crops in
+                // 원본은 페이지 전체, 문제 사진은 잘라 낸 부분
+                for crop in crops { croppedPairs.append((original: item.image, problem: crop)) }
+                splitItem = nil
+            } onManual: {
+                manualQueue.append(item.image)
+                splitItem = nil
+            } onCancel: {
+                splitItem = nil
+            }
         }
         .sheet(item: $cropItem, onDismiss: nextCrop) { item in
             ProblemCropView(image: item.image) { problem in
@@ -99,7 +117,11 @@ struct MathNoteListView: View {
             }
         }
         .overlay {
-            if isProcessing { ProcessingOverlay(message: "문제를 분석하고 있어요") }
+            if isProcessing {
+                ProcessingOverlay(message: "문제를 분석하고 있어요")
+            } else if isDetecting {
+                ProcessingOverlay(message: "문제 번호를 찾고 있어요")
+            }
         }
         .navigationDestination(item: $openedNote) { note in
             MathNoteEditorView(note: note)
@@ -183,8 +205,8 @@ struct MathNoteListView: View {
                     .font(.subheadline.weight(.semibold))
                     .padding(.horizontal, 13)
                     .frame(height: 34)
-                    .foregroundStyle(isOn ? Color.white : Palette.ink)
-                    .background(isOn ? AnyShapeStyle(Palette.ink) : AnyShapeStyle(Color.white), in: .capsule)
+                    .foregroundStyle(isOn ? Palette.card : Palette.ink)
+                    .background(isOn ? AnyShapeStyle(Palette.ink) : AnyShapeStyle(Palette.card), in: .capsule)
                     .overlay(Capsule().strokeBorder(Color.primary.opacity(isOn ? 0 : 0.08)))
                 }
                 .buttonStyle(.plain)
@@ -260,12 +282,30 @@ struct MathNoteListView: View {
         openedNote = note
     }
 
-    /// 사진마다 문제 영역을 고른 뒤, 다 고르면 한꺼번에 노트로 만듦
+    /// 사진마다 먼저 문제 번호로 자동으로 나눠 보고 (2문제 이상이면 확인 화면),
+    /// 아니면 직접 문제 영역을 고름. 다 고르면 한꺼번에 노트로 만듦
     private func nextCrop() {
-        guard cropItem == nil else { return }
-        if !cropQueue.isEmpty {
-            let next = cropQueue.removeFirst()
+        guard cropItem == nil, splitItem == nil, !isDetecting else { return }
+        if !manualQueue.isEmpty {
+            let next = manualQueue.removeFirst()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { cropItem = CropItem(image: next) }
+        } else if !cropQueue.isEmpty {
+            let next = cropQueue.removeFirst()
+            withAnimation { isDetecting = true }
+            let started = Date()
+            Task {
+                let split = await OCRService.splitProblems(next)
+                // 앞 화면이 완전히 내려간 뒤 다음 화면을 띄움 (그때까지 진행 표시 유지)
+                let wait = max(0, 0.35 - Date().timeIntervalSince(started))
+                DispatchQueue.main.asyncAfter(deadline: .now() + wait) {
+                    withAnimation { isDetecting = false }
+                    if split.regions.count >= 2 {
+                        splitItem = SplitItem(image: next, regions: split.regions, crops: split.crops)
+                    } else {
+                        cropItem = CropItem(image: next)
+                    }
+                }
+            }
         } else if !croppedPairs.isEmpty {
             let pairs = croppedPairs
             croppedPairs = []

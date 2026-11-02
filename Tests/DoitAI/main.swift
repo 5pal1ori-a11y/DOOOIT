@@ -304,6 +304,33 @@ func runWordParser() {
     check("예문 판별", WordParser.isExampleSentence("He has been to Paris.") && !WordParser.isExampleSentence("take care of") && !WordParser.isExampleSentence("Take care of"))
 }
 
+func runWordReview() {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = TimeZone(identifier: "Asia/Seoul")!
+    let now = calendar.date(from: DateComponents(year: 2026, month: 11, day: 2, hour: 21))!
+    func days(_ date: Date?) -> Int? {
+        date.map { calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: $0).day ?? -1 }
+    }
+    let first = WordReview.afterLearning(now: now, calendar: calendar)
+    check("복습: 외운 다음 날 첫 복습", first.stage == 1 && days(first.next) == 1)
+    var stage = 1
+    var gaps: [Int] = []
+    for _ in 0..<4 {
+        let next = WordReview.afterReview(stage: stage, correct: true, now: now, calendar: calendar)
+        stage = next.stage
+        gaps.append(days(next.next) ?? -1)
+    }
+    check("복습: 맞히면 3·7·14·30일 간격", gaps == [3, 7, 14, 30], "\(gaps)")
+    let done = WordReview.afterReview(stage: 5, correct: true, now: now, calendar: calendar)
+    check("복습: 30일 복습까지 통과하면 완전히 외움", done.stage == WordReview.mastered && done.next == nil)
+    let wrong = WordReview.afterReview(stage: 4, correct: false, now: now, calendar: calendar)
+    check("복습: 틀리면 1일 뒤부터 다시", wrong.stage == 1 && days(wrong.next) == 1)
+    check("복습: 날짜가 되면 복습 차례", WordReview.isDue(stage: 2, next: now.addingTimeInterval(-60), now: now)
+          && !WordReview.isDue(stage: 2, next: now.addingTimeInterval(3600 * 5), now: now)
+          && !WordReview.isDue(stage: 0, next: nil, now: now) && !WordReview.isDue(stage: WordReview.mastered, next: nil, now: now))
+    check("복습: 날짜 말하기", WordReview.describe(first.next!, now: now, calendar: calendar) == "내일")
+}
+
 func runOCRFixer() {
     let cases: [(String, String)] = [
         ("Zx + 3", "2x + 3"), ("xZ - 5x + 6 = 0", "x² - 5x + 6 = 0"), ("x^Z+1", "x^2+1"), ("1O+5", "10+5"), ("3l4", "314"),
@@ -784,7 +811,9 @@ runGenerators()
 runWorkChecker()
 runOCRFixer()
 runWordParser()
+runWordReview()
 runWordCases()
+runProblemSplitCases()
 runKnowledge()
 runBrain()
 await runCurriculum()

@@ -625,3 +625,35 @@ extension UIImage {
         resized(maxDimension: maxDimension).jpegData(compressionQuality: quality)
     }
 }
+
+// MARK: - 한 사진에 문제 여러 개 자동 나누기
+
+extension OCRService {
+    /// 문제집 한 쪽 사진에서 문제 번호를 찾아 문제마다 잘라 줌.
+    /// 문제가 2개 미만이면 빈 배열 → 기존 "직접 자르기" 화면으로
+    static func splitProblems(_ image: UIImage) async -> (regions: [ProblemSplitter.Region], crops: [UIImage]) {
+        // 번호("01", "3.")가 사전 단어로 바뀌지 않게 언어 교정은 끔
+        guard let lines = try? await recognize(image, languageCorrection: false) else { return ([], []) }
+        let regions = ProblemSplitter.regions(lines: lines)
+        guard regions.count >= 2 else { return ([], []) }
+        return (regions, image.cropped(toVisionRects: regions.map(\.box)))
+    }
+}
+
+extension UIImage {
+    /// Vision 정규화 좌표(0~1, 원점 왼쪽 아래) 영역마다 잘라냄.
+    /// 글자 인식과 같은 기준이 되도록 방향을 바로 세운 이미지(resized)에서 자름
+    func cropped(toVisionRects rects: [CGRect], maxDimension: CGFloat = 3000) -> [UIImage] {
+        let base = resized(maxDimension: maxDimension)
+        guard let cg = base.cgImage else { return rects.map { _ in base } }
+        let w = CGFloat(cg.width), h = CGFloat(cg.height)
+        let bounds = CGRect(x: 0, y: 0, width: w, height: h)
+        return rects.map { rect in
+            // 아래 원점 → 위 원점 (CGImage 픽셀 좌표는 위가 0)
+            let area = CGRect(x: rect.minX * w, y: (1 - rect.maxY) * h,
+                              width: rect.width * w, height: rect.height * h).integral.intersection(bounds)
+            guard !area.isNull, area.width >= 1, area.height >= 1, let cropped = cg.cropping(to: area) else { return base }
+            return UIImage(cgImage: cropped)
+        }
+    }
+}
