@@ -543,6 +543,8 @@ enum WordParser {
         s = s.replacingOccurrences(of: #"^[\(\[]?\d{1,4}(?:[\.\)\]:]\s*|\s+)"#, with: "", options: .regularExpression)
         s = s.replacingOccurrences(of: #"^[□■☐☑✓✔•·\-\*\|–—]+\s*"#, with: "", options: .regularExpression)
         s = s.replacingOccurrences(of: #"^\d{1,4}[\.\)]\s*"#, with: "", options: .regularExpression)
+        // 번호 숫자를 비슷한 글자로 읽은 것: "S. efficient"(5), "b. fragile"(6), "y. journey"(9), "1O. knowledge"(10)
+        s = s.replacingOccurrences(of: #"^(?:[SsbGgqyZzlIOoB]|\d[OolISsZzB]|[OolISsZzB]\d)[\.\)]\s+(?=[A-Za-z]{2})"#, with: "", options: .regularExpression)
 
         var tokens = s.split(whereSeparator: \.isWhitespace).map(String.init)
         // 띄어쓰기 없이 붙은 "apple사과" → "apple" "사과" (소문자가 든 두 글자 이상 영어 + 한글일 때만, "A와" "TV를"은 그대로)

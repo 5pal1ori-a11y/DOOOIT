@@ -200,6 +200,29 @@ enum MathOCRFixer {
         return result
     }
 
+    /// 따로 읽은 분자·분모 글 정리 (수식 조각이 아니면 nil)
+    static func fractionPart(_ raw: String) -> String? {
+        var t = raw.filter { !$0.isWhitespace }
+        t = t.replacingOccurrences(of: "—", with: "-").replacingOccurrences(of: "–", with: "-").replacingOccurrences(of: "−", with: "-")
+        // 막대 조각이 끝에 붙은 "-", "_"
+        while let first = t.first, "-_~".contains(first), t.count > 1, !(t.dropFirst().first?.isNumber ?? false) { t.removeFirst() }
+        while let last = t.last, "-_~".contains(last) { t.removeLast() }
+        // 숫자 하나를 비슷한 글자로 읽음
+        let lookalike: [String: String] = ["l": "1", "I": "1", "|": "1", "O": "0", "o": "0"]
+        if let digit = lookalike[t] { t = digit }
+        guard t.range(of: #"^[0-9A-Za-z+\-()√π.]{1,8}$"#, options: .regularExpression) != nil,
+              t.contains(where: { $0.isNumber || $0.isLetter }) else { return nil }
+        return t
+    }
+
+    /// 분자·분모 → "a/b" (여러 글자 식은 괄호로)
+    static func fractionText(_ numerator: String, _ denominator: String) -> String {
+        func wrap(_ t: String) -> String {
+            t.count == 1 || t.allSatisfy(\.isNumber) || (t.hasPrefix("(") && t.hasSuffix(")")) || t.hasPrefix("√") && t.dropFirst().allSatisfy(\.isNumber) ? t : "(\(t))"
+        }
+        return wrap(numerator) + "/" + wrap(denominator)
+    }
+
     // MARK: 보기 번호 ①~⑤
 
     private static let circledDigits: [Character] = ["①", "②", "③", "④", "⑤"]
@@ -283,40 +306,6 @@ enum MathOCRFixer {
                                                  with: "$1⑤", options: .regularExpression)
         }
         return result
-    }
-
-    // MARK: 글줄 기울기
-
-    /// 글줄 상자(네 꼭짓점, Vision 좌표 0~1·아래가 0)들의 기울기 (도, 반시계 +). 고칠 만큼 기울지 않았거나 모르면 nil
-    /// width, height: 사진 픽셀 크기 (가로·세로 비율을 맞추려고)
-    static func skewAngle(quads: [(topLeft: CGPoint, topRight: CGPoint, bottomLeft: CGPoint, bottomRight: CGPoint)],
-                          width: Double, height: Double) -> Double? {
-        var samples: [(angle: Double, weight: Double)] = []
-        for q in quads {
-            let dx = Double(q.topRight.x - q.topLeft.x) * width, dy = Double(q.topRight.y - q.topLeft.y) * height
-            let dx2 = Double(q.bottomRight.x - q.bottomLeft.x) * width, dy2 = Double(q.bottomRight.y - q.bottomLeft.y) * height
-            let length = hypot(dx, dy)
-            let side = hypot(Double(q.topLeft.x - q.bottomLeft.x) * width, Double(q.topLeft.y - q.bottomLeft.y) * height)
-            // 글자 서너 개 이상인 가로로 긴 줄만 (짧은 조각은 기울기가 부정확)
-            guard length > side * 3, length > 40, dx > 0, dx2 > 0 else { continue }
-            let angle = (atan2(dy, dx) + atan2(dy2, dx2)) / 2 * 180 / .pi
-            guard abs(angle) < 15 else { continue }
-            samples.append((angle, length))
-        }
-        guard samples.count >= 2 else { return nil }
-        // 길이로 무게를 준 가운데 값
-        let sorted = samples.sorted { $0.angle < $1.angle }
-        let total = sorted.reduce(0) { $0 + $1.weight }
-        var running = 0.0
-        var median = sorted[0].angle
-        for s in sorted {
-            running += s.weight
-            if running >= total / 2 { median = s.angle; break }
-        }
-        // 줄들이 같은 쪽으로 비슷하게 기울어야 함 (무게의 절반 이상이 가운데 값 ±1° 안)
-        let agreeing = sorted.filter { abs($0.angle - median) <= 1 }.reduce(0) { $0 + $1.weight }
-        guard agreeing >= total * 0.5, abs(median) >= 0.5 else { return nil }
-        return median
     }
 
     // MARK: 보기 번호 동그라미 (사진에서 직접 찾기)

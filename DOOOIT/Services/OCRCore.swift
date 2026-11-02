@@ -96,10 +96,107 @@ enum OCRService {
         // 보기 번호 동그라미 ①~⑤ (글자 인식이 못 읽거나 "1", "@", "(D"로 읽는 경우가 많아서 모양으로 찾음)
         async let circleRead = detectCircles(cgImage)
         guard let korean = await koreanRead else { return [] }
+        // 쌓은 분수: 막대를 픽셀에서 찾고 분자·분모를 따로 읽음 (글자 인식은 작은 분수를 "늘", "⅔"처럼 한 글자로 읽음)
+        let barFractions = await stackedFractions(cgImage, lines: korean.map(\.boundingBox))
         let english = await englishRead ?? []
         let rects = await boxRead
         let circles = await circleRead
-        return merge(korean: korean, english: english, rects: rects, circles: circles)
+        return merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions)
+    }
+
+    // MARK: 쌓은 분수 (막대 찾기 + 분자·분모 따로 읽기)
+
+    /// 사진에서 찾아 읽은 분수 하나 (box: Vision 좌표, 분자·분모를 합친 영역)
+    struct BarFraction {
+        var box: CGRect
+        var text: String
+    }
+
+    static func stackedFractions(_ cgImage: CGImage, lines: [CGRect]) async -> [BarFraction] {
+        let fullWidth = cgImage.width, fullHeight = cgImage.height
+        let heights = lines.map { Double($0.height) * Double(fullHeight) }.sorted()
+        guard !heights.isEmpty else { return [] }
+        let size = heights[heights.count / 4]
+        guard size >= 8 else { return [] }
+        // 글자 크기가 40픽셀쯤 되게 줄여서 찾음 (빠르게)
+        let scale = min(1.0, 40.0 / size)
+        let w = max(1, Int(Double(fullWidth) * scale)), h = max(1, Int(Double(fullHeight) * scale))
+        var gray = [UInt8](repeating: 255, count: w * h)
+        let drawn: Bool = gray.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                          space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            context.interpolationQuality = .high
+            context.setFillColor(gray: 1, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: w, height: h))
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return [] }
+        let pixelLines = lines.map { (x: Double($0.minX) * Double(w), y: (1 - Double($0.maxY)) * Double(h),
+                                      width: Double($0.width) * Double(w), height: Double($0.height) * Double(h)) }
+        let bars = FractionFinder.bars(gray: gray, width: w, height: h, size: size * scale, lines: pixelLines)
+        guard !bars.isEmpty, bars.count <= 24 else { return [] }
+
+        // 분자·분모를 원래 사진에서 잘라 한 줄에 하나씩 쌓은 "읽기 종이"를 만들어 한 번에 읽음
+        let pieceHeight = 64.0, gap = 56.0, margin = 40.0
+        var pieces: [CGImage?] = []
+        for bar in bars {
+            for (k, part) in [bar.numerator, bar.denominator].enumerated() {
+                // 막대 쪽으로는 넓히지 않음 (막대가 "-"로 읽히지 않게)
+                let pad = 2.0
+                let top = Double(part.y) - (k == 0 ? pad : 0), bottom = Double(part.y + part.height) + (k == 0 ? 0 : pad)
+                let rect = CGRect(x: (Double(part.x) - pad) / scale, y: top / scale,
+                                  width: (Double(part.width) + pad * 2) / scale, height: (bottom - top) / scale)
+                    .integral.intersection(CGRect(x: 0, y: 0, width: fullWidth, height: fullHeight))
+                pieces.append(rect.isNull || rect.width < 2 || rect.height < 2 ? nil : cgImage.cropping(to: rect))
+            }
+        }
+        let widths = pieces.map { piece -> Double in
+            guard let piece else { return 0 }
+            return Double(piece.width) * pieceHeight / Double(max(1, piece.height))
+        }
+        let sheetWidth = Int((widths.max() ?? 0) + margin * 2)
+        let sheetHeight = Int(Double(pieces.count) * (pieceHeight + gap) + gap)
+        guard sheetWidth > 0, sheetHeight > 0,
+              let sheet = CGContext(data: nil, width: sheetWidth, height: sheetHeight, bitsPerComponent: 8, bytesPerRow: 0,
+                                    space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return [] }
+        sheet.interpolationQuality = .high
+        sheet.setFillColor(red: 1, green: 1, blue: 1, alpha: 1)
+        sheet.fill(CGRect(x: 0, y: 0, width: sheetWidth, height: sheetHeight))
+        var rowCenters: [Double] = []   // Vision 좌표 (아래가 0)
+        for (k, piece) in pieces.enumerated() {
+            let top = gap + Double(k) * (pieceHeight + gap)
+            rowCenters.append(1 - (top + pieceHeight / 2) / Double(sheetHeight))
+            guard let piece else { continue }
+            sheet.draw(piece, in: CGRect(x: margin, y: Double(sheetHeight) - top - pieceHeight, width: widths[k], height: pieceHeight))
+        }
+        guard let sheetImage = sheet.makeImage() else { return [] }
+        let observations: [VNRecognizedTextObservation] = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = makeRequest(languages: ["en-US"], correction: false, minimumTextHeight: 0)
+                let handler = VNImageRequestHandler(cgImage: sheetImage, options: [:])
+                try? handler.perform([request])
+                continuation.resume(returning: request.results ?? [])
+            }
+        }
+        var texts = Array(repeating: "", count: pieces.count)
+        for observation in observations {
+            guard let text = observation.topCandidates(1).first?.string else { continue }
+            let mid = Double(observation.boundingBox.midY)
+            guard let row = rowCenters.indices.min(by: { abs(rowCenters[$0] - mid) < abs(rowCenters[$1] - mid) }),
+                  abs(rowCenters[row] - mid) * Double(sheetHeight) < pieceHeight else { continue }
+            texts[row] += (texts[row].isEmpty ? "" : " ") + text
+        }
+        var result: [BarFraction] = []
+        for (k, bar) in bars.enumerated() {
+            guard let numerator = MathOCRFixer.fractionPart(texts[k * 2]),
+                  let denominator = MathOCRFixer.fractionPart(texts[k * 2 + 1]) else { continue }
+            // Vision 좌표: 분자 맨 위 ~ 분모 맨 아래
+            let box = CGRect(x: Double(bar.x0) / Double(w), y: 1 - Double(bar.denominatorBottom + 1) / Double(h),
+                             width: Double(bar.x1 - bar.x0 + 1) / Double(w), height: Double(bar.denominatorBottom - bar.numeratorTop + 1) / Double(h))
+            result.append(BarFraction(box: box, text: MathOCRFixer.fractionText(numerator, denominator)))
+        }
+        return result
     }
 
     /// 사진 속 윤곽선 중 동그라미 번호 후보 (모양 정보만, 판정은 MathOCRFixer.isChoiceCircle)
@@ -195,7 +292,7 @@ enum OCRService {
 
     /// 한국어 줄의 수식 부분(한글이 없는 구간)을 같은 자리의 영어 전용 인식 결과와 비교해서 더 수식다운 쪽을 고름
     static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation], rects: [CGRect] = [],
-                              circles: [MathOCRFixer.Shape] = []) -> [OCRLine] {
+                      circles: [MathOCRFixer.Shape] = [], barFractions: [BarFraction] = []) -> [OCRLine] {
         // 영어 전용 결과를 낱말 단위 위치로
         var words: [Word] = []
         for observation in english {
@@ -224,12 +321,36 @@ enum OCRService {
         let fractions = MathOCRFixer.stackedFractions(
             pieces: shortIndexes.map { (text: korean[$0].topCandidates(1).first?.string ?? "", box: korean[$0].boundingBox) },
             hosts: hostIndexes.map { korean[$0].boundingBox }
-        )
-        let fractionPieces = Set(fractions.flatMap { $0.used.map { shortIndexes[$0] } })
+        ).filter { f in !barFractions.contains { $0.box.intersects(f.box) } }
+        var fractionPieces = Set(fractions.flatMap { $0.used.map { shortIndexes[$0] } })
+        // 사진에서 찾은 분수 자리에 따로 읽힌 조각("1", "35", "늘")은 분수로 바뀌므로 뺌
+        for (i, observation) in korean.enumerated() {
+            let b = observation.boundingBox
+            if barFractions.contains(where: { f in
+                f.box.insetBy(dx: -f.box.width * 0.2, dy: -f.box.height * 0.1).contains(CGPoint(x: b.midX, y: b.midY)) && b.width <= f.box.width * 1.8
+            }) { fractionPieces.insert(i) }
+        }
+        // 분수마다 끼워 넣을 줄: 분수 가운데 높이를 지나는 줄 (없으면 같은 높이 왼쪽 줄 끝, 그것도 없으면 따로)
+        var barsByLine: [Int: [BarFraction]] = [:]
+        var looseBars: [BarFraction] = []
+        for f in barFractions {
+            let candidates = korean.indices.filter { i in
+                let b = korean[i].boundingBox
+                return !fractionPieces.contains(i) && b.minY <= f.box.midY && b.maxY >= f.box.midY
+            }
+            let inside = candidates.first { i in
+                let b = korean[i].boundingBox
+                return f.box.midX >= b.minX - 0.01 && f.box.midX <= b.maxX + 0.01
+            }
+            let left = candidates.filter { korean[$0].boundingBox.maxX <= f.box.midX && f.box.minX - korean[$0].boundingBox.maxX <= medianHeight * 3 }
+                .max { korean[$0].boundingBox.maxX < korean[$1].boundingBox.maxX }
+            if let host = inside ?? left { barsByLine[host, default: []].append(f) } else { looseBars.append(f) }
+        }
         var fractionsByLine: [Int: [MathOCRFixer.Fraction]] = [:]
         for fraction in fractions { fractionsByLine[hostIndexes[fraction.host], default: []].append(fraction) }
         func isFractionBox(_ box: CGRect) -> Bool {
             fractions.contains { $0.box.insetBy(dx: -0.005, dy: -0.005).contains(CGPoint(x: box.midX, y: box.midY)) }
+                || barFractions.contains { $0.box.insetBy(dx: -0.005, dy: -0.005).contains(CGPoint(x: box.midX, y: box.midY)) }
         }
 
         // 줄과 떨어져서 따로 읽힌 작은 지수(x² 의 2 등) 찾기
@@ -380,6 +501,31 @@ enum OCRService {
                 insertions.append((offset, " " + fraction.text + " "))
             }
 
+            // 1-2b) 사진에서 찾은 분수: 그 자리에 잘못 읽힌 글자("늘", "÷", "⅔")를 지우고 분수로
+            var barEdits: [(range: Range<Int>, text: String)] = []
+            let circleRanges = (circleEdits[lineIndex] ?? []).map(\.remove)
+            for f in barsByLine[lineIndex] ?? [] {
+                let zone = f.box.insetBy(dx: -f.box.width * 0.12, dy: -f.box.height * 0.05)
+                var covered: [Int] = []
+                var after = 0
+                var bestMaxX = -1.0
+                for i in chars.indices where !chars[i].isWhitespace && !circleRanges.contains(where: { $0.contains(i) }) {
+                    guard let cb = charBox(i) else { continue }
+                    if zone.contains(CGPoint(x: cb.midX, y: cb.midY)), cb.width < f.box.width * 2 {
+                        covered.append(i)
+                    } else if cb.maxX <= f.box.minX + 0.006, cb.maxX > bestMaxX {
+                        bestMaxX = cb.maxX
+                        after = i + 1
+                    }
+                }
+                if let first = covered.min(), let last = covered.max(),
+                   !barEdits.contains(where: { $0.range.overlaps(first..<(last + 1)) }) {
+                    barEdits.append((first..<(last + 1), " " + f.text + " "))
+                } else {
+                    insertions.append((after, " " + f.text + " "))
+                }
+            }
+
             // 1-3) 빈칸 □ 끼워 넣기 (이미 □·口로 읽었으면 그대로)
             if !original.contains(where: { "□口ㅁ".contains($0) }) {
                 for blank in blanksByLine[lineIndex] ?? [] {
@@ -416,8 +562,9 @@ enum OCRService {
                     let range = first..<(last + 1)
                     // 지수를 끼워 넣은 구간은 그대로 둠
                     if insertions.contains(where: { $0.offset > range.lowerBound && $0.offset <= range.upperBound }) { continue }
-                    // 보기 번호를 고친 구간도 그대로 둠
+                    // 보기 번호를 고친 구간, 분수로 바꾼 구간도 그대로 둠
                     if circleHere.contains(where: { $0.remove.overlaps(range) || ($0.remove.lowerBound >= range.lowerBound && $0.remove.lowerBound <= range.upperBound) }) { continue }
+                    if barEdits.contains(where: { $0.range.overlaps(range) }) { continue }
                     let originalPart = String(chars[range])
                     guard originalPart.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
                           let box = try? candidate.boundingBox(for: index(range.lowerBound)..<index(range.upperBound))?.boundingBox else { continue }
@@ -440,6 +587,7 @@ enum OCRService {
             var result = chars
             var edits: [(start: Int, end: Int, text: String)] = replacements.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             edits += insertions.map { (start: $0.offset, end: $0.offset, text: $0.text) }
+            edits += barEdits.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             let circled: [Character] = ["①", "②", "③", "④", "⑤"]
             edits += circleHere.map { (start: $0.remove.lowerBound, end: $0.remove.upperBound, text: " \(circled[$0.number - 1]) ") }
             // 뒤에서부터, 같은 자리면 긴 범위를 먼저 (끼워 넣기가 범위 바꾸기에 지워지지 않게)
@@ -450,7 +598,8 @@ enum OCRService {
                 .trimmingCharacters(in: .whitespaces)
             return OCRLine(text: text, confidence: adjustedConfidence(text, best.confidence), box: observation.boundingBox)
         }
-        return lines.compactMap { $0 }
+        // 어느 줄에도 붙지 않은 분수는 따로 한 줄
+        return lines.compactMap { $0 } + looseBars.map { OCRLine(text: $0.text, confidence: 0.9, box: $0.box) }
     }
 
     /// 수학 문제 사진 → 문제 글: 기기 글자 인식 + 자주 틀리는 글자 교정
@@ -507,18 +656,38 @@ enum OCRService {
     }
 
     static func deskew(_ image: CGImage) async -> (image: CGImage, angle: Double) {
-        let small = scaled(image, maxDimension: 1600)
-        let quads: [(topLeft: CGPoint, topRight: CGPoint, bottomLeft: CGPoint, bottomRight: CGPoint)] = await withCheckedContinuation { continuation in
+        let small = scaled(image, maxDimension: 1200)
+        // 글줄 자리만 보고 잼 (종이 가장자리·책상·그림의 긴 선에 끌려가지 않게): 빠른 글자 찾기의 줄 상자
+        let boxes: [CGRect] = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 let request = VNRecognizeTextRequest()
                 request.recognitionLevel = .fast
                 request.usesLanguageCorrection = false
                 let handler = VNImageRequestHandler(cgImage: small, options: [:])
                 try? handler.perform([request])
-                continuation.resume(returning: (request.results ?? []).map { (topLeft: $0.topLeft, topRight: $0.topRight, bottomLeft: $0.bottomLeft, bottomRight: $0.bottomRight) })
+                continuation.resume(returning: (request.results ?? []).map(\.boundingBox))
             }
         }
-        guard let angle = MathOCRFixer.skewAngle(quads: quads, width: Double(small.width), height: Double(small.height)),
+        guard !boxes.isEmpty else { return (image, 0) }
+        let w = small.width, h = small.height
+        var gray = [UInt8](repeating: 255, count: w * h)
+        let drawn: Bool = gray.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                          space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            context.draw(small, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return (image, 0) }
+        // 글줄 상자(조금 넓혀서) 밖은 흰색으로
+        var keep = [Bool](repeating: false, count: w * h)
+        for box in boxes {
+            let x0 = max(0, Int((box.minX - box.height * 0.3) * CGFloat(w))), x1 = min(w - 1, Int((box.maxX + box.height * 0.3) * CGFloat(w)))
+            let y0 = max(0, Int((1 - box.maxY - box.height * 0.3) * CGFloat(h))), y1 = min(h - 1, Int((1 - box.minY + box.height * 0.3) * CGFloat(h)))
+            guard x0 <= x1, y0 <= y1 else { continue }
+            for y in y0...y1 { for x in x0...x1 { keep[y * w + x] = true } }
+        }
+        for i in 0..<(w * h) where !keep[i] { gray[i] = 255 }
+        guard let angle = TextSkew.angle(gray: gray, width: w, height: h, maxDegrees: 6),
               let rotated = rotated(image, degrees: -angle) else { return (image, 0) }
         return (rotated, angle)
     }

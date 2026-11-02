@@ -67,6 +67,56 @@ func runOCRCases() {
 
     runCircleCases()
     runPhotoFixCases()
+    runFractionFinderCases()
+}
+
+// MARK: - 쌓은 분수 막대 찾기 (픽셀)
+
+func runFractionFinderCases() {
+    let w = 200, h = 120
+    func canvas() -> [UInt8] { [UInt8](repeating: 250, count: w * h) }
+    // 글자는 두께 2픽셀 테두리 (꽉 찬 네모는 그림으로 봄), 얇은 것(높이·너비 3 이하)은 그대로 채움
+    func fill(_ g: inout [UInt8], _ x: Int, _ y: Int, _ bw: Int, _ bh: Int) {
+        for yy in y..<(y + bh) {
+            for xx in x..<(x + bw) where bw <= 3 || bh <= 3 || xx - x < 2 || x + bw - 1 - xx < 2 || yy - y < 2 || y + bh - 1 - yy < 2 {
+                g[yy * w + xx] = 20
+            }
+        }
+    }
+    // 글자 크기 30px: 분수 = 분자(10×17) / 막대(22×2) / 분모(10×17)
+    var frac = canvas()
+    fill(&frac, 30, 50, 22, 2)          // 막대
+    fill(&frac, 36, 30, 10, 17)         // 분자
+    fill(&frac, 36, 56, 10, 17)         // 분모
+    fill(&frac, 70, 45, 14, 3)          // 오른쪽 "=" 위
+    fill(&frac, 70, 53, 14, 3)          // 오른쪽 "=" 아래
+    fill(&frac, 95, 38, 26, 28)         // 오른쪽 한글 한 글자 (분수보다 작음)
+    let found = FractionFinder.bars(gray: frac, width: w, height: h, size: 30)
+    check("분수 막대 하나", found.count == 1 && found.first?.x0 == 30 && found.first?.top == 50, "\(found)")
+    check("분자·분모 영역", found.first.map { $0.numerator.y == 30 && $0.denominator.y == 52 } == true, "\(found)")
+    // "=" 만 있으면 분수 아님
+    var eq = canvas()
+    fill(&eq, 30, 45, 22, 2); fill(&eq, 30, 53, 22, 2)
+    check("등호는 분수 아님", FractionFinder.bars(gray: eq, width: w, height: h, size: 30).isEmpty)
+    // "를"처럼 ㅡ 위아래 작은 획 + 옆 글자가 같은 높이 → 분수 아님
+    var reul = canvas()
+    fill(&reul, 30, 50, 24, 2); fill(&reul, 33, 38, 18, 9); fill(&reul, 33, 55, 18, 9)
+    fill(&reul, 60, 37, 22, 28)          // 옆 글자 (같은 높이)
+    check("를의 ㅡ는 분수 아님", FractionFinder.bars(gray: reul, width: w, height: h, size: 30).isEmpty)
+    // 빼기 기호(위아래 글자 없음)는 분수 아님
+    var minus = canvas()
+    fill(&minus, 30, 50, 16, 2)
+    check("빼기는 분수 아님", FractionFinder.bars(gray: minus, width: w, height: h, size: 30).isEmpty)
+
+    // 따로 읽은 분자·분모 정리
+    check("분자 1", MathOCRFixer.fractionPart(" 1 ") == "1")
+    check("분자 l → 1", MathOCRFixer.fractionPart("l") == "1")
+    check("막대 조각 떼기", MathOCRFixer.fractionPart("3-") == "3")
+    check("음수 분자는 그대로", MathOCRFixer.fractionPart("-3") == "-3")
+    check("한글은 분자 아님", MathOCRFixer.fractionPart("늘") == nil)
+    check("빈 글은 분자 아님", MathOCRFixer.fractionPart("") == nil)
+    check("분수 글", MathOCRFixer.fractionText("x+1", "2") == "(x+1)/2" && MathOCRFixer.fractionText("12", "35") == "12/35"
+          && MathOCRFixer.fractionText("x", "3") == "x/3", MathOCRFixer.fractionText("x+1", "2"))
 }
 
 // MARK: - 사진 테스트(Tests/OCRImages)에서 찾은 잘못 읽기
@@ -101,20 +151,26 @@ func runPhotoFixCases() {
         check("사진 교정 아님: \(keep)", fixed == keep, fixed)
     }
 
-    // 글줄 기울기: 3° 기운 줄들 → 3, 반듯하면 nil
-    func quad(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ deg: Double) -> (topLeft: CGPoint, topRight: CGPoint, bottomLeft: CGPoint, bottomRight: CGPoint) {
-        let a = deg * .pi / 180
-        let bl = CGPoint(x: x, y: y)
-        let br = CGPoint(x: x + w * cos(a), y: y + w * sin(a))
-        let tl = CGPoint(x: x - h * sin(a), y: y + h * cos(a))
-        let tr = CGPoint(x: br.x - h * sin(a), y: br.y + h * cos(a))
-        return (tl, tr, bl, br)
+    // 글줄 기울기: 3° 기운 글줄(작은 네모 글자들) → 3, 반듯하면 nil
+    func page(_ degrees: Double) -> [UInt8] {
+        let w = 400, h = 300
+        var g = [UInt8](repeating: 245, count: w * h)
+        let t = tan(degrees * .pi / 180)
+        for line in 0..<6 {
+            for k in 0..<20 {
+                let x0 = 30 + k * 17, baseY = 50 + line * 40
+                for dx in 0..<12 {
+                    let x = x0 + dx
+                    let yTop = Int(Double(baseY) - Double(x) * t)
+                    for y in yTop..<(yTop + 14) where y >= 0 && y < h && (dx < 2 || dx > 9 || y - yTop < 2 || y - yTop > 11) { g[y * w + x] = 30 }
+                }
+            }
+        }
+        return g
     }
-    let tilted = (0..<6).map { quad(0.1, 0.1 + Double($0) * 0.1, 0.6, 0.03, 3) }
-    let angle = MathOCRFixer.skewAngle(quads: tilted, width: 1000, height: 1000)
-    check("글줄 기울기 3°", angle.map { abs($0 - 3) < 0.2 } == true, "\(String(describing: angle))")
-    let flat = (0..<6).map { quad(0.1, 0.1 + Double($0) * 0.1, 0.6, 0.03, 0.2) }
-    check("반듯한 글줄은 그대로", MathOCRFixer.skewAngle(quads: flat, width: 1000, height: 1000) == nil)
+    let tilted = TextSkew.angle(gray: page(3), width: 400, height: 300)
+    check("글줄 기울기 3°", tilted.map { abs($0 - 3) < 0.3 } == true, "\(String(describing: tilted))")
+    check("반듯한 글줄은 그대로", TextSkew.angle(gray: page(0), width: 400, height: 300) == nil)
 
     // 비스듬한 보기 줄: 합친 조각이 다시 들어가지 않음
     let slanted = [OCRLine(text: "다음 단어의 뜻으로 알맞은 것은?", confidence: 0.9, box: CGRect(x: 0.05, y: 0.8, width: 0.7, height: 0.04)),
