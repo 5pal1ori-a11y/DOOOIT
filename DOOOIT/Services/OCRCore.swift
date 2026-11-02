@@ -768,18 +768,21 @@ enum OCRService {
     }
 
     static func readSubjectTrace(_ image: CGImage) async -> SubjectTrace {
+        // 비교용: 예전 방식 (한 번 읽기)
         var trace = SubjectTrace()
         let straight = await deskew(image)
         trace.skew = straight.angle
-        // 두 사진을 동시에 읽음
-        async let plainRead = subjectReading(straight.image)
-        if let ink = inkOnly(straight.image) { trace.readings.append(await subjectReading(ink)) }
-        trace.readings.append(await plainRead)
-        let chosen = chooseSubjectReading(trace.readings.map(\.lines))
-        trace.chosen = chosen.index
-        trace.lines = chosen.lines
-        trace.text = subjectText(chosen.lines)
-        trace.unsure = chosen.lines.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }
+        var best: [OCRLine] = []
+        var bestScore = -1.0
+        for candidate in [inkOnly(straight.image), straight.image].compactMap({ $0 }) {
+            let lines = ((try? await recognize(candidate)) ?? [])
+                .filter { $0.confidence >= 0.3 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+            let score = lines.reduce(0.0) { $0 + Double($1.text.count) * Double($1.confidence) }
+            if score > bestScore { best = lines; bestScore = score }
+        }
+        trace.lines = best
+        trace.text = subjectText(best)
+        trace.unsure = best.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }
         return trace
     }
 

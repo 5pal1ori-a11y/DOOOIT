@@ -38,7 +38,6 @@ struct ProblemScan: Codable, Equatable {
     var autoSubject: String?
     /// 문제 유형 사전(DoitProblemTypes)에서 찾은 유형 id
     var typeID: String?
-    /// <보기> 상자의 항목 ("ㄱ. …", "ㄴ. …"). 예전 노트는 nil
     var boxItems: [String]?
 
     var hasDoubts: Bool { !doubts.isEmpty }
@@ -57,10 +56,6 @@ enum DoitProblemScan {
         var result = ProblemScan()
         let text = raw.replacingOccurrences(of: "\r", with: "")
         var lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
-        // <보기> ㄱ. ㄴ. ㄷ. 항목: 글자 인식이 ㄱ을 "7", ㄴ을 "L", ㄷ을 "C"로 읽은 것도 바로잡음
-        let box = boxItems(in: lines)
-        lines = box.lines
-        if !box.items.isEmpty { result.boxItems = box.items }
 
         // 1) 사진에 적힌 정답 ("정답: ③")은 문제에서 빼서 따로
         if let answer = math ? MathGrader.extractAnswer(from: text) : DoitSubjectNote.printedAnswer(in: text) {
@@ -80,22 +75,10 @@ enum DoitProblemScan {
             let found = choices(in: line)
             if found.count >= 1, startsWithChoiceMark(line) {
                 result.choices += found
-            } else if found.count >= 3, math || !isPassageLine(line, parts: found) {
+            } else if found.count >= 3 {
                 result.choices += found
             } else {
                 bodyLines.append(line)
-            }
-        }
-
-        // 2-1) <보기> 문제의 조합 선택지 ("ㄱ, ㄷ"): 자음을 닮은 글자("7", "L", "C")를 자음으로, 쉼표 모양 통일
-        if !box.items.isEmpty || lines.contains(where: { $0.contains("보기") }) {
-            let mapped = result.choices.map(jamoCombination)
-            let real = result.choices.map { $0.contains(where: { jamoMarks.contains($0) }) }
-            // 모두 자음 조합이면 함께 바꿈 (진짜 자음이 하나라도 있거나 <보기> 항목이 있을 때). 아니면 진짜 자음이 든 것만
-            if mapped.allSatisfy(isJamoList), real.contains(true) || !box.items.isEmpty {
-                result.choices = mapped
-            } else {
-                result.choices = result.choices.indices.map { real[$0] ? mapped[$0] : result.choices[$0] }
             }
         }
 
@@ -191,116 +174,6 @@ enum DoitProblemScan {
     }
 
     private static func numbered(_ choices: [String]) -> Bool { !choices.isEmpty }
-
-    /// 지문 속 밑줄 번호(①~⑤)가 든 줄인지: 첫 번호 앞에 글이 있고 번호 사이 글이 긴 줄 ("Many people ①believe that …")
-    static func isPassageLine(_ line: String, parts: [String]) -> Bool {
-        guard let first = line.firstIndex(where: { circled.contains($0) }) else { return false }
-        let prefix = line[..<first].filter { !$0.isWhitespace }
-        let average = parts.isEmpty ? 0 : parts.map(\.count).reduce(0, +) / parts.count
-        return prefix.count >= 6 && average >= 12
-    }
-
-    // MARK: - <보기> ㄱ. ㄴ. ㄷ.
-
-    private static let jamoMarks: [Character] = ["ㄱ", "ㄴ", "ㄷ", "ㄹ", "ㅁ"]
-    /// 자음 대신 읽히는 글자 (첫 낱자 ᄀ·ᄂ·ᄃ, 숫자 7, 영어 L·C 등)
-    private static let jamoLookalikes: [Character: Character] = [
-        "ᄀ": "ㄱ", "7": "ㄱ", "ㄱ": "ㄱ",
-        "ᄂ": "ㄴ", "L": "ㄴ", "ㄴ": "ㄴ", "└": "ㄴ",
-        "ᄃ": "ㄷ", "C": "ㄷ", "c": "ㄷ", "⊏": "ㄷ", "匚": "ㄷ", "ㄷ": "ㄷ",
-        "ᄅ": "ㄹ", "ㄹ": "ㄹ", "己": "ㄹ",
-        "ᄆ": "ㅁ", "ㅁ": "ㅁ", "口": "ㅁ",
-    ]
-
-    /// 줄 처음의 "ㄱ.", "ㄴ)" 같은 항목 표시 (닮은 글자 포함) → (자음, 표시 뒤 글)
-    private static func itemMark(_ line: Substring, expected: Character?) -> (mark: Character, rest: Substring)? {
-        guard let first = line.first, let mark = jamoLookalikes[first] else { return nil }
-        let after = line.dropFirst()
-        guard let sep = after.first, ".)．,".contains(sep) else { return nil }
-        // 진짜 자음이 아닌 닮은 글자는 차례가 맞을 때만 ("7. …"이 문제 번호일 수도 있어서)
-        if !jamoMarks.contains(first), let expected, mark != expected { return nil }
-        if !jamoMarks.contains(first), expected == nil { return nil }
-        return (mark, after.dropFirst().drop(while: { $0 == " " }))
-    }
-
-    /// <보기> 상자의 항목을 찾아 (자음 표시를 바로잡은 줄들, 항목들). 한 줄에 여러 항목("ㄱ. … ㄴ. …")도 나눔
-    static func boxItems(in lines: [String]) -> (lines: [String], items: [String]) {
-        // 머리글 "<보기>" (뒤에 첫 항목을 이어 쓴 것도). "<보기>에서 고른 것은?" 같은 질문 줄은 아님
-        func headerRest(_ line: String) -> Substring? {
-            guard let r = line.range(of: #"^[<〈《\[(［]?\s*보\s*기\s*[>〉》\])］]?\s*"#, options: .regularExpression) else { return nil }
-            let rest = line[r.upperBound...]
-            return rest.isEmpty || itemMark(rest, expected: "ㄱ") != nil ? rest : nil
-        }
-        let header = lines.firstIndex { headerRest($0) != nil }
-        var out = lines
-        var items: [String] = []
-        // 보기 머리글이 없으면 진짜 자음 "ㄱ."으로 시작하는 줄부터
-        let startIndex: Int
-        if let header { startIndex = header } else if let first = lines.firstIndex(where: { $0.hasPrefix("ㄱ.") || $0.hasPrefix("ㄱ ") || $0.hasPrefix("ᄀ.") }) { startIndex = first } else { return (lines, []) }
-        var i = startIndex
-        while i < out.count {
-            var line = Substring(out[i])
-            if i == header {
-                // 머리글 뒤에 이어 쓴 항목
-                line = headerRest(out[i]) ?? line
-                if line.isEmpty { i += 1; continue }
-            }
-            let expected: Character? = items.count < jamoMarks.count ? jamoMarks[items.count] : nil
-            guard itemMark(line, expected: expected) != nil || (items.isEmpty == false && !startsWithChoiceMark(String(line)) && !line.contains(where: { circled.contains($0) }) && isContinuation(line)) else { break }
-            if let mark = itemMark(line, expected: expected) {
-                // 한 줄에 여러 항목: 다음 자음 표시 앞에서 자름
-                var rest = mark.rest
-                var parts: [(Character, Substring)] = []
-                var current = mark.mark
-                while true {
-                    let next: Character? = parts.count + items.count + 1 < jamoMarks.count ? jamoMarks[parts.count + items.count + 1] : nil
-                    guard let next, let r = rest.range(of: #"\s"# + String(next) + #"[.)]\s"#, options: .regularExpression) else { break }
-                    parts.append((current, rest[..<r.lowerBound]))
-                    current = next
-                    rest = rest[r.upperBound...]
-                }
-                parts.append((current, rest))
-                for (m, body) in parts { items.append("\(m). " + body.trimmingCharacters(in: .whitespaces)) }
-                let fixed = parts.map { "\($0.0). " + $0.1.trimmingCharacters(in: .whitespaces) }.joined(separator: " ")
-                out[i] = i == header ? out[i].replacingOccurrences(of: String(line), with: fixed) : fixed
-            } else {
-                // 앞 항목이 다음 줄로 이어짐
-                items[items.count - 1] += " " + line.trimmingCharacters(in: .whitespaces)
-            }
-            i += 1
-        }
-        return (out, items.count >= 2 ? items : [])
-    }
-
-    /// 앞 항목에서 이어지는 줄인지 (질문·선택지 줄이 아님)
-    private static func isContinuation(_ line: Substring) -> Bool {
-        let s = String(line)
-        return !isQuestion(s) && s.range(of: #"^\d+[.)]"#, options: .regularExpression) == nil && s.count >= 2
-    }
-
-    /// 조합 선택지 "7, C" → "ㄱ, ㄷ" (모두 자음 하나씩일 때만)
-    static func jamoCombination(_ choice: String) -> String {
-        let parts = choice.split(whereSeparator: { $0 == "," || $0 == " " || $0 == "，" || $0 == "、" || $0 == "·" }).map(String.init)
-        var marks: [Character] = []
-        for part in parts {
-            // "ㄱㄴ"처럼 붙여 읽은 것도
-            for c in part {
-                guard let m = jamoLookalikes[c] else { return choice }
-                marks.append(m)
-            }
-        }
-        guard !marks.isEmpty, marks.count <= jamoMarks.count, Set(marks).count == marks.count else { return choice }
-        // 자음 차례(ㄱ<ㄴ<ㄷ)가 맞을 때만
-        let order = marks.compactMap { jamoMarks.firstIndex(of: $0) }
-        guard order == order.sorted() else { return choice }
-        return marks.map(String.init).joined(separator: ", ")
-    }
-
-    /// "ㄱ", "ㄱ, ㄷ" 같은 자음 조합인지
-    static func isJamoList(_ choice: String) -> Bool {
-        let parts = choice.components(separatedBy: ", ")
-        return !parts.isEmpty && parts.allSatisfy { $0.count == 1 && jamoMarks.contains($0.first!) }
-    }
 
     // MARK: - 표 · 문장 · 조건 · 질문
 
