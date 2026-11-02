@@ -285,8 +285,43 @@ enum MathOCRFixer {
     }
 
     /// ①②④⑤처럼 하나가 빠졌는데 그 자리에 "©", "®", "@", "0", "O" 같은 기호가 있으면 빠진 번호로
+    /// 앞쪽 보기 번호 여러 개를 다른 글자로 읽은 줄: "이 부족한 2 풍부한 ③ 위험한 ④ …" → "① 부족한 ② 풍부한 ③ …"
+    /// (줄 처음부터 번호 자리마다 그 번호처럼 생긴 토큰이 있고, 사이에 보기 값이 있을 때만)
+    private static func fillLeadingChoices(_ text: String) -> String {
+        guard !text.contains(circledDigits[0]) else { return text }
+        let common: Set<String> = ["@", "©", "®", "•"]
+        let lookalikes: [Int: Set<String>] = [
+            1: common.union(["l", "I", "|", "1", "(1", "(1)", "1)", "D", "(D", "O", "o", "0", "이", "0|"]),
+            2: common.union(["2", "Z", "z", "(2", "(2)", "2)"]),
+            3: common.union(["3", "(3", "(3)", "3)"]),
+            4: common.union(["4", "(4", "(4)", "4)", "*", "A"])
+        ]
+        var lines = text.components(separatedBy: "\n")
+        for li in lines.indices {
+            var tokens = lines[li].split(separator: " ").map(String.init)
+            guard let firstCircle = tokens.firstIndex(where: { $0.count == 1 && circledDigits.contains($0.first!) }),
+                  let n = circledDigits.firstIndex(of: tokens[firstCircle].first!).map({ $0 + 1 }), n >= 2 else { continue }
+            var marks: [Int] = []
+            var expect = 1
+            var i = 0
+            while i < firstCircle, expect < n {
+                if lookalikes[expect]?.contains(tokens[i]) == true, marks.last.map({ i > $0 + 1 }) ?? (i == 0) {
+                    marks.append(i)
+                    expect += 1
+                } else if marks.isEmpty {
+                    break
+                }
+                i += 1
+            }
+            guard marks.count == n - 1, let last = marks.last, last + 1 < firstCircle else { continue }
+            for (k, m) in marks.enumerated() { tokens[m] = String(circledDigits[k]) }
+            lines[li] = tokens.joined(separator: " ")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     private static func fillCircledGaps(_ text: String) -> String {
-        var result = text
+        var result = fillLeadingChoices(text)
         for k in 1..<4 {   // 빠진 번호: ②, ③, ④ (양옆 번호가 있을 때)
             let before = circledDigits[k - 1], missing = circledDigits[k], after = circledDigits[k + 1]
             guard !result.contains(missing), let lower = result.firstIndex(of: before),
@@ -509,7 +544,7 @@ enum MathOCRFixer {
         // 맨 앞 빈칸: 짧은 식 줄이 연산 기호로 시작 "+ 4 = 9", "2. + 17 = 42" → "□ + 4 = 9" (긴 식이 줄바꿈된 경우는 제외)
         // 네모를 L, D, [, | 로 읽은 경우도: "D+ 17=42" → "□ + 17=42"
         let shortTail = #"(?=\d[^A-Za-z가-힣\n]{0,16}=[^A-Za-z가-힣\n]{0,10}$)"#
-        t = t.replacingOccurrences(of: #"(?m)^([ \t]*(?:\d{1,2}\.[ \t]+)?)(?:[LD\[|]|ㅁ)[ \t]*([+\-−×÷])[ \t]*"# + shortTail, with: "$1□ $2 ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?m)^([ \t]*(?:\d{1,2}\.[ \t]*)?)(?:[LD\[|_]|ㅁ)[ \t]*([+\-−×÷])[ \t]*"# + shortTail, with: "$1□ $2 ", options: .regularExpression)
         t = t.replacingOccurrences(of: #"(?m)^([ \t]*(?:\d{1,2}\.[ \t]+)?)([+×÷*/])[ \t]*"# + shortTail, with: "$1□ $2 ", options: .regularExpression)
         // 맨 끝 빈칸을 [ 나 | 로 읽음: "x² + 6x + [" → "x² + 6x + □"
         t = t.replacingOccurrences(of: #"(?m)([+\-−×÷=])[ \t]*[\[|][ \t]*$"#, with: "$1 □", options: .regularExpression)
@@ -518,6 +553,9 @@ enum MathOCRFixer {
         t = t.replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
         return t
     }
+
+    /// 빈칸 네모 □를 글자 인식이 잘못 읽은 모양
+    static let blankLookalikes: Set<Character> = ["_", "[", "]", "|", "L", "D", "口", "ㅁ", "•", "·", "◻", "☐", "▢"]
 
     /// 사진에서 찾은 빈 네모 상자 중 글자와 겹치지 않고 문장 줄 높이에 있는 것 → 그 줄에 □를 끼워 넣을 자리
     /// rects: 찾은 상자들, lines: 줄 상자들, letters: 글자 상자들 (모두 Vision 좌표, 아래가 0)

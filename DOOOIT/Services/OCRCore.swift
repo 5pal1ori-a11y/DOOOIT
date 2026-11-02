@@ -392,16 +392,19 @@ enum OCRService {
         var usedTiny = Set<Int>()
 
         // 빈 네모 상자 → 그 줄에 □ (글자 상자와 겹치지 않는 것만)
-        var letterBoxes = words.map(\.box)
-        for observation in korean {
+        // 글자 하나하나의 상자로 봄. 네모를 잘못 읽은 글자("_", "[", "L", "D", "口")는 글자로 치지 않음 (그 자리에 □)
+        var letterBoxes: [CGRect] = []
+        for observation in korean + english {
             guard let candidate = observation.topCandidates(1).first else { continue }
             let text = candidate.string
             var index = text.startIndex
             while index < text.endIndex {
-                guard let start = text[index...].firstIndex(where: { !$0.isWhitespace }) else { break }
-                let end = text[start...].firstIndex(where: { $0.isWhitespace }) ?? text.endIndex
-                if let box = try? candidate.boundingBox(for: start..<end)?.boundingBox { letterBoxes.append(box) }
-                index = end
+                let next = text.index(after: index)
+                if !text[index].isWhitespace, !MathOCRFixer.blankLookalikes.contains(text[index]),
+                   let box = try? candidate.boundingBox(for: index..<next)?.boundingBox {
+                    letterBoxes.append(box)
+                }
+                index = next
             }
         }
         var blanksByLine: [Int: [CGRect]] = [:]
@@ -584,9 +587,17 @@ enum OCRService {
                 }
             }
 
-            // 1-3) 빈칸 □ 끼워 넣기 (이미 □·口로 읽었으면 그대로)
+            // 1-3) 빈칸 □ 끼워 넣기 (이미 □·口로 읽었으면 그대로). 네모 자리에 "_", "[", "L" 처럼 읽힌 글자는 □로 바꿈
+            var blankEdits: [(range: Range<Int>, text: String)] = []
             if !original.contains(where: { "□口ㅁ".contains($0) }) {
                 for blank in blanksByLine[lineIndex] ?? [] {
+                    let zone = blank.insetBy(dx: -blank.width * 0.1, dy: -blank.height * 0.1)
+                    if let hit = chars.indices.first(where: { i in
+                        MathOCRFixer.blankLookalikes.contains(chars[i]) && charBox(i).map { zone.contains(CGPoint(x: $0.midX, y: $0.midY)) } == true
+                    }) {
+                        blankEdits.append((hit..<(hit + 1), " □ "))
+                        continue
+                    }
                     var offset = 0
                     var bestMaxX = -1.0
                     for i in chars.indices where !chars[i].isWhitespace {
@@ -622,7 +633,7 @@ enum OCRService {
                     if insertions.contains(where: { $0.offset > range.lowerBound && $0.offset <= range.upperBound }) { continue }
                     // 보기 번호를 고친 구간, 분수로 바꾼 구간도 그대로 둠
                     if circleHere.contains(where: { $0.remove.overlaps(range) || ($0.remove.lowerBound >= range.lowerBound && $0.remove.lowerBound <= range.upperBound) }) { continue }
-                    if barEdits.contains(where: { $0.range.overlaps(range) }) { continue }
+                    if barEdits.contains(where: { $0.range.overlaps(range) }) || blankEdits.contains(where: { $0.range.overlaps(range) }) { continue }
                     let originalPart = String(chars[range])
                     guard originalPart.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
                           let box = try? candidate.boundingBox(for: index(range.lowerBound)..<index(range.upperBound))?.boundingBox else { continue }
@@ -646,6 +657,8 @@ enum OCRService {
             var edits: [(start: Int, end: Int, text: String)] = replacements.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             edits += insertions.map { (start: $0.offset, end: $0.offset, text: $0.text) }
             edits += barEdits.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
+            edits += blankEdits.filter { b in !barEdits.contains { $0.range.overlaps(b.range) } }
+                .map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             let circled: [Character] = ["①", "②", "③", "④", "⑤"]
             edits += circleHere.map { (start: $0.remove.lowerBound, end: $0.remove.upperBound, text: " \(circled[$0.number - 1]) ") }
             // 뒤에서부터, 같은 자리면 긴 범위를 먼저 (끼워 넣기가 범위 바꾸기에 지워지지 않게)

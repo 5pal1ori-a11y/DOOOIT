@@ -154,6 +154,7 @@ func runPhotoFixCases() {
         ("① 금새 ② 웬일 ③ 몇일 ④ ④ 어떻해 ⑤ 설레임", "① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ 설레임"),
         ("2. D+ 17=42", "2. □ + 17=42"),                                     // 맨 앞 빈칸을 D 로
         ("2. + 17=42", "2. □ + 17=42"),
+        ("2._+ 17=42", "2.□ + 17=42"),
         ("(x+ 3) 2= x² + 6x+ [", "(x+ 3)²= x² + 6x+ □"),                    // 맨 끝 빈칸을 [ 로
         ("16. 다음 식의 안에 알맞은 수는?", "16. 다음 식의 □ 안에 알맞은 수는?"),   // 빠진 □
         ("_ 안에 알맞은 분수를 구하시오.", "□ 안에 알맞은 분수를 구하시오."),
@@ -165,6 +166,8 @@ func runPhotoFixCases() {
         ("① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ § 설레임", "① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ 설레임"),
         ("① m/$ ② kg ③ N ④ J ⑤ W", "① m/s ② kg ③ N ④ J ⑤ W"),
         ("④ I am go to school.\n5 We is good friends.", "④ I am go to school.\n⑤ We is good friends."),
+        ("이 부족한 2 풍부한 ③ 위험한 ④ 정직한 ⑤ 조용한", "① 부족한 ② 풍부한 ③ 위험한 ④ 정직한 ⑤ 조용한"),
+        ("1 2 2 3 ③ 4 ④ 5 ⑤ 6", "① 2 ② 3 ③ 4 ④ 5 ⑤ 6"),
     ]
     for (input, expected) in fixes {
         let fixed = MathOCRFixer.fix(input).trimmingCharacters(in: .whitespaces)
