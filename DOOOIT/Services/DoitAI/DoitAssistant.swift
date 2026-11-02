@@ -177,7 +177,7 @@ final class DoitAssistant {
             return "\(topic)에 대해 앞에서 말한 것보다 더 깊이, 예시를 들어 자세히 알려줘"
         }
         if q.contains("쉽게") || q.contains("요약") || q.contains("한줄") || q.contains("간단히") {
-            return "\(topic)을(를) 초등학생도 알 수 있게 아주 쉽고 짧게 정리해줘"
+            return "\(topic)을(를) 초등학생도 알 수 있게 한두 문장으로 쉽게 말해줘"
         }
         if q.contains("예시") || q.contains("예를") {
             return "\(topic)의 쉬운 예시를 두세 개 들어줘"
@@ -202,18 +202,23 @@ final class DoitAssistant {
         let index = messages.count - 1
         let id = messages[index].id
         var raw = ""
+        // 이유·원리·계산 질문은 DOOOIT 2가 먼저 속으로 생각(추론)한 뒤 답함 (생각 과정은 안 보여 줌)
+        let reasoning = origin != .chat && DoitBrain.shared.selected == .dooit2 && DoitMind.needsReasoning(question)
+        if reasoning { status = "깊게 생각하는 중…" }
         do {
             for try await chunk in DoitBrain.shared.stream(system: DoitMind.persona,
                                                            prompt: DoitMind.answerPrompt(question: question, context: context, history: Array(history)),
-                                                           temperature: origin == .chat || origin == .conversation ? 0.7 : 0.5) {
+                                                           maxTokens: reasoning ? 1400 : 600,
+                                                           temperature: origin == .chat || origin == .conversation ? 0.6 : 0.4,
+                                                           thinking: reasoning) {
                 raw += chunk
-                if messages.indices.contains(index), messages[index].id == id { messages[index].text = DoitMind.clean(raw) }
+                if messages.indices.contains(index), messages[index].id == id { messages[index].text = DoitMind.answer(raw) }
             }
         } catch {
             raw = ""
         }
         guard messages.indices.contains(index), messages[index].id == id else { return }
-        let text = DoitMind.clean(raw)
+        let text = DoitMind.answer(raw)
         messages[index].isStreaming = false
         guard DoitMind.isUsable(text) else {
             // 모델 답이 비었거나 이상하면 엔진 답으로
@@ -307,7 +312,7 @@ final class DoitAssistant {
         if q.contains("쉽게") || q.contains("요약") || q.contains("한줄") || q.contains("간단히") {
             let lines = previous.text.components(separatedBy: "\n").filter { !$0.isEmpty && !$0.hasPrefix("출처") }
             let summary = lines.prefix(3).joined(separator: "\n")
-            return Message(role: .assistant, text: "**한눈에 보기**\n" + summary, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"])
+            return Message(role: .assistant, text: summary, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"])
         }
         return nil
     }

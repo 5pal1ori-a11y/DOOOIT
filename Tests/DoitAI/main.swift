@@ -361,6 +361,13 @@ func runBrain() {
 
     // 답 다듬기·검사
     check("답 다듬기", DoitMind.clean("<think>\n</think>\n\n두잇: ### 핵심\n- 하나\n- 둘") == "**핵심**\n• 하나\n• 둘", DoitMind.clean("<think>\n</think>\n\n두잇: ### 핵심\n- 하나\n- 둘"))
+    let fluffy = "좋은 질문이에요! 광합성은 식물이 빛으로 양분을 만드는 과정이에요.\n엽록체에서 일어나요.\n\n**요약**\n• 빛 → 양분\n\n더 궁금한 게 있으면 언제든 물어봐 주세요!"
+    check("군더더기 빼기: 칭찬·요약·끝인사", DoitMind.answer(fluffy) == "광합성은 식물이 빛으로 양분을 만드는 과정이에요.\n엽록체에서 일어나요.", DoitMind.answer(fluffy))
+    let conclusion = "물은 100도에서 끓어요.\n결론적으로, 물은 100도에서 끓는다는 거예요."
+    check("군더더기 빼기: 결론 문장", DoitMind.answer(conclusion) == "물은 100도에서 끓어요.", DoitMind.answer(conclusion))
+    check("군더더기 빼기: 본문은 그대로", DoitMind.answer("정리는 물건을 제자리에 두는 거예요.") == "정리는 물건을 제자리에 두는 거예요."
+          && DoitMind.answer("• 하나\n• 둘") == "• 하나\n• 둘")
+    check("추론 질문 판별", DoitMind.needsReasoning("왜 하늘은 파란색이야?") && !DoitMind.needsReasoning("안녕 반가워"))
     check("한자로 샌 답은 버림", !DoitMind.isUsable("光合作用是植物利用光能的过程，这个很重要。"))
     check("되풀이하는 답은 버림", !DoitMind.isUsable("좋아요 정말 좋아요. 좋아요 정말 좋아요. 좋아요 정말 좋아요. 끝"))
     check("정상 답은 통과", DoitMind.isUsable("광합성은 식물이 빛 에너지로 포도당을 만드는 과정이에요."))

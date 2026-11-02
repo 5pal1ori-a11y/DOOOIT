@@ -230,7 +230,8 @@ final class DoitBrain {
     // MARK: 답 만들기
 
     /// 글을 조금씩 만들어 보냄 (생각 과정 <think>는 걸러서)
-    func stream(system: String, prompt: String, maxTokens: Int = 700, temperature: Float = 0.6) -> AsyncThrowingStream<String, Error> {
+    /// thinking: 답하기 전에 속으로 생각(추론)하게 함 — 더 정확하지만 느림, 생각 과정은 걸러서 안 보여 줌
+    func stream(system: String, prompt: String, maxTokens: Int = 700, temperature: Float = 0.6, thinking: Bool = false) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { @MainActor in
                 guard !self.generating else { continuation.finish(throwing: BrainError.busy); return }
@@ -243,7 +244,7 @@ final class DoitBrain {
                     container,
                     instructions: system,
                     generateParameters: GenerateParameters(maxTokens: maxTokens, temperature: temperature, topP: 0.9, repetitionPenalty: 1.1),
-                    additionalContext: ["enable_thinking": false]
+                    additionalContext: ["enable_thinking": thinking]
                 )
                 var filter = ThinkFilter()
                 do {

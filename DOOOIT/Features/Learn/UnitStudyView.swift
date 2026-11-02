@@ -76,6 +76,7 @@ enum ContentCache {
 }
 
 /// 단원 하나를 단계별로 학습: 개념 보기 → 빈칸 암기 → O/X → 문제 → 취약 복습
+/// 끝낸 단계는 저장돼서 다음에 열면 이어서 해요
 struct UnitStudyView: View {
     let subject: String
     let unit: String
@@ -84,15 +85,21 @@ struct UnitStudyView: View {
     var completed: [String] = []
     var onStepDone: ((LearnStep) -> Void)? = nil
 
+    @Environment(\.modelContext) private var context
     @State private var step: LearnStep = .concept
     @State private var doneSteps: Set<String> = []
+    @State private var showComplete = false
+    @State private var loaded = false
 
     var body: some View {
         VStack(spacing: 0) {
             stepBar
-            Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
+                    if showComplete {
+                        completeCard
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     Group {
                         switch step {
                         case .concept: ConceptStepView(subject: subject, unit: unit, booster: booster, onDone: finish)
@@ -105,13 +112,14 @@ struct UnitStudyView: View {
                     .id(step)
                     .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
                                             removal: .move(edge: .leading).combined(with: .opacity)))
-                    Text("고른 단원의 교육과정 자료로 만들고, 단원 일치·근거·정답을 검증한 내용만 보여줘요. 그래도 교과서와 함께 확인하세요.")
+                    Text("교육과정 자료로 만들고 단원·근거·정답을 검증한 내용만 보여줘요. 교과서와 함께 확인하세요.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
                 .padding(20)
                 .padding(.bottom, 40)
                 .animation(Motion.spring, value: step)
+                .animation(Motion.spring, value: showComplete)
             }
             .scrollDismissesKeyboard(.interactively)
         }
@@ -119,65 +127,131 @@ struct UnitStudyView: View {
         .navigationTitle(unit)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            step = initialStep
-            doneSteps = Set(completed)
+            guard !loaded else { return }
+            loaded = true
+            let saved = LearnProgress.load(subject: subject, unit: unit, context: context)
+            doneSteps = Set(completed).union(saved?.done ?? [])
+            // 따로 정한 단계가 없으면 아직 안 한 첫 단계부터
+            if initialStep != .concept {
+                step = initialStep
+            } else {
+                step = LearnStep.allCases.first { !doneSteps.contains($0.rawValue) } ?? .concept
+            }
         }
     }
 
+    /// 번호 동그라미 5개를 선으로 이은 단계 표시 (끝낸 단계는 ✓)
     private var stepBar: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 6) {
-                ForEach(LearnStep.allCases) { item in
-                    Button {
-                        withAnimation(Motion.spring) { step = item }
-                        Haptics.tap()
-                    } label: {
-                        HStack(spacing: 4) {
-                            if doneSteps.contains(item.rawValue) {
-                                Image(systemName: "checkmark").font(.caption2.weight(.bold))
-                                    .transition(.scale.combined(with: .opacity))
+        HStack(alignment: .top, spacing: 0) {
+            ForEach(Array(LearnStep.allCases.enumerated()), id: \.element) { index, item in
+                let isDone = doneSteps.contains(item.rawValue)
+                let isCurrent = step == item
+                Button {
+                    withAnimation(Motion.spring) { step = item }
+                    Haptics.tap()
+                } label: {
+                    VStack(spacing: 6) {
+                        ZStack {
+                            Circle()
+                                .fill(isCurrent ? Theme.accent : (isDone ? Theme.accent.opacity(0.14) : Color.white))
+                            Circle()
+                                .strokeBorder(isCurrent || isDone ? Color.clear : Color.primary.opacity(0.12), lineWidth: 1.5)
+                            if isDone && !isCurrent {
+                                Image(systemName: "checkmark").font(.caption.weight(.heavy)).foregroundStyle(Theme.accent)
+                            } else {
+                                Text("\(index + 1)")
+                                    .font(.subheadline.weight(.bold))
+                                    .foregroundStyle(isCurrent ? Color.white : Color.secondary)
                             }
-                            Text(item.longTitle)
                         }
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 13)
-                        .padding(.vertical, 8)
-                        .foregroundStyle(step == item ? Color.white : (doneSteps.contains(item.rawValue) ? Theme.accent : Color.secondary))
-                        .background(step == item ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.white), in: .capsule)
-                        .shadow(color: step == item ? Theme.accent.opacity(0.25) : .black.opacity(0.04), radius: 5, y: 2)
+                        .frame(width: 32, height: 32)
+                        Text(item.title)
+                            .font(.caption2.weight(isCurrent ? .bold : .medium))
+                            .foregroundStyle(isCurrent ? Palette.ink : Color.secondary)
                     }
-                    .buttonStyle(.plain)
-                    if item != LearnStep.allCases.last {
-                        Rectangle().fill(Color.primary.opacity(0.12)).frame(width: 10, height: 2)
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(index + 1)단계 \(item.longTitle)\(isDone ? ", 완료" : "")")
+                .background(alignment: .top) {
+                    // 옆 단계와 잇는 선
+                    if index < LearnStep.allCases.count - 1 {
+                        GeometryReader { proxy in
+                            Rectangle()
+                                .fill(isDone ? Theme.accent.opacity(0.4) : Color.primary.opacity(0.1))
+                                .frame(width: proxy.size.width - 40, height: 2)
+                                .offset(x: proxy.size.width / 2 + 20, y: 15)
+                        }
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
         }
-        .scrollIndicators(.hidden)
-        .overlay(alignment: .bottom) { stepProgress }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .background(Color.white.opacity(0.6))
+        .overlay(alignment: .bottom) { Divider() }
     }
 
-    /// 지금 단계까지 채워지는 얇은 진행 막대
-    private var stepProgress: some View {
-        GeometryReader { proxy in
-            let index = CGFloat((LearnStep.allCases.firstIndex(of: step) ?? 0) + 1)
-            let fraction = index / CGFloat(LearnStep.allCases.count)
-            Capsule()
-                .fill(AccentGradient.linear)
-                .frame(width: proxy.size.width * fraction, height: 3)
-                .animation(Motion.spring, value: step)
+    /// 다섯 단계를 다 끝냈을 때: 다음 단원으로 / 처음부터 다시
+    private var completeCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title2)
+                    .foregroundStyle(Palette.success)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("단원 학습 완료").font(.headline).foregroundStyle(Palette.ink)
+                    Text(unit).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            HStack(spacing: 10) {
+                if let next = LearnProgress.nextUnit(after: unit, subject: subject) {
+                    NavigationLink {
+                        UnitStudyView(subject: subject, unit: next)
+                    } label: {
+                        Label("다음 단원: \(next)", systemImage: "arrow.right")
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.primaryFill)
+                }
+                Button {
+                    withAnimation(Motion.spring) {
+                        showComplete = false
+                        step = .concept
+                    }
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.headline)
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 52, height: 52)
+                        .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("처음부터 다시")
+            }
         }
-        .frame(height: 3)
+        .softCard(cornerRadius: 22, padding: 18)
     }
 
     private func finish(_ finished: LearnStep) {
         doneSteps.insert(finished.rawValue)
+        LearnProgress.mark(finished, subject: subject, unit: unit, context: context)
         onStepDone?(finished)
-        if let index = LearnStep.allCases.firstIndex(of: finished), index + 1 < LearnStep.allCases.count {
-            withAnimation(Motion.spring) { step = LearnStep.allCases[index + 1] }
+        let all = LearnStep.allCases
+        if all.allSatisfy({ doneSteps.contains($0.rawValue) }) {
+            Haptics.success()
+            withAnimation(Motion.spring) { showComplete = true }
+            if finished != .weak, let index = all.firstIndex(of: finished), index + 1 < all.count {
+                withAnimation(Motion.spring) { step = all[index + 1] }
+            }
+            return
         }
+        // 이 단계 뒤에서 아직 안 한 단계, 없으면 앞에서 빠뜨린 단계로
+        let index = all.firstIndex(of: finished) ?? 0
+        let next = all[(index + 1)...].first { !doneSteps.contains($0.rawValue) } ?? all.first { !doneSteps.contains($0.rawValue) }
+        if let next { withAnimation(Motion.spring) { step = next } }
     }
 }
 
