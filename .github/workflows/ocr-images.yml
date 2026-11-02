@@ -1,0 +1,64 @@
+name: OCR Images
+
+# 사진 OCR 테스트: 맥(Apple Vision)에서 문제지·단어장 사진을 만들어 앱의 실제 인식 코드로 읽고 정답과 비교
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: "사진 이름 필터 (비우면 전부)"
+        required: false
+        default: ""
+  push:
+    branches:
+      - "ocr-harness*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ocr-images-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ocr:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+          sw_vers
+
+      - name: Type-check OCR files for iOS
+        run: |
+          SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          xcrun --sdk iphonesimulator swiftc -typecheck -swift-version 5 -sdk "$SDK" -target arm64-apple-ios26.0-simulator \
+            DOOOIT/Services/OCRService.swift DOOOIT/Services/OCRCore.swift DOOOIT/Services/MathOCRFixer.swift \
+            DOOOIT/Services/WordParser.swift DOOOIT/Services/ProblemSplitter.swift
+
+      - name: Run image OCR tests
+        env:
+          OCR_JOBS: "3"
+          FILTER: ${{ github.event.inputs.filter }}
+        run: |
+          set -o pipefail
+          bash Tests/OCRImages/run.sh "$RUNNER_TEMP/ocr" "$FILTER" 2>&1 | tee "$RUNNER_TEMP/ocr-log.txt"
+          cat "$RUNNER_TEMP/ocr/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          cp "$RUNNER_TEMP/ocr-log.txt" "$RUNNER_TEMP/ocr/"
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-results
+          path: |
+            ${{ runner.temp }}/ocr/results.json
+            ${{ runner.temp }}/ocr/summary.md
+            ${{ runner.temp }}/ocr/cases.json
+            ${{ runner.temp }}/ocr/ocr-log.txt
+            ${{ runner.temp }}/ocr/images/
+          retention-days: 7
