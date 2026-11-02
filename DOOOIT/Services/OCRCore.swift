@@ -456,6 +456,8 @@ enum OCRService {
     /// 수학 문제 사진 → 문제 글: 기기 글자 인식 + 자주 틀리는 글자 교정
     /// 여러 방법으로 읽은 결과 중 수식이 가장 자연스러운 쪽을 고름 (improved: 기본 결과보다 나은 걸 골랐는지)
     static func readMathProblem(_ image: CGImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
+        // 미리 읽은 줄이 있으면 그 사진은 이미 바로 세운 것 (readMathProblemDetailed)
+        let image = precomputed == nil ? await deskewed(image) : image
         var lines = precomputed ?? []
         if precomputed == nil { lines = (try? await recognizeMath(image)) ?? [] }
         let base = MathOCRFixer.fix(printedText(from: lines))
@@ -466,9 +468,70 @@ enum OCRService {
 
     /// 문제 읽기 + 자신 없이 읽은 줄 (인식 결과 확인 화면에서 표시)
     static func readMathProblemDetailed(_ image: CGImage) async -> (text: String, improved: Bool, unsure: [String]) {
-        let lines = (try? await recognizeMath(image)) ?? []
-        let result = await readMathProblem(image, lines: lines)
-        return (result.text, result.improved, unsureLines(lines))
+        let trace = await readMathProblemTrace(image)
+        return (trace.text, trace.improved, trace.unsure)
+    }
+
+    /// 문제 읽기 단계별 결과 (사진 테스트에서 원인 찾기에도 씀)
+    struct MathTrace {
+        var text = ""
+        var improved = false
+        var unsure: [String] = []
+        /// 글줄 기울기를 바로잡은 각도 (도, 0이면 그대로)
+        var skew: Double = 0
+        var lines: [OCRLine] = []
+        var base = ""
+        var readings: [String] = []
+    }
+
+    static func readMathProblemTrace(_ image: CGImage) async -> MathTrace {
+        var trace = MathTrace()
+        let straight = await deskew(image)
+        trace.skew = straight.angle
+        trace.lines = (try? await recognizeMath(straight.image)) ?? []
+        trace.unsure = unsureLines(trace.lines)
+        trace.base = MathOCRFixer.fix(printedText(from: trace.lines))
+        trace.text = trace.base
+        guard !trace.base.isEmpty else { return trace }
+        trace.readings = await multiPassRead(straight.image)
+        (trace.text, trace.improved) = bestReading(base: trace.base, others: trace.readings)
+        return trace
+    }
+
+    // MARK: 기울어진 사진 바로 세우기
+
+    /// 글줄이 기울어진 사진(문제 부분만 비스듬히 찍거나 자른 사진)을 바로 세움.
+    /// 기울면 같은 줄의 보기 ①~⑤가 다른 줄로 나뉘고 줄 순서가 뒤섞여서, 읽기 전에 사진을 돌려 놓음
+    static func deskewed(_ image: CGImage) async -> CGImage {
+        await deskew(image).image
+    }
+
+    static func deskew(_ image: CGImage) async -> (image: CGImage, angle: Double) {
+        let small = scaled(image, maxDimension: 1600)
+        let quads: [(topLeft: CGPoint, topRight: CGPoint, bottomLeft: CGPoint, bottomRight: CGPoint)] = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNRecognizeTextRequest()
+                request.recognitionLevel = .fast
+                request.usesLanguageCorrection = false
+                let handler = VNImageRequestHandler(cgImage: small, options: [:])
+                try? handler.perform([request])
+                continuation.resume(returning: (request.results ?? []).map { (topLeft: $0.topLeft, topRight: $0.topRight, bottomLeft: $0.bottomLeft, bottomRight: $0.bottomRight) })
+            }
+        }
+        guard let angle = MathOCRFixer.skewAngle(quads: quads, width: Double(small.width), height: Double(small.height)),
+              let rotated = rotated(image, degrees: -angle) else { return (image, 0) }
+        return (rotated, angle)
+    }
+
+    /// 가운데를 중심으로 돌린 사진 (잘리지 않게 넓힌 바깥은 흰색)
+    static func rotated(_ image: CGImage, degrees: Double) -> CGImage? {
+        let radians = CGFloat(degrees * .pi / 180)
+        let input = CIImage(cgImage: image)
+        let turned = input.transformed(by: CGAffineTransform(rotationAngle: radians))
+        let extent = turned.extent.integral
+        let background = CIImage(color: CIColor(red: 1, green: 1, blue: 1)).cropped(to: extent)
+        let output = turned.composited(over: background).cropped(to: extent)
+        return CIContext().createCGImage(output, from: extent)
     }
 
     /// 손으로 쓴 풀이 읽기: 영어(수식) 위주, 교정 없이, 위에서 아래로 한 줄씩
@@ -658,11 +721,17 @@ enum OCRService {
     /// 단어장 사진 → 단어·뜻 (철자 확인 전): 원래 사진과 고대비 사진을 함께 읽어 더 많이 찾은 쪽을 쓰고,
     /// 빠진 뜻은 다른 쪽에서 채움
     static func readWordsUnchecked(_ image: CGImage) async -> [ParsedWord] {
-        async let plainRead = try? recognize(image)
-        async let contrastRead = contrastLines(image)
+        await readWordsTrace(image).words
+    }
+
+    /// 단어장 읽기 단계별 결과: 바로 세운 사진을 원래대로 / 고대비로 읽은 줄
+    static func readWordsTrace(_ image: CGImage) async -> (words: [ParsedWord], plain: [OCRLine], contrast: [OCRLine], skew: Double) {
+        let straight = await deskew(image)
+        async let plainRead = try? recognize(straight.image)
+        async let contrastRead = contrastLines(straight.image)
         let first = await plainRead
         let second = await contrastRead
-        return bestWords([first, second].compactMap { $0 })
+        return (bestWords([first, second].compactMap { $0 }), first ?? [], second ?? [], straight.angle)
     }
 
     private static func contrastLines(_ image: CGImage) async -> [OCRLine]? {

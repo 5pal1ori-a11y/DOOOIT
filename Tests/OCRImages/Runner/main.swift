@@ -42,19 +42,14 @@ func runProblem(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
     let flat = await OCRService.straightened(image)
     result.straightened = flat != nil
     let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
-    let lines = (try? await OCRService.recognizeMath(source)) ?? []
-    let base = MathOCRFixer.fix(OCRService.printedText(from: lines))
-    var text = base
-    if !base.isEmpty {
-        let readings = await OCRService.multiPassRead(source)
-        result.readings = readings
-        text = OCRService.bestReading(base: base, others: readings).text
-    }
-    result.mathLines = debugLines(lines)
-    await rawDump(source, result: &result)
-    result.unsure = OCRService.unsureLines(lines)
-    result.baseText = base
-    evaluateProblem(spec, text: text, unsure: result.unsure, result: &result)
+    let trace = await OCRService.readMathProblemTrace(source)
+    result.skew = trace.skew
+    result.mathLines = debugLines(trace.lines)
+    result.unsure = trace.unsure
+    result.baseText = trace.base
+    result.readings = trace.readings
+    await rawDump(await OCRService.deskewed(source), result: &result)
+    evaluateProblem(spec, text: trace.text, unsure: trace.unsure, result: &result)
 }
 
 /// 원인 찾기용: Vision이 읽은 그대로 (merge 전)
@@ -66,7 +61,18 @@ func rawDump(_ image: CGImage, result: inout CaseResult) async {
     async let shapes = OCRService.detectCircles(prepared)
     func dump(_ observations: [VNRecognizedTextObservation]) -> [DebugLine] {
         observations.compactMap { o in
-            o.topCandidates(1).first.map { DebugLine(text: $0.string, confidence: $0.confidence, box: rounded(o.boundingBox)) }
+            guard let c = o.topCandidates(1).first else { return nil }
+            let text = c.string
+            var chars: [[Double]] = []
+            var index = text.startIndex
+            while index < text.endIndex {
+                let next = text.index(after: index)
+                if text[index].isWhitespace { chars.append([]) } else {
+                    chars.append(((try? c.boundingBox(for: index..<next))?.map { rounded($0.boundingBox) }) ?? [])
+                }
+                index = next
+            }
+            return DebugLine(text: text, confidence: c.confidence, box: rounded(o.boundingBox), chars: chars)
         }
     }
     let k = await korean ?? []
@@ -80,15 +86,15 @@ func rawDump(_ image: CGImage, result: inout CaseResult) async {
     result.circles = all.filter { MathOCRFixer.isChoiceCircle($0, lineHeight: median) }.map { rounded($0.box) }
 }
 
-/// 앱: readWords = 원래 사진 + 고대비 사진 읽기 → bestWords → 철자 확인 → 뜻 있는 것만 보여 줌
+/// 앱: readWords = 바로 세우기 → 원래 사진 + 고대비 사진 읽기 → bestWords → 철자 확인 → 뜻 있는 것만 보여 줌
 func runWords(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) async {
     let flat = await OCRService.straightened(image)
     result.straightened = flat != nil
     let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
-    let first = (try? await OCRService.recognize(source)) ?? []
-    var second: [OCRLine] = []
-    if let enhanced = OCRService.enhancedForText(source) { second = (try? await OCRService.recognize(enhanced)) ?? [] }
-    let best = OCRService.bestWords([first, second])
+    let trace = await OCRService.readWordsTrace(source)
+    result.skew = trace.skew
+    let best = trace.words
+    let first = trace.plain, second = trace.contrast
     let words = await MainActor.run { best.map(spellChecked) }
     result.wordLines = [debugLines(first), debugLines(second)]
     evaluateWords(spec, words: words, result: &result)

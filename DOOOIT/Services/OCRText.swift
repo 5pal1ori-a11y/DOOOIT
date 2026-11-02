@@ -124,15 +124,18 @@ extension OCRService {
     /// 한글·보기 번호 없이 숫자/기호만 있는 짧은 줄(풀이 계산 흔적)을 뺌
     static func printedText(from lines: [OCRLine]) -> String {
         // 같은 줄에 띄어서 놓인 보기 조각들("12", "14" …)은 한 줄로 합친 뒤에 거름
-        let pieces = lines.filter { $0.confidence >= 0.35 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+        let pieceIndices = lines.indices.filter { lines[$0].confidence >= 0.35 && !lines[$0].text.trimmingCharacters(in: .whitespaces).isEmpty }
+        let pieces = pieceIndices.map { lines[$0] }
+        var used = Set<Int>()
         let grouped = MathOCRFixer.rows(pieces.map(\.box)).compactMap { row -> OCRLine? in
             guard row.count >= 2, MathOCRFixer.isChoiceRow(row.map { pieces[$0].text }) else { return nil }
+            used.formUnion(row.map { pieceIndices[$0] })
             let box = row.map { pieces[$0].box }.reduce(pieces[row[0]].box) { $0.union($1) }
             let confidence = row.map { pieces[$0].confidence }.max() ?? 0
             return OCRLine(text: row.map { pieces[$0].text }.joined(separator: "   "), confidence: max(confidence, 0.5), box: box)
         }
-        let usedBoxes = grouped.map(\.box)
-        let rest = lines.filter { line in !usedBoxes.contains { $0.contains(CGPoint(x: line.box.midX, y: line.box.midY)) && $0.height < line.box.height * 2.5 } }
+        // 합친 조각은 빼고 (상자 위치로 고르면 비스듬한 줄에서 같은 보기가 두 번 들어감)
+        let rest = lines.indices.filter { !used.contains($0) }.map { lines[$0] }
         let kept = (grouped + rest).filter { line in
             let text = line.text.trimmingCharacters(in: .whitespaces)
             guard !text.isEmpty, line.confidence >= 0.35 else { return false }

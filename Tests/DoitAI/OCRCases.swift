@@ -66,6 +66,61 @@ func runOCRCases() {
     check("빈 네모 상자만 빈칸으로", found.count == 1 && found.first?.host == 0, "\(found)")
 
     runCircleCases()
+    runPhotoFixCases()
+}
+
+// MARK: - 사진 테스트(Tests/OCRImages)에서 찾은 잘못 읽기
+
+func runPhotoFixCases() {
+    let fixes: [(String, String)] = [
+        ("① 2v2 ② 2v3 ③ 3v2 ④ 4v3 ⑤ 6", "① 2√2 ② 2√3 ③ 3√2 ④ 4√3 ⑤ 6"),     // 근호를 v로
+        ("① ~2 ② 4~3", "① √2 ② 4√3"),                                      // 근호를 ~로
+        ("3. 0.3 x 0.4의 값은?", "3. 0.3 × 0.4의 값은?"),                     // 띄어 쓴 x 는 곱셈
+        ("일차함수 y= 2r- 3의 그래프", "일차함수 y= 2x- 3의 그래프"),            // x 를 r 로
+        ("식 3*- 1의 값", "식 3x- 1의 값"),
+        ("④ l am go to school.", "④ I am go to school."),                    // 영어 I 를 l 로
+        ("늘 + ⅓의 값은?", "늘 + 1/3의 값은?"),                                  // 한 글자 분수
+        ("① O 0.012 ② @ 0.12 ③ 3 1.2 ④ * 12 ⑤ S 0.7", "① 0.012 ② 0.12 ③ 1.2 ④ 12 ⑤ 0.7"),  // 번호 찌꺼기
+        ("① 금새 ② 웬일 ③ 몇일 ④ ④ 어떻해 ⑤ 설레임", "① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ 설레임"),
+        ("2. D+ 17=42", "2. □ + 17=42"),                                     // 맨 앞 빈칸을 D 로
+        ("2. + 17=42", "2. □ + 17=42"),
+        ("(x+ 3) 2= x² + 6x+ [", "(x+ 3)²= x² + 6x+ □"),                    // 맨 끝 빈칸을 [ 로
+        ("16. 다음 식의 안에 알맞은 수는?", "16. 다음 식의 □ 안에 알맞은 수는?"),   // 빠진 □
+        ("_ 안에 알맞은 분수를 구하시오.", "□ 안에 알맞은 분수를 구하시오."),
+    ]
+    for (input, expected) in fixes {
+        let fixed = MathOCRFixer.fix(input).trimmingCharacters(in: .whitespaces)
+        check("사진 교정: \(input.prefix(24))", fixed == expected, fixed)
+    }
+    // 바꾸면 안 되는 것
+    for keep in ["① 0 ② 1 ③ 2 ④ 3 ⑤ 4", "반지름이 2r인 원", "x = 3", "I have a pen.", "상자 안에 공이 있다.", "① 3 ② 6 ③ 9 ④ 12 ⑤ 18"] {
+        let fixed = MathOCRFixer.fix(keep)
+        check("사진 교정 아님: \(keep)", fixed == keep, fixed)
+    }
+
+    // 글줄 기울기: 3° 기운 줄들 → 3, 반듯하면 nil
+    func quad(_ x: Double, _ y: Double, _ w: Double, _ h: Double, _ deg: Double) -> (topLeft: CGPoint, topRight: CGPoint, bottomLeft: CGPoint, bottomRight: CGPoint) {
+        let a = deg * .pi / 180
+        let bl = CGPoint(x: x, y: y)
+        let br = CGPoint(x: x + w * cos(a), y: y + w * sin(a))
+        let tl = CGPoint(x: x - h * sin(a), y: y + h * cos(a))
+        let tr = CGPoint(x: br.x - h * sin(a), y: br.y + h * cos(a))
+        return (tl, tr, bl, br)
+    }
+    let tilted = (0..<6).map { quad(0.1, 0.1 + Double($0) * 0.1, 0.6, 0.03, 3) }
+    let angle = MathOCRFixer.skewAngle(quads: tilted, width: 1000, height: 1000)
+    check("글줄 기울기 3°", angle.map { abs($0 - 3) < 0.2 } == true, "\(String(describing: angle))")
+    let flat = (0..<6).map { quad(0.1, 0.1 + Double($0) * 0.1, 0.6, 0.03, 0.2) }
+    check("반듯한 글줄은 그대로", MathOCRFixer.skewAngle(quads: flat, width: 1000, height: 1000) == nil)
+
+    // 비스듬한 보기 줄: 합친 조각이 다시 들어가지 않음
+    let slanted = [OCRLine(text: "다음 단어의 뜻으로 알맞은 것은?", confidence: 0.9, box: CGRect(x: 0.05, y: 0.8, width: 0.7, height: 0.04)),
+                   OCRLine(text: "① 부족한", confidence: 0.9, box: CGRect(x: 0.05, y: 0.50, width: 0.12, height: 0.04)),
+                   OCRLine(text: "② 풍부한", confidence: 0.9, box: CGRect(x: 0.25, y: 0.515, width: 0.12, height: 0.04)),
+                   OCRLine(text: "③ 위험한", confidence: 0.9, box: CGRect(x: 0.45, y: 0.53, width: 0.12, height: 0.04)),
+                   OCRLine(text: "④ 정직한", confidence: 0.9, box: CGRect(x: 0.65, y: 0.545, width: 0.12, height: 0.04))]
+    let printed = OCRService.printedText(from: slanted)
+    check("비스듬한 보기 줄 한 번씩", printed.components(separatedBy: "풍부한").count == 2, printed)
 }
 
 // MARK: - 사진 속 동그라미 번호 · 같은 줄 보기 조각

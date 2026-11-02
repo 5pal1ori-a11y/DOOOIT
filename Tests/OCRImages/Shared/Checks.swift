@@ -13,6 +13,8 @@ struct DebugLine: Codable {
     var text: String
     var confidence: Float
     var box: [Double]
+    /// 글자마다 상자 (원인 찾기용, 빈칸 글자는 [])
+    var chars: [[Double]]? = nil
 }
 
 struct CaseResult: Codable {
@@ -26,6 +28,8 @@ struct CaseResult: Codable {
     var text: String = ""
     var choices: [String] = []
     var straightened = false
+    /// 글줄 기울기를 바로잡은 각도 (도)
+    var skew: Double? = nil
     /// recognizeMath 결과 (분수·지수·빈칸·동그라미를 끼워 넣은 줄)
     var mathLines: [DebugLine] = []
     var unsure: [String] = []
