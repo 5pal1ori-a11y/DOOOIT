@@ -68,6 +68,7 @@ func runOCRCases() {
     runCircleCases()
     runPhotoFixCases()
     runFractionFinderCases()
+    runSubjectOCRCases()
 }
 
 // MARK: - 쌓은 분수 막대 찾기 (픽셀)
@@ -322,4 +323,106 @@ func runCircleCases() {
     check("(D 로 읽힌 ①", MathOCRFixer.normalizeChoices("(D 3 (2 5 (3 7 (4 9 (5 11") == "① 3 ② 5 ③ 7 ④ 9 ⑤ 11", MathOCRFixer.normalizeChoices("(D 3 (2 5 (3 7 (4 9 (5 11"))
     let flow = MathOCRFixer.fix("두 수의 합은?\n1 12 2 14 3 16 4 18 5 20")
     check("fix 전체: 숫자 번호", flow.contains("① 12 ② 14 ③ 16 ④ 18 ⑤ 20"), flow)
+}
+
+// MARK: - 수학이 아닌 과목: 두 번 읽기 합치기 · 영어 낱말 · 과학 기호 · <보기>
+
+/// 글자마다 같은 폭으로 상자를 만든 줄 (x부터 글자 폭 w)
+private func glyphLine(_ text: String, x: Double, y: Double, w: Double = 0.02, h: Double = 0.03, confidence: Float = 0.9) -> OCRGlyphLine {
+    let chars = Array(text)
+    let boxes: [CGRect?] = chars.indices.map { chars[$0] == " " ? nil : CGRect(x: x + Double($0) * w, y: y, width: w * 0.9, height: h) }
+    return OCRGlyphLine(text: text, confidence: confidence, box: CGRect(x: x, y: y, width: Double(chars.count) * w, height: h), charBoxes: boxes)
+}
+
+func runSubjectOCRCases() {
+    // 영어 낱말 정리
+    let english: [(String, String)] = [
+        ("④ l am go to school.", "④ I am go to school."),
+        ("l'm looking forward to it.", "I'm looking forward to it."),
+        ("She g0es t0 school.", "She goes to school."),
+        ("He is a he1pful friend.", "He is a helpful friend."),
+        ("They come frorn Korea.", "They come from Korea."),
+        ("I don’t like apples .", "I don't like apples."),
+        ("I Iike music.", "I like music."),
+        ("Turn left at the corner.", "Turn left at the corner."),
+        ("I have lived here since 2010.", "I have lived here since 2010."),
+        ("It is 10cm long and the 1st prize.", "It is 10cm long and the 1st prize."),
+        ("윗글의 내용과 일치하지 않는 것은?", "윗글의 내용과 일치하지 않는 것은?"),
+    ]
+    for (input, expected) in english {
+        let fixed = SubjectTextFixer.fix(input)
+        check("영어 정리: \(input)", fixed == expected, fixed)
+    }
+    // 과학 기호
+    let science: [(String, String)] = [
+        ("2H2 + O2 → 2H2O", "2H₂ + O₂ → 2H₂O"),
+        ("2H2 + O2 -> 2H20", "2H₂ + O₂ → 2H₂O"),
+        ("① H2O ② C02 ③ O2 ④ H2 ⑤ N2", "① H₂O ② CO₂ ③ O₂ ④ H₂ ⑤ N₂"),
+        ("① Na+ ② Cl- ③ Mg2+ ④ Al3+ ⑤ O2-", "① Na⁺ ② Cl⁻ ③ Mg²⁺ ④ Al³⁺ ⑤ O²⁻"),
+        ("NH4+ 와 SO42- 와 NO3-", "NH₄⁺ 와 SO₄²⁻ 와 NO₃⁻"),
+        ("CO2를 흡수하고 O2를 방출한다.", "CO₂를 흡수하고 O₂를 방출한다."),
+        ("N2 + 3H2 <=> 2NH3  AH < 0", "N₂ + 3H₂ ⇌ 2NH₃ ΔH < 0"),
+        ("① m/$ ② kg ③ N ④ J ⑤ W", "① m/s ② kg ③ N ④ J ⑤ W"),
+        ("가속도 - m/s2", "가속도 - m/s²"),
+        ("밀도 - g/cm3", "밀도 - g/cm³"),
+        ("넓이 36 cm2, 부피 8 m3", "넓이 36 cm² , 부피 8 m³"),
+        ("물의 온도 25 ℃, 100 °c", "물의 온도 25 °C, 100 °C"),
+        ("저항이 10 Q인 니크롬선", "저항이 10 Ω인 니크롬선"),
+        ("크기가 20 um일 때", "크기가 20 μm일 때"),
+        ("(A) He is in the B2 room. NaCl, HCl, CO", "(A) He is in the B2 room. NaCl, HCl, CO"),
+        ("(가) (나) (다) 실험 A, B, C", "(가) (나) (다) 실험 A, B, C"),
+    ]
+    for (input, expected) in science {
+        let fixed = SubjectTextFixer.fix(input)
+        check("과학 기호: \(input)", fixed.replacingOccurrences(of: "  ", with: " ") == expected.replacingOccurrences(of: "  ", with: " ")
+              || fixed.filter { !$0.isWhitespace } == expected.filter { !$0.isWhitespace }, fixed)
+    }
+
+    // 두 번 읽기 합치기: 영어가 대부분인 보기 줄의 한글 조각("go" → "영")은 영어 전용 결과로, 동그라미 자리는 번호로
+    let koreanLine = glyphLine("1영 ② goes ③ going A gone ⑤ to go", x: 0.1, y: 0.5)
+    // 영어 전용 결과는 낱말마다 같은 자리에 ("go"는 한글 한 글자 자리에 두 글자)
+    let englishWords = [glyphLine("go", x: 0.1 + 0.02 * 1, y: 0.5, w: 0.01), glyphLine("goes", x: 0.1 + 0.02 * 5, y: 0.5),
+                        glyphLine("going", x: 0.1 + 0.02 * 12, y: 0.5), glyphLine("gone", x: 0.1 + 0.02 * 20, y: 0.5),
+                        glyphLine("to go", x: 0.1 + 0.02 * 27, y: 0.5)]
+    // 동그라미: 한국어 줄의 "1"(0번), "②"(3번), "③"(10번), "A"(18번), "⑤"(25번) 글자 자리
+    let circles = [0, 3, 10, 18, 25].map { CGRect(x: 0.1 + 0.02 * Double($0), y: 0.5, width: 0.018, height: 0.03) }
+    let merged = OCRService.subjectMerge(korean: [koreanLine], english: englishWords, circles: circles)
+    let mergedText = merged.map(\.text).joined(separator: "\n")
+    check("과목 합치기: go를 영으로 읽은 것", mergedText == "① go ② goes ③ going ④ gone ⑤ to go", mergedText)
+    // 한글 문장 줄은 그대로 (영어 전용이 한글을 엉뚱한 영어로 읽어도)
+    let question = OCRService.subjectMerge(korean: [glyphLine("다음 중 옳은 것은?", x: 0.1, y: 0.8)], english: [glyphLine("CHS 2 S2 7l2?", x: 0.1, y: 0.8)], circles: [])
+    check("과목 합치기: 한글 줄은 그대로", question.first?.text == "다음 중 옳은 것은?", question.first?.text ?? "")
+    // 단위 기호를 엉뚱하게 읽은 것("m/$", "~")은 영어 전용 결과로
+    let units = OCRService.subjectMerge(korean: [glyphLine("① m/$ ② kg ③ ~ ④ J ⑤ ₩", x: 0.1, y: 0.3)],
+                                        english: [glyphLine("① m/s ② kg ③ N ④ J ⑤ W", x: 0.1, y: 0.3)], circles: [])
+    check("과목 합치기: 단위", units.first?.text == "① m/s ② kg ③ N ④ J ⑤ W", units.first?.text ?? "")
+
+    // <보기> ㄱ. ㄴ. ㄷ. 과 조합 선택지
+    let boki = DoitProblemScan.scan("""
+    9. 광합성에 대한 설명으로 옳은 것만을 <보기>에서 있는
+    대로 고른 것은?
+    <보기>
+    ㄱ. 엽록체에서 일어난다.
+    L. 산소를 흡수하고 이산화 탄소를 방출한다.
+    C. 빛에너지를 화학 에너지로 전환한다.
+    ① ㄱ ② L ③ ㄱ, C ④ L, ㄷ ⑤ 7, L, C
+    """, math: false)
+    check("<보기> 항목 3개", boki.boxItems == ["ㄱ. 엽록체에서 일어난다.", "ㄴ. 산소를 흡수하고 이산화 탄소를 방출한다.", "ㄷ. 빛에너지를 화학 에너지로 전환한다."], "\(boki.boxItems ?? [])")
+    check("<보기> 조합 선택지", boki.choices == ["ㄱ", "ㄴ", "ㄱ, ㄷ", "ㄴ, ㄷ", "ㄱ, ㄴ, ㄷ"], "\(boki.choices)")
+    let inline = DoitProblemScan.scan("<보기>에서 화학 변화인 것만을 고른 것은?\n<보기> ㄱ. 철이 녹슨다. ㄴ. 얼음이 녹는다. ㄷ. 나무가 탄다.\n① ㄱ ② ㄷ ③ ㄱ, ㄴ ④ ㄱ, ㄷ ⑤ ㄴ, ㄷ", math: false)
+    check("<보기> 한 줄에 여러 항목", inline.boxItems == ["ㄱ. 철이 녹슨다.", "ㄴ. 얼음이 녹는다.", "ㄷ. 나무가 탄다."], "\(inline.boxItems ?? [])")
+    // 보기 문제가 아니면 "C", "L"은 그대로
+    let plainChoices = DoitProblemScan.scan("다음 중 탄소의 원소 기호는?\n① C ② H ③ O ④ N ⑤ L", math: false)
+    check("<보기> 아닌 문제의 C는 그대로", plainChoices.choices == ["C", "H", "O", "N", "L"], "\(plainChoices.choices)")
+    check("<보기> 없으면 항목 없음", plainChoices.boxItems == nil)
+    // 지문 속 밑줄 번호 줄은 선택지가 아님 (지문이 본문에서 빠지지 않게)
+    let passage = DoitProblemScan.scan("""
+    다음 글의 밑줄 친 부분 중, 어법상 틀린 것은?
+    Many people ①believe that reading ②helps us ③to understand others. It also
+    makes us ④more creative, so we should ⑤reading every day.
+    """, math: false)
+    check("지문 속 밑줄 번호는 본문", passage.body.contains("①believe") && passage.body.contains("⑤reading"), passage.body)
+    // 수학 문제는 예전 그대로
+    let mathRow = DoitProblemScan.scan("다음 중 옳은 것은?\nx + 1 = 2 ① 1 ② 2 ③ 3 ④ 4 ⑤ 5")
+    check("수학: 한 줄 보기 그대로", mathRow.choices == ["1", "2", "3", "4", "5"], "\(mathRow.choices)")
 }

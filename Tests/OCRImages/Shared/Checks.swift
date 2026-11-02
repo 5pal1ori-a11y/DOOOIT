@@ -48,6 +48,28 @@ struct CaseResult: Codable {
     /// 사진에서 찾은 쌓은 분수 (막대 + 따로 읽은 분자·분모)
     var fractions: [DebugLine]? = nil
     var notes: [String]? = nil
+    /// 수학이 아닌 과목: 사진마다 (펜 지운 사진, 원래 사진) 합치기 전 두 번 읽은 줄 + 동그라미 → 리눅스에서 합치기부터 다시 채점
+    var subjectReadings: [SubjectReadingDump]? = nil
+    var subjectChosen: Int? = nil
+}
+
+struct SubjectReadingDump: Codable {
+    var korean: [DebugLine]
+    var english: [DebugLine]
+    var circles: [[Double]]
+}
+
+func glyphDebug(_ lines: [OCRGlyphLine]) -> [DebugLine] {
+    lines.map { DebugLine(text: $0.text, confidence: $0.confidence, box: rounded($0.box), chars: $0.charBoxes.map { $0.map(rounded) ?? [] }) }
+}
+
+func rect(_ v: [Double]) -> CGRect { CGRect(x: v[0], y: v[1], width: v[2], height: v[3]) }
+
+func glyphLines(_ lines: [DebugLine]) -> [OCRGlyphLine] {
+    lines.map { line in
+        OCRGlyphLine(text: line.text, confidence: line.confidence, box: rect(line.box),
+                     charBoxes: (line.chars ?? []).map { $0.count == 4 ? rect($0) : nil })
+    }
 }
 
 func rounded(_ r: CGRect) -> [Double] {
@@ -57,6 +79,7 @@ func rounded(_ r: CGRect) -> [Double] {
 /// 비교용: 띄어쓰기 없애고 기호 모양 통일
 func norm(_ s: String) -> String {
     var t = s.replacingOccurrences(of: "²", with: "^2").replacingOccurrences(of: "³", with: "^3")
+    t = t.replacingOccurrences(of: "⁺", with: "^+").replacingOccurrences(of: "⁻", with: "^-").replacingOccurrences(of: "¹", with: "^1")
     t = t.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: "–", with: "-")
     t = t.replacingOccurrences(of: "＝", with: "=").replacingOccurrences(of: "，", with: ",")
     t = t.filter { !$0.isWhitespace }
@@ -101,6 +124,10 @@ func evaluateProblem(_ spec: CaseSpec, text: String, unsure: [String], result: i
     for phrase in e.phrases {
         let ok = flatText.contains(norm(phrase))
         checks.append(Check(name: "문장 \(phrase)", ok: ok, detail: ok ? "" : "없음"))
+    }
+    if let items = e.boxItems {
+        let got = (scan.boxItems ?? []).map(norm), want = items.map(norm)
+        checks.append(Check(name: "<보기> \(want.count)개", ok: got == want, detail: got == want ? "" : "읽음 \(scan.boxItems ?? [])"))
     }
     result.checks = checks
 }

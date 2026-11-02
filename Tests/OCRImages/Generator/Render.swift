@@ -28,6 +28,23 @@ enum Seg {
     case gap(CGFloat)
     /// 밑줄 빈칸 (글자 크기 배수 길이)
     case underline(CGFloat)
+    /// 아래 첨자 (화학식 H₂O의 2)
+    case sub(String)
+    /// 밑줄 친 영어 (어법 문제의 밑줄 부분)
+    case u(String)
+    /// 위 첨자 (바른 글꼴: 이온 전하 ⁺, 단위 ²)
+    case supText(String)
+}
+
+/// 그래프 (축 이름, 눈금, 점들 0~1)
+struct GraphSpec {
+    var xLabel: String
+    var yLabel: String
+    var xTicks: [String]
+    var yTicks: [String]
+    var points: [CGPoint]
+    /// 그래프 높이 (글자 크기 배수)
+    var height: CGFloat = 7
 }
 
 enum Line {
@@ -41,6 +58,12 @@ enum Line {
     case space(CGFloat)
     /// 가로줄
     case rule
+    /// 테두리 상자 (<보기>, 주어진 문장) — title이 있으면 위 테두리 가운데에
+    case boxed(String?, [[Seg]])
+    /// 칸마다 테두리가 있는 표 (칸 왼쪽 위치 비율, 마지막은 오른쪽 끝)
+    case table([[[Seg]]], [CGFloat])
+    /// 그래프 그림
+    case graph(GraphSpec)
 }
 
 struct Style {
@@ -175,6 +198,68 @@ func measure(_ seg: Seg, style: Style) -> Measured {
         }
     case .gap(let k):
         return Measured(width: size * k, ascent: 0, descent: 0) { _, _ in }
+    case .sub(let s):
+        let inner = measureText(attributed(s, math: false, size: size * 0.62, style: style, fontName: style.latin))
+        let drop = size * 0.16
+        return Measured(width: inner.width + size * 0.04, ascent: inner.ascent - drop, descent: drop + inner.descent) { ctx, p in
+            inner.draw(ctx, CGPoint(x: p.x + size * 0.01, y: p.y - drop))
+        }
+    case .supText(let s):
+        let inner = measureText(attributed(s, math: false, size: size * 0.6, style: style, fontName: style.latin))
+        let raise = size * 0.42
+        return Measured(width: inner.width + size * 0.05, ascent: raise + inner.ascent, descent: 0) { ctx, p in
+            inner.draw(ctx, CGPoint(x: p.x + size * 0.02, y: p.y + raise))
+        }
+    case .u(let s):
+        let inner = measureText(attributed(s, math: false, size: size, style: style, fontName: style.termFont ?? style.latin))
+        let lineWidth = max(1.5, size / 24)
+        return Measured(width: inner.width, ascent: inner.ascent, descent: max(inner.descent, size * 0.2)) { ctx, p in
+            inner.draw(ctx, p)
+            ctx.fill(CGRect(x: p.x, y: p.y - size * 0.14, width: inner.width, height: lineWidth))
+        }
+    }
+}
+
+/// 그래프 그리기 (축·눈금·이름·꺾은선)
+func measureGraph(_ g: GraphSpec, style: Style, width: CGFloat) -> Measured {
+    let size = style.size
+    let labelSize = size * 0.8
+    func text(_ t: String) -> Measured {
+        let math = !t.contains(where: { ("가"..."힣").contains($0) })
+        return measureText(attributed(t, math: false, size: labelSize, style: style, fontName: math ? style.latin : nil))
+    }
+    let plotHeight = size * g.height
+    let left = size * 2.6, plotWidth = min(width * 0.62, size * 14)
+    let total = plotHeight + size * 2.6
+    let lineWidth = max(1.5, size / 22)
+    return Measured(width: left + plotWidth + size * 5, ascent: total, descent: 0) { ctx, p in
+        let origin = CGPoint(x: p.x + left, y: p.y + size * 1.6)
+        ctx.fill(CGRect(x: origin.x, y: origin.y, width: plotWidth, height: lineWidth))
+        ctx.fill(CGRect(x: origin.x, y: origin.y, width: lineWidth, height: plotHeight))
+        // 눈금
+        for (k, t) in g.xTicks.enumerated() {
+            let x = origin.x + plotWidth * CGFloat(k) / CGFloat(max(1, g.xTicks.count - 1)) * 0.9
+            let m = text(t)
+            m.draw(ctx, CGPoint(x: x - m.width / 2, y: origin.y - size * 1.0))
+        }
+        for (k, t) in g.yTicks.enumerated() where k > 0 {
+            let y = origin.y + plotHeight * CGFloat(k) / CGFloat(max(1, g.yTicks.count - 1)) * 0.85
+            let m = text(t)
+            m.draw(ctx, CGPoint(x: origin.x - m.width - size * 0.3, y: y - size * 0.25))
+            ctx.fill(CGRect(x: origin.x - size * 0.15, y: y, width: size * 0.3, height: lineWidth))
+        }
+        // 축 이름: y는 축 위, x는 축 오른쪽 끝
+        let yl = text(g.yLabel)
+        yl.draw(ctx, CGPoint(x: origin.x - size * 0.4, y: origin.y + plotHeight + size * 0.4))
+        let xl = text(g.xLabel)
+        xl.draw(ctx, CGPoint(x: origin.x + plotWidth + size * 0.3, y: origin.y - size * 0.25))
+        // 꺾은선
+        ctx.setLineWidth(lineWidth * 1.4)
+        for (k, pt) in g.points.enumerated() {
+            let q = CGPoint(x: origin.x + plotWidth * 0.9 * pt.x, y: origin.y + plotHeight * 0.85 * pt.y)
+            if k == 0 { ctx.move(to: q) } else { ctx.addLine(to: q) }
+        }
+        ctx.strokePath()
     }
 }
 
@@ -196,7 +281,14 @@ func measureRun(_ segs: [Seg], style: Style) -> Measured {
 func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> CGImage? {
     let size = style.size
     // 1) 줄마다 높이 계산
-    struct Placed { var ascent: CGFloat; var descent: CGFloat; var draws: [(CGFloat, Measured)]; var rule = false; var extra: CGFloat = 0 }
+    struct Placed {
+        var ascent: CGFloat; var descent: CGFloat; var draws: [(CGFloat, Measured)]; var rule = false; var extra: CGFloat = 0
+        /// 테두리 상자 시작(머리글) / 끝
+        var frameStart: String?? = nil
+        var frameEnd = false
+        /// 표 한 줄: 칸 경계 x (여백 기준)
+        var cells: [CGFloat]? = nil
+    }
     var placed: [Placed] = []
     let usable = CGFloat(width) - margin * 2
     for line in lines {
@@ -222,6 +314,22 @@ func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> C
             placed.append(Placed(ascent: 0, descent: 0, draws: [], extra: size * k))
         case .rule:
             placed.append(Placed(ascent: size * 0.3, descent: size * 0.3, draws: [], rule: true))
+        case .boxed(let title, let rows):
+            placed.append(Placed(ascent: 0, descent: 0, draws: [], extra: size * 0.9, frameStart: .some(title)))
+            for segs in rows {
+                let m = measureRun(segs, style: style)
+                placed.append(Placed(ascent: max(m.ascent, size * 0.8), descent: max(m.descent, size * 0.22), draws: [(size * 0.6, m)]))
+            }
+            placed.append(Placed(ascent: 0, descent: 0, draws: [], extra: size * 0.3, frameEnd: true))
+        case .table(let rows, let xs):
+            for row in rows {
+                let ms = row.enumerated().map { (usable * xs[$0.offset] + size * 0.3, measureRun($0.element, style: style)) }
+                placed.append(Placed(ascent: max(ms.map(\.1.ascent).max() ?? 0, size * 0.8), descent: max(ms.map(\.1.descent).max() ?? 0, size * 0.22),
+                                     draws: ms, cells: xs.map { usable * $0 }))
+            }
+        case .graph(let g):
+            let m = measureGraph(g, style: style, width: usable)
+            placed.append(Placed(ascent: m.ascent, descent: 0, draws: [(0, m)]))
         }
     }
     let gapBetween = size * (style.leading - 1)
@@ -237,10 +345,34 @@ func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> C
     ctx.setShouldAntialias(true)
     ctx.setShouldSmoothFonts(false)
     var top = margin
+    var frame: (top: CGFloat, title: String?)?
+    let stroke = max(1.5, size / 22)
     for p in placed {
         let baseline = CGFloat(h) - (top + p.ascent)
         if p.rule {
             ctx.fill(CGRect(x: margin, y: baseline, width: usable, height: max(1.5, size / 20)))
+        }
+        if let start = p.frameStart { frame = (top + size * 0.3, start) }
+        if p.frameEnd, let f = frame {
+            let rect = CGRect(x: margin, y: CGFloat(h) - (top + p.extra), width: usable, height: top + p.extra - f.top)
+            ctx.setLineWidth(stroke)
+            ctx.stroke(rect)
+            if let title = f.title {
+                let m = measureText(attributed(title, math: false, size: size, style: style))
+                let x = margin + (usable - m.width) / 2
+                ctx.setFillColor(style.paper)
+                ctx.fill(CGRect(x: x - size * 0.3, y: rect.maxY - size * 0.6, width: m.width + size * 0.6, height: size * 1.2))
+                ctx.setFillColor(style.ink)
+                m.draw(ctx, CGPoint(x: x, y: rect.maxY - size * 0.33))
+            }
+            frame = nil
+        }
+        if let cells = p.cells {
+            let rowTop = CGFloat(h) - (top - gapBetween * 0.45), rowBottom = CGFloat(h) - (top + p.ascent + p.descent + gapBetween * 0.55)
+            ctx.setLineWidth(stroke)
+            for k in 0..<(cells.count - 1) {
+                ctx.stroke(CGRect(x: margin + cells[k], y: rowBottom, width: cells[k + 1] - cells[k], height: rowTop - rowBottom))
+            }
         }
         for (x, m) in p.draws { m.draw(ctx, CGPoint(x: margin + x, y: baseline)) }
         top += p.ascent + p.descent + p.extra + (p.draws.isEmpty && !p.rule ? 0 : gapBetween)

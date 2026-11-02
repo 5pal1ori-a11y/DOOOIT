@@ -11,7 +11,7 @@ if [ -z "${INSIDE_RUNNER:-}" ] && ! command -v swiftc >/dev/null 2>&1; then
 fi
 BUILD="$(mktemp -d)"
 cd "$ROOT/DOOOIT"
-for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Mistake/*.swift Services/DoitAI/ProblemTypes/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/OCRText.swift Services/FractionFinder.swift Services/TextSkew.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
+for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Mistake/*.swift Services/DoitAI/ProblemTypes/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/OCRText.swift Services/SubjectOCRText.swift Services/FractionFinder.swift Services/TextSkew.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
   case "$f" in *DoitActions.swift) continue;; esac
   { echo '#if canImport(FoundationNetworking)'; echo 'import FoundationNetworking'; echo '#endif'; sed 's/^import UIKit$/import Foundation/' "$f"; } > "$BUILD/$(basename "$f")"
 done

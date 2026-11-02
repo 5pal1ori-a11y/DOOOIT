@@ -50,6 +50,11 @@ for (k, content) in problemContents.enumerated() {
 for (k, content) in wordContents.enumerated() {
     emit(content, style: content.style, degrades: [.clean, wordDegrades[k % wordDegrades.count], wordDegrades[(k + 2) % wordDegrades.count]])
 }
+// 영어·과학 문제 더 (앞 사진들의 손상 씨앗이 바뀌지 않게 맨 뒤에)
+for (k, content) in moreSubjectContents.enumerated() {
+    let style = variantStyle(content.style, index: k + 1)
+    emit(content, style: style, degrades: [.clean, problemDegrades[(k + 1) % problemDegrades.count], problemDegrades[(k + 3) % problemDegrades.count]])
+}
 
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

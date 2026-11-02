@@ -57,10 +57,13 @@ func runSubject(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
     let flat = await OCRService.straightened(image)
     result.straightened = flat != nil
     let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
-    let read = await OCRService.readSubjectProblem(source)
-    result.mathLines = debugLines(read.lines)
-    result.unsure = read.unsure
-    evaluateProblem(spec, text: read.text, unsure: read.unsure, result: &result)
+    let trace = await OCRService.readSubjectTrace(source)
+    result.skew = trace.skew
+    result.mathLines = debugLines(trace.lines)
+    result.unsure = trace.unsure
+    result.subjectReadings = trace.readings.map { SubjectReadingDump(korean: glyphDebug($0.korean), english: glyphDebug($0.english), circles: $0.circles.map(rounded)) }
+    result.subjectChosen = trace.chosen
+    evaluateProblem(spec, text: trace.text, unsure: trace.unsure, result: &result)
 }
 
 /// 원인 찾기용: Vision이 읽은 그대로 (merge 전)

@@ -21,6 +21,14 @@ for old in stored where filter.isEmpty || old.id.contains(filter) {
     if spec.kind == "words" {
         let words = OCRService.bestWords(old.wordLines.map(ocrLines))
         evaluateWords(spec, words: words, result: &result)
+    } else if spec.kind == "subject", let readings = old.subjectReadings {
+        // 합치기(두 번 읽은 줄 + 동그라미)부터 지금 코드로
+        let merged = readings.map { OCRService.subjectMerge(korean: glyphLines($0.korean), english: glyphLines($0.english), circles: $0.circles.map(rect)) }
+        let chosen = OCRService.chooseSubjectReading(merged)
+        result.mathLines = debugLines(chosen.lines)
+        result.subjectChosen = chosen.index
+        let unsure = chosen.lines.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }
+        evaluateProblem(spec, text: OCRService.subjectText(chosen.lines), unsure: unsure, result: &result)
     } else if spec.kind == "subject" {
         let lines = ocrLines(old.mathLines)
         evaluateProblem(spec, text: OCRService.subjectText(lines), unsure: old.unsure, result: &result)

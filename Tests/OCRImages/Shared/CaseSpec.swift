@@ -21,6 +21,8 @@ struct Expectation: Codable {
     var words: [WordPair] = []
     /// 단어장: 단어로 잡히면 안 되는 낱말 (유의어·제목)
     var notTerms: [String] = []
+    /// <보기> ㄱ. ㄴ. ㄷ. 항목 (DoitProblemScan.boxItems, 띄어쓰기 무시)
+    var boxItems: [String]? = nil
 }
 
 struct CaseSpec: Codable {

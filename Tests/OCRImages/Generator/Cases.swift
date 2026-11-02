@@ -26,6 +26,9 @@ func plain(_ segs: [Seg]) -> String {
         case .underline: return "□"
         case .circ: return ""
         case .gap: return " "
+        case .sub(let s): return String(s.map { c in ["0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉"][c] ?? c })
+        case .supText(let s): return String(s.map { c in ["2": "²", "3": "³", "+": "⁺", "−": "⁻", "-": "⁻"][c] ?? c })
+        case .u(let s): return s
         }
     }.joined()
 }
