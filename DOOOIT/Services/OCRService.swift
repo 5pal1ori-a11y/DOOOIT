@@ -1,6 +1,7 @@
 import CoreImage
 import UIKit
 import Vision
+import simd
 
 /// Vision 프레임워크로 사진 속 글자를 읽어옴 (기기 내에서 처리, 인터넷 불필요)
 struct OCRLine {
@@ -79,10 +80,67 @@ enum OCRService {
         async let englishRead = try? observe(cgImage, languages: ["en-US"], correction: false)
         // 빈칸 네모 상자 (글자 인식은 빈 네모를 아예 안 읽는 경우가 많아서 따로 찾음)
         async let boxRead = detectRectangles(cgImage)
+        // 보기 번호 동그라미 ①~⑤ (글자 인식이 못 읽거나 "1", "@", "(D"로 읽는 경우가 많아서 모양으로 찾음)
+        async let circleRead = detectCircles(cgImage)
         guard let korean = await koreanRead else { return [] }
         let english = await englishRead ?? []
         let rects = await boxRead
-        return merge(korean: korean, english: english, rects: rects)
+        let circles = await circleRead
+        return merge(korean: korean, english: english, rects: rects, circles: circles)
+    }
+
+    /// 사진 속 윤곽선 중 동그라미 번호 후보 (모양 정보만, 판정은 MathOCRFixer.isChoiceCircle)
+    private static func detectCircles(_ cgImage: CGImage) async -> [MathOCRFixer.Shape] {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNDetectContoursRequest()
+                request.detectsDarkOnLight = true
+                request.contrastAdjustment = 1.5
+                request.maximumImageDimension = min(2400, max(cgImage.width, cgImage.height))
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                guard (try? handler.perform([request])) != nil, let observation = request.results?.first else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let width = Double(cgImage.width), height = Double(cgImage.height)
+                var shapes: [MathOCRFixer.Shape] = []
+                func bounds(_ contour: VNContour) -> CGRect { contour.normalizedPath.boundingBox }
+                func descendants(_ contour: VNContour, depth: Int) -> [VNContour] {
+                    guard depth < 3 else { return [] }
+                    return contour.childContours.flatMap { [$0] + descendants($0, depth: depth + 1) }
+                }
+                func visit(_ contour: VNContour, depth: Int) {
+                    guard depth < 6, shapes.count < 400 else { return }
+                    let box = bounds(contour)
+                    let pixelWidth = Double(box.width) * width, pixelHeight = Double(box.height) * height
+                    // 글자 하나 크기의 동그란 윤곽만 자세히 봄
+                    if pixelHeight >= 9, pixelHeight <= 220, pixelWidth >= pixelHeight * 0.7, pixelWidth <= pixelHeight * 1.4,
+                       !contour.childContours.isEmpty {
+                        let points = contour.normalizedPoints
+                        var area = 0.0
+                        for k in points.indices {
+                            let a = points[k], b = points[(k + 1) % points.count]
+                            let ax = Double(a.x) * width, ay = Double(a.y) * height
+                            let bx = Double(b.x) * width, by = Double(b.y) * height
+                            area += ax * by - bx * ay
+                        }
+                        let fill = abs(area) / 2 / max(1, pixelWidth * pixelHeight)
+                        let inner = descendants(contour, depth: 0).map { child -> CGRect in
+                            let c = bounds(child)
+                            return CGRect(x: (c.minX - box.minX) / box.width, y: (c.minY - box.minY) / box.height,
+                                          width: c.width / box.width, height: c.height / box.height)
+                        }
+                        // 가로/세로 비율은 픽셀 기준으로 맞춘 안쪽 상자
+                        let ratio: Double = pixelWidth / max(1, pixelHeight)
+                        let corrected = inner.map { CGRect(x: $0.minX, y: $0.minY, width: $0.width * CGFloat(ratio), height: $0.height) }
+                        shapes.append(MathOCRFixer.Shape(box: box, aspect: ratio, fill: fill, inner: corrected))
+                    }
+                    for child in contour.childContours { visit(child, depth: depth + 1) }
+                }
+                for contour in observation.topLevelContours { visit(contour, depth: 0) }
+                continuation.resume(returning: shapes)
+            }
+        }
     }
 
     /// 사진 속 네모 상자들 (빈칸 □ 후보)
@@ -128,7 +186,8 @@ enum OCRService {
     }
 
     /// 한국어 줄의 수식 부분(한글이 없는 구간)을 같은 자리의 영어 전용 인식 결과와 비교해서 더 수식다운 쪽을 고름
-    private static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation], rects: [CGRect] = []) -> [OCRLine] {
+    private static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation], rects: [CGRect] = [],
+                              circles: [MathOCRFixer.Shape] = []) -> [OCRLine] {
         // 영어 전용 결과를 낱말 단위 위치로
         var words: [Word] = []
         for observation in english {
@@ -201,13 +260,74 @@ enum OCRService {
             blanksByLine[blank.host, default: []].append(blank.box)
         }
 
+        // 보기 번호 동그라미 → 줄마다 (지울 글자 범위, 넣을 자리, 번호)
+        var circleEdits: [Int: [(remove: Range<Int>, number: Int)]] = [:]
+        do {
+            func chosen(_ observation: VNRecognizedTextObservation) -> VNRecognizedText? { observation.topCandidates(1).first }
+            func charBox(_ candidate: VNRecognizedText, _ offset: Int) -> CGRect? {
+                let text = candidate.string
+                let start = text.index(text.startIndex, offsetBy: offset)
+                return try? candidate.boundingBox(for: start..<text.index(after: start))?.boundingBox
+            }
+            let found = circles.filter { MathOCRFixer.isChoiceCircle($0, lineHeight: medianHeight) }.map(\.box)
+            // 겹친 것(테두리 안팎 윤곽)은 하나로
+            var boxes: [CGRect] = []
+            for box in found.sorted(by: { $0.height > $1.height }) where !boxes.contains(where: { $0.intersects(box.insetBy(dx: box.width * 0.2, dy: box.height * 0.2)) }) {
+                boxes.append(box)
+            }
+            // 동그라미마다 줄과 글자 위치 찾기
+            var places: [(line: Int, remove: Range<Int>, anchor: Int?)?] = []
+            for box in boxes {
+                let sameRow = korean.indices.filter { i in
+                    let line = korean[i].boundingBox
+                    let overlap = min(line.maxY, box.maxY) - max(line.minY, box.minY)
+                    return overlap >= min(line.height, box.height) * 0.5 && !fractionPieces.contains(i)
+                }
+                let inside = sameRow.first { korean[$0].boundingBox.insetBy(dx: -0.004, dy: 0).contains(CGPoint(x: box.midX, y: korean[$0].boundingBox.midY)) }
+                let right = sameRow.filter { korean[$0].boundingBox.minX >= box.midX && korean[$0].boundingBox.minX - box.maxX <= medianHeight * 2.5 }
+                    .min { korean[$0].boundingBox.minX < korean[$1].boundingBox.minX }
+                guard let line = inside ?? right, let candidate = chosen(korean[line]) else { places.append(nil); continue }
+                let chars = Array(candidate.string)
+                // 동그라미 자리에 잘못 읽힌 글자("1", "@", "(D", "①")는 지우고 그 자리에 번호
+                let zone = box.insetBy(dx: -box.width * 0.15, dy: -box.height * 0.15)
+                var covered: [Int] = []
+                var insertAt = 0
+                var anchor: Int?
+                for i in chars.indices where !chars[i].isWhitespace {
+                    guard let cb = charBox(candidate, i) else { continue }
+                    if zone.contains(CGPoint(x: cb.midX, y: cb.midY)), cb.width < box.width * 1.3 {
+                        covered.append(i)
+                        if let n = "①②③④⑤".firstIndex(of: chars[i]) { anchor = "①②③④⑤".distance(from: "①②③④⑤".startIndex, to: n) + 1 }
+                    } else if cb.maxX <= box.midX {
+                        insertAt = i + 1
+                    }
+                }
+                // 왼쪽 글자가 너무 붙어 있으면 낱말 속 글자(점 O 등)라서 번호가 아님
+                if covered.isEmpty, insertAt > 0, let left = charBox(candidate, insertAt - 1), box.minX - left.maxX < medianHeight * 0.45 {
+                    places.append(nil)
+                    continue
+                }
+                let range = covered.isEmpty ? insertAt..<insertAt : (covered.min()!)..<(covered.max()! + 1)
+                places.append((line, range, anchor))
+            }
+            var anchors: [Int: Int] = [:]
+            for (k, place) in places.enumerated() { if let a = place?.anchor { anchors[k] = a } }
+            let valid = boxes.indices.filter { places[$0] != nil }
+            let numbers = MathOCRFixer.numberCircles(valid.map { boxes[$0] }, lineHeight: medianHeight,
+                                                     anchors: Dictionary(uniqueKeysWithValues: valid.enumerated().compactMap { k, i in anchors[i].map { (k, $0) } }))
+            for (k, i) in valid.enumerated() where numbers[k] > 0 {
+                guard let place = places[i] else { continue }
+                circleEdits[place.line, default: []].append((place.remove, numbers[k]))
+            }
+        }
+
         let lines = korean.indices.map { lineIndex -> OCRLine? in
             let observation = korean[lineIndex]
             if fractionPieces.contains(lineIndex) { return nil }      // 분수 조각은 줄에 끼워 넣음
             if superscriptText(observation) != nil { return nil }   // 지수 조각은 줄에 끼워 넣음
             let candidates = observation.topCandidates(3)
             guard let best = candidates.first else { return nil }
-            let candidate = candidates.filter { $0.confidence >= best.confidence - 0.15 }
+            let candidate = circleEdits[lineIndex] != nil ? best : candidates.filter { $0.confidence >= best.confidence - 0.15 }
                 .min { mathPenalty($0.string) < mathPenalty($1.string) } ?? best
             let original = candidate.string
             let chars = Array(original)
@@ -266,6 +386,9 @@ enum OCRService {
                 }
             }
 
+            // 1-4) 보기 번호 ①~⑤
+            let circleHere = circleEdits[lineIndex] ?? []
+
             // 2) 한글이 없는 구간(수식)을 영어 전용 결과와 비교
             var replacements: [(range: Range<Int>, text: String)] = []
             if !words.isEmpty {
@@ -285,6 +408,8 @@ enum OCRService {
                     let range = first..<(last + 1)
                     // 지수를 끼워 넣은 구간은 그대로 둠
                     if insertions.contains(where: { $0.offset > range.lowerBound && $0.offset <= range.upperBound }) { continue }
+                    // 보기 번호를 고친 구간도 그대로 둠
+                    if circleHere.contains(where: { $0.remove.overlaps(range) || ($0.remove.lowerBound >= range.lowerBound && $0.remove.lowerBound <= range.upperBound) }) { continue }
                     let originalPart = String(chars[range])
                     guard originalPart.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
                           let box = try? candidate.boundingBox(for: index(range.lowerBound)..<index(range.upperBound))?.boundingBox else { continue }
@@ -307,7 +432,10 @@ enum OCRService {
             var result = chars
             var edits: [(start: Int, end: Int, text: String)] = replacements.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             edits += insertions.map { (start: $0.offset, end: $0.offset, text: $0.text) }
-            for edit in edits.sorted(by: { $0.start > $1.start }) {
+            let circled: [Character] = ["①", "②", "③", "④", "⑤"]
+            edits += circleHere.map { (start: $0.remove.lowerBound, end: $0.remove.upperBound, text: " \(circled[$0.number - 1]) ") }
+            // 뒤에서부터, 같은 자리면 긴 범위를 먼저 (끼워 넣기가 범위 바꾸기에 지워지지 않게)
+            for edit in edits.sorted(by: { $0.start != $1.start ? $0.start > $1.start : $0.end > $1.end }) {
                 result.replaceSubrange(edit.start..<edit.end, with: Array(edit.text))
             }
             let text = String(result).replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
@@ -372,6 +500,8 @@ enum OCRService {
             let formula = String(line.filter { !isHangul($0) })
             score += hangul / 2 + mathScore(formula)
         }
+        // 보기 번호를 읽은 쪽을 더 믿음
+        score += text.filter { "①②③④⑤".contains($0) }.count * 4
         return score
     }
 
@@ -636,7 +766,17 @@ enum OCRService {
     /// 인쇄된 문제 위주로 남기기: 신뢰도가 낮은 줄(손글씨)과
     /// 한글·보기 번호 없이 숫자/기호만 있는 짧은 줄(풀이 계산 흔적)을 뺌
     static func printedText(from lines: [OCRLine]) -> String {
-        let kept = lines.filter { line in
+        // 같은 줄에 띄어서 놓인 보기 조각들("12", "14" …)은 한 줄로 합친 뒤에 거름
+        let pieces = lines.filter { $0.confidence >= 0.35 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+        let grouped = MathOCRFixer.rows(pieces.map(\.box)).compactMap { row -> OCRLine? in
+            guard row.count >= 2, MathOCRFixer.isChoiceRow(row.map { pieces[$0].text }) else { return nil }
+            let box = row.map { pieces[$0].box }.reduce(pieces[row[0]].box) { $0.union($1) }
+            let confidence = row.map { pieces[$0].confidence }.max() ?? 0
+            return OCRLine(text: row.map { pieces[$0].text }.joined(separator: "   "), confidence: max(confidence, 0.5), box: box)
+        }
+        let usedBoxes = grouped.map(\.box)
+        let rest = lines.filter { line in !usedBoxes.contains { $0.contains(CGPoint(x: line.box.midX, y: line.box.midY)) && $0.height < line.box.height * 2.5 } }
+        let kept = (grouped + rest).filter { line in
             let text = line.text.trimmingCharacters(in: .whitespaces)
             guard !text.isEmpty, line.confidence >= 0.35 else { return false }
             let hasHangul = text.range(of: "[가-힣]", options: .regularExpression) != nil
@@ -653,10 +793,7 @@ enum OCRService {
 
     /// 위에서 아래 순서로 정렬된 전체 텍스트
     static func plainText(from lines: [OCRLine]) -> String {
-        lines
-            .sorted { $0.box.midY > $1.box.midY }
-            .map(\.text)
-            .joined(separator: "\n")
+        MathOCRFixer.joinRows(lines.map { (text: $0.text, box: $0.box) }).joined(separator: "\n")
     }
 }
 

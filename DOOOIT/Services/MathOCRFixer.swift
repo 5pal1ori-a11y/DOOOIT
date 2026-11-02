@@ -206,15 +206,17 @@ enum MathOCRFixer {
     /// 소문항 (1)(2)와 헷갈리지 않도록 번호가 1부터 차례로 4개 이상이고 보기 내용이 짧을 때만 바꿈
     static func normalizeChoices(_ text: String) -> String {
         if text.filter({ circledDigits.contains($0) }).count >= 4 { return fillCircledGaps(text) }
+        let text = bareNumberChoices(text)
+        if text.filter({ circledDigits.contains($0) }).count >= 4 { return text }
         // 번호 후보: "(n)", "(n", "n)" (앞은 줄 처음이나 빈칸)
-        let pattern = #"(?:^|(?<=[\s,]))(?:\(([1-5lIZS])\)|\(([1-5lIZS])(?=\s)|([1-5])\))"#
+        let pattern = #"(?:^|(?<=[\s,]))(?:\(([1-5lIZSD])\)|\(([1-5lIZSD])(?=\s)|([1-5])\))"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else { return text }
         let ns = text as NSString
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
         func number(_ m: NSTextCheckingResult) -> Int? {
             for group in [1, 2, 3] where m.range(at: group).location != NSNotFound {
                 switch ns.substring(with: m.range(at: group)) {
-                case "1", "l", "I": return 1
+                case "1", "l", "I", "D": return 1
                 case "2", "Z": return 2
                 case "3": return 3
                 case "4": return 4
@@ -261,6 +263,183 @@ enum MathOCRFixer {
             }
         }
         return result
+    }
+
+    // MARK: 보기 번호 동그라미 (사진에서 직접 찾기)
+
+    /// 사진 속 윤곽선 하나의 모양 (글자 인식이 ①~⑤를 아예 못 읽거나 "1", "@", "(D"로 읽을 때 대신 찾음)
+    struct Shape {
+        /// Vision 좌표 (0~1, 아래가 0)
+        var box: CGRect
+        /// 가로/세로 (픽셀 기준)
+        var aspect: Double
+        /// 윤곽 넓이 / 상자 넓이 (원 ≈ 0.785, 네모 ≈ 1)
+        var fill: Double
+        /// 안쪽 윤곽들의 상자 (바깥 상자를 0~1로 본 좌표, 가로/세로는 픽셀 비율)
+        var inner: [CGRect]
+    }
+
+    /// 동그라미 번호(①, ❶)처럼 생겼는지: 동그란 바깥 + 가운데 숫자 모양 안쪽
+    /// lineHeight: 글자 줄 높이 (Vision 좌표)
+    static func isChoiceCircle(_ shape: Shape, lineHeight: CGFloat) -> Bool {
+        guard lineHeight > 0,
+              shape.box.height >= lineHeight * 0.5, shape.box.height <= lineHeight * 1.7,
+              shape.aspect >= 0.82, shape.aspect <= 1.22,
+              shape.fill >= 0.66, shape.fill <= 0.88 else { return false }
+        func centered(_ r: CGRect) -> Bool { abs(r.midX - 0.5) <= 0.2 && abs(r.midY - 0.5) <= 0.2 }
+        // 숫자: 가운데, 바깥의 30~72% 높이, 세로로 긴 모양 (ㅇ·O의 둥근 구멍과 구별)
+        let digits = shape.inner.filter { centered($0) && $0.height >= 0.28 && $0.height <= 0.72 && $0.width <= $0.height * 0.88 && $0.width >= $0.height * 0.12 }
+        guard !digits.isEmpty else { return false }
+        // 테두리만 있는 ①: 둥근 큰 구멍 안에 숫자. 속이 찬 ❶: 큰 구멍 없이 숫자 모양 구멍
+        let holes = shape.inner.filter { centered($0) && $0.height >= 0.62 && $0.width >= $0.height * 0.8 && $0.width <= $0.height * 1.25 }
+        if let hole = holes.max(by: { $0.height < $1.height }) {
+            return digits.contains { $0.height <= hole.height * 0.82 }
+        }
+        return shape.aspect >= 0.88 && shape.aspect <= 1.14
+    }
+
+    /// 상자들을 같은 줄끼리 묶음 (위 줄부터, 줄 안은 왼쪽부터)
+    static func rows(_ boxes: [CGRect]) -> [[Int]] {
+        let order = boxes.indices.sorted { boxes[$0].midY > boxes[$1].midY }
+        var rows: [[Int]] = []
+        for i in order {
+            let b = boxes[i]
+            if let r = rows.indices.last(where: { r in
+                rows[r].contains { j in
+                    let o = boxes[j]
+                    let overlap = min(o.maxY, b.maxY) - max(o.minY, b.minY)
+                    return overlap >= min(o.height, b.height) * 0.5
+                }
+            }) {
+                rows[r].append(i)
+            } else {
+                rows.append([i])
+            }
+        }
+        return rows.map { $0.sorted { boxes[$0].minX < boxes[$1].minX } }
+    }
+
+    /// 찾은 동그라미들에 번호 매기기: 읽는 순서(위→아래, 왼→오른)대로 1, 2, 3…
+    /// 5개를 넘거나 줄 사이가 크게 벌어지면 다음 문제의 보기로 보고 1부터 다시. 3개 미만인 묶음은 번호가 아님(0)
+    /// anchors: 글자 인식이 이미 읽은 번호 (동그라미 순서 → 번호), 묶음의 시작 번호를 맞출 때 씀
+    static func numberCircles(_ boxes: [CGRect], lineHeight: CGFloat, anchors: [Int: Int] = [:]) -> [Int] {
+        var numbers = Array(repeating: 0, count: boxes.count)
+        var groups: [[Int]] = []
+        var lastRowY: CGFloat?
+        for row in rows(boxes) {
+            let y = row.map { boxes[$0].midY }.reduce(0, +) / CGFloat(row.count)
+            let far = lastRowY.map { $0 - y > lineHeight * 5 } ?? true
+            if far || groups.isEmpty { groups.append([]) }
+            for i in row {
+                if groups[groups.count - 1].count >= 5 { groups.append([]) }
+                groups[groups.count - 1].append(i)
+            }
+            lastRowY = y
+        }
+        for group in groups where group.count >= 3 {
+            // 이미 읽은 번호가 있으면 그 번호에 맞춰 시작 번호를 정함 (모두 같은 시작을 가리킬 때만)
+            let starts = Set(group.enumerated().compactMap { k, i in anchors[i].map { $0 - k } })
+            let start = starts.count == 1 ? starts.first! : 1
+            guard start >= 1, start + group.count - 1 <= 5 else { continue }
+            for (k, i) in group.enumerated() { numbers[i] = start + k }
+        }
+        return numbers
+    }
+
+    /// 한 줄에 띄어서 놓인 조각들이 보기 줄인지 (두 단 편집의 긴 문장끼리는 합치지 않음)
+    static func isChoiceRow(_ texts: [String]) -> Bool {
+        guard texts.count >= 2 else { return false }
+        if texts.contains(where: { $0.contains(where: { circledDigits.contains($0) }) || isChoiceMarker(String($0.trimmingCharacters(in: .whitespaces).prefix(3))) }) { return true }
+        let long = texts.filter { text in text.count > 30 || text.filter({ ("가"..."힣").contains($0) }).count > 10 }
+        return long.count <= 1 && texts.count - long.count >= 2
+    }
+
+    /// 글자 줄들 → 위에서 아래 순서의 글. 같은 높이에 띄어서 놓인 보기 조각은 왼쪽부터 한 줄로
+    static func joinRows(_ items: [(text: String, box: CGRect)]) -> [String] {
+        var result: [[String]] = []
+        for row in rows(items.map(\.box)) {
+            let texts = row.map { items[$0].text }
+            if row.count >= 2, isChoiceRow(texts) {
+                result.append(texts)
+            } else {
+                for i in row.sorted(by: { items[$0].box.midY > items[$1].box.midY }) { result.append([items[i].text]) }
+            }
+        }
+        // 크게 띄운 곳(세 칸 이상)도 조각으로 나눠서 번호 없는 보기를 찾음
+        let split = result.map { row in
+            row.flatMap { $0.components(separatedBy: "   ").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
+        }
+        return labelUnmarkedChoices(split).map { $0.joined(separator: "   ") }
+    }
+
+    /// 보기 번호가 하나도 안 읽혔을 때: 질문 줄("…것은?") 아래에 짧은 조각 4~5개가 띄어져 있으면 ①~⑤를 붙임
+    /// rows: 위→아래 줄마다, 줄 안의 조각들(왼→오른)
+    static func labelUnmarkedChoices(_ rows: [[String]]) -> [[String]] {
+        let all = rows.flatMap { $0 }.joined(separator: " ")
+        guard !all.contains(where: { circledDigits.contains($0) }) else { return rows }
+        guard let q = rows.lastIndex(where: { row in
+            let line = row.joined(separator: " ")
+            return line.range(of: #"(\?|？|고르시오|고르면|것은|값은)\s*$"#, options: .regularExpression) != nil
+        }), q + 1 < rows.count else { return rows }
+        let tail = rows[(q + 1)...]
+        let parts = tail.flatMap { $0 }
+        guard (4...5).contains(parts.count), tail.contains(where: { $0.count >= 2 }) || tail.count == parts.count else { return rows }
+        // 번호를 숫자로만 읽은 보기 "1 12", "2 14" … → 숫자를 떼고 번호 붙임
+        let bare = parts.enumerated().allSatisfy { k, part in part.hasPrefix("\(k + 1) ") && part.count > 2 }
+        for part in parts where !bare {
+            let t = part.trimmingCharacters(in: .whitespaces)
+            // 보기 하나는 짧음 (긴 한글 문장이면 보기가 아님), 이미 번호처럼 시작하면 건너뜀
+            guard !t.isEmpty, t.count <= 24, t.filter({ ("가"..."힣").contains($0) }).count <= 10,
+                  !isChoiceMarker(String(t.prefix(3))) else { return rows }
+        }
+        var result = rows
+        var n = 0
+        for r in (q + 1)..<rows.count {
+            result[r] = rows[r].map { part in
+                defer { n += 1 }
+                let body = bare ? String(part.dropFirst(2)) : part
+                return "\(circledDigits[n]) " + body.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return result
+    }
+
+    /// 동그라미 번호를 숫자로만 읽은 줄: "1 12 2 14 3 16 4 18 5 20" → "① 12 ② 14 …"
+    /// 한글이 없는 이어진 줄들에서 "1 값 2 값 3 값 4 값 (5 값)"이 빠짐없이 맞을 때만
+    static func bareNumberChoices(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        var removed = Set<Int>()
+        func plain(_ line: String) -> Bool {
+            !line.trimmingCharacters(in: .whitespaces).isEmpty && !line.contains(where: { ("가"..."힣").contains($0) })
+        }
+        var i = 0
+        while i < lines.count {
+            var tokens: [(line: Int, token: String)] = []
+            var j = i
+            var matched = false
+            while j < lines.count, j - i < 5, plain(lines[j]) {
+                tokens += lines[j].split(separator: " ").map { (j, String($0)) }
+                j += 1
+                let count = tokens.count
+                guard count == 8 || count == 10 else { if count > 10 { break } else { continue } }
+                // 마지막 줄까지 다 썼고, 다음 줄이 이어지는 번호가 아닐 때
+                let ok = stride(from: 0, to: count, by: 2).allSatisfy { tokens[$0].token == String($0 / 2 + 1) }
+                    && stride(from: 1, to: count, by: 2).allSatisfy { !isChoiceMarker(tokens[$0].token) && tokens[$0].token.count <= 12 }
+                if ok, count == 10 || !(j < lines.count && lines[j].hasPrefix("5 ")) {
+                    var rebuilt: [Int: [String]] = [:]
+                    for k in stride(from: 0, to: count, by: 2) {
+                        rebuilt[tokens[k].line, default: []].append("\(circledDigits[k / 2]) \(tokens[k + 1].token)")
+                    }
+                    for line in i..<j {
+                        if let parts = rebuilt[line] { lines[line] = parts.joined(separator: " ") } else { removed.insert(line) }
+                    }
+                    matched = true
+                    break
+                }
+            }
+            i = matched ? j : i + 1
+        }
+        return lines.enumerated().filter { !removed.contains($0.offset) }.map(\.element).joined(separator: "\n")
     }
 
     // MARK: 빈칸 □
