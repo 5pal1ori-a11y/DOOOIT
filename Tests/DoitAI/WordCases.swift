@@ -58,6 +58,8 @@ func runWordCases() {
     add("기본 목록", ["apple 사과", "banana 바나나", "cherry 체리"], "apple=사과 | banana=바나나 | cherry=체리")
     add("번호 점", ["1. apple 사과", "2. banana 바나나", "3. cherry 체리"], "apple=사과 | banana=바나나 | cherry=체리")
     add("번호 괄호 여러 모양", ["1) apple 사과", "(2) banana 바나나", "[3] cherry 체리"], "apple=사과 | banana=바나나 | cherry=체리")
+    add("번호를 비슷한 글자로 읽음 (사진 테스트)", ["4. decline 감소하다", "S. efficient 효율적인", "b. fragile 깨지기 쉬운", "y. journey 여행", "1O. knowledge 지식"],
+        "decline=감소하다 | efficient=효율적인 | fragile=깨지기 쉬운 | journey=여행 | knowledge=지식")
     add("0 채운 번호", ["01 apple 사과", "02 banana 바나나", "003 cherry 체리"], "apple=사과 | banana=바나나 | cherry=체리")
     add("체크박스 여러 모양", ["□ apple 사과", "☐ banana 바나나", "■ cherry 체리", "☑ grape 포도"], "apple=사과 | banana=바나나 | cherry=체리 | grape=포도")
     add("번호 + 체크박스", ["1 □ apple 사과", "2 □ banana 바나나", "3 □ cherry 체리"], "apple=사과 | banana=바나나 | cherry=체리")

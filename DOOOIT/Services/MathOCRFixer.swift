@@ -43,8 +43,20 @@ enum MathOCRFixer {
         (#"(^|[^A-Za-z])([xyabcnkt])4(?![0-9])"#, "$1$2⁴"),
         (#"\)2(?![0-9])"#, ")²"),
         (#"\)3(?![0-9])"#, ")³"),
-        // 루트: V5, V(…) → √5, √(…)
+        // 괄호 뒤 지수가 띄어 읽힘: (x+3) 2 = → (x+3)² =
+        (#"\)\s2(?=\s*[=+\-−<>])"#, ")²"),
+        // 루트: V5, V(…) → √5, √(…) / 작은 v, ~ 로 읽힌 √: 2v3, 4~3, ~2 → 2√3, 4√3, √2
         (#"(^|[^A-Za-z])V(?=\d|\()"#, "$1√"),
+        (#"(^|[0-9\s(=+\-−×÷,①②③④⑤])v(?=[0-9])"#, "$1√"),
+        (#"(^|[0-9\s(=+\-−×÷,①②③④⑤])~(?=[0-9])"#, "$1√"),
+        // 숫자 사이 띄어 쓴 x 는 곱셈: 0.3 x 0.4 → 0.3 × 0.4
+        (#"(?<=[0-9])\s+x\s+(?=[0-9])"#, " × "),
+        // 계수 뒤 x 를 r, * 로 읽음: 2r- 3, 3*- 1 → 2x- 3, 3x- 1
+        (#"(?<=[0-9])[r*](?=\s*[+\-−=<>)])"#, "x"),
+        // 단위의 s 를 $ 로 읽음: m/$ → m/s
+        (#"(?<=[A-Za-z]/)\$"#, "s"),
+        // 영어 문장의 대문자 I 를 l 로 읽음: "l am" → "I am"
+        (#"(^|[①②③④⑤]\s?|[.?!]\s)l(?=\s[a-z])"#, "$1I"),
         // 부등호·기호
         (#"<="#, "≤"),
         (#">="#, "≥"),
@@ -108,7 +120,7 @@ enum MathOCRFixer {
         // 곱셈 기호로 읽힌 x: 2×+3, 3×², ×=2 → x
         (#"(?<=[0-9])×(?=\s*[+\-−=)<>≤≥]|\s*$)"#, "x"),
         (#"×(?=[²³⁴])"#, "x"),
-        (#"(^|[\s(=+\-−,])×(?=\s*[+\-−=)<>]|[²³])"#, "$1x"),
+        (#"(^|[\s(=+\-−,])×(?=\s*[+\-−=)<>≤≥]|[²³])"#, "$1x"),
         // 대문자 X, 그리스 χ → x
         (#"(?<=[0-9+\-−=(\s])[Xχ](?=[0-9²³+\-−=)\s<>]|$)"#, "x"),
         // 지수가 ' ° ’ ? " ” * 로 읽힘: x' → x², a° → a²
@@ -190,6 +202,44 @@ enum MathOCRFixer {
         return result
     }
 
+    /// 따로 읽은 분자·분모 글 정리 (수식 조각이 아니면 nil)
+    static func fractionPart(_ raw: String) -> String? {
+        var t = latinLookalikes(raw.filter { !$0.isWhitespace })
+        t = t.replacingOccurrences(of: "—", with: "-").replacingOccurrences(of: "–", with: "-").replacingOccurrences(of: "−", with: "-")
+        // 막대 조각이 끝에 붙은 "-", "_"
+        while let first = t.first, "-_~".contains(first), t.count > 1, !(t.dropFirst().first?.isNumber ?? false) { t.removeFirst() }
+        while let last = t.last, "-_~".contains(last) { t.removeLast() }
+        // 숫자 하나를 비슷한 글자로 읽음
+        let lookalike: [String: String] = ["l": "1", "I": "1", "|": "1", "O": "0", "o": "0"]
+        if let digit = lookalike[t] { t = digit }
+        guard t.range(of: #"^[0-9A-Za-z+\-()√π.]{1,8}$"#, options: .regularExpression) != nil,
+              t.contains(where: { $0.isNumber || $0.isLetter }) else { return nil }
+        return t
+    }
+
+    /// "분자 / 분모"로 읽은 한 줄 → 분자, 분모 (빗금을 1, l, | 로 읽은 경우도)
+    static func fractionParts(_ raw: String) -> (numerator: String, denominator: String)? {
+        let t = raw.filter { !$0.isWhitespace }
+        var cut: String.Index?
+        if let slash = t.firstIndex(where: { "/⁄∕÷".contains($0) }) {
+            cut = slash
+        } else if t.count == 3, let mid = t.index(t.startIndex, offsetBy: 1, limitedBy: t.endIndex), "|lI1".contains(t[mid]) {
+            // "3|4", "3l4": 가운데 한 글자가 빗금
+            cut = mid
+        }
+        guard let cut, let numerator = fractionPart(String(t[..<cut])),
+              let denominator = fractionPart(String(t[t.index(after: cut)...])) else { return nil }
+        return (numerator, denominator)
+    }
+
+    /// 분자·분모 → "a/b" (여러 글자 식은 괄호로)
+    static func fractionText(_ numerator: String, _ denominator: String) -> String {
+        func wrap(_ t: String) -> String {
+            t.count == 1 || t.allSatisfy(\.isNumber) || (t.hasPrefix("(") && t.hasSuffix(")")) || t.hasPrefix("√") && t.dropFirst().allSatisfy(\.isNumber) ? t : "(\(t))"
+        }
+        return wrap(numerator) + "/" + wrap(denominator)
+    }
+
     // MARK: 보기 번호 ①~⑤
 
     private static let circledDigits: [Character] = ["①", "②", "③", "④", "⑤"]
@@ -250,17 +300,64 @@ enum MathOCRFixer {
     }
 
     /// ①②④⑤처럼 하나가 빠졌는데 그 자리에 "©", "®", "@", "0", "O" 같은 기호가 있으면 빠진 번호로
+    /// 앞쪽 보기 번호 여러 개를 다른 글자로 읽은 줄: "이 부족한 2 풍부한 ③ 위험한 ④ …" → "① 부족한 ② 풍부한 ③ …"
+    /// (줄 처음부터 번호 자리마다 그 번호처럼 생긴 토큰이 있고, 사이에 보기 값이 있을 때만)
+    private static func fillLeadingChoices(_ text: String) -> String {
+        guard !text.contains(circledDigits[0]) else { return text }
+        let common: Set<String> = ["@", "©", "®", "•"]
+        let lookalikes: [Int: Set<String>] = [
+            1: common.union(["l", "I", "|", "1", "(1", "(1)", "1)", "D", "(D", "O", "o", "0", "이", "0|"]),
+            2: common.union(["2", "Z", "z", "(2", "(2)", "2)"]),
+            3: common.union(["3", "(3", "(3)", "3)"]),
+            4: common.union(["4", "(4", "(4)", "4)", "*", "A"])
+        ]
+        var lines = text.components(separatedBy: "\n")
+        for li in lines.indices {
+            var tokens = lines[li].split(separator: " ").map(String.init)
+            guard let firstCircle = tokens.firstIndex(where: { $0.count == 1 && circledDigits.contains($0.first!) }),
+                  let n = circledDigits.firstIndex(of: tokens[firstCircle].first!).map({ $0 + 1 }), n >= 2 else { continue }
+            var marks: [Int] = []
+            var expect = 1
+            var i = 0
+            while i < firstCircle, expect < n {
+                if lookalikes[expect]?.contains(tokens[i]) == true, marks.last.map({ i > $0 + 1 }) ?? (i == 0) {
+                    marks.append(i)
+                    expect += 1
+                } else if marks.isEmpty {
+                    break
+                }
+                i += 1
+            }
+            guard marks.count == n - 1, let last = marks.last, last + 1 < firstCircle else { continue }
+            for (k, m) in marks.enumerated() { tokens[m] = String(circledDigits[k]) }
+            lines[li] = tokens.joined(separator: " ")
+        }
+        return lines.joined(separator: "\n")
+    }
+
     private static func fillCircledGaps(_ text: String) -> String {
-        var result = text
+        var result = fillLeadingChoices(text)
         for k in 1..<4 {   // 빠진 번호: ②, ③, ④ (양옆 번호가 있을 때)
             let before = circledDigits[k - 1], missing = circledDigits[k], after = circledDigits[k + 1]
             guard !result.contains(missing), let lower = result.firstIndex(of: before),
                   let upper = result[lower...].firstIndex(of: after) else { continue }
             let segment = result[result.index(after: lower)..<upper]
             // 보기 값 뒤 빈칸 다음에 오는 낯선 기호 하나
-            if let m = segment.range(of: #"(?<=\s)[©®@Ⓒⓒ®OD](?=\s)"#, options: .regularExpression) {
+            // (앞 보기의 값 다음, 뒤에 이 보기의 값이 올 때만: "② 3 ④ 5"의 3은 ②의 값이라 그대로)
+            let junk = #"(?:[©®@Ⓒⓒ®OD*•§]|"# + String(k + 1) + ")"
+            if let m = segment.range(of: #"(?<=\S\s)"# + junk + #"(?=\s+[^\s①②③④⑤])"#, options: .regularExpression) {
                 result.replaceSubrange(m, with: String(missing))
             }
+        }
+        // 맨 앞 ①을 l, 1, (1, @ 처럼 읽음: "l 빠르다 ② 예쁘다" → "① 빠르다 ② 예쁘다" (② 앞 같은 줄, 줄 처음에서만)
+        if !result.contains("①"), result.contains("②") {
+            result = result.replacingOccurrences(of: #"(?m)^([ \t]*)(?:l|I|\||1|\(1\)?|\(l\)?|\(D|D|@|©|®|O)(?=[ \t]+[^\s①②③④⑤][^\n①②③④⑤]*[ \t]②)"#,
+                                                 with: "$1①", options: .regularExpression)
+        }
+        // 맨 끝 ⑤를 S, 5), (5, @ 처럼 읽음: "④ 높다 S 푸르다" → "④ 높다 ⑤ 푸르다" (④ 뒤 같은 줄이나 다음 줄 처음)
+        if !result.contains("⑤"), result.contains("④") {
+            result = result.replacingOccurrences(of: #"(④[^\n①②③⑤]*?[ \t]|④[^\n①②③⑤]*\n[ \t]*(?=5[ \t])|④[^\n①②③⑤]*\n[ \t]*)(?:S|s|5\)|5(?<=\n[ \t]{0,4}5)|\(5\)?|\(S\)?|@|©|®|O)(?=[ \t]+\S)"#,
+                                                 with: "$1⑤", options: .regularExpression)
         }
         return result
     }
@@ -283,7 +380,7 @@ enum MathOCRFixer {
     /// lineHeight: 글자 줄 높이 (Vision 좌표)
     static func isChoiceCircle(_ shape: Shape, lineHeight: CGFloat) -> Bool {
         guard lineHeight > 0,
-              shape.box.height >= lineHeight * 0.5, shape.box.height <= lineHeight * 1.7,
+              shape.box.height >= lineHeight * 0.62, shape.box.height <= lineHeight * 1.7,
               shape.aspect >= 0.82, shape.aspect <= 1.22,
               shape.fill >= 0.66, shape.fill <= 0.88 else { return false }
         func centered(_ r: CGRect) -> Bool { abs(r.midX - 0.5) <= 0.2 && abs(r.midY - 0.5) <= 0.2 }
@@ -459,11 +556,21 @@ enum MathOCRFixer {
         // 연산 기호 사이에서 빈칸이 통째로 빠진 경우: "3 + = 7" → "3 + □ = 7", "45 ÷ = 9", "3 : 4 = : 20"
         t = t.replacingOccurrences(of: #"([+×÷*/:=])[ \t]*(?=[=×÷*/:]|\+(?!\d))"#, with: "$1 □ ", options: .regularExpression)
         t = t.replacingOccurrences(of: #"([\-−])[ \t]+(?==)"#, with: "$1 □ ", options: .regularExpression)
-        // 맨 앞 빈칸: 짧은 식 줄이 연산 기호로 시작 "+ 4 = 9" → "□ + 4 = 9" (긴 식이 줄바꿈된 경우는 제외)
-        t = t.replacingOccurrences(of: #"(?m)^([ \t]*)([+×÷*/])[ \t]*(?=\d[^A-Za-z가-힣\n]{0,16}=[^A-Za-z가-힣\n]{0,10}$)"#, with: "$1□ $2 ", options: .regularExpression)
+        // 맨 앞 빈칸: 짧은 식 줄이 연산 기호로 시작 "+ 4 = 9", "2. + 17 = 42" → "□ + 4 = 9" (긴 식이 줄바꿈된 경우는 제외)
+        // 네모를 L, D, [, | 로 읽은 경우도: "D+ 17=42" → "□ + 17=42"
+        let shortTail = #"(?=\d[^A-Za-z가-힣\n]{0,16}=[^A-Za-z가-힣\n]{0,10}$)"#
+        t = t.replacingOccurrences(of: #"(?m)^([ \t]*(?:\d{1,2}\.[ \t]*)?)(?:[LD\[|_]|ㅁ)[ \t]*([+\-−×÷])[ \t]*"# + shortTail, with: "$1□ $2 ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?m)^([ \t]*(?:\d{1,2}\.[ \t]+)?)([+×÷*/])[ \t]*"# + shortTail, with: "$1□ $2 ", options: .regularExpression)
+        // 맨 끝 빈칸을 [ 나 | 로 읽음: "x² + 6x + [" → "x² + 6x + □"
+        t = t.replacingOccurrences(of: #"(?m)([+\-−×÷=])[ \t]*[\[|][ \t]*$"#, with: "$1 □", options: .regularExpression)
+        // "□ 안에 알맞은"의 □를 못 읽거나 _, •, [ 로 읽음: "다음 안에 알맞은 수", "식의 _ 안에" → "다음 □ 안에 …"
+        t = t.replacingOccurrences(of: #"(?m)(^|다음|의|에서|\d\.)[ \t]*(?:[_•·\[\]|]|L|D)?[ \t]*(?=안에\s*(?:알맞은|들어갈|넣을))"#, with: "$1 □ ", options: .regularExpression)
         t = t.replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
         return t
     }
+
+    /// 빈칸 네모 □를 글자 인식이 잘못 읽은 모양
+    static let blankLookalikes: Set<Character> = ["_", "[", "]", "|", "L", "D", "口", "ㅁ", "•", "·", "◻", "☐", "▢"]
 
     /// 사진에서 찾은 빈 네모 상자 중 글자와 겹치지 않고 문장 줄 높이에 있는 것 → 그 줄에 □를 끼워 넣을 자리
     /// rects: 찾은 상자들, lines: 줄 상자들, letters: 글자 상자들 (모두 Vision 좌표, 아래가 0)
@@ -488,8 +595,68 @@ enum MathOCRFixer {
         return result
     }
 
+    /// 쌓은 분수를 한 글자 분수(½, ⅓ …)로 읽은 것 → a/b
+    static func expandVulgarFractions(_ text: String) -> String {
+        let map: [Character: String] = ["½": "1/2", "⅓": "1/3", "⅔": "2/3", "¼": "1/4", "¾": "3/4", "⅕": "1/5", "⅖": "2/5",
+                                        "⅗": "3/5", "⅘": "4/5", "⅙": "1/6", "⅚": "5/6", "⅐": "1/7", "⅛": "1/8", "⅜": "3/8",
+                                        "⅝": "5/8", "⅞": "7/8", "⅑": "1/9", "⅒": "1/10"]
+        guard text.contains(where: { map[$0] != nil }) else { return text }
+        var out = ""
+        for c in text {
+            if let f = map[c] {
+                // 앞이 숫자면 대분수(2½ → 2 1/2)라 띄움
+                if let last = out.last, last.isNumber { out.append(" ") }
+                out += f
+            } else {
+                out.append(c)
+            }
+        }
+        return out
+    }
+
+    /// 동그라미 번호 바로 뒤에 남은 번호 찌꺼기 지우기: "① O 0.012", "③ 3 1.2", "② @ 12" → "① 0.012" …
+    /// 같은 번호가 겹친 "④ ④ 어떻해" → "④ 어떻해"
+    static func cleanChoiceMarks(_ text: String) -> String {
+        guard text.contains(where: { circledDigits.contains($0) }) else { return text }
+        var lines = text.components(separatedBy: "\n")
+        for li in lines.indices {
+            var tokens = lines[li].split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            let before = tokens.count
+            var i = 0
+            while i < tokens.count {
+                guard tokens[i].count == 1, let c = tokens[i].first, let n = circledDigits.firstIndex(of: c) else { i += 1; continue }
+                // 같은 번호가 겹침
+                if i + 1 < tokens.count, tokens[i + 1] == tokens[i] { tokens.remove(at: i + 1); continue }
+                // 다음 토큰이 번호 찌꺼기이고, 그 뒤에 이 보기의 내용이 더 있을 때만 지움
+                if i + 2 < tokens.count {
+                    let junk = tokens[i + 1]
+                    let number = String(n + 1)
+                    let lookalike: [Int: [String]] = [1: ["l", "I", "|"], 2: ["Z"], 5: ["S"]]
+                    let isJunk = ["O", "o", "@", "©", "®", "*", "D", "Ⓒ", "ⓒ", "•", "·", "§"].contains(junk)
+                        || junk == number || junk == "(\(number))" || junk == "\(number))" || junk == "(\(number)"
+                        || (lookalike[n + 1] ?? []).contains(junk)
+                    let after = tokens[i + 2]
+                    let afterIsChoice = after.count == 1 && after.first.map { circledDigits.contains($0) } == true
+                    if isJunk, !afterIsChoice { tokens.remove(at: i + 1); continue }
+                }
+                i += 1
+            }
+            // 고친 줄만 다시 붙임 (보기 사이 큰 띄어쓰기는 그대로)
+            if tokens.count != before { lines[li] = tokens.joined(separator: " ") }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// 수식 속 키릴 문자(х, у, а …)를 생김새가 같은 라틴 글자로 (글자 인식이 x를 키릴 х로 읽기도 함)
+    static func latinLookalikes(_ text: String) -> String {
+        let map: [Character: Character] = ["х": "x", "Х": "X", "у": "y", "а": "a", "о": "o", "О": "O", "с": "c", "е": "e",
+                                           "р": "p", "к": "k", "в": "b", "т": "t", "н": "n", "м": "m"]
+        guard text.contains(where: { map[$0] != nil }) else { return text }
+        return String(text.map { map[$0] ?? $0 })
+    }
+
     static func fix(_ text: String) -> String {
-        var result = normalizeBlanks(text)
+        var result = normalizeBlanks(expandVulgarFractions(latinLookalikes(text)))
         let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil
         for rule in (isComplex ? complexRules : digitRules) {
             guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
@@ -515,6 +682,6 @@ enum MathOCRFixer {
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: rule.template)
         }
-        return normalizeChoices(result)
+        return cleanChoiceMarks(normalizeChoices(result))
     }
 }

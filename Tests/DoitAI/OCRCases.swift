@@ -66,6 +66,162 @@ func runOCRCases() {
     check("빈 네모 상자만 빈칸으로", found.count == 1 && found.first?.host == 0, "\(found)")
 
     runCircleCases()
+    runPhotoFixCases()
+    runFractionFinderCases()
+}
+
+// MARK: - 쌓은 분수 막대 찾기 (픽셀)
+
+func runFractionFinderCases() {
+    let w = 200, h = 120
+    func canvas() -> [UInt8] { [UInt8](repeating: 250, count: w * h) }
+    // 글자는 두께 2픽셀 테두리 (꽉 찬 네모는 그림으로 봄), 얇은 것(높이·너비 3 이하)은 그대로 채움
+    func fill(_ g: inout [UInt8], _ x: Int, _ y: Int, _ bw: Int, _ bh: Int) {
+        for yy in y..<(y + bh) {
+            for xx in x..<(x + bw) where bw <= 3 || bh <= 3 || xx - x < 2 || x + bw - 1 - xx < 2 || yy - y < 2 || y + bh - 1 - yy < 2 {
+                g[yy * w + xx] = 20
+            }
+        }
+    }
+    // 글자 크기 30px: 분수 = 분자(10×17) / 막대(22×2) / 분모(10×17)
+    var frac = canvas()
+    fill(&frac, 30, 50, 22, 2)          // 막대
+    fill(&frac, 36, 30, 10, 17)         // 분자
+    fill(&frac, 36, 56, 10, 17)         // 분모
+    fill(&frac, 70, 45, 14, 3)          // 오른쪽 "=" 위
+    fill(&frac, 70, 53, 14, 3)          // 오른쪽 "=" 아래
+    fill(&frac, 95, 38, 26, 28)         // 오른쪽 한글 한 글자 (분수보다 작음)
+    let found = FractionFinder.bars(gray: frac, width: w, height: h, size: 30)
+    check("분수 막대 하나", found.count == 1 && found.first?.x0 == 30 && found.first?.top == 50, "\(found)")
+    check("분자·분모 영역", found.first.map { $0.numerator.y == 30 && $0.denominator.y == 52 } == true, "\(found)")
+    // "=" 만 있으면 분수 아님
+    var eq = canvas()
+    fill(&eq, 30, 45, 22, 2); fill(&eq, 30, 53, 22, 2)
+    check("등호는 분수 아님", FractionFinder.bars(gray: eq, width: w, height: h, size: 30).isEmpty)
+    // "를"처럼 ㅡ 위아래 작은 획 + 옆 글자가 같은 높이 → 분수 아님
+    var reul = canvas()
+    fill(&reul, 30, 50, 24, 2); fill(&reul, 33, 38, 18, 9); fill(&reul, 33, 55, 18, 9)
+    fill(&reul, 60, 37, 22, 28)          // 옆 글자 (같은 높이)
+    check("를의 ㅡ는 분수 아님", FractionFinder.bars(gray: reul, width: w, height: h, size: 30).isEmpty)
+    // 빼기 기호(위아래 글자 없음)는 분수 아님
+    var minus = canvas()
+    fill(&minus, 30, 50, 16, 2)
+    check("빼기는 분수 아님", FractionFinder.bars(gray: minus, width: w, height: h, size: 30).isEmpty)
+
+    // 지수 위치 (픽셀, 위가 0)
+    check("2³: 작고 위에 붙은 숫자", FractionFinder.isSuperscript(base: (100, 128), digit: (92, 109)))
+    check("x²: 낮은 x 위로 솟은 숫자", FractionFinder.isSuperscript(base: (112, 128), digit: (95, 111)))
+    check("12: 같은 높이 숫자는 지수 아님", !FractionFinder.isSuperscript(base: (100, 128), digit: (100, 128)))
+    check("x2: 바닥이 같은 숫자는 지수 아님", !FractionFinder.isSuperscript(base: (112, 128), digit: (100, 128)))
+
+    // 빈칸 네모: 테두리 있고 안이 빔 / 안에 글자가 있으면 아님
+    var box = [Bool](repeating: false, count: 60 * 60)
+    for i in 10...40 { box[10 * 60 + i] = true; box[40 * 60 + i] = true; box[i * 60 + 10] = true; box[i * 60 + 40] = true }
+    let ink = FractionFinder.Ink(mask: box, width: 60, height: 60)
+    check("빈 네모", FractionFinder.isEmptyBox(ink, x0: 10, x1: 40, y0: 10, y1: 40))
+    var filled = box
+    for y in 18...32 { for x in 22...28 { filled[y * 60 + x] = true } }
+    check("글자 든 네모는 빈칸 아님", !FractionFinder.isEmptyBox(FractionFinder.Ink(mask: filled, width: 60, height: 60), x0: 10, x1: 40, y0: 10, y1: 40))
+    check("선 없는 빈 곳은 빈칸 아님", !FractionFinder.isEmptyBox(FractionFinder.Ink(mask: [Bool](repeating: false, count: 3600), width: 60, height: 60), x0: 10, x1: 40, y0: 10, y1: 40))
+    // 철자 추천: rn↔m 같은 착각
+    check("Joumey → journey", OCRService.isLikelyMisread(token: "Joumey", guess: "journey"))
+    check("eager는 cager의 한 글자 차이", OCRService.isLikelyMisread(token: "cager", guess: "eager"))
+    check("전혀 다른 낱말은 아님", !OCRService.isLikelyMisread(token: "apple", guess: "orange"))
+
+    // 따로 읽은 분자·분모 정리
+    check("분자 1", MathOCRFixer.fractionPart(" 1 ") == "1")
+    check("분자 l → 1", MathOCRFixer.fractionPart("l") == "1")
+    check("막대 조각 떼기", MathOCRFixer.fractionPart("3-") == "3")
+    check("음수 분자는 그대로", MathOCRFixer.fractionPart("-3") == "-3")
+    check("한글은 분자 아님", MathOCRFixer.fractionPart("늘") == nil)
+    check("빈 글은 분자 아님", MathOCRFixer.fractionPart("") == nil)
+    check("키릴 х 분자", MathOCRFixer.fractionParts("х / 3").map { $0.numerator == "x" && $0.denominator == "3" } == true)
+    check("빗금 분수 읽기", MathOCRFixer.fractionParts("3/4").map { $0.numerator == "3" && $0.denominator == "4" } == true)
+    check("빗금을 l로", MathOCRFixer.fractionParts("1l2").map { $0.numerator == "1" && $0.denominator == "2" } == true)
+    check("빗금 없으면 아님", MathOCRFixer.fractionParts("12") == nil && MathOCRFixer.fractionParts("x/") == nil)
+    check("분수 글", MathOCRFixer.fractionText("x+1", "2") == "(x+1)/2" && MathOCRFixer.fractionText("12", "35") == "12/35"
+          && MathOCRFixer.fractionText("x", "3") == "x/3", MathOCRFixer.fractionText("x+1", "2"))
+}
+
+// MARK: - 사진 테스트(Tests/OCRImages)에서 찾은 잘못 읽기
+
+func runPhotoFixCases() {
+    let fixes: [(String, String)] = [
+        ("① 2v2 ② 2v3 ③ 3v2 ④ 4v3 ⑤ 6", "① 2√2 ② 2√3 ③ 3√2 ④ 4√3 ⑤ 6"),     // 근호를 v로
+        ("① ~2 ② 4~3", "① √2 ② 4√3"),                                      // 근호를 ~로
+        ("3. 0.3 x 0.4의 값은?", "3. 0.3 × 0.4의 값은?"),                     // 띄어 쓴 x 는 곱셈
+        ("일차함수 y= 2r- 3의 그래프", "일차함수 y= 2x- 3의 그래프"),            // x 를 r 로
+        ("식 3*- 1의 값", "식 3x- 1의 값"),
+        ("④ l am go to school.", "④ I am go to school."),                    // 영어 I 를 l 로
+        ("늘 + ⅓의 값은?", "늘 + 1/3의 값은?"),                                  // 한 글자 분수
+        ("① O 0.012 ② @ 0.12 ③ 3 1.2 ④ * 12 ⑤ S 0.7", "① 0.012 ② 0.12 ③ 1.2 ④ 12 ⑤ 0.7"),  // 번호 찌꺼기
+        ("① 금새 ② 웬일 ③ 몇일 ④ ④ 어떻해 ⑤ 설레임", "① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ 설레임"),
+        ("2. D+ 17=42", "2. □ + 17=42"),                                     // 맨 앞 빈칸을 D 로
+        ("2. + 17=42", "2. □ + 17=42"),
+        ("2._+ 17=42", "2.□ + 17=42"),
+        ("(x+ 3) 2= x² + 6x+ [", "(x+ 3)²= x² + 6x+ □"),                    // 맨 끝 빈칸을 [ 로
+        ("16. 다음 식의 안에 알맞은 수는?", "16. 다음 식의 □ 안에 알맞은 수는?"),   // 빠진 □
+        ("_ 안에 알맞은 분수를 구하시오.", "□ 안에 알맞은 분수를 구하시오."),
+        ("l 빠르다 ② 예쁘다 ③ 달리다\n④ 높다 ⑤ 푸르다", "① 빠르다 ② 예쁘다 ③ 달리다\n④ 높다 ⑤ 푸르다"),   // ①을 l로
+        ("① 왕건 ② 이성계 ③ 세종 ④ 정도전 S 이방원", "① 왕건 ② 이성계 ③ 세종 ④ 정도전 ⑤ 이방원"),     // ⑤를 S로
+        ("① ×≤2 ② x<3", "① x≤2 ② x<3"),                                                       // 부등호 앞 x 를 × 로
+        ("① 물 ② 이산화 탄소 ③ 빛 ④ 엽록체 s 산소", "① 물 ② 이산화 탄소 ③ 빛 ④ 엽록체 ⑤ 산소"),          // ⑤를 s로
+        ("③ They was very happy.\n* I am go to school.\n⑤ We is good friends.", "③ They was very happy.\n④ I am go to school.\n⑤ We is good friends."),
+        ("① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ § 설레임", "① 금새 ② 웬일 ③ 몇일 ④ 어떻해 ⑤ 설레임"),
+        ("① m/$ ② kg ③ N ④ J ⑤ W", "① m/s ② kg ③ N ④ J ⑤ W"),
+        ("④ I am go to school.\n5 We is good friends.", "④ I am go to school.\n⑤ We is good friends."),
+        ("이 부족한 2 풍부한 ③ 위험한 ④ 정직한 ⑤ 조용한", "① 부족한 ② 풍부한 ③ 위험한 ④ 정직한 ⑤ 조용한"),
+        ("1 2 2 3 ③ 4 ④ 5 ⑤ 6", "① 2 ② 3 ③ 4 ④ 5 ⑤ 6"),
+    ]
+    for (input, expected) in fixes {
+        let fixed = MathOCRFixer.fix(input).trimmingCharacters(in: .whitespaces)
+        check("사진 교정: \(input.prefix(24))", fixed == expected, fixed)
+    }
+    // 바꾸면 안 되는 것
+    for keep in ["① 0 ② 1 ③ 2 ④ 3 ⑤ 4", "반지름이 2r인 원", "x = 3", "I have a pen.", "상자 안에 공이 있다.", "① 3 ② 6 ③ 9 ④ 12 ⑤ 18",
+                 "① x = 1 ② x = 2 ③ x = 3 ④ x + 5 = 0", "① 2 ② 3 ④ 5 ⑤ 6"] {
+        let fixed = MathOCRFixer.fix(keep)
+        check("사진 교정 아님: \(keep)", fixed == keep, fixed)
+    }
+
+    // 글줄 기울기: 3° 기운 글줄(작은 네모 글자들) → 3, 반듯하면 nil
+    func page(_ degrees: Double) -> [UInt8] {
+        let w = 400, h = 300
+        var g = [UInt8](repeating: 245, count: w * h)
+        let t = tan(degrees * .pi / 180)
+        for line in 0..<6 {
+            for k in 0..<20 {
+                let x0 = 30 + k * 17, baseY = 50 + line * 40
+                for dx in 0..<12 {
+                    let x = x0 + dx
+                    let yTop = Int(Double(baseY) - Double(x) * t)
+                    for y in yTop..<(yTop + 14) where y >= 0 && y < h && (dx < 2 || dx > 9 || y - yTop < 2 || y - yTop > 11) { g[y * w + x] = 30 }
+                }
+            }
+        }
+        return g
+    }
+    let tilted = TextSkew.angle(gray: page(3), width: 400, height: 300)
+    check("글줄 기울기 3°", tilted.map { abs($0 - 3) < 0.3 } == true, "\(String(describing: tilted))")
+    check("반듯한 글줄은 그대로", TextSkew.angle(gray: page(0), width: 400, height: 300) == nil)
+
+    // 비스듬한 보기 줄: 합친 조각이 다시 들어가지 않음
+    let slanted = [OCRLine(text: "다음 단어의 뜻으로 알맞은 것은?", confidence: 0.9, box: CGRect(x: 0.05, y: 0.8, width: 0.7, height: 0.04)),
+                   OCRLine(text: "① 부족한", confidence: 0.9, box: CGRect(x: 0.05, y: 0.50, width: 0.12, height: 0.04)),
+                   OCRLine(text: "② 풍부한", confidence: 0.9, box: CGRect(x: 0.25, y: 0.515, width: 0.12, height: 0.04)),
+                   OCRLine(text: "③ 위험한", confidence: 0.9, box: CGRect(x: 0.45, y: 0.53, width: 0.12, height: 0.04)),
+                   OCRLine(text: "④ 정직한", confidence: 0.9, box: CGRect(x: 0.65, y: 0.545, width: 0.12, height: 0.04))]
+    let printed = OCRService.printedText(from: slanted)
+    // Vision은 ①이 든 줄 신뢰도를 0.3으로 줌 → 보기 줄이 버려지면 안 됨
+    let lowChoice = [OCRLine(text: "다음 중 일차방정식 2x+3=11의 해는?", confidence: 1, box: CGRect(x: 0.03, y: 0.64, width: 0.42, height: 0.15)),
+                     OCRLine(text: "① 2", confidence: OCRService.adjustedConfidence("① 2", 0.3), box: CGRect(x: 0.035, y: 0.336, width: 0.045, height: 0.13)),
+                     OCRLine(text: "② 3", confidence: OCRService.adjustedConfidence("② 3", 0.3), box: CGRect(x: 0.22, y: 0.336, width: 0.045, height: 0.13))]
+    check("신뢰도 낮은 보기 줄도 남김", OCRService.printedText(from: lowChoice).contains("① 2   ② 3"), OCRService.printedText(from: lowChoice))
+    // 검은 글자만 읽은 쪽이 x를 놓치면 같은 자리 원래 줄
+    let ink = [OCRLine(text: "5. 이차방정식 22- 5x+ 6= 0의 두 근의 합을", confidence: 0.5, box: CGRect(x: 0.03, y: 0.62, width: 0.44, height: 0.15))]
+    let orig = [OCRLine(text: "5. 이차방정식 x2 - 5x+ 6= 0의 두 근의 합을", confidence: 0.5, box: CGRect(x: 0.035, y: 0.624, width: 0.442, height: 0.145))]
+    check("검은 글자 읽기가 x를 놓치면 원래 줄", OCRService.chooseInkReading(original: orig, ink: ink).first?.text.hasPrefix("5. 이차방정식 x2") == true)
+    check("비스듬한 보기 줄 한 번씩", printed.components(separatedBy: "풍부한").count == 2, printed)
 }
 
 // MARK: - 사진 속 동그라미 번호 · 같은 줄 보기 조각

@@ -1,0 +1,57 @@
+import CoreGraphics
+import Foundation
+
+// 테스트 사진 만들기: swift Generator/*.swift Shared/CaseSpec.swift → <출력 폴더>/images/*.jpg + cases.json
+
+let outDir = URL(fileURLWithPath: CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "ocr-cases")
+let imageDir = outDir.appendingPathComponent("images")
+try? FileManager.default.createDirectory(at: imageDir, withIntermediateDirectories: true)
+
+/// 내용마다 깨끗한 사진 + 손상 두 가지 (돌아가며)
+let problemDegrades: [Degrade] = [.mild, .photo, .lowres, .tilted, .desk]
+let wordDegrades: [Degrade] = [.photo, .desk, .lowres, .tilted, .mild]
+
+func variantStyle(_ base: Style, index: Int) -> Style {
+    var s = base
+    // 동그라미 번호: 글꼴 글자 ①와 직접 그린 원을 번갈아
+    if index % 3 == 2 { s.circledGlyph = false }
+    // 명조 본문
+    if index % 4 == 1 { s.korean = "AppleMyungjo"; s.koreanBold = "AppleMyungjo" }
+    // 글자 크기
+    s.size = [40, 36, 44, 38][index % 4]
+    return s
+}
+
+var specs: [CaseSpec] = []
+var seed: UInt64 = 7
+
+func emit(_ content: Content, style: Style, degrades: [Degrade]) {
+    guard let page = renderPage(content.lines, style: style, width: content.width, margin: style.size * 1.4) else {
+        print("✗ 그리기 실패: \(content.id)")
+        return
+    }
+    for d in degrades {
+        seed &+= 1
+        let image = degrade(page, d, seed: seed)
+        let name = "\(content.id)__\(d.name).jpg"
+        guard writeJPEG(image, to: imageDir.appendingPathComponent(name), quality: d.jpeg) else {
+            print("✗ 저장 실패: \(name)")
+            continue
+        }
+        specs.append(CaseSpec(id: "\(content.id)__\(d.name)", category: content.category, kind: content.kind,
+                              degrade: d.name, image: "images/\(name)", expect: content.expect))
+    }
+}
+
+for (k, content) in problemContents.enumerated() {
+    let style = variantStyle(content.style, index: k)
+    emit(content, style: style, degrades: [.clean, problemDegrades[k % problemDegrades.count], problemDegrades[(k + 2) % problemDegrades.count]])
+}
+for (k, content) in wordContents.enumerated() {
+    emit(content, style: content.style, degrades: [.clean, wordDegrades[k % wordDegrades.count], wordDegrades[(k + 2) % wordDegrades.count]])
+}
+
+let encoder = JSONEncoder()
+encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+try encoder.encode(specs).write(to: outDir.appendingPathComponent("cases.json"))
+print("사진 \(specs.count)장 → \(outDir.path)")
