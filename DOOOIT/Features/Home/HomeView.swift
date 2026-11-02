@@ -37,6 +37,12 @@ struct HomeView: View {
                             .appearAnimation(delay: 0.05)
                         focusPanel(now: now)
                             .appearAnimation(delay: 0.1)
+                        NavigationLink { RankingView() } label: {
+                            RowLabel(symbol: "trophy.fill", color: Palette.warning, title: "공부 랭킹", subtitle: "오늘 다른 학생들과 공부 시간 겨루기")
+                                .softCardBackground(cornerRadius: 20)
+                        }
+                        .buttonStyle(.pressable)
+                        .appearAnimation(delay: 0.12)
                         plansSection(now: now)
                             .appearAnimation(delay: 0.15)
                         wordMemoCard(now: now)

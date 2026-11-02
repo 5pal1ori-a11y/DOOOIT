@@ -80,6 +80,10 @@ struct StudyView: View {
                 RowLabel(symbol: "note.text", color: Palette.warning, title: "메모장", value: "\(memos.count)")
             }
             RowDivider()
+            NavigationLink { RankingView() } label: {
+                RowLabel(symbol: "trophy.fill", color: Palette.warning, title: "공부 랭킹", subtitle: "일간·주간·월간 순위")
+            }
+            RowDivider()
             NavigationLink { StatsView() } label: {
                 RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
             }

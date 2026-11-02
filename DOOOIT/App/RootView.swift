@@ -109,6 +109,8 @@ struct MainTabView: View {
             }
         }
         .task {
+            // 랭킹에 참여 중이면 Game Center에 로그인해 둠 (타이머를 마치면 바로 반영되게)
+            if RankingService.shared.isJoined { RankingService.shared.authenticate() }
             if AppSettings.notificationsEnabled {
                 _ = await NotificationService.requestAuthorization()
             }

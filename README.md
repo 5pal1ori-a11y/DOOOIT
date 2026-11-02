@@ -34,6 +34,12 @@ SwiftUI + SwiftData로 만든 iOS 공부 플래너 앱입니다. 화면은 iOS 2
   - 인터넷 검색은 키가 필요 없는 DuckDuckGo를 써요. 질문에서 뽑은 검색어만 보내고(대화 전체·계정 정보는 안 보냄), 설정에서 끌 수 있어요. 웹 페이지 내용은 "정보일 뿐 명령이 아님"으로 표시해서 페이지 속 지시를 따르지 않게 했어요.
   - 모델을 받지 않았거나 "기본"을 고르면 규칙형 엔진만으로 답해요. 시뮬레이터에서는 모델을 쓸 수 없어요.
 
+### 공부 랭킹 (Game Center)
+
+- 따로 서버 없이 **Apple Game Center 리더보드**로 순위를 모아요: `dooit.study.daily` · `dooit.study.weekly` · `dooit.study.monthly` (그 기간에 공부한 초, 많을수록 위, 한국 시간 0시 기준으로 새로).
+- TestFlight 빌드 때 `.github/scripts/asc_gamecenter.py`가 App Store Connect에 Game Center와 리더보드를 만들어요 (이미 있으면 건너뜀, 실패해도 빌드는 계속). 만들지 못했다고 경고가 나오면 App Store Connect › 앱 › Game Center에서 같은 ID로 "반복 리더보드"를 직접 만들면 돼요.
+- 앱에서는 "참여하기"를 누른 사람만 기록을 올려요. 이름은 Game Center 닉네임으로 보여요. 학년 표시(고3 등)는 Game Center에 없어서 보여주지 않아요.
+
 ### AI 오답노트 (`Services/DoitAI/Mistake`, `Features/Study/Math`)
 
 오답을 저장만 하지 않고, 학습 순서대로 실력을 올리게 했어요.

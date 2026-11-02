@@ -1,11 +1,11 @@
 import SwiftData
 import SwiftUI
 
-/// 전체 화면 공부 타이머
+/// 전체 화면 공부 타이머 (검은 화면 · 큰 숫자 · 아래 두 버튼)
 struct TimerView: View {
     @Environment(StudyTimer.self) private var studyTimer
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \PlanCategory.sortIndex) private var categories: [PlanCategory]
+    @Query private var sessions: [StudySession]
 
     @State private var freeTitle = ""
     @State private var selectedCategoryID: UUID?
@@ -16,14 +16,17 @@ struct TimerView: View {
     @State private var showSounds = false
 
     private let targets: [Int?] = [25, 50, 90, nil]
+    /// 어두운 화면의 버튼 바탕
+    private let panel = Color(white: 0.11)
+    private let line = Color(white: 0.22)
+    private let green = Color(hex: "#34C759")
 
     var body: some View {
         ZStack {
-            AppBackground()
+            Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
                 topBar
-                Spacer()
                 Group {
                     if let savedSeconds {
                         summary(seconds: savedSeconds)
@@ -33,17 +36,19 @@ struct TimerView: View {
                         running
                     }
                 }
-                .transition(.blurReplace)
-                Spacer()
+                .transition(.opacity)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 24)
         }
-        .animation(.smooth(duration: 0.4), value: studyTimer.phase)
-        .animation(.smooth(duration: 0.4), value: savedSeconds)
+        .foregroundStyle(.white)
+        .environment(\.colorScheme, .dark)
+        .animation(.smooth(duration: 0.35), value: studyTimer.phase)
+        .animation(.smooth(duration: 0.35), value: savedSeconds)
         .confirmationDialog("공부를 마칠까요?", isPresented: $showStopConfirm, titleVisibility: .visible) {
-            Button(studyTimer.lockUntil != nil ? "종료하고 잠금 해제" : "종료하고 기록 저장", role: .destructive) {
+            Button(studyTimer.lockUntil != nil ? "완료하고 잠금 해제" : "완료하고 기록 저장", role: .destructive) {
                 savedSeconds = studyTimer.stop()
+                submitRanking()
             }
             Button("계속하기", role: .cancel) {}
         } message: {
@@ -53,41 +58,46 @@ struct TimerView: View {
         }
     }
 
+    /// 공부를 마치면 랭킹에도 반영 (랭킹에 참여한 경우만)
+    private func submitRanking() {
+        Task {
+            try? await Task.sleep(for: .seconds(1))
+            await RankingService.shared.submit { start, end in
+                sessions.filter { $0.start >= start && $0.start < end }.reduce(0) { $0 + $1.seconds }
+            }
+        }
+    }
+
     // MARK: Top bar
 
     private var topBar: some View {
-        HStack {
-            Button {
-                studyTimer.isPresented = false
-            } label: {
-                Image(systemName: "chevron.down")
-                    .font(.headline)
-                    .frame(width: 44, height: 44)
+        ZStack {
+            Text("타이머").font(.headline)
+            HStack {
+                Button {
+                    studyTimer.isPresented = false
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.title3.weight(.semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("닫기")
+                Spacer()
+                Button {
+                    showSounds = true
+                } label: {
+                    Image(systemName: sound.current?.symbol ?? "speaker.wave.2")
+                        .font(.headline)
+                        .foregroundStyle(sound.isPlaying ? green : .white)
+                        .symbolEffect(.variableColor.iterative, isActive: sound.isPlaying)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("집중 사운드")
             }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .circle)
-
-            Spacer()
-
-            Text(studyTimer.phase == .idle ? "공부 타이머" : studyTimer.categoryName)
-                .font(.headline)
-
-            Spacer()
-
-            Button {
-                showSounds = true
-            } label: {
-                Image(systemName: sound.current?.symbol ?? "speaker.wave.2")
-                    .font(.headline)
-                    .foregroundStyle(sound.isPlaying ? Color.accentColor : Color.primary)
-                    .symbolEffect(.variableColor.iterative, isActive: sound.isPlaying)
-                    .frame(width: 44, height: 44)
-            }
-            .buttonStyle(.plain)
-            .glassEffect(.regular.interactive(), in: .circle)
-            .accessibilityLabel("집중 사운드")
         }
-        .padding(.top, 8)
+        .padding(.top, 4)
         .sheet(isPresented: $showSounds) {
             AmbientSoundSheet()
                 .presentationDetents([.medium])
@@ -106,21 +116,21 @@ struct TimerView: View {
     }
 
     private var setup: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 24) {
+            Spacer(minLength: 20)
             VStack(alignment: .leading, spacing: 6) {
-                Text("무엇을 공부할까요?")
-                    .font(.largeTitle.weight(.bold))
-                Text("타이머를 시작하면 다이나믹 아일랜드에 공부 시간이 표시돼요.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text("무엇을 공부할까요?").font(.title.weight(.bold))
+                Text("시작하면 다이나믹 아일랜드에 공부 시간이 표시돼요.").font(.subheadline).foregroundStyle(Color(white: 0.6))
             }
 
             TextField("예: 수학 문제집 3단원", text: $freeTitle)
                 .font(.title3)
-                .glassField()
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(panel, in: .rect(cornerRadius: 16))
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("카테고리").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Text("카테고리").font(.subheadline.weight(.semibold)).foregroundStyle(Color(white: 0.6))
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
                         ForEach(studyCategories) { category in
@@ -132,19 +142,18 @@ struct TimerView: View {
                                     .font(.subheadline.weight(.semibold))
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
-                                    .foregroundStyle(isOn ? Color.white : Color.primary)
+                                    .foregroundStyle(isOn ? Color.black : Color.white)
+                                    .background(isOn ? Color.white : panel, in: .capsule)
                             }
                             .buttonStyle(.plain)
-                            .glassEffect(isOn ? .regular.tint(category.color).interactive() : .regular.interactive(), in: .capsule)
                         }
                     }
-                    .padding(.vertical, 4)
                 }
                 .scrollIndicators(.hidden)
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                Text("목표 시간").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Text("목표 시간").font(.subheadline.weight(.semibold)).foregroundStyle(Color(white: 0.6))
                 HStack(spacing: 8) {
                     ForEach(targets, id: \.self) { minutes in
                         let isOn = targetMinutes == minutes
@@ -154,14 +163,16 @@ struct TimerView: View {
                             Text(minutes.map { "\($0)분" } ?? "무제한")
                                 .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                                .foregroundStyle(isOn ? Color.white : Color.primary)
+                                .padding(.vertical, 11)
+                                .foregroundStyle(isOn ? Color.black : Color.white)
+                                .background(isOn ? Color.white : panel, in: .capsule)
                         }
                         .buttonStyle(.plain)
-                        .glassEffect(isOn ? .regular.tint(Theme.accent).interactive() : .regular.interactive(), in: .capsule)
                     }
                 }
             }
+
+            Spacer()
 
             Button {
                 let category = selectedCategory
@@ -174,145 +185,135 @@ struct TimerView: View {
                 Haptics.success()
             } label: {
                 Label("공부 시작", systemImage: "play.fill")
-                    .font(.title3.weight(.bold))
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 44)
+                    .frame(height: 56)
+                    .background(green, in: .capsule)
             }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .padding(.top, 6)
+            .buttonStyle(.pressable)
         }
     }
 
-    // MARK: Running
+    // MARK: Running (가운데 제목 · 선 · 큰 숫자 · 선 / 아래 두 버튼)
 
     private var running: some View {
-        VStack(spacing: 36) {
-            VStack(spacing: 6) {
+        VStack(spacing: 0) {
+            Spacer()
+            VStack(spacing: 22) {
                 if let lockUntil = studyTimer.lockUntil {
                     Label("다른 앱 잠금 중 · \(lockUntil.kr("a h:mm"))까지", systemImage: "lock.fill")
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(Palette.danger)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Palette.danger.opacity(0.14), in: .capsule)
-                        .padding(.bottom, 8)
                 }
-                Image(systemName: studyTimer.symbol)
-                    .font(.title2)
-                    .foregroundStyle(Theme.accent)
                 Text(studyTimer.title)
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Palette.ink)
+                    .font(.title3.weight(.bold))
                     .multilineTextAlignment(.center)
-            }
+                    .lineLimit(2)
 
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let elapsed = studyTimer.elapsed(at: context.date)
-                let target = studyTimer.targetSeconds
-                let progress = target.map { elapsed / Double(max($0, 1)) } ?? (elapsed.truncatingRemainder(dividingBy: 3600) / 3600)
-
-                ZStack {
-                    if studyTimer.phase == .running && !reduceMotion {
-                        Circle()
-                            .fill(Theme.accent.opacity(0.10))
-                            .frame(width: 330, height: 330)
-                            .phaseAnimator([false, true]) { view, phase in
-                                view.scaleEffect(phase ? 1.08 : 0.97).opacity(phase ? 0.5 : 1)
-                            } animation: { _ in .easeInOut(duration: 1.8) }
-                            .allowsHitTesting(false)
-                    }
-                    ProgressRing(progress: progress, lineWidth: 14,
-                                 color: (target != nil && elapsed >= Double(target ?? 0)) ? Palette.success : Theme.accent)
-
-                    VStack(spacing: 8) {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let elapsed = studyTimer.elapsed(at: context.date)
+                    VStack(spacing: 14) {
+                        Rectangle().fill(line).frame(height: 1)
                         Text(TimeText.clock(elapsed))
-                            .font(.system(size: 50, weight: .bold, design: .rounded).monospacedDigit())
-                            .foregroundStyle(Palette.ink)
-                            .contentTransition(.numericText())
+                            .font(.system(size: 72, weight: .bold).monospacedDigit())
                             .lineLimit(1)
-                            .minimumScaleFactor(0.6)
-                        if let target {
-                            if elapsed >= Double(target) {
-                                Label("목표 달성!", systemImage: "checkmark.seal.fill")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Palette.success)
-                                    .symbolEffect(.bounce, value: elapsed >= Double(target))
-                                    .transition(.scale.combined(with: .opacity))
-                            } else {
-                                Text("목표 \(TimeText.duration(seconds: target)) · \(TimeText.duration(seconds: target - Int(elapsed) + 59)) 남음")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else {
-                            Text(studyTimer.phase == .paused ? "일시정지됨" : "집중하는 중")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
+                            .minimumScaleFactor(0.5)
+                            .contentTransition(.numericText())
+                            .opacity(studyTimer.phase == .paused ? 0.45 : 1)
+                        Rectangle().fill(line).frame(height: 1)
+                        statusText(elapsed: elapsed)
                     }
-                    .padding(.horizontal, 24)
-                }
-                .frame(width: 290, height: 290)
-                .padding(18)
-                .background(Color.white, in: .circle)
-                .shadow(color: Theme.accent.opacity(0.18), radius: 24, y: 10)
-            }
-
-            GlassEffectContainer(spacing: 24) {
-                HStack(spacing: 28) {
-                    Button { showStopConfirm = true } label: {
-                        Image(systemName: "stop.fill")
-                            .font(.title2)
-                            .foregroundStyle(Palette.danger)
-                            .frame(width: 70, height: 70)
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.interactive(), in: .circle)
-
-                    Button {
-                        studyTimer.togglePause()
-                        Haptics.tap()
-                    } label: {
-                        Image(systemName: studyTimer.phase == .running ? "pause.fill" : "play.fill")
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(width: 92, height: 92)
-                            .contentTransition(.symbolEffect(.replace))
-                    }
-                    .buttonStyle(.plain)
-                    .glassEffect(.regular.tint(Theme.accent).interactive(), in: .circle)
+                    .padding(.horizontal, 12)
                 }
             }
+            Spacer()
+            HStack(spacing: 12) {
+                pillButton(title: studyTimer.phase == .running ? "진행 중" : "일시정지",
+                           symbol: studyTimer.phase == .running ? "pause.fill" : "play.fill",
+                           iconColor: green) {
+                    studyTimer.togglePause()
+                    Haptics.tap()
+                }
+                pillButton(title: "완료하기", symbol: "stop.fill", iconColor: .white) {
+                    showStopConfirm = true
+                }
+            }
+            .padding(.bottom, 12)
         }
+    }
+
+    @ViewBuilder
+    private func statusText(elapsed: TimeInterval) -> some View {
+        if let target = studyTimer.targetSeconds {
+            if elapsed >= Double(target) {
+                Label("목표 달성!", systemImage: "checkmark.seal.fill").font(.subheadline.weight(.semibold)).foregroundStyle(green)
+            } else {
+                Text("목표 \(TimeText.duration(seconds: target)) · \(TimeText.duration(seconds: target - Int(elapsed) + 59)) 남음")
+                    .font(.subheadline).foregroundStyle(Color(white: 0.55))
+            }
+        } else {
+            Text(studyTimer.phase == .paused ? "일시정지됨" : studyTimer.categoryName)
+                .font(.subheadline).foregroundStyle(Color(white: 0.55))
+        }
+    }
+
+    /// 아래쪽 둥근 버튼: 왼쪽 동그란 아이콘 + 글자
+    private func pillButton(title: String, symbol: String, iconColor: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: symbol)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(iconColor)
+                    .frame(width: 46, height: 46)
+                    .background(Color.black, in: .circle)
+                    .contentTransition(.symbolEffect(.replace))
+                Text(title)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, 8)
+            .padding(.trailing, 16)
+            .frame(maxWidth: .infinity)
+            .frame(height: 62)
+            .background(panel, in: .capsule)
+        }
+        .buttonStyle(.pressable)
     }
 
     // MARK: Summary
 
     private func summary(seconds: Int) -> some View {
         VStack(spacing: 22) {
+            Spacer()
             Image(systemName: seconds >= 10 ? "checkmark.seal.fill" : "clock.badge.xmark")
-                .font(.system(size: 72, weight: .bold))
-                .foregroundStyle(seconds >= 10 ? Palette.success : Color.secondary)
+                .font(.system(size: 64, weight: .bold))
+                .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
                 .symbolEffect(.bounce, value: seconds)
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
                 Text(seconds >= 10 ? "수고했어요!" : "기록이 너무 짧아요")
                     .font(.title.weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                Text(seconds >= 10 ? "\(TimeText.clock(TimeInterval(seconds))) 공부를 기록했어요." : "10초 이상 공부해야 기록돼요.")
-                    .foregroundStyle(.secondary)
+                Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : "10초 이상 공부해야 기록돼요.")
+                    .font(seconds >= 10 ? .system(size: 44, weight: .bold).monospacedDigit() : .body)
+                    .foregroundStyle(seconds >= 10 ? Color.white : Color(white: 0.6))
+                if seconds >= 10, RankingService.shared.isJoined {
+                    Text("랭킹에도 반영했어요").font(.subheadline).foregroundStyle(Color(white: 0.6))
+                }
             }
-            .appearAnimation(delay: 0.1)
+            Spacer()
             Button {
                 savedSeconds = nil
                 studyTimer.isPresented = false
             } label: {
                 Text("닫기")
                     .font(.body.weight(.bold))
+                    .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 40)
+                    .frame(height: 56)
+                    .background(Color.white, in: .capsule)
             }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
+            .buttonStyle(.pressable)
         }
     }
 }

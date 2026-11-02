@@ -112,6 +112,14 @@ jobs:
           python3 .github/scripts/asc_certs.py list
           python3 .github/scripts/asc_certs.py snapshot "$RUNNER_TEMP/certs-before.json"
 
+      # 공부 랭킹: App Store Connect에 Game Center 리더보드(일간·주간·월간)를 준비 (이미 있으면 건너뜀, 실패해도 빌드는 계속)
+      - name: Prepare Game Center leaderboards
+        continue-on-error: true
+        env:
+          ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          BUNDLE_ID: com.bravekoon.dooit
+        run: python3 .github/scripts/asc_gamecenter.py
+
       # 빌드 속도: 받은 패키지(MLX 등)와 컴파일 캐시(Xcode 26 compilation caching, DerivedData/CompilationCache.noindex)를
       # 다음 빌드에 다시 씀. archive는 중간 결과를 새로 만들지만, 컴파일 캐시는 같은 입력이면 결과를 그대로 꺼내 씀
       - name: Restore build cache
