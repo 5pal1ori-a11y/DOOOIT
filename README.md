@@ -36,7 +36,7 @@ SwiftUI + SwiftData로 만든 iOS 공부 플래너 앱입니다. 화면은 iOS 2
 
 ### 공부 랭킹 (Game Center)
 
-- 따로 서버 없이 **Apple Game Center 리더보드**로 순위를 모아요: `dooit.study.daily` · `dooit.study.weekly` · `dooit.study.monthly` (그 기간에 공부한 초, 많을수록 위, 한국 시간 0시 기준으로 새로).
+- 따로 서버 없이 **Apple Game Center 리더보드**로 순위를 모아요 (그 기간에 공부한 초, 많을수록 위, 한국 시간 기준): 일간 `dooit.study.daily`(반복 리더보드, 매일 0시), 주간 `dooit.study.w2026_45`처럼 주마다, 월간 `dooit.study.m2026_11`처럼 달마다 하나 (Game Center 반복 규칙은 일 단위까지만 돼서 달력 주·달은 따로 만듦).
 - TestFlight 빌드 때 `.github/scripts/asc_gamecenter.py`가 App Store Connect에 Game Center와 리더보드를 만들어요 (이미 있으면 건너뜀, 실패해도 빌드는 계속). 만들지 못했다고 경고가 나오면 App Store Connect › 앱 › Game Center에서 같은 ID로 "반복 리더보드"를 직접 만들면 돼요.
 - 앱에서는 "참여하기"를 누른 사람만 기록을 올려요. 이름은 Game Center 닉네임으로 보여요. 학년 표시(고3 등)는 Game Center에 없어서 보여주지 않아요.
 

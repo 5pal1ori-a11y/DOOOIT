@@ -21,13 +21,33 @@ final class RankingService {
             case .monthly: return "월간"
             }
         }
-        var leaderboardID: String { "dooit.study.\(rawValue)" }
-
-        /// Game Center에서 기간을 못 받았을 때 쓰는 기간 (한국 달력)
-        func fallbackRange(back: Int, now: Date = Date()) -> (start: Date, end: Date) {
-            var calendar = Calendar(identifier: .gregorian)
+        /// 한국 시간 ISO 달력 (월요일 시작 — App Store Connect에 만든 주간 리더보드와 같은 기준)
+        static var calendar: Calendar {
+            var calendar = Calendar(identifier: .iso8601)
+            calendar.timeZone = TimeZone(identifier: "Asia/Seoul") ?? .current
             calendar.locale = Locale(identifier: "ko_KR")
-            calendar.firstWeekday = 2
+            return calendar
+        }
+
+        /// 리더보드 ID: 일간은 반복 리더보드 하나, 주간·월간은 주·달마다 하나 (예: dooit.study.w2026_45, dooit.study.m2026_11)
+        func leaderboardID(back: Int = 0, now: Date = Date()) -> String {
+            let calendar = Self.calendar
+            let start = fallbackRange(back: back, now: now).start
+            switch self {
+            case .daily:
+                return "dooit.study.daily"
+            case .weekly:
+                let parts = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: start)
+                return String(format: "dooit.study.w%04d_%02d", parts.yearForWeekOfYear ?? 0, parts.weekOfYear ?? 0)
+            case .monthly:
+                let parts = calendar.dateComponents([.year, .month], from: start)
+                return String(format: "dooit.study.m%04d_%02d", parts.year ?? 0, parts.month ?? 0)
+            }
+        }
+
+        /// 기간 (한국 시간 달력)
+        func fallbackRange(back: Int, now: Date = Date()) -> (start: Date, end: Date) {
+            let calendar = Self.calendar
             let component: Calendar.Component = self == .daily ? .day : (self == .weekly ? .weekOfYear : .month)
             let base = calendar.dateInterval(of: component, for: now) ?? DateInterval(start: now, duration: 86400)
             let start = calendar.date(byAdding: component, value: -back, to: base.start) ?? base.start
@@ -107,15 +127,15 @@ final class RankingService {
     func submit(secondsBetween: (Date, Date) -> Int) async {
         guard isJoined, GKLocalPlayer.local.isAuthenticated else { return }
         for period in Period.allCases {
-            let range: (start: Date, end: Date)
-            if let board = try? await GKLeaderboard.loadLeaderboards(IDs: [period.leaderboardID]).first, let start = board.startDate {
+            let id = period.leaderboardID()
+            var range = period.fallbackRange(back: 0)
+            // 일간 반복 리더보드는 Game Center가 정한 기간을 그대로
+            if period == .daily, let board = try? await GKLeaderboard.loadLeaderboards(IDs: [id]).first, let start = board.startDate {
                 range = (start, start.addingTimeInterval(board.duration > 0 ? board.duration : 86400))
-            } else {
-                range = period.fallbackRange(back: 0)
             }
             let seconds = secondsBetween(range.start, range.end)
             guard seconds > 0 else { continue }
-            try? await GKLeaderboard.submitScore(seconds, context: 0, player: GKLocalPlayer.local, leaderboardIDs: [period.leaderboardID])
+            try? await GKLeaderboard.submitScore(seconds, context: 0, player: GKLocalPlayer.local, leaderboardIDs: [id])
         }
     }
 
@@ -124,10 +144,14 @@ final class RankingService {
     /// back: 0 = 이번 기간, 1 = 지난 기간 …
     func load(_ period: Period, back: Int = 0, limit: Int = 50) async throws -> Board {
         guard GKLocalPlayer.local.isAuthenticated else { throw RankingError.notSignedIn }
-        guard var board = try await GKLeaderboard.loadLeaderboards(IDs: [period.leaderboardID]).first else { throw RankingError.notReady }
-        for _ in 0..<back {
-            guard let previous = try? await board.loadPreviousOccurrence() else { break }
-            board = previous
+        // 주간·월간은 그 주·그 달의 리더보드, 일간은 반복 리더보드의 지난 회차로 거슬러 감
+        let boardID = period == .daily ? period.leaderboardID() : period.leaderboardID(back: back)
+        guard var board = (try? await GKLeaderboard.loadLeaderboards(IDs: [boardID]))?.first else { throw RankingError.notReady }
+        if period == .daily {
+            for _ in 0..<back {
+                guard let previous = try? await board.loadPreviousOccurrence() else { break }
+                board = previous
+            }
         }
         let (local, entries, total) = try await board.loadEntries(for: .global, timeScope: .allTime, range: NSRange(location: 1, length: limit))
         let meID = GKLocalPlayer.local.gamePlayerID
@@ -136,8 +160,9 @@ final class RankingService {
                   isMe: entry.player.gamePlayerID == meID)
         }
         let fallback = period.fallbackRange(back: back)
-        let start = board.startDate ?? fallback.start
-        let end = board.startDate.map { $0.addingTimeInterval(board.duration > 0 ? board.duration : 86400) } ?? fallback.end
+        let recurring = period == .daily ? board.startDate : nil
+        let start = recurring ?? fallback.start
+        let end = recurring.map { $0.addingTimeInterval(board.duration > 0 ? board.duration : 86400) } ?? fallback.end
         return Board(period: period, start: start, end: end, entries: entries.map(convert), me: local.map(convert), total: total)
     }
 }
