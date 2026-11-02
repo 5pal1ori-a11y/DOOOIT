@@ -278,6 +278,29 @@ func runWordParser() {
     check("단어장(책): 흔한 배치·표제어만 한 줄", usual.map(\.term) == ["continent", "author"] && usual.first?.meaning == "명 대륙" && usual.last?.meaning == "명 작가, 저자",
           "\(usual.map { "\($0.term)=\($0.meaning)" })")
     check("단어장(책): 예시 구는 단어가 아님", !bookTerms.contains { $0.contains(" ") })
+    // 두 단 페이지: 왼쪽 단과 오른쪽 단이 같은 높이에 나란히 → 한 줄로 섞이면 안 됨
+    var twoColumn: [OCRLine] = []
+    let leftRows = ["1. brave 용감한", "2. exact 정확한", "3. resilient 회복력 있는", "4. abundant 풍부한"]
+    let rightRows = ["5. author 작가", "6. employ 고용하다", "7. involve 참여하다", "8. arrogant 오만한"]
+    for (i, text) in leftRows.enumerated() { twoColumn.append(OCRLine(text: text, box: CGRect(x: 0.05, y: 0.9 - Double(i) * 0.08, width: 0.38, height: 0.03))) }
+    for (i, text) in rightRows.enumerated() { twoColumn.append(OCRLine(text: text, confidence: i == 2 ? 0.3 : 1, box: CGRect(x: 0.55, y: 0.9 - Double(i) * 0.08, width: 0.38, height: 0.03))) }
+    let columns = WordParser.parse(twoColumn)
+    check("단어장: 두 단 페이지는 단마다", columns.map(\.term) == ["brave", "exact", "resilient", "abundant", "author", "employ", "involve", "arrogant"]
+          && columns.first { $0.term == "brave" }?.meaning == "용감한" && columns.first { $0.term == "author" }?.meaning == "작가",
+          "\(columns.map { "\($0.term)=\($0.meaning)" })")
+    check("단어장: 흐리게 읽힌 줄은 확인 필요", columns.first { $0.term == "involve" }?.unsure == true && columns.first { $0.term == "brave" }?.unsure == false)
+    // "영어 | 한글" 두 칸 표는 나누지 않음
+    var table: [OCRLine] = []
+    for (i, pair) in [("apple", "사과"), ("banana", "바나나"), ("cherry", "체리"), ("grape", "포도")].enumerated() {
+        table.append(OCRLine(text: pair.0, box: CGRect(x: 0.1, y: 0.9 - Double(i) * 0.08, width: 0.25, height: 0.03)))
+        table.append(OCRLine(text: pair.1, box: CGRect(x: 0.6, y: 0.9 - Double(i) * 0.08, width: 0.2, height: 0.03)))
+    }
+    let tableWords = WordParser.parse(table)
+    check("단어장: 영어|한글 표는 한 단", tableWords.map(\.term) == ["apple", "banana", "cherry", "grape"] && tableWords.last?.meaning == "포도",
+          "\(tableWords.map { "\($0.term)=\($0.meaning)" })")
+    check("단어 철자 교정: 숫자 섞임", WordParser.fixOCRTerm("app1e") == "apple" && WordParser.fixOCRTerm("c0ntinent") == "continent"
+          && WordParser.fixOCRTerm("5mall") == "small" && WordParser.fixOCRTerm("272") == "272" && WordParser.fixOCRTerm("3D") == "3D",
+          WordParser.fixOCRTerm("app1e"))
     check("예문 판별", WordParser.isExampleSentence("He has been to Paris.") && !WordParser.isExampleSentence("take care of") && !WordParser.isExampleSentence("Take care of"))
 }
 
@@ -292,6 +315,18 @@ func runOCRFixer() {
         let fixed = MathOCRFixer.fix(input)
         check("글자 교정: \(input)", fixed.contains(expected), "결과 \(fixed) / 기대 \(expected)")
     }
+    // 분수: 분자 "1"(위) / 분모 "2"(아래), 그 사이 높이에 "x = 일 때" 줄
+    let line = CGRect(x: 0.1, y: 0.50, width: 0.6, height: 0.04)
+    let fractions = MathOCRFixer.stackedFractions(pieces: [("1", CGRect(x: 0.3, y: 0.535, width: 0.02, height: 0.03)),
+                                                           ("2", CGRect(x: 0.3, y: 0.475, width: 0.02, height: 0.03))], hosts: [line])
+    check("분수 조각 합치기", fractions.first?.text == "1/2" && fractions.first?.host == 0, "\(fractions)")
+    let fractionAB = MathOCRFixer.stackedFractions(pieces: [("x+1", CGRect(x: 0.3, y: 0.535, width: 0.05, height: 0.03)),
+                                                            ("3", CGRect(x: 0.31, y: 0.475, width: 0.02, height: 0.03))], hosts: [line])
+    check("분수 조각: 괄호", fractionAB.first?.text == "(x+1)/3", "\(fractionAB)")
+    // 문제 번호처럼 위아래로 떨어진 숫자 (사이에 문장 줄 없음) → 분수 아님
+    let notFraction = MathOCRFixer.stackedFractions(pieces: [("1", CGRect(x: 0.02, y: 0.80, width: 0.02, height: 0.03)),
+                                                             ("2", CGRect(x: 0.02, y: 0.76, width: 0.02, height: 0.03))], hosts: [line])
+    check("분수 아님: 사이에 줄 없음", notFraction.isEmpty)
     // 바뀌면 안 되는 것
     for keep in ["x=0", "10x+3", "0.6x", "f(x)=2x+1", "z = 1+2i", "2x + 9 = 0"] {
         check("글자 교정 유지: \(keep)", MathOCRFixer.fix(keep) == keep, MathOCRFixer.fix(keep))

@@ -24,16 +24,11 @@ struct PlannerView: View {
     @State private var slideEdge: Edge = .trailing
 
     var body: some View {
-        @Bindable var router = router
-
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        Picker("보기", selection: $router.mode) {
-                            ForEach(PlannerMode.allCases, id: \.self) { Text($0.title).tag($0) }
-                        }
-                        .pickerStyle(.segmented)
+                        header
 
                         Group {
                             if router.mode == .month {
@@ -47,6 +42,7 @@ struct PlannerView: View {
                         .animation(Motion.spring, value: router.mode)
                     }
                     .padding(.horizontal, 16)
+                    .padding(.top, 4)
                     .padding(.bottom, 110)
                 }
                 .scrollIndicators(.hidden)
@@ -56,6 +52,7 @@ struct PlannerView: View {
             }
             .background { AppBackground() }
             .navigationTitle("플래너")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     DDayChip()
@@ -98,47 +95,98 @@ struct PlannerView: View {
         }
     }
 
+    // MARK: Header (큰 달 이름 + 월간/하루 전환)
+
+    private var header: some View {
+        HStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(month.kr("yyyy년"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Text(month.kr("M월"))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .foregroundStyle(Palette.ink)
+                    .contentTransition(.numericText())
+            }
+            Spacer()
+            if !router.selectedDate.isSameDay(as: Date()) {
+                Button("오늘") {
+                    withAnimation(.smooth) {
+                        month = Date().startOfMonth
+                        router.selectedDate = Date().startOfDay
+                    }
+                    Haptics.tap()
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .padding(.horizontal, 12)
+                .frame(height: 34)
+                .background(Color.white, in: .capsule)
+                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
+            }
+            modeToggle
+        }
+        .padding(.horizontal, 4)
+    }
+
+    /// 월간 / 하루 아이콘 두 개짜리 작은 전환 버튼
+    private var modeToggle: some View {
+        HStack(spacing: 2) {
+            ForEach(PlannerMode.allCases) { mode in
+                let isOn = router.mode == mode
+                Button {
+                    withAnimation(.smooth) { router.mode = mode }
+                    Haptics.tap()
+                } label: {
+                    Image(systemName: mode.symbol)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(isOn ? Color.white : Color.secondary)
+                        .frame(width: 40, height: 30)
+                        .background(isOn ? Theme.accent : Color.clear, in: .capsule)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(mode.title)
+            }
+        }
+        .padding(2)
+        .background(Color.white, in: .capsule)
+        .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
+    }
+
     // MARK: Month
 
     private var monthContent: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            // 달 이동: 꺾쇠 두 개 + "오늘" (애플 캘린더처럼 단순하게)
-            HStack(spacing: 4) {
-                Text(month.kr("yyyy년 M월"))
-                    .font(.title2.weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                    .contentTransition(.numericText())
-                Spacer()
-                if !month.isSameMonth(as: Date()) || !router.selectedDate.isSameDay(as: Date()) {
-                    Button("오늘") {
-                        withAnimation(.smooth) {
-                            month = Date().startOfMonth
-                            router.selectedDate = Date().startOfDay
-                        }
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.trailing, 6)
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(spacing: 0) {
+                HStack {
+                    Button { changeMonth(-1) } label: { Image(systemName: "chevron.left").frame(width: 40, height: 36) }
+                        .accessibilityLabel("이전 달")
+                    Spacer()
+                    Text("밀어서 다른 달 보기")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                    Button { changeMonth(1) } label: { Image(systemName: "chevron.right").frame(width: 40, height: 36) }
+                        .accessibilityLabel("다음 달")
                 }
-                Button { changeMonth(-1) } label: { Image(systemName: "chevron.left").frame(width: 36, height: 36) }
-                    .accessibilityLabel("이전 달")
-                Button { changeMonth(1) } label: { Image(systemName: "chevron.right").frame(width: 36, height: 36) }
-                    .accessibilityLabel("다음 달")
-            }
-            .font(.body.weight(.semibold))
-            .padding(.horizontal, 4)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
 
-            CalendarGrid(month: month, selected: Binding(get: { router.selectedDate }, set: { router.selectedDate = $0 }), plans: plans)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 14)
-                .softCardBackground(cornerRadius: 20)
-                .id(month)
-                .transition(.asymmetric(insertion: .move(edge: slideEdge).combined(with: .opacity), removal: .opacity))
-                .gesture(
-                    DragGesture(minimumDistance: 30).onEnded { value in
-                        if value.translation.width < -50 { changeMonth(1) }
-                        if value.translation.width > 50 { changeMonth(-1) }
-                    }
-                )
+                CalendarGrid(month: month, selected: Binding(get: { router.selectedDate }, set: { router.selectedDate = $0 }), plans: plans)
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 10)
+                    .id(month)
+                    .transition(.asymmetric(insertion: .move(edge: slideEdge).combined(with: .opacity), removal: .opacity))
+            }
+            .softCardBackground(cornerRadius: 22)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 30).onEnded { value in
+                    if value.translation.width < -50 { changeMonth(1) }
+                    if value.translation.width > 50 { changeMonth(-1) }
+                }
+            )
 
             daySection
         }
@@ -157,15 +205,23 @@ struct PlannerView: View {
     private var daySection: some View {
         let selected = router.selectedDate
         let occurrences = plans.occurrences(on: selected)
-        return VStack(alignment: .leading, spacing: 6) {
-            SectionTitle(title: selected.kr("M월 d일 EEEE") + (selected.isSameDay(as: Date()) ? " · 오늘" : "")) {
-                Button("시간표") { withAnimation(.smooth) { router.mode = .day } }
+        return VStack(alignment: .leading, spacing: 10) {
+            DaySummaryHeader(day: selected, occurrences: occurrences) {
+                Button { editorTarget = .new(selected) } label: {
+                    Image(systemName: "plus")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 32, height: 32)
+                        .background(Theme.accent.opacity(0.12), in: .circle)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("이 날 할 일 추가")
             }
             if occurrences.isEmpty {
                 Button { editorTarget = .new(selected) } label: {
                     HStack(spacing: 12) {
                         IconBadge(symbol: "calendar.badge.plus", size: 40)
-                        Text("일정이 없어요. 눌러서 할 일을 추가해보세요")
+                        Text("일정이 없어요. 눌러서 추가해 보세요")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.leading)
@@ -209,9 +265,9 @@ struct PlannerView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("다음 주")
             }
-            Text(router.selectedDate.kr("M월 d일 EEEE"))
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Palette.ink)
+            .padding(.vertical, 8)
+            .softCardBackground(cornerRadius: 20)
+            DaySummaryHeader(day: router.selectedDate, occurrences: plans.occurrences(on: router.selectedDate)) { EmptyView() }
             DayTimelineView(day: router.selectedDate, plans: plans) { plan in
                 editorTarget = .edit(plan)
             }
@@ -433,14 +489,14 @@ struct CalendarGrid: View {
                 }
             }
 
-            LazyVGrid(columns: columns, spacing: 4) {
+            LazyVGrid(columns: columns, spacing: 2) {
                 ForEach(days, id: \.self) { day in
                     DayCell(
                         day: day,
                         inMonth: day.isSameMonth(as: month),
                         isSelected: day.isSameDay(as: selected),
                         isToday: day.isSameDay(as: Date()),
-                        colors: plans.occurrences(on: day).prefix(3).map { $0.plan.color }
+                        events: plans.occurrences(on: day).map { DayCell.Event(title: $0.plan.title, color: $0.plan.color, done: $0.isCompleted) }
                     )
                     .onTapGesture {
                         withAnimation(.snappy) { selected = day.startOfDay }
@@ -452,37 +508,62 @@ struct CalendarGrid: View {
     }
 }
 
+/// 달력 한 칸: 날짜 숫자 + 일정 이름 띠 두 개까지 (+n)
 private struct DayCell: View {
+    struct Event {
+        let title: String
+        let color: Color
+        let done: Bool
+    }
+
     let day: Date
     let inMonth: Bool
     let isSelected: Bool
     let isToday: Bool
-    let colors: [Color]
+    let events: [Event]
 
     var body: some View {
         let weekday = Calendar.current.component(.weekday, from: day)
-        VStack(spacing: 4) {
+        VStack(spacing: 3) {
             Text("\(Calendar.current.component(.day, from: day))")
-                .font(.callout.weight(isToday || isSelected ? .bold : .regular))
+                .font(.footnote.weight(isToday || isSelected ? .bold : .medium))
+                .monospacedDigit()
                 .foregroundStyle(textColor(weekday: weekday))
-                .frame(width: 36, height: 36)
+                .frame(width: 26, height: 26)
                 .background {
                     if isSelected {
                         Circle().fill(Theme.accent)
                     } else if isToday {
-                        Circle().fill(Theme.accent.opacity(0.12))
+                        Circle().fill(Theme.accent.opacity(0.14))
                     }
                 }
 
-            HStack(spacing: 3) {
-                ForEach(Array(colors.enumerated()), id: \.offset) { _, color in
-                    Circle().fill(color).frame(width: 5, height: 5)
+            VStack(spacing: 2) {
+                ForEach(Array(events.prefix(2).enumerated()), id: \.offset) { _, event in
+                    Text(event.title)
+                        .font(.system(size: 9, weight: .semibold))
+                        .lineLimit(1)
+                        .strikethrough(event.done)
+                        .foregroundStyle(event.color)
+                        .padding(.horizontal, 3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(height: 14)
+                        .background(event.color.opacity(0.14), in: .rect(cornerRadius: 3))
+                        .opacity(event.done ? 0.5 : 1)
+                }
+                if events.count > 2 {
+                    Text("+\(events.count - 2)")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(height: 10)
                 }
             }
-            .frame(height: 5)
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 2)
+        .padding(.horizontal, 2)
+        .padding(.top, 4)
+        .frame(maxWidth: .infinity, minHeight: 74, alignment: .top)
+        .background(isSelected ? Theme.accent.opacity(0.06) : Color.clear, in: .rect(cornerRadius: 10))
         .opacity(inMonth ? 1 : 0.3)
         .contentShape(Rectangle())
     }
@@ -493,5 +574,53 @@ private struct DayCell: View {
         if weekday == 1 { return Palette.danger }
         if weekday == 7 { return Theme.accent }
         return Palette.ink
+    }
+}
+
+/// 고른 날 머리말: "11월 2일 월요일 · 오늘" + "할 일 3 · 완료 1 · 공부 2시간" + 완료 막대
+private struct DaySummaryHeader<Trailing: View>: View {
+    let day: Date
+    let occurrences: [PlanOccurrence]
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        let done = occurrences.filter(\.isCompleted).count
+        let studyMinutes = occurrences.filter { $0.plan.isStudy }.reduce(0) { $0 + $1.plan.durationMinutes }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(day.kr("M월 d일 EEEE"))
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(Palette.ink)
+                        if day.isSameDay(as: Date()) {
+                            Text("오늘")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(Theme.accent)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(Theme.accent.opacity(0.12), in: .capsule)
+                        }
+                    }
+                    if !occurrences.isEmpty {
+                        Text(summary(done: done, studyMinutes: studyMinutes))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer(minLength: 8)
+                trailing
+            }
+            if !occurrences.isEmpty {
+                LinearProgressBar(value: Double(done) / Double(occurrences.count), height: 5)
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+
+    private func summary(done: Int, studyMinutes: Int) -> String {
+        var parts = ["할 일 \(occurrences.count)개", "완료 \(done)개"]
+        if studyMinutes > 0 { parts.append("공부 \(TimeText.duration(minutes: studyMinutes))") }
+        return parts.joined(separator: " · ")
     }
 }

@@ -132,6 +132,62 @@ enum MathOCRFixer {
         (#"(^|[\s(])Z(?=[\s=+\-)의는가를에]|$)"#, "$1z")
     ]
 
+    // MARK: 분수 (분자·분모가 따로 읽힌 조각)
+
+    struct Fraction: Equatable {
+        let text: String
+        let box: CGRect
+        /// 쓰인 조각 번호 (분자, 분모)
+        let used: [Int]
+        /// 끼워 넣을 줄 번호
+        let host: Int
+    }
+
+    /// 글자 인식은 분수를 "분자 줄 / 분모 줄" 두 조각으로 따로 읽음 → 위아래로 붙은 짧은 조각 두 개를 "a/b"로 합침.
+    /// 엉뚱하게 합치지 않도록, 두 조각 사이 높이에 문장 줄(host)이 지나가야만 분수로 봄 (Vision 좌표: 아래가 0)
+    static func stackedFractions(pieces: [(text: String, box: CGRect)], hosts: [CGRect]) -> [Fraction] {
+        func isShort(_ text: String) -> Bool {
+            text.range(of: #"^[0-9a-zA-Z+\-−√π()]{1,7}$"#, options: .regularExpression) != nil
+        }
+        var used = Set<Int>()
+        var result: [Fraction] = []
+        let order = pieces.indices.sorted { pieces[$0].box.midY > pieces[$1].box.midY }
+        for top in order where !used.contains(top) && isShort(pieces[top].text.trimmingCharacters(in: .whitespaces)) {
+            let a = pieces[top].box
+            var best: (index: Int, gap: CGFloat)?
+            for bottom in order where bottom != top && !used.contains(bottom) && isShort(pieces[bottom].text.trimmingCharacters(in: .whitespaces)) {
+                let b = pieces[bottom].box
+                guard b.midY < a.midY else { continue }
+                let height = max(a.height, b.height)
+                guard min(a.height, b.height) * 1.8 >= height, a.width < 0.2, b.width < 0.2 else { continue }
+                let gap = a.minY - b.maxY
+                guard gap > -height * 0.25, gap < height * 1.2 else { continue }
+                let overlap = min(a.maxX, b.maxX) - max(a.minX, b.minX)
+                guard overlap >= min(a.width, b.width) * 0.6 else { continue }
+                if best == nil || gap < best!.gap { best = (bottom, gap) }
+            }
+            guard let bottom = best?.index else { continue }
+            let b = pieces[bottom].box
+            let union = a.union(b)
+            // 분수 가운데 높이를 지나가는 문장 줄 (분수 바로 왼쪽이나 오른쪽에 글이 있어야 함)
+            let middle = (a.minY + b.maxY) / 2
+            guard let host = hosts.indices.first(where: { index in
+                let line = hosts[index]
+                return line.minY <= middle && line.maxY >= middle
+                    && union.minX >= line.minX - 0.03 && union.maxX <= line.maxX + 0.08
+                    && !(line.minX >= union.minX - 0.005 && line.maxX <= union.maxX + 0.005)
+            }) else { continue }
+            func wrap(_ raw: String) -> String {
+                let t = raw.trimmingCharacters(in: .whitespaces)
+                return t.count == 1 || t.allSatisfy(\.isNumber) || t.hasPrefix("(") ? t : "(\(t))"
+            }
+            used.insert(top)
+            used.insert(bottom)
+            result.append(Fraction(text: wrap(pieces[top].text) + "/" + wrap(pieces[bottom].text), box: union, used: [top, bottom], host: host))
+        }
+        return result
+    }
+
     static func fix(_ text: String) -> String {
         var result = text
         let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil

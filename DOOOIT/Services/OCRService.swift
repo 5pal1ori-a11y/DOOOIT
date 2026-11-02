@@ -12,6 +12,19 @@ struct OCRLine {
 }
 
 enum OCRService {
+    /// 글자 인식 요청 (최신 인식 모델 · 작은 글씨까지)
+    private static func makeRequest(languages: [String], correction: Bool, minimumTextHeight: Float = 0.006) -> VNRecognizeTextRequest {
+        let request = VNRecognizeTextRequest()
+        request.revision = VNRecognizeTextRequestRevision3
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = correction
+        request.recognitionLanguages = languages
+        request.automaticallyDetectsLanguage = false
+        // 사진 높이의 0.6%보다 큰 글씨는 모두 읽음 (작은 단어장 글씨·지수까지)
+        request.minimumTextHeight = minimumTextHeight
+        return request
+    }
+
     static func recognize(_ image: UIImage, languageCorrection: Bool = true,
                           languages: [String] = ["ko-KR", "en-US"], preferMath: Bool = false) async throws -> [OCRLine] {
         let prepared = image.preparedForOCR()
@@ -19,11 +32,7 @@ enum OCRService {
 
         return try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let request = VNRecognizeTextRequest()
-                request.recognitionLevel = .accurate
-                request.usesLanguageCorrection = languageCorrection
-                request.recognitionLanguages = languages
-
+                let request = makeRequest(languages: languages, correction: languageCorrection)
                 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
                 do {
                     try handler.perform([request])
@@ -65,18 +74,18 @@ enum OCRService {
     /// 영어 전용 인식은 수식을 더 잘 읽음 → 줄마다 글자 위치를 맞춰서 수식 부분만 영어 전용 결과로 바꿈
     static func mathRead(_ image: UIImage) async -> [OCRLine] {
         guard let cgImage = image.preparedForOCR(maxDimension: 3000).cgImage else { return [] }
-        guard let korean = try? await observe(cgImage, languages: ["ko-KR", "en-US"], correction: true) else { return [] }
-        let english = (try? await observe(cgImage, languages: ["en-US"], correction: false)) ?? []
+        // 두 번 읽기를 동시에 (기다리는 시간 절반)
+        async let koreanRead = try? observe(cgImage, languages: ["ko-KR", "en-US"], correction: true)
+        async let englishRead = try? observe(cgImage, languages: ["en-US"], correction: false)
+        guard let korean = await koreanRead else { return [] }
+        let english = await englishRead ?? []
         return merge(korean: korean, english: english)
     }
 
     private static func observe(_ cgImage: CGImage, languages: [String], correction: Bool) async throws -> [VNRecognizedTextObservation] {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let request = VNRecognizeTextRequest()
-                request.recognitionLevel = .accurate
-                request.usesLanguageCorrection = correction
-                request.recognitionLanguages = languages
+                let request = makeRequest(languages: languages, correction: correction)
                 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
                 do {
                     try handler.perform([request])
@@ -115,11 +124,30 @@ enum OCRService {
             }
         }
 
-        // 줄과 떨어져서 따로 읽힌 작은 지수(x² 의 2 등) 찾기
         let heights = korean.map(\.boundingBox.height).sorted()
         let medianHeight = heights.isEmpty ? 0 : heights[heights.count / 2]
+
+        // 분수: 분자·분모가 문장 줄 위아래에 따로 읽힌 짧은 조각 → "a/b"로 합쳐서 그 줄에 끼워 넣음
+        let shortIndexes = korean.indices.filter { index in
+            guard let text = korean[index].topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces) else { return false }
+            return !text.isEmpty && text.count <= 7 && !text.contains(where: isHangul)
+        }
+        let hostIndexes = korean.indices.filter { !shortIndexes.contains($0) }
+        let fractions = MathOCRFixer.stackedFractions(
+            pieces: shortIndexes.map { (text: korean[$0].topCandidates(1).first?.string ?? "", box: korean[$0].boundingBox) },
+            hosts: hostIndexes.map { korean[$0].boundingBox }
+        )
+        let fractionPieces = Set(fractions.flatMap { $0.used.map { shortIndexes[$0] } })
+        var fractionsByLine: [Int: [MathOCRFixer.Fraction]] = [:]
+        for fraction in fractions { fractionsByLine[hostIndexes[fraction.host], default: []].append(fraction) }
+        func isFractionBox(_ box: CGRect) -> Bool {
+            fractions.contains { $0.box.insetBy(dx: -0.005, dy: -0.005).contains(CGPoint(x: box.midX, y: box.midY)) }
+        }
+
+        // 줄과 떨어져서 따로 읽힌 작은 지수(x² 의 2 등) 찾기
         func superscriptText(_ observation: VNRecognizedTextObservation) -> String? {
-            guard let raw = observation.topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces),
+            guard !isFractionBox(observation.boundingBox),
+                  let raw = observation.topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces),
                   raw.range(of: #"^[0-9n]{1,2}$"#, options: .regularExpression) != nil,
                   observation.boundingBox.height < medianHeight * 0.75 else { return nil }
             return raw
@@ -134,7 +162,9 @@ enum OCRService {
         }
         var usedTiny = Set<Int>()
 
-        let lines = korean.map { observation -> OCRLine? in
+        let lines = korean.indices.map { lineIndex -> OCRLine? in
+            let observation = korean[lineIndex]
+            if fractionPieces.contains(lineIndex) { return nil }      // 분수 조각은 줄에 끼워 넣음
             if superscriptText(observation) != nil { return nil }   // 지수 조각은 줄에 끼워 넣음
             let candidates = observation.topCandidates(3)
             guard let best = candidates.first else { return nil }
@@ -169,6 +199,18 @@ enum OCRService {
                 if offset + 1 < chars.count, chars[offset + 1] == piece.text.first || "²³^".contains(chars[offset + 1]) { usedTiny.insert(k); continue }
                 insertions.append((offset + 1, "^" + piece.text))
                 usedTiny.insert(k)
+            }
+
+            // 1-2) 분수 끼워 넣기: 분수 왼쪽에 있는 마지막 글자 뒤에
+            for fraction in fractionsByLine[lineIndex] ?? [] {
+                var offset = 0
+                var bestMaxX = -1.0
+                for i in chars.indices where !chars[i].isWhitespace {
+                    guard let cb = charBox(i), cb.maxX <= fraction.box.minX + 0.006, cb.maxX > bestMaxX else { continue }
+                    bestMaxX = cb.maxX
+                    offset = i + 1
+                }
+                insertions.append((offset, " " + fraction.text + " "))
             }
 
             // 2) 한글이 없는 구간(수식)을 영어 전용 결과와 비교
@@ -215,7 +257,9 @@ enum OCRService {
             for edit in edits.sorted(by: { $0.start > $1.start }) {
                 result.replaceSubrange(edit.start..<edit.end, with: Array(edit.text))
             }
-            return OCRLine(text: String(result), confidence: best.confidence, box: observation.boundingBox)
+            let text = String(result).replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+            return OCRLine(text: text, confidence: best.confidence, box: observation.boundingBox)
         }
         return lines.compactMap { $0 }
     }
@@ -242,8 +286,9 @@ enum OCRService {
 
     /// 수학 문제 사진 → 문제 글: 기기 글자 인식 + 자주 틀리는 글자 교정
     /// 여러 방법으로 읽은 결과 중 수식이 가장 자연스러운 쪽을 고름 (improved: 기본 결과보다 나은 걸 골랐는지)
-    static func readMathProblem(_ image: UIImage, thorough: Bool = true) async -> (text: String, improved: Bool) {
-        let lines = (try? await recognizeMath(image)) ?? []
+    static func readMathProblem(_ image: UIImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
+        var lines = precomputed ?? []
+        if precomputed == nil { lines = (try? await recognizeMath(image)) ?? [] }
         let base = MathOCRFixer.fix(printedText(from: lines))
         guard thorough, !base.isEmpty else { return (base, false) }
         let readings = await multiPassRead(image).map { reading -> String in
@@ -262,7 +307,7 @@ enum OCRService {
         let lines = (try? await recognizeMath(image)) ?? []
         let unsure = lines.filter { $0.confidence < 0.5 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
             .map { MathOCRFixer.fix($0.text) }
-        let result = await readMathProblem(image)
+        let result = await readMathProblem(image, lines: lines)
         return (result.text, result.improved, unsure)
     }
 
@@ -423,6 +468,116 @@ enum OCRService {
         let ciContext = CIContext()
         guard let cg = ciContext.createCGImage(output, from: output.extent) else { return nil }
         return UIImage(cgImage: cg)
+    }
+
+    // MARK: 사진 반듯하게 펴기
+
+    /// 앨범 사진 속 종이(단어장·문제지)를 찾아 그 부분만 잘라 정면에서 본 것처럼 폄.
+    /// 종이를 확실히 찾지 못했거나 이미 사진 전체가 종이면 그대로 둠
+    static func straightened(_ image: UIImage) async -> UIImage {
+        let base = image.resized(maxDimension: 3000)
+        guard let cgImage = base.cgImage else { return image }
+        let corners: [CGPoint]? = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNDetectDocumentSegmentationRequest()
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                guard (try? handler.perform([request])) != nil,
+                      let page = request.results?.first, page.confidence >= 0.8 else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: [page.topLeft, page.topRight, page.bottomRight, page.bottomLeft])
+            }
+        }
+        guard let corners else { return base }
+        // 사진의 35% ~ 95%를 차지하는 종이만 (너무 작으면 그림·표 상자, 너무 크면 이미 반듯한 사진)
+        var area: CGFloat = 0
+        for i in corners.indices {
+            let a = corners[i], b = corners[(i + 1) % corners.count]
+            area += a.x * b.y - b.x * a.y
+        }
+        area = abs(area) / 2
+        guard area >= 0.35, area <= 0.95 else { return base }
+
+        let width = CGFloat(cgImage.width), height = CGFloat(cgImage.height)
+        func point(_ p: CGPoint) -> CIVector { CIVector(x: p.x * width, y: p.y * height) }
+        let input = CIImage(cgImage: cgImage)
+        guard let filter = CIFilter(name: "CIPerspectiveCorrection") else { return base }
+        filter.setValue(input, forKey: kCIInputImageKey)
+        filter.setValue(point(corners[0]), forKey: "inputTopLeft")
+        filter.setValue(point(corners[1]), forKey: "inputTopRight")
+        filter.setValue(point(corners[2]), forKey: "inputBottomRight")
+        filter.setValue(point(corners[3]), forKey: "inputBottomLeft")
+        guard let output = filter.outputImage, output.extent.width > 200, output.extent.height > 200,
+              let rendered = CIContext().createCGImage(output, from: output.extent) else { return base }
+        return UIImage(cgImage: rendered)
+    }
+
+    // MARK: 단어장 읽기
+
+    /// 단어장 사진 → 단어·뜻: 원래 사진과 고대비 사진을 함께 읽어 더 많이 찾은 쪽을 쓰고,
+    /// 빠진 뜻은 다른 쪽에서 채운 뒤 영어 철자를 사전으로 확인 (이상하면 "확인 필요")
+    @MainActor
+    static func readWords(_ image: UIImage) async -> [ParsedWord] {
+        async let plainRead = try? recognize(image)
+        async let contrastRead = contrastLines(image)
+        let first = await plainRead
+        let second = await contrastRead
+        let readings = [first, second].compactMap { $0 }.map { WordParser.parse($0) }
+        func score(_ words: [ParsedWord]) -> Int { words.filter { !$0.meaning.isEmpty }.count * 2 - words.filter(\.unsure).count }
+        guard var best = readings.max(by: { score($0) < score($1) }) else { return [] }
+        for other in readings {
+            for i in best.indices where best[i].meaning.isEmpty {
+                if let match = other.first(where: { $0.term.lowercased() == best[i].term.lowercased() && !$0.meaning.isEmpty }) {
+                    best[i].meaning = match.meaning
+                }
+            }
+        }
+        return best.map(spellChecked)
+    }
+
+    private static func contrastLines(_ image: UIImage) async -> [OCRLine]? {
+        guard let enhanced = enhancedForText(image) else { return nil }
+        return try? await recognize(enhanced)
+    }
+
+    /// 영어 철자 확인: 사전에 없는 낱말은 "확인 필요", 한 글자만 다른 단어가 있으면 그걸로 고침 (rn↔m, l↔i 같은 착각)
+    @MainActor
+    static func spellChecked(_ word: ParsedWord) -> ParsedWord {
+        let languages = UITextChecker.availableLanguages
+        guard let language = languages.first(where: { $0 == "en_US" }) ?? languages.first(where: { $0.hasPrefix("en") }) else { return word }
+        let checker = UITextChecker()
+        var result = word
+        var term = word.term
+        for token in word.term.split(separator: " ").map(String.init) {
+            guard token.count >= 3, token.allSatisfy({ $0.isASCII && $0.isLetter }) else { continue }
+            let length = (token as NSString).length
+            let range = checker.rangeOfMisspelledWord(in: token, range: NSRange(location: 0, length: length), startingAt: 0, wrap: false, language: language)
+            guard range.location != NSNotFound else { continue }
+            result.unsure = true
+            let guesses = checker.guesses(forWordRange: range, in: token, language: language) ?? []
+            if let guess = guesses.first(where: { editDistance($0.lowercased(), token.lowercased()) == 1 && !$0.contains(" ") }) {
+                let fixed = token.first?.isUppercase == true ? guess : guess.lowercased()
+                term = term.replacingOccurrences(of: token, with: fixed)
+            }
+        }
+        result.term = term
+        return result
+    }
+
+    static func editDistance(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        guard !a.isEmpty else { return b.count }
+        guard !b.isEmpty else { return a.count }
+        var previous = Array(0...b.count)
+        for i in 1...a.count {
+            var current = [i] + Array(repeating: 0, count: b.count)
+            for j in 1...b.count {
+                current[j] = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+            }
+            previous = current
+        }
+        return previous[b.count]
     }
 
     /// 인쇄된 문제 위주로 남기기: 신뢰도가 낮은 줄(손글씨)과

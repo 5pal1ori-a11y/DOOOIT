@@ -84,7 +84,7 @@ struct MathNoteListView: View {
                 }
             }
         }
-        .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 10) { images in
+        .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 10, straighten: true) { images in
             cropQueue = images
             croppedPairs = []
             nextCrop()

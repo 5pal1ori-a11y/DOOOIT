@@ -65,6 +65,8 @@ struct ImageInputModifier: ViewModifier {
     @Binding var photoItems: [PhotosPickerItem]
     @Binding var showPhotoPicker: Bool
     var maxPhotos: Int = 5
+    /// 앨범 사진에서 종이 부분만 잘라 반듯하게 펴기 (단어장·문제 사진용)
+    var straighten = false
     var onImages: ([UIImage]) -> Void
 
     @State private var scanned: [UIImage] = []
@@ -88,7 +90,12 @@ struct ImageInputModifier: ViewModifier {
             .onChange(of: photoItems) { _, items in
                 guard !items.isEmpty else { return }
                 Task {
-                    let images = await PhotoLoader.load(items)
+                    let loaded = await PhotoLoader.load(items)
+                    var images = loaded
+                    if straighten {
+                        images = []
+                        for image in loaded { images.append(await OCRService.straightened(image)) }
+                    }
                     photoItems = []
                     if !images.isEmpty { onImages(images) }
                 }
@@ -98,8 +105,8 @@ struct ImageInputModifier: ViewModifier {
 
 extension View {
     func imageInput(showScanner: Binding<Bool>, showPhotoPicker: Binding<Bool>, photoItems: Binding<[PhotosPickerItem]>,
-                    maxPhotos: Int = 5, onImages: @escaping ([UIImage]) -> Void) -> some View {
+                    maxPhotos: Int = 5, straighten: Bool = false, onImages: @escaping ([UIImage]) -> Void) -> some View {
         modifier(ImageInputModifier(showScanner: showScanner, photoItems: photoItems, showPhotoPicker: showPhotoPicker,
-                                    maxPhotos: maxPhotos, onImages: onImages))
+                                    maxPhotos: maxPhotos, straighten: straighten, onImages: onImages))
     }
 }

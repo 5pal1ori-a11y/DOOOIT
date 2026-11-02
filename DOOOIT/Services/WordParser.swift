@@ -4,11 +4,79 @@ struct ParsedWord: Identifiable, Hashable {
     var id = UUID()
     var term: String
     var meaning: String
+    /// 흐리게 읽혔거나 철자가 이상한 단어 (확인 화면에서 표시)
+    var unsure = false
 }
 
 /// OCR 결과를 "영어 단어 - 한글 뜻" 쌍으로 변환
 enum WordParser {
     static func parse(_ lines: [OCRLine]) -> [ParsedWord] {
+        // 0) 두 단으로 나뉜 페이지는 왼쪽 단 → 오른쪽 단 순서로 따로 읽음 (옆 단 글자가 한 줄로 섞이지 않게)
+        let words = splitColumns(lines).flatMap(parseColumn)
+        // 3) 같은 단어는 뜻을 합쳐서 하나로
+        var merged: [ParsedWord] = []
+        for word in words where !word.term.isEmpty {
+            if let i = merged.firstIndex(where: { $0.term.lowercased() == word.term.lowercased() }) {
+                if merged[i].meaning.isEmpty { merged[i].meaning = word.meaning }
+                else if !word.meaning.isEmpty && !merged[i].meaning.contains(word.meaning) { merged[i].meaning += ", " + word.meaning }
+            } else {
+                merged.append(word)
+            }
+        }
+        // 4) 흐리게 읽힌 줄에서 나온 단어는 "확인 필요"
+        for i in merged.indices {
+            let term = merged[i].term.lowercased()
+            let source = lines.filter { fixOCRTerm($0.text).lowercased().contains(term) }
+            if let worst = source.map(\.confidence).min(), worst < 0.5 { merged[i].unsure = true }
+        }
+        return merged
+    }
+
+    /// 두 단(왼쪽·오른쪽에 각각 "단어 + 뜻")으로 된 페이지면 단마다 나눔.
+    /// "영어 | 한글" 두 칸짜리 표는 한 단이므로 나누지 않음 (양쪽 모두 영어와 한글이 있어야 두 단)
+    static func splitColumns(_ lines: [OCRLine]) -> [[OCRLine]] {
+        guard lines.count >= 6 else { return [lines] }
+        func hasHangul(_ t: String) -> Bool { t.range(of: "[가-힣]", options: .regularExpression) != nil }
+        func hasLatin(_ t: String) -> Bool { t.range(of: "[A-Za-z]{2,}", options: .regularExpression) != nil }
+        func isMixedColumn(_ side: [OCRLine]) -> Bool {
+            guard side.count >= 3 else { return false }
+            let hangul = side.filter { hasHangul($0.text) }.count
+            let latin = side.filter { hasLatin($0.text) }.count
+            return hangul * 4 >= side.count && latin * 4 >= side.count
+        }
+        var best: (x: Double, crossing: Int)?
+        var x = 0.3
+        while x <= 0.7 {
+            let crossing = lines.filter { Double($0.box.minX) < x - 0.005 && Double($0.box.maxX) > x + 0.005 }.count
+            if crossing * 10 <= lines.count {
+                let left = lines.filter { Double($0.box.maxX) <= x + 0.005 }
+                let right = lines.filter { Double($0.box.minX) >= x - 0.005 }
+                // 양쪽 단이 같은 높이에 나란히 있어야 함
+                let leftTop: CGFloat = left.map(\.box.maxY).max() ?? 0
+                let rightTop: CGFloat = right.map(\.box.maxY).max() ?? 0
+                let leftBottom: CGFloat = left.map(\.box.minY).min() ?? 1
+                let rightBottom: CGFloat = right.map(\.box.minY).min() ?? 1
+                let overlap = Double(min(leftTop, rightTop) - max(leftBottom, rightBottom))
+                if isMixedColumn(left), isMixedColumn(right), overlap > 0.2 {
+                    let better: Bool
+                    if let current = best {
+                        better = crossing < current.crossing || (crossing == current.crossing && abs(x - 0.5) < abs(current.x - 0.5))
+                    } else {
+                        better = true
+                    }
+                    if better { best = (x, crossing) }
+                }
+            }
+            x += 0.01
+        }
+        guard let split = best?.x else { return [lines] }
+        let left = lines.filter { Double($0.box.midX) < split }
+        let right = lines.filter { Double($0.box.midX) >= split }
+        return [left, right]
+    }
+
+    /// 한 단 읽기: 같은 높이 글자를 한 줄로 묶은 뒤 단어·뜻으로
+    static func parseColumn(_ lines: [OCRLine]) -> [ParsedWord] {
         // 1) 같은 높이(행)에 있는 글자 묶기
         let sorted = lines.sorted { $0.box.midY > $1.box.midY }
         var rows: [[OCRLine]] = []
@@ -23,18 +91,26 @@ enum WordParser {
 
         let texts = rows.map { row in row.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ") }
         // 시중 단어장(표제어 + [발음] + 품사 + 뜻 + 예시 구·예문)은 품사 표시를 기준으로 읽음
-        let words = isBookPage(texts) ? parseBook(texts) : parseList(texts)
-        // 3) 같은 단어는 뜻을 합쳐서 하나로
-        var merged: [ParsedWord] = []
-        for word in words where !word.term.isEmpty {
-            if let i = merged.firstIndex(where: { $0.term.lowercased() == word.term.lowercased() }) {
-                if merged[i].meaning.isEmpty { merged[i].meaning = word.meaning }
-                else if !word.meaning.isEmpty && !merged[i].meaning.contains(word.meaning) { merged[i].meaning += ", " + word.meaning }
-            } else {
-                merged.append(word)
+        return isBookPage(texts) ? parseBook(texts) : parseList(texts)
+    }
+
+    /// 영어 낱말 속에 끼어든 숫자·기호를 비슷한 글자로 ("app1e" → "apple", "5mall" → "small", "c0ntinent" → "continent")
+    /// 숫자만 있는 낱말(번호·쪽수)은 그대로 둠
+    static func fixOCRTerm(_ text: String) -> String {
+        let map: [Character: Character] = ["0": "o", "1": "l", "5": "s", "|": "l", "$": "s"]
+        return text.split(separator: " ", omittingEmptySubsequences: false).map { token -> String in
+            let letters = token.filter { $0.isASCII && $0.isLetter }.count
+            guard letters >= 2, token.contains(where: { map[$0] != nil }),
+                  !token.contains(where: { $0.isNumber && map[$0] == nil }) else { return String(token) }
+            var chars = Array(token)
+            for i in chars.indices {
+                guard let replacement = map[chars[i]] else { continue }
+                let before = i > 0 && chars[i - 1].isASCII && chars[i - 1].isLetter
+                let after = i + 1 < chars.count && chars[i + 1].isASCII && chars[i + 1].isLetter
+                if before || after { chars[i] = replacement }
             }
-        }
-        return merged
+            return String(chars)
+        }.joined(separator: " ")
     }
 
     /// 단순한 단어 목록 ("apple 사과" 한 줄씩, 또는 뜻이 다음 줄)
@@ -275,7 +351,8 @@ enum WordParser {
         return m.trimmingCharacters(in: .whitespaces)
     }
 
-    private static func cleanTerm(_ raw: String) -> String {
+    private static func cleanTerm(_ input: String) -> String {
+        let raw = fixOCRTerm(input)
         let allowed = CharacterSet.letters.union(.whitespaces).union(CharacterSet(charactersIn: "-'’~"))
         let filtered = String(raw.unicodeScalars.filter { allowed.contains($0) })
         let term = filtered

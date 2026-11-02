@@ -21,7 +21,7 @@ struct WordImportView: View {
                         ProgressView().controlSize(.large)
                         Text("단어장의 글자를 읽고 있어요")
                             .font(.headline)
-                        Text("\(images.count)장의 사진을 분석 중")
+                        Text("\(images.count)장 · 두 번 읽고 철자까지 확인 중")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -59,7 +59,9 @@ struct WordImportView: View {
                     Label(failedMessage, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(Palette.warning)
                 } else {
-                    Label("\(items.count)개의 단어를 찾았어요. 잘못 읽힌 부분은 직접 고쳐주세요.", systemImage: "text.viewfinder")
+                    let unsure = items.filter(\.unsure).count
+                    Label(unsure > 0 ? "\(items.count)개를 찾았어요. 주황색 \(unsure)개는 철자를 확인해 주세요." : "\(items.count)개의 단어를 찾았어요.",
+                          systemImage: "text.viewfinder")
                 }
                 TextField("단어장 이름", text: $deck)
             }
@@ -67,10 +69,27 @@ struct WordImportView: View {
             Section("단어 · 뜻") {
                 ForEach($items) { $item in
                     VStack(alignment: .leading, spacing: 6) {
-                        TextField("영어 단어", text: $item.term)
-                            .font(.body.weight(.semibold))
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                        HStack(spacing: 8) {
+                            TextField("영어 단어", text: $item.term)
+                                .font(.body.weight(.semibold))
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .foregroundStyle(item.unsure ? Palette.warning : Palette.ink)
+                            if item.unsure {
+                                Button {
+                                    item.unsure = false
+                                } label: {
+                                    Text("맞아요")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Palette.warning)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 3)
+                                        .background(Palette.warning.opacity(0.12), in: .capsule)
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel("철자 맞음")
+                            }
+                        }
                         TextField("뜻", text: $item.meaning)
                             .foregroundStyle(.secondary)
                         if item.meaning.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -96,8 +115,9 @@ struct WordImportView: View {
         guard isProcessing else { return }
         var all: [ParsedWord] = []
         for image in images {
-            if let lines = try? await OCRService.recognize(image) {
-                all += WordParser.parse(lines)
+            for word in await OCRService.readWords(image)
+            where !all.contains(where: { $0.term.lowercased() == word.term.lowercased() }) {
+                all.append(word)
             }
         }
         items = all

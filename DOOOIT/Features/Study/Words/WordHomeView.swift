@@ -39,7 +39,7 @@ struct WordHomeView: View {
         .scrollIndicators(.hidden)
         .background { AppBackground() }
         .navigationTitle("영어 단어")
-        .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems) { images in
+        .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, straighten: true) { images in
             importBatch = ImageBatch(images: images)
         }
         .sheet(item: $importBatch) { batch in
