@@ -2,69 +2,96 @@ import PhotosUI
 import SwiftData
 import SwiftUI
 
-/// 영어 단어 메인: 오늘 외울 단어 수, 학습 시작, 단어장 촬영
+/// 영어 단어 홈: 위에 단어장 고르기 · 기록, 아래 "학습 | 내 단어장" 탭
 struct WordHomeView: View {
+    enum Tab: Hashable { case study, book }
+
     @Environment(\.modelContext) private var context
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Word.createdAt) private var words: [Word]
 
     @AppStorage(SettingsKey.dailyWordGoal) private var wordGoal = 20
     @AppStorage(SettingsKey.wordGoalDoneKey) private var wordGoalDoneKey = ""
-    @AppStorage(WordSpeaker.accentKey) private var accentRaw = WordSpeaker.Accent.us.rawValue
+    /// 고른 단어장 ("" = 전체)
+    @AppStorage("word.selectedDeck") private var selectedDeck = ""
 
+    @State private var tab: Tab = .study
     @State private var showScanner = false
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var importBatch: ImageBatch?
     @State private var showManualAdd = false
+    @State private var showStats = false
     @State private var session: WordSessionConfig?
     @State private var errorMessage: String?
+    @Namespace private var tabUnderline
 
-    private var unlearned: [Word] { words.filter { !$0.isLearned } }
-    private var wrongWords: [Word] { words.filter { $0.wrongCount > 0 } }
+    // MARK: 단어장
+
+    private var decks: [String] { Array(Set(words.map(\.deck))).sorted() }
+    private var activeDeck: String? { decks.contains(selectedDeck) ? selectedDeck : nil }
+    private var deckWords: [Word] {
+        guard let activeDeck else { return words }
+        return words.filter { $0.deck == activeDeck }
+    }
+    private var title: String {
+        if let activeDeck { return activeDeck }
+        return decks.count == 1 ? decks[0] : "전체 단어"
+    }
+    /// 새로 추가할 때 기본 단어장
+    private var addDeck: String { activeDeck ?? (decks.count == 1 ? decks[0] : "기본 단어장") }
+
+    // MARK: 오늘 할 일
+
+    private var unlearned: [Word] { deckWords.filter { !$0.isLearned } }
     private var doneToday: Bool { wordGoalDoneKey == Date().dayKey }
     private var todayWords: [Word] { Array(unlearned.prefix(wordGoal)) }
+    private var newCount: Int { doneToday ? 0 : todayWords.count }
     /// 오늘 복습할 단어 (오래 기다린 것부터, 한 번에 최대 50개)
     private var dueWords: [Word] {
-        Array(words.filter(\.isDueForReview).sorted { ($0.nextReviewAt ?? .distantPast) < ($1.nextReviewAt ?? .distantPast) }.prefix(50))
+        Array(deckWords.filter(\.isDueForReview)
+            .sorted { ($0.nextReviewAt ?? .distantPast) < ($1.nextReviewAt ?? .distantPast) }
+            .prefix(50))
     }
-    /// 가장 가까운 다음 복습 날
-    private var nextReview: (date: Date, count: Int)? {
-        let upcoming = words.compactMap { word -> Date? in
-            guard (1...WordReview.intervals.count).contains(word.reviewStage), let next = word.nextReviewAt, next > Date() else { return nil }
-            return Calendar.current.startOfDay(for: next)
-        }
-        guard let first = upcoming.min() else { return nil }
-        return (first, upcoming.filter { $0 == first }.count)
-    }
+    private var wrongWords: [Word] { deckWords.filter { $0.wrongCount > 0 }.sorted { $0.wrongCount > $1.wrongCount } }
+    private var starredWords: [Word] { deckWords.filter(\.isStarred) }
+    private var listenPool: [Word] { deckWords.filter { !$0.term.trimmingCharacters(in: .whitespaces).isEmpty } }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                heroCard
-                if words.contains(where: \.isLearned) { spacedCard }
-                if !words.isEmpty { gamesCard }
-                addCard
-                if !wrongWords.isEmpty { reviewCard }
-                goalCard
-                listLink
+        VStack(spacing: 0) {
+            tabBar
+            switch tab {
+            case .study: studyTab
+            case .book: WordListView(words: deckWords, defaultDeck: addDeck)
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 32)
         }
-        .scrollIndicators(.hidden)
-        .background { AppBackground() }
-        .navigationTitle("영어 단어")
+        .background(Palette.card.ignoresSafeArea())
+        .navigationTitle(title)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) { deckMenu }
+                .sharedBackgroundVisibility(.hidden)
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { showStats = true } label: {
+                    Image(systemName: "chart.bar.xaxis")
+                }
+                .accessibilityLabel("기록")
+            }
+        }
         .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, straighten: true) { images in
             importBatch = ImageBatch(images: images)
         }
         .sheet(item: $importBatch) { batch in
-            WordImportView(images: batch.images)
+            WordImportView(images: batch.images, deck: addDeck)
         }
         .sheet(isPresented: $showManualAdd) {
-            WordEditSheet(word: nil)
+            WordEditSheet(word: nil, defaultDeck: addDeck)
+        }
+        .sheet(isPresented: $showStats) {
+            WordStatsSheet(words: deckWords, title: title)
         }
         .fullScreenCover(item: $session) { config in
-            WordSessionView(words: config.words, kind: config.kind)
+            WordSessionView(words: config.words, kind: config.kind, pool: words)
         }
         .errorAlert($errorMessage)
         .onAppear(perform: scheduleLegacyWords)
@@ -83,239 +110,220 @@ struct WordHomeView: View {
         if changed { try? context.save() }
     }
 
-    // MARK: 간격 복습
+    // MARK: 위: 단어장 메뉴 · 탭
 
-    private var spacedCard: some View {
-        let due = dueWords
-        let mastered = words.filter(\.isMastered).count
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                IconBadge(symbol: "calendar.badge.clock", color: Palette.warning, size: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(due.isEmpty ? "오늘 복습 끝" : "오늘 복습 \(due.count)개")
-                        .font(.headline)
-                        .foregroundStyle(Palette.ink)
-                    Text(due.isEmpty ? nextReviewText : "외운 단어를 1·3·7·14·30일 간격으로 다시 물어봐요")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-                if mastered > 0 {
-                    VStack(spacing: 0) {
-                        Text("\(mastered)").font(.headline.monospacedDigit()).foregroundStyle(Palette.success)
-                        Text("완전히 외움").font(.caption2).foregroundStyle(.secondary)
-                    }
-                }
+    private var deckMenu: some View {
+        Menu {
+            Picker("단어장", selection: $selectedDeck) {
+                Text("전체").tag("")
+                ForEach(decks, id: \.self) { Text($0).tag($0) }
             }
-            if !due.isEmpty {
-                Button {
-                    session = WordSessionConfig(words: due, kind: .spaced)
-                } label: {
-                    Label("복습 시작", systemImage: "play.fill")
-                }
-                .buttonStyle(.primaryFill)
-            }
-        }
-        .softCard()
-    }
-
-    private var nextReviewText: String {
-        guard let next = nextReview else { return "다음 복습 일정이 없어요" }
-        return "다음 복습: \(WordReview.describe(next.date)) \(next.count)개"
-    }
-
-    // MARK: Hero
-
-    private var heroCard: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(doneToday ? "오늘의 단어목표 성공!" : "지금 외워야 할 단어")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(doneToday ? 0 : todayWords.count)")
-                            .font(.system(size: 56, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Palette.ink)
-                            .contentTransition(.numericText())
-                        Text("개").font(.title3.weight(.semibold))
-                    }
-                }
-                Spacer()
-                ZStack {
-                    ProgressRing(progress: doneToday ? 1 : 0, lineWidth: 8,
-                                 color: doneToday ? Palette.success : Theme.accent)
-                    Image(systemName: doneToday ? "trophy.fill" : "target")
-                        .font(.title2)
-                        .foregroundStyle(doneToday ? Palette.success : Theme.accent)
-                        .symbolEffect(.bounce, value: doneToday)
-                }
-                .frame(width: 70, height: 70)
-            }
-
-            if words.isEmpty {
-                Text("아직 등록된 단어가 없어요. 단어장 사진을 찍으면 글자를 자동으로 읽어서 암기 노트를 만들어드려요.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else if unlearned.isEmpty {
-                Text("등록된 단어를 모두 외웠어요! 새 단어장을 촬영해보세요.")
-                    .font(.subheadline)
+        } label: {
+            HStack(spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                Image(systemName: "chevron.down")
+                    .font(.caption.weight(.bold))
                     .foregroundStyle(.secondary)
             }
-
-            Button {
-                if words.isEmpty {
-                    openScanner()
-                } else if !unlearned.isEmpty {
-                    session = WordSessionConfig(words: todayWords, kind: doneToday ? .extra : .daily)
-                } else {
-                    session = WordSessionConfig(words: Array(words.shuffled().prefix(wordGoal)), kind: .extra)
-                }
-            } label: {
-                Label(primaryTitle, systemImage: words.isEmpty ? "camera.fill" : "play.fill")
-                    .font(.body.weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
-            }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
+            .frame(maxWidth: 220)
         }
-        .softCard(cornerRadius: 24, padding: 20)
+        .accessibilityLabel("단어장 바꾸기, 지금 \(title)")
     }
 
-    private var primaryTitle: String {
-        if words.isEmpty { return "단어장 촬영하기" }
-        if unlearned.isEmpty { return "전체 단어 복습하기" }
-        return doneToday ? "다음 단어 더 외우기" : "오늘의 단어 외우기"
-    }
-
-    // MARK: Pronunciation
-
-    /// 발음 · 듣기: 따라 말하기 / 듣고 뜻 고르기 / 받아쓰기 + 미국식·영국식
-    private var gamesCard: some View {
-        let pool = words.filter { !$0.term.trimmingCharacters(in: .whitespaces).isEmpty }
-        return VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                SectionHeader(title: "발음 · 듣기", symbol: "ear.fill")
-                Spacer()
-                Picker("발음", selection: $accentRaw) {
-                    ForEach(WordSpeaker.Accent.allCases) { Text($0.title).tag($0.rawValue) }
-                }
-                .pickerStyle(.menu)
-                .tint(.secondary)
-            }
-            VStack(spacing: 0) {
-                NavigationLink { SpeakPracticeView(pool: pool) } label: {
-                    RowLabel(symbol: "mic.fill", color: Palette.success, title: "따라 말하기", subtitle: "말하면 발음을 확인해요")
-                }
-                RowDivider()
-                NavigationLink { ListenQuizView(pool: pool, mode: .meaning) } label: {
-                    RowLabel(symbol: "ear.fill", color: Theme.accent, title: "듣고 뜻 고르기", subtitle: "발음을 듣고 4개 중에서")
-                }
-                RowDivider()
-                NavigationLink { ListenQuizView(pool: pool, mode: .spelling) } label: {
-                    RowLabel(symbol: "keyboard", color: Palette.warning, title: "받아쓰기", subtitle: "들린 단어의 철자 쓰기")
-                }
-            }
-            .buttonStyle(.pressable)
-            .background(Palette.card, in: .rect(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.06)))
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            tabButton("학습", .study)
+            tabButton("내 단어장", .book)
         }
-        .softCard()
-    }
-
-    // MARK: Add
-
-    private var addCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            SectionHeader(title: "단어 추가", symbol: "plus.circle.fill")
-            GlassEffectContainer(spacing: 10) {
-                HStack(spacing: 10) {
-                    addButton(symbol: "doc.viewfinder", title: "촬영") { openScanner() }
-                    addButton(symbol: "photo.on.rectangle", title: "앨범") { showPhotoPicker = true }
-                    addButton(symbol: "keyboard", title: "직접 입력") { showManualAdd = true }
-                }
-            }
+        .padding(.horizontal, 20)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 1)
         }
-        .softCard()
     }
 
-    private func addButton(symbol: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func tabButton(_ label: String, _ value: Tab) -> some View {
+        let selected = tab == value
+        return Button {
+            guard tab != value else { return }
+            Haptics.tap()
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.25)) { tab = value }
+        } label: {
             VStack(spacing: 8) {
-                Image(systemName: symbol).font(.title3.weight(.semibold))
-                Text(title).font(.caption.weight(.semibold))
+                Text(label)
+                    .font(.body.weight(selected ? .bold : .medium))
+                    .foregroundStyle(selected ? Palette.ink : .secondary)
+                ZStack {
+                    Capsule().fill(Color.clear).frame(height: 3)
+                    if selected {
+                        Capsule()
+                            .fill(Theme.accent)
+                            .frame(height: 3)
+                            .matchedGeometryEffect(id: "underline", in: tabUnderline)
+                    }
+                }
             }
-            .foregroundStyle(Theme.accent)
+            .fixedSize()
+            .padding(.top, 6)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Theme.accent.opacity(0.09), in: .rect(cornerRadius: 18))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: 학습 탭
+
+    private var studyTab: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                if deckWords.isEmpty {
+                    emptyHero
+                } else {
+                    todayStats
+                        .padding(.top, 36)
+                    startButton
+                        .padding(.top, 32)
+                }
+                menuRows
+                    .padding(.top, 36)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 32)
+        }
+        .scrollIndicators(.hidden)
+    }
+
+    private var emptyHero: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "character.book.closed")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+            Text("단어가 없어요")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Palette.ink)
+            addMenu {
+                Label("단어 추가", systemImage: "plus")
+                    .font(.body.weight(.bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(Theme.accent, in: .rect(cornerRadius: 16))
+            }
+            .padding(.top, 14)
+        }
+        .padding(.top, 56)
+    }
+
+    /// 오늘 복습 · 새 단어 (누르면 바로 그 학습)
+    private var todayStats: some View {
+        let due = dueWords.count
+        return HStack(spacing: 0) {
+            statButton(value: due, label: "오늘 복습", highlighted: due > 0) {
+                if due > 0 { session = WordSessionConfig(words: dueWords, kind: .spaced) }
+            }
+            Rectangle().fill(Color.primary.opacity(0.08)).frame(width: 1, height: 44)
+            statButton(value: newCount, label: doneToday ? "새 단어 완료" : "새 단어", highlighted: due == 0 && newCount > 0) {
+                if newCount > 0 { session = WordSessionConfig(words: todayWords, kind: .daily) }
+            }
+        }
+    }
+
+    private func statButton(value: Int, label: String, highlighted: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Text("\(value)")
+                    .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(highlighted ? Theme.accent : Palette.ink)
+                    .contentTransition(.numericText())
+                Text(label)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.pressable)
+        .disabled(value == 0)
+    }
+
+    /// 복습이 있으면 복습부터, 다음은 새 단어, 다 외웠으면 섞어서 다시
+    private var startButton: some View {
+        Button {
+            if !dueWords.isEmpty {
+                session = WordSessionConfig(words: dueWords, kind: .spaced)
+            } else if !unlearned.isEmpty {
+                session = WordSessionConfig(words: todayWords, kind: doneToday ? .extra : .daily)
+            } else {
+                session = WordSessionConfig(words: Array(deckWords.shuffled().prefix(wordGoal)), kind: .extra)
+            }
+        } label: {
+            Text("학습 시작")
+                .font(.title3.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 60)
+                .background(Theme.accent, in: .rect(cornerRadius: 20))
+        }
+        .buttonStyle(.pressable)
+    }
+
+    private var menuRows: some View {
+        VStack(spacing: 0) {
+            if !deckWords.isEmpty {
+                NavigationLink { ListenQuizView(pool: listenPool) } label: {
+                    RowLabel(symbol: "ear", title: "듣기 퀴즈")
+                }
+                RowDivider()
+                NavigationLink { SpeakPracticeView(pool: listenPool) } label: {
+                    RowLabel(symbol: "mic", title: "발음 연습")
+                }
+                RowDivider()
+            }
+            addMenu {
+                RowLabel(symbol: "plus", title: "단어 추가")
+            }
+            if !wrongWords.isEmpty {
+                RowDivider()
+                Button {
+                    session = WordSessionConfig(words: wrongWords, kind: .review)
+                } label: {
+                    RowLabel(symbol: "arrow.counterclockwise", color: Palette.danger, title: "틀린 단어", value: "\(wrongWords.count)")
+                }
+            }
+            if !starredWords.isEmpty {
+                RowDivider()
+                Button {
+                    session = WordSessionConfig(words: starredWords, kind: .extra)
+                } label: {
+                    RowLabel(symbol: "bookmark", title: "저장한 단어", value: "\(starredWords.count)")
+                }
+            }
+        }
+        .buttonStyle(.pressable)
+        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 18))
+    }
+
+    private func addMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {
+        let content = label()
+        return Menu {
+            Button { openScanner() } label: { Label("촬영", systemImage: "doc.viewfinder") }
+            Button { showPhotoPicker = true } label: { Label("앨범", systemImage: "photo.on.rectangle") }
+            Button { showManualAdd = true } label: { Label("직접 입력", systemImage: "keyboard") }
+        } label: {
+            content
+        }
+        .tint(Palette.ink)
     }
 
     private func openScanner() {
         if DocumentScanner.isSupported {
             showScanner = true
         } else {
-            errorMessage = "이 기기에서는 카메라 스캔을 지원하지 않아요. 앨범에서 사진을 선택해주세요."
+            errorMessage = "이 기기는 스캔을 지원하지 않아요. 앨범에서 골라 주세요."
         }
-    }
-
-    // MARK: Review
-
-    private var reviewCard: some View {
-        Button {
-            session = WordSessionConfig(words: wrongWords.sorted { $0.wrongCount > $1.wrongCount }, kind: .review)
-        } label: {
-            HStack(spacing: 14) {
-                IconBadge(symbol: "arrow.counterclockwise", color: Palette.danger, size: 44)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("틀린 단어 복습").font(.headline).foregroundStyle(Palette.ink)
-                    Text("\(wrongWords.count)개의 단어를 다시 외워요")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
-            }
-            .softCard()
-        }
-        .buttonStyle(.pressable)
-    }
-
-    // MARK: Goal
-
-    private var goalCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "하루 목표", symbol: "target")
-            Stepper(value: $wordGoal, in: 5...200, step: 5) {
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(wordGoal)").font(.title2.weight(.bold).monospacedDigit())
-                    Text("개 / 하루").foregroundStyle(.secondary)
-                }
-            }
-            Text("매일 정해진 개수만큼 새 단어를 외워요. 외우기 → 뜻 쓰기 → 단어 쓰기를 모두 통과하면 목표 성공!")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .softCard()
-    }
-
-    private var listLink: some View {
-        NavigationLink { WordListView() } label: {
-            HStack {
-                Label("전체 단어 목록", systemImage: "list.bullet.rectangle")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                Spacer()
-                Text("\(words.count)개").foregroundStyle(.secondary)
-                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
-            }
-            .softCard()
-        }
-        .buttonStyle(.pressable)
     }
 }
 
@@ -323,4 +331,52 @@ struct WordSessionConfig: Identifiable {
     let id = UUID()
     let words: [Word]
     let kind: WordSessionView.Kind
+}
+
+/// 기록 + 설정 (하루 목표 · 발음)
+private struct WordStatsSheet: View {
+    let words: [Word]
+    let title: String
+
+    @Environment(\.dismiss) private var dismiss
+    @AppStorage(SettingsKey.dailyWordGoal) private var wordGoal = 20
+    @AppStorage(WordSpeaker.accentKey) private var accentRaw = WordSpeaker.Accent.us.rawValue
+
+    private var nextReview: String {
+        let upcoming = words.compactMap { word -> Date? in
+            guard (1...WordReview.intervals.count).contains(word.reviewStage), let next = word.nextReviewAt, next > Date() else { return nil }
+            return Calendar.current.startOfDay(for: next)
+        }
+        guard let first = upcoming.min() else { return "없음" }
+        return "\(WordReview.describe(first)) \(upcoming.filter { $0 == first }.count)개"
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    LabeledContent("전체", value: "\(words.count)")
+                    LabeledContent("외움", value: "\(words.filter(\.isLearned).count)")
+                    LabeledContent("완전히 외움", value: "\(words.filter(\.isMastered).count)")
+                    LabeledContent("틀린 단어", value: "\(words.filter { $0.wrongCount > 0 }.count)")
+                    LabeledContent("저장", value: "\(words.filter(\.isStarred).count)")
+                    LabeledContent("다음 복습", value: nextReview)
+                }
+                Section {
+                    Stepper(value: $wordGoal, in: 5...200, step: 5) {
+                        LabeledContent("하루 목표", value: "\(wordGoal)개")
+                    }
+                    Picker("발음", selection: $accentRaw) {
+                        ForEach(WordSpeaker.Accent.allCases) { Text($0.title).tag($0.rawValue) }
+                    }
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("완료") { dismiss() } }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
 }

@@ -5,7 +5,6 @@ import SwiftUI
 
 private struct GameResultView: View {
     let title: String
-    let detail: String
     let symbol: String
     let again: () -> Void
 
@@ -16,7 +15,6 @@ private struct GameResultView: View {
                 .foregroundStyle(Theme.accent)
                 .symbolEffect(.bounce, value: title)
             Text(title).font(.title.weight(.bold))
-            Text(detail).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
             Button(action: again) {
                 Label("다시 하기", systemImage: "arrow.counterclockwise")
                     .font(.headline)
@@ -27,7 +25,6 @@ private struct GameResultView: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
         .padding(20)
     }
 }
@@ -49,7 +46,7 @@ struct SpeakPracticeView: View {
         Group {
             if let current {
                 VStack(spacing: 22) {
-                    Text("\(index + 1) / \(queue.count)").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
+                    Text("\(index + 1)/\(queue.count)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
 
                     VStack(spacing: 10) {
                         Text(current.term).font(.system(size: 38, weight: .heavy))
@@ -67,7 +64,7 @@ struct SpeakPracticeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 26)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 26))
+                    .background(Palette.cardInset, in: .rect(cornerRadius: 26))
 
                     Button {
                         if checker.isListening {
@@ -94,22 +91,22 @@ struct SpeakPracticeView: View {
 
                     Group {
                         if checker.isListening {
-                            Text(checker.transcript.isEmpty ? "듣고 있어요… 단어를 말해보세요" : "“\(checker.transcript)”")
+                            Text(checker.transcript.isEmpty ? "듣는 중…" : "“\(checker.transcript)”")
                                 .foregroundStyle(.secondary)
                         } else if let result {
                             VStack(spacing: 4) {
-                                Label(result ? "정확해요!" : "다시 해볼까요?",
+                                Label(result ? "정확해요!" : "다시 해 봐요",
                                       systemImage: result ? "checkmark.circle.fill" : "arrow.counterclockwise.circle.fill")
                                     .font(.headline)
                                     .foregroundStyle(result ? Palette.success : Palette.warning)
                                 if !checker.transcript.isEmpty {
-                                    Text("들린 말: \(checker.transcript)").font(.caption).foregroundStyle(.secondary)
+                                    Text(checker.transcript).font(.caption).foregroundStyle(.secondary)
                                 }
                             }
                         } else if let error = checker.errorMessage {
                             Text(error).font(.caption).foregroundStyle(Palette.danger).multilineTextAlignment(.center)
                         } else {
-                            Text("마이크를 누르고 단어를 말해보세요").foregroundStyle(.secondary)
+                            Text("눌러서 말하기").foregroundStyle(.secondary)
                         }
                     }
                     .font(.subheadline)
@@ -131,13 +128,12 @@ struct SpeakPracticeView: View {
                 .onAppear { WordSpeaker.shared.speak(current.term) }
                 .onChange(of: index) { if let next = self.current { WordSpeaker.shared.speak(next.term) } }
             } else if !queue.isEmpty {
-                GameResultView(title: "\(passed) / \(queue.count) 통과!", detail: "기기 안 음성 인식으로 확인했어요",
-                               symbol: "mic.fill") { setUp() }
+                GameResultView(title: "\(passed)/\(queue.count) 통과", symbol: "mic.fill") { setUp() }
             } else {
                 ProgressView()
             }
         }
-        .background { AppBackground() }
+        .background(Palette.card.ignoresSafeArea())
         .navigationTitle("발음 연습")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { if queue.isEmpty { setUp() } }

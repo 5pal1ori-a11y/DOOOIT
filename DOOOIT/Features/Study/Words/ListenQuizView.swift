@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 듣기 퀴즈: 발음을 듣고 ① 뜻 고르기(4지선다) ② 받아쓰기(철자 입력)
+/// 듣기 퀴즈: 발음을 듣고 ① 뜻 고르기 ② 받아쓰기
 struct ListenQuizView: View {
     enum Mode: String, CaseIterable, Identifiable {
         case meaning = "뜻 고르기", spelling = "받아쓰기"
@@ -10,8 +10,9 @@ struct ListenQuizView: View {
     }
 
     let pool: [Word]
-    let mode: Mode
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var mode: Mode
     @State private var queue: [Word] = []
     @State private var index = 0
     @State private var choices: [String] = []
@@ -21,26 +22,37 @@ struct ListenQuizView: View {
     @State private var correct = 0
     @FocusState private var focused: Bool
 
+    init(pool: [Word], mode: Mode = .meaning) {
+        self.pool = pool
+        _mode = State(initialValue: mode)
+    }
+
     private var current: Word? { queue.indices.contains(index) ? queue[index] : nil }
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 22) {
+            VStack(spacing: 24) {
+                Picker("방식", selection: $mode) {
+                    ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+
                 if let word = current {
                     question(word)
                 } else if !queue.isEmpty {
                     finished
                 } else {
-                    ProgressView().padding(.top, 60)
+                    Text("단어가 없어요").foregroundStyle(.secondary).padding(.top, 60)
                 }
             }
             .padding(20)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background { AppBackground() }
-        .navigationTitle(mode == .meaning ? "듣고 뜻 고르기" : "받아쓰기")
+        .background(Palette.card.ignoresSafeArea())
+        .navigationTitle("듣기 퀴즈")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { if queue.isEmpty { setUp() } }
+        .onChange(of: mode) { setUp() }
         .sensoryFeedback(trigger: result) { _, value in
             switch value {
             case .some(true): return .success
@@ -54,25 +66,24 @@ struct ListenQuizView: View {
 
     @ViewBuilder
     private func question(_ word: Word) -> some View {
-        Text("\(index + 1) / \(queue.count)")
-            .font(.subheadline.weight(.bold))
+        Text("\(index + 1)/\(queue.count)")
+            .font(.subheadline.weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(.secondary)
 
-        VStack(spacing: 16) {
-            HStack(spacing: 14) {
-                SpeakButton(text: word.term, size: 76)
-            }
-            Text(result == nil ? "눌러서 다시 듣기 · 두 번째는 천천히" : word.term)
-                .font(result == nil ? .footnote : .system(size: 32, weight: .bold))
-                .foregroundStyle(result == nil ? Color.secondary : (result == true ? Palette.success : Palette.danger))
+        VStack(spacing: 14) {
+            SpeakButton(text: word.term, size: 84)
             if result != nil {
-                Text(word.meaning).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                Text(word.term)
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(result == true ? Theme.accent : Palette.danger)
+                Text(word.meaning)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
             }
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 26)
-        .softCard(cornerRadius: 24, padding: 16)
+        .frame(maxWidth: .infinity, minHeight: 170)
         .id(index)
 
         if mode == .meaning {
@@ -86,6 +97,10 @@ struct ListenQuizView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(16)
                             .background(choiceBackground(choice, word: word), in: .rect(cornerRadius: 16))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16)
+                                    .strokeBorder(choiceStroke(choice, word: word), lineWidth: 2)
+                            }
                     }
                     .buttonStyle(.pressable)
                     .disabled(result != nil)
@@ -93,7 +108,7 @@ struct ListenQuizView: View {
             }
         } else {
             HStack(spacing: 10) {
-                TextField("들린 단어를 적어 보세요", text: $typed)
+                TextField("들린 단어", text: $typed)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($focused)
@@ -102,10 +117,11 @@ struct ListenQuizView: View {
                     .disabled(result != nil)
                     .padding(.horizontal, 16)
                     .frame(height: 52)
-                    .softCardBackground(cornerRadius: 16)
+                    .background(Palette.cardInset, in: .rect(cornerRadius: 16))
                 if result == nil {
                     Button("확인") { check(word) }
                         .font(.headline)
+                        .tint(Theme.accent)
                         .disabled(typed.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
             }
@@ -115,7 +131,7 @@ struct ListenQuizView: View {
             Button {
                 next()
             } label: {
-                Label(index + 1 < queue.count ? "다음" : "결과 보기", systemImage: "arrow.right")
+                Label(index + 1 < queue.count ? "다음" : "결과", systemImage: "arrow.right")
             }
             .buttonStyle(.primaryFill)
         }
@@ -123,17 +139,15 @@ struct ListenQuizView: View {
 
     private var finished: some View {
         VStack(spacing: 16) {
-            Image(systemName: correct == queue.count ? "trophy.fill" : "ear.fill")
-                .font(.system(size: 56, weight: .bold))
-                .foregroundStyle(Theme.accent)
-            Text("\(correct) / \(queue.count) 맞혔어요")
-                .font(.title2.weight(.bold))
-                .foregroundStyle(Palette.ink)
+            Text("\(correct)/\(queue.count)")
+                .font(.system(size: 52, weight: .bold).monospacedDigit())
+                .foregroundStyle(correct == queue.count ? Theme.accent : Palette.ink)
+            Text("맞힌 개수").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             Button { setUp() } label: { Label("다시 하기", systemImage: "arrow.counterclockwise") }
                 .buttonStyle(.primaryFill)
+                .padding(.top, 12)
         }
         .frame(maxWidth: .infinity)
-        .softCard(cornerRadius: 24, padding: 24)
         .padding(.top, 40)
     }
 
@@ -173,25 +187,31 @@ struct ListenQuizView: View {
     }
 
     private func finish(_ ok: Bool, word: Word) {
-        withAnimation(.snappy) { result = ok }
+        withAnimation(reduceMotion ? nil : .snappy) { result = ok }
         if ok { correct += 1; word.correctCount += 1 } else { word.wrongCount += 1 }
         focused = false
     }
 
     private func next() {
-        withAnimation(.smooth) { index += 1 }
+        withAnimation(reduceMotion ? nil : .smooth) { index += 1 }
         prepare()
     }
 
     private func choiceColor(_ choice: String, word: Word) -> Color {
         guard result != nil else { return Palette.ink }
-        if choice == word.meaning { return Palette.success }
+        if choice == word.meaning { return Theme.accent }
         return choice == picked ? Palette.danger : Color.secondary
     }
 
+    private func choiceStroke(_ choice: String, word: Word) -> Color {
+        guard result != nil else { return .clear }
+        if choice == word.meaning { return Theme.accent }
+        return choice == picked ? Palette.danger : .clear
+    }
+
     private func choiceBackground(_ choice: String, word: Word) -> Color {
-        guard result != nil else { return Palette.card }
-        if choice == word.meaning { return Palette.success.opacity(0.12) }
-        return choice == picked ? Palette.danger.opacity(0.12) : Palette.card
+        guard result != nil else { return Palette.cardInset }
+        if choice == word.meaning { return Theme.accent.opacity(0.08) }
+        return choice == picked ? Palette.danger.opacity(0.08) : Palette.cardInset
     }
 }

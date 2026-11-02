@@ -10,19 +10,22 @@ struct WordImportView: View {
 
     @State private var items: [ParsedWord] = []
     @State private var isProcessing = true
-    @State private var deck = "기본 단어장"
+    @State private var deck: String
     @State private var failedMessage: String?
+
+    init(images: [UIImage], deck: String = "기본 단어장") {
+        self.images = images
+        _deck = State(initialValue: deck)
+    }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 if isProcessing {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 14) {
                         ProgressView().controlSize(.large)
-                        Text("단어장의 글자를 읽고 있어요")
-                            .font(.headline)
-                        Text("\(images.count)장 · 두 번 읽고 철자까지 확인 중")
-                            .font(.subheadline)
+                        Text("읽는 중 · \(images.count)장")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                 } else {
@@ -60,13 +63,13 @@ struct WordImportView: View {
                         .foregroundStyle(Palette.warning)
                 } else {
                     let unsure = items.filter(\.unsure).count
-                    Label(unsure > 0 ? "\(items.count)개를 찾았어요. 주황색 \(unsure)개는 철자를 확인해 주세요." : "\(items.count)개의 단어를 찾았어요.",
+                    Label(unsure > 0 ? "\(items.count)개 · 확인 필요 \(unsure)" : "\(items.count)개 찾음",
                           systemImage: "text.viewfinder")
                 }
                 TextField("단어장 이름", text: $deck)
             }
 
-            Section("단어 · 뜻") {
+            Section {
                 ForEach($items) { $item in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
@@ -93,7 +96,7 @@ struct WordImportView: View {
                         TextField("뜻", text: $item.meaning)
                             .foregroundStyle(.secondary)
                         if item.meaning.trimmingCharacters(in: .whitespaces).isEmpty {
-                            Text("뜻이 비어 있으면 저장되지 않아요")
+                            Text("뜻 없음")
                                 .font(.caption2)
                                 .foregroundStyle(Palette.danger)
                         }
@@ -125,7 +128,7 @@ struct WordImportView: View {
         if !withMeaning.isEmpty { all = withMeaning }
         items = all
         if all.isEmpty {
-            failedMessage = "글자를 찾지 못했어요. 밝은 곳에서 단어장을 정면으로 찍거나 직접 입력해주세요."
+            failedMessage = "글자를 못 찾았어요"
             items = [ParsedWord(term: "", meaning: "")]
         }
         withAnimation { isProcessing = false }
@@ -152,12 +155,14 @@ struct WordImportView: View {
 /// 단어 직접 추가 / 수정
 struct WordEditSheet: View {
     let word: Word?
+    var defaultDeck: String = "기본 단어장"
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @State private var term = ""
     @State private var meaning = ""
     @State private var deck = "기본 단어장"
+    @State private var starred = false
 
     var body: some View {
         NavigationStack {
@@ -166,16 +171,17 @@ struct WordEditSheet: View {
                     TextField("영어 단어", text: $term)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField("뜻 (여러 개는 쉼표로 구분)", text: $meaning, axis: .vertical)
-                    TextField("단어장 이름", text: $deck)
+                    TextField("뜻", text: $meaning, axis: .vertical)
+                    TextField("단어장", text: $deck)
+                    Toggle("저장", isOn: $starred)
                 }
                 if let word {
-                    Section("학습 기록") {
-                        LabeledContent("맞힌 횟수", value: "\(word.correctCount)")
-                        LabeledContent("틀린 횟수", value: "\(word.wrongCount)")
-                        LabeledContent("상태", value: word.isLearned ? "외움" : "학습 전")
+                    Section {
+                        LabeledContent("맞힘", value: "\(word.correctCount)")
+                        LabeledContent("틀림", value: "\(word.wrongCount)")
+                        LabeledContent("상태", value: word.isMastered ? "완전히 외움" : (word.isLearned ? "외움" : "학습 전"))
                         if word.isLearned {
-                            Button("다시 외울 단어로 되돌리기") {
+                            Button("학습 전으로 되돌리기") {
                                 word.learnedAt = nil
                                 try? context.save()
                                 dismiss()
@@ -200,6 +206,9 @@ struct WordEditSheet: View {
                     term = word.term
                     meaning = word.meaning
                     deck = word.deck
+                    starred = word.isStarred
+                } else {
+                    deck = defaultDeck
                 }
             }
         }
@@ -209,12 +218,16 @@ struct WordEditSheet: View {
     private func save() {
         let t = term.trimmingCharacters(in: .whitespaces)
         let m = meaning.trimmingCharacters(in: .whitespaces)
+        let d = deck.trimmingCharacters(in: .whitespaces).isEmpty ? "기본 단어장" : deck.trimmingCharacters(in: .whitespaces)
         if let word {
             word.term = t
             word.meaning = m
-            word.deck = deck
+            word.deck = d
+            word.isStarred = starred
         } else {
-            context.insert(Word(term: t, meaning: m, deck: deck))
+            let new = Word(term: t, meaning: m, deck: d)
+            new.isStarred = starred
+            context.insert(new)
         }
         try? context.save()
         dismiss()
