@@ -187,6 +187,11 @@ extension OCRService {
         return plainText(from: kept)
     }
 
+    /// 수학이 아닌 과목의 글: 줄 순서대로 + 보기 번호 정리만 (영어 문장·한글은 그대로)
+    static func subjectText(_ lines: [OCRLine]) -> String {
+        MathOCRFixer.cleanChoiceMarks(MathOCRFixer.normalizeChoices(plainText(from: lines)))
+    }
+
     /// 위에서 아래 순서로 정렬된 전체 텍스트
     static func plainText(from lines: [OCRLine]) -> String {
         MathOCRFixer.joinRows(lines.map { (text: $0.text, box: $0.box) }).joined(separator: "\n")

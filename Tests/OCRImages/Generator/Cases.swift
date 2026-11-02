@@ -50,7 +50,9 @@ func problem(_ id: String, _ category: String, number: String?, body: [[Seg]], c
         }
     }
     let expect = Expectation(choices: checkChoices ? choices.map(plain) : nil, blank: blank, tokens: tokens, phrases: phrases)
-    return Content(id: id, category: category, lines: lines, expect: expect)
+    // 국어·영어·과학·사회는 앱에서 SubjectOCR(수식 교정 없이)로 읽음
+    let kind = category.hasPrefix("math") ? "problem" : "subject"
+    return Content(id: id, category: category, kind: kind, lines: lines, expect: expect)
 }
 
 func ints(_ values: [String]) -> [[Seg]] { values.map { [.m($0)] } }

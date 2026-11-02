@@ -27,7 +27,7 @@ struct CaseSpec: Codable {
     var id: String
     /// 분류 (math-choice, math-short, math-blank, math-fraction, korean, english, science, social, words …)
     var category: String
-    /// "problem" (문제 읽기 + 나누기) 또는 "words" (단어장)
+    /// "problem" (수학 문제 읽기 + 나누기), "subject" (국어·영어·과학·사회: SubjectOCR), "words" (단어장)
     var kind: String
     /// 사진 손상 정도 (clean, mild, photo, lowres, desk)
     var degrade: String

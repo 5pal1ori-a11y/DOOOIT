@@ -36,13 +36,19 @@ enum TextSkew {
         }
         var best = (angle: 0.0, score: score(0))
         let flat = best.score
+        var scores: [(angle: Double, score: Double)] = [best]
         var a = -maxDegrees
         while a <= maxDegrees + 1e-9 {
             if abs(a) > 1e-9 {
                 let s = score(a)
+                scores.append((a, s))
                 if s > best.score { best = (a, s) }
             }
             a += step
+        }
+        // 거의 같은 점수면 덜 기운 쪽 (글자가 대각선으로 우연히 줄 서는 큰 각도를 피함)
+        if let modest = scores.filter({ $0.score >= best.score * 0.99 }).min(by: { abs($0.angle) < abs($1.angle) }) {
+            best = modest
         }
         // 가까운 두 각도 사이를 더 잘게
         for fine in [best.angle - step / 2, best.angle + step / 2] {

@@ -52,6 +52,17 @@ func runProblem(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
     evaluateProblem(spec, text: trace.text, unsure: trace.unsure, result: &result)
 }
 
+/// 앱: 국어·영어·과학·사회 오답노트는 SubjectOCR.read → DoitProblemScan.scan(math: false)
+func runSubject(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) async {
+    let flat = await OCRService.straightened(image)
+    result.straightened = flat != nil
+    let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
+    let read = await OCRService.readSubjectProblem(source)
+    result.mathLines = debugLines(read.lines)
+    result.unsure = read.unsure
+    evaluateProblem(spec, text: read.text, unsure: read.unsure, result: &result)
+}
+
 /// 원인 찾기용: Vision이 읽은 그대로 (merge 전)
 func rawDump(_ image: CGImage, result: inout CaseResult) async {
     let prepared = OCRService.scaled(image, maxDimension: 3000)
@@ -113,7 +124,11 @@ func run(_ spec: CaseSpec, dir: URL) async -> CaseResult {
         result.checks = [Check(name: "사진 열기", ok: false, detail: spec.image)]
         return result
     }
-    if spec.kind == "words" { await runWords(spec, image: image, result: &result) } else { await runProblem(spec, image: image, result: &result) }
+    switch spec.kind {
+    case "words": await runWords(spec, image: image, result: &result)
+    case "subject": await runSubject(spec, image: image, result: &result)
+    default: await runProblem(spec, image: image, result: &result)
+    }
     finishScore(&result)
     result.seconds = Date().timeIntervalSince(start)
     return result

@@ -204,7 +204,7 @@ enum MathOCRFixer {
 
     /// 따로 읽은 분자·분모 글 정리 (수식 조각이 아니면 nil)
     static func fractionPart(_ raw: String) -> String? {
-        var t = raw.filter { !$0.isWhitespace }
+        var t = latinLookalikes(raw.filter { !$0.isWhitespace })
         t = t.replacingOccurrences(of: "—", with: "-").replacingOccurrences(of: "–", with: "-").replacingOccurrences(of: "−", with: "-")
         // 막대 조각이 끝에 붙은 "-", "_"
         while let first = t.first, "-_~".contains(first), t.count > 1, !(t.dropFirst().first?.isNumber ?? false) { t.removeFirst() }
@@ -647,8 +647,16 @@ enum MathOCRFixer {
         return lines.joined(separator: "\n")
     }
 
+    /// 수식 속 키릴 문자(х, у, а …)를 생김새가 같은 라틴 글자로 (글자 인식이 x를 키릴 х로 읽기도 함)
+    static func latinLookalikes(_ text: String) -> String {
+        let map: [Character: Character] = ["х": "x", "Х": "X", "у": "y", "а": "a", "о": "o", "О": "O", "с": "c", "е": "e",
+                                           "р": "p", "к": "k", "в": "b", "т": "t", "н": "n", "м": "m"]
+        guard text.contains(where: { map[$0] != nil }) else { return text }
+        return String(text.map { map[$0] ?? $0 })
+    }
+
     static func fix(_ text: String) -> String {
-        var result = normalizeBlanks(expandVulgarFractions(text))
+        var result = normalizeBlanks(expandVulgarFractions(latinLookalikes(text)))
         let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil
         for rule in (isComplex ? complexRules : digitRules) {
             guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }

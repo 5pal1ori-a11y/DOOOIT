@@ -76,10 +76,11 @@ enum OCRService {
 
     /// 수학 문제용: 검은 인쇄 글자만 남긴 사진(빨간 펜·파란 펜·연필 풀이 제거, 작은 지수가 보이게 확대)으로 읽음
     static func recognizeMath(_ image: CGImage) async throws -> [OCRLine] {
-        let original = await mathRead(image)
-        guard let ink = inkOnly(image) else { return original }
-        let inkLines = await mathRead(ink)
-        return chooseInkReading(original: original, ink: inkLines)
+        let original = await mathReadDetailed(image)
+        guard let ink = inkOnly(image) else { return original.lines }
+        // 분수 막대는 원래 사진에서 찾은 것을 그대로 씀 (검은 글자만 남기면 가는 막대가 끊어지기도 해서)
+        let inkLines = await mathReadDetailed(ink, fractions: original.fractions).lines
+        return chooseInkReading(original: original.lines, ink: inkLines)
     }
 
     // MARK: 수식 두 번 읽기 (한국어+영어 / 영어 전용)
@@ -87,6 +88,11 @@ enum OCRService {
     /// 한국어 인식은 한글 문장을 잘 읽지만 기울어진 수식 글자(a, b, x, 지수)를 숫자로 착각하기 쉬움.
     /// 영어 전용 인식은 수식을 더 잘 읽음 → 줄마다 글자 위치를 맞춰서 수식 부분만 영어 전용 결과로 바꿈
     static func mathRead(_ image: CGImage) async -> [OCRLine] {
+        await mathReadDetailed(image).lines
+    }
+
+    /// fractions: 같은 사진(크기만 다를 수 있음)에서 이미 찾은 분수 (없으면 이 사진에서 찾음)
+    static func mathReadDetailed(_ image: CGImage, fractions known: [BarFraction]? = nil) async -> (lines: [OCRLine], fractions: [BarFraction]) {
         let cgImage = scaled(image, maxDimension: 3000)
         // 두 번 읽기를 동시에 (기다리는 시간 절반)
         async let koreanRead = try? observe(cgImage, languages: ["ko-KR", "en-US"], correction: true)
@@ -95,15 +101,17 @@ enum OCRService {
         async let boxRead = detectRectangles(cgImage)
         // 보기 번호 동그라미 ①~⑤ (글자 인식이 못 읽거나 "1", "@", "(D"로 읽는 경우가 많아서 모양으로 찾음)
         async let circleRead = detectCircles(cgImage)
-        guard let korean = await koreanRead else { return [] }
+        guard let korean = await koreanRead else { return ([], known ?? []) }
         // 쌓은 분수: 막대를 픽셀에서 찾고 분자·분모를 따로 읽음 (글자 인식은 작은 분수를 "늘", "⅔"처럼 한 글자로 읽음)
         let page = grayPage(cgImage, lines: korean.map(\.boundingBox))
-        let barFractions = await stackedFractions(cgImage, page: page, lines: korean.map(\.boundingBox))
+        var barFractions = known ?? []
+        if known == nil { barFractions = await stackedFractions(cgImage, page: page, lines: korean.map(\.boundingBox)) }
         let english = await englishRead ?? []
         let rects = await boxRead
         let circles = await circleRead
-        return merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions,
-                     ink: page.map { FractionFinder.Ink(mask: FractionFinder.inkMask(gray: $0.gray, width: $0.width, height: $0.height), width: $0.width, height: $0.height) })
+        let lines = merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions,
+                          ink: page.map { FractionFinder.Ink(mask: FractionFinder.inkMask(gray: $0.gray, width: $0.width, height: $0.height), width: $0.width, height: $0.height) })
+        return (lines, barFractions)
     }
 
     /// 글자 크기가 40픽셀쯤 되게 줄인 흑백 사진 (분수 막대·지수 위치를 픽셀로 볼 때)
@@ -730,6 +738,23 @@ enum OCRService {
         return trace
     }
 
+    // MARK: 수학이 아닌 과목 (SubjectOCR)
+
+    /// 국어·영어·과학·사회 문제 사진: 한글·영어 문장을 그대로 (수식 교정 없이), 보기 번호만 정리.
+    /// 바로 세운 뒤 펜 자국을 지운 사진과 원본 중 더 잘 읽힌 쪽
+    static func readSubjectProblem(_ image: CGImage) async -> (text: String, unsure: [String], lines: [OCRLine]) {
+        let straight = await deskewed(image)
+        var best: [OCRLine] = []
+        var bestScore = -1.0
+        for candidate in [inkOnly(straight), straight].compactMap({ $0 }) {
+            let lines = ((try? await recognize(candidate)) ?? [])
+                .filter { $0.confidence >= 0.3 && !$0.text.trimmingCharacters(in: .whitespaces).isEmpty }
+            let score = lines.reduce(0.0) { $0 + Double($1.text.count) * Double($1.confidence) }
+            if score > bestScore { best = lines; bestScore = score }
+        }
+        return (subjectText(best), best.filter { $0.confidence < 0.5 }.map { $0.text.trimmingCharacters(in: .whitespaces) }, best)
+    }
+
     // MARK: 기울어진 사진 바로 세우기
 
     /// 글줄이 기울어진 사진(문제 부분만 비스듬히 찍거나 자른 사진)을 바로 세움.
@@ -770,10 +795,19 @@ enum OCRService {
         }
         var masked = gray
         for i in 0..<(w * h) where !keep[i] { masked[i] = 255 }
-        // 글줄 자리만으로 못 재면 (빠른 글자 찾기가 기운 줄을 일부만 찾은 경우) 사진 전체로
-        guard let angle = TextSkew.angle(gray: masked, width: w, height: h, maxDegrees: 6)
-                ?? TextSkew.angle(gray: gray, width: w, height: h, maxDegrees: 5),
-              let rotated = rotated(image, degrees: -angle) else { return (image, 0) }
+        // 글줄 자리만 본 각도와 사진 전체로 잰 각도: 비슷하면 그대로, 다르면 덜 기운 쪽
+        // (보기가 칸으로 늘어선 문제는 대각선으로 글자가 줄 서는 큰 각도가 잘못 잡히기도 하고,
+        //  책상 위 종이는 종이 가장자리 선에 끌려가기도 해서)
+        let a1 = TextSkew.angle(gray: masked, width: w, height: h, maxDegrees: 5)
+        let a2 = TextSkew.angle(gray: gray, width: w, height: h, maxDegrees: 5)
+        let angle: Double?
+        switch (a1, a2) {
+        case let (x?, y?): angle = abs(x - y) <= 1 ? (x + y) / 2 : (abs(x) < abs(y) ? x : y)
+        case let (x?, nil): angle = x
+        case let (nil, y?): angle = y
+        default: angle = nil
+        }
+        guard let angle, let rotated = rotated(image, degrees: -angle) else { return (image, 0) }
         return (rotated, angle)
     }
 

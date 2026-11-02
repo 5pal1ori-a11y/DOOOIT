@@ -74,7 +74,7 @@ func ocrLines(_ lines: [DebugLine]) -> [OCRLine] {
 
 /// 문제: 읽은 글 → DoitProblemScan → 정답과 비교
 func evaluateProblem(_ spec: CaseSpec, text: String, unsure: [String], result: inout CaseResult) {
-    let scan = DoitProblemScan.scan(text, lowConfidence: unsure)
+    let scan = DoitProblemScan.scan(text, lowConfidence: unsure, math: spec.kind != "subject")
     result.text = text
     result.choices = scan.choices
     let e = spec.expect

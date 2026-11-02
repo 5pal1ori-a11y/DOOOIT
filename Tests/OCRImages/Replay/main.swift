@@ -21,6 +21,9 @@ for old in stored where filter.isEmpty || old.id.contains(filter) {
     if spec.kind == "words" {
         let words = OCRService.bestWords(old.wordLines.map(ocrLines))
         evaluateWords(spec, words: words, result: &result)
+    } else if spec.kind == "subject" {
+        let lines = ocrLines(old.mathLines)
+        evaluateProblem(spec, text: OCRService.subjectText(lines), unsure: old.unsure, result: &result)
     } else {
         // 예전 결과에도 지금 신뢰도 보정을 적용 (같은 값이면 그대로)
         let lines = ocrLines(old.mathLines).map { OCRLine(text: $0.text, confidence: OCRService.adjustedConfidence($0.text, $0.confidence), box: $0.box) }
