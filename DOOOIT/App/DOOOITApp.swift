@@ -51,6 +51,7 @@ struct DOOOITApp: App {
                 .modelContainer(container)
                 .task {
                     attachServices()
+                    PaddleOCRService.shared.autoDownloadIfNeeded()
                     await auth.verifyAppleCredential()
                 }
                 .onChange(of: auth.currentUser?.id) { _, newID in
@@ -67,6 +68,8 @@ struct DOOOITApp: App {
                 WidgetSync.update(context: container.mainContext)
                 PlanScheduler.shared.tick()
                 PlanScheduler.shared.rescheduleNotifications()
+                // 뒤로 가서 끊긴 정밀 인식 받기를 이어서
+                PaddleOCRService.shared.autoDownloadIfNeeded()
             }
         }
     }

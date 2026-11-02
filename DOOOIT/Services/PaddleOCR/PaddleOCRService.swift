@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Observation
 import UIKit
 #if canImport(MLX)
@@ -45,6 +46,12 @@ final class PaddleOCRService {
     }
 
     private let installedKey = "paddleOCR.installed"
+    /// 오답노트에서 "기본 인식"으로 바꾼 경우 (그 전에는 정밀 인식이 기본: 와이파이에서 알아서 받음)
+    private let offKey = "paddleOCR.off"
+    @ObservationIgnored private var pathMonitor: NWPathMonitor?
+
+    /// 정밀 인식을 쓰기로 했는지 (기본: 씀)
+    var isEnabled: Bool { !UserDefaults.standard.bool(forKey: offKey) && Self.isSupported }
     @ObservationIgnored private var downloadTask: Task<Void, Never>?
     @ObservationIgnored private var loadTask: Task<Bool, Never>?
     @ObservationIgnored private var idleTask: Task<Void, Never>?
@@ -102,6 +109,41 @@ final class PaddleOCRService {
             }
         }
         #endif
+    }
+
+    /// 앱을 열 때: 정밀 인식이 기본이라 아직 안 받았으면 와이파이(데이터 요금 없는 망)에서 알아서 받음
+    func autoDownloadIfNeeded() {
+        guard isEnabled, !isInstalled, downloadTask == nil else { return }
+        if pathMonitor == nil {
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { path in
+                guard path.status == .satisfied, !path.isExpensive, !path.isConstrained else { return }
+                Task { @MainActor in PaddleOCRService.shared.downloadIfStillNeeded() }
+            }
+            monitor.start(queue: DispatchQueue(label: "paddleOCR.path"))
+            pathMonitor = monitor
+        } else if let path = pathMonitor?.currentPath, path.status == .satisfied, !path.isExpensive, !path.isConstrained {
+            downloadIfStillNeeded()
+        }
+    }
+
+    private func downloadIfStillNeeded() {
+        guard isEnabled, !isInstalled, downloadTask == nil else { return }
+        download()
+    }
+
+    /// 오답노트 설정: 정밀 인식 켜기 (바로 받기, 데이터로도)
+    func turnOn() {
+        UserDefaults.standard.removeObject(forKey: offKey)
+        download()
+    }
+
+    /// 오답노트 설정: 기본 인식으로 (받은 모델 지움, 다시 알아서 받지 않음)
+    func turnOff() {
+        UserDefaults.standard.set(true, forKey: offKey)
+        pathMonitor?.cancel()
+        pathMonitor = nil
+        delete()
     }
 
     /// 받기 취소 (받은 부분은 남아 있어 다음에 이어 받음)

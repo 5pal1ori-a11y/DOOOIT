@@ -25,7 +25,7 @@ final class DoitBrain {
         case dooit1, dooit2
 
         var id: String { rawValue }
-        var title: String { self == .dooit1 ? "DOOOIT 1" : "DOOOIT 2" }
+        var title: String { self == .dooit1 ? "두잇 1" : "두잇 2" }
         var detail: String { self == .dooit1 ? "빠르고 가벼워요" : "더 똑똑하고 자세해요" }
         var sizeText: String { self == .dooit1 ? "약 0.4GB" : "약 1GB" }
         var repository: String { self == .dooit1 ? "mlx-community/Qwen3-0.6B-4bit" : "mlx-community/Qwen3-1.7B-4bit" }

@@ -9,13 +9,21 @@ struct TimerView: View {
 
     @State private var freeTitle = ""
     @State private var selectedCategoryID: UUID?
-    @State private var targetMinutes: Int? = 50
+    @State private var targetMinutes: Int? = TimerView.savedTarget
+    @State private var showTargetPicker = false
     @State private var showStopConfirm = false
     @State private var savedSeconds: Int?
     @State private var sound = AmbientSoundPlayer.shared
     @State private var showSounds = false
 
     private let targets: [Int?] = [25, 50, 90, nil]
+    /// 마지막으로 고른 목표 시간 (0 = 무제한)
+    private static let targetKey = "timer.targetMinutes"
+    private static var savedTarget: Int? {
+        guard let value = UserDefaults.standard.object(forKey: targetKey) as? Int else { return 50 }
+        return value > 0 ? value : nil
+    }
+    private var isCustomTarget: Bool { !targets.contains(targetMinutes) }
     /// 어두운 화면의 버튼 바탕
     private let panel = Color(white: 0.11)
     private let line = Color(white: 0.22)
@@ -125,12 +133,17 @@ struct TimerView: View {
                 Text(selectedCategory.map { "\($0.name) · 목표" } ?? "목표 시간")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color(white: 0.55))
-                Text(targetMinutes.map { String(format: "%02d:00", $0) } ?? "∞")
-                    .font(.system(size: 76, weight: .light, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
+                Button { showTargetPicker = true } label: {
+                    Text(targetMinutes.map(Self.clockText) ?? "∞")
+                        .font(.system(size: 76, weight: .light, design: .rounded))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .foregroundStyle(.white)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("눌러서 시간 정하기")
             }
             .frame(maxWidth: .infinity)
             .animation(.snappy, value: targetMinutes)
@@ -151,8 +164,29 @@ struct TimerView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                Button {
+                    showTargetPicker = true
+                    Haptics.tap()
+                } label: {
+                    Text(isCustomTarget ? targetMinutes.map(Self.shortText) ?? "직접" : "직접")
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(isCustomTarget ? Color.black : Color.white)
+                        .background(isCustomTarget ? Color.white : panel, in: .capsule)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.top, 28)
+            .onChange(of: targetMinutes) { _, minutes in
+                UserDefaults.standard.set(minutes ?? 0, forKey: Self.targetKey)
+            }
+            .sheet(isPresented: $showTargetPicker) {
+                TargetTimePicker(minutes: targetMinutes ?? 50) { targetMinutes = $0 }
+                    .presentationDetents([.height(340)])
+            }
 
             Spacer(minLength: 24)
 
@@ -208,6 +242,17 @@ struct TimerView: View {
                 .padding(.top, 4)
             }
         }
+    }
+
+    /// 25 → "25:00", 90 → "1:30:00"
+    static func clockText(_ minutes: Int) -> String {
+        minutes < 60 ? String(format: "%02d:00", minutes) : String(format: "%d:%02d:00", minutes / 60, minutes % 60)
+    }
+
+    /// 칩에 쓰는 짧은 글: 40 → "40분", 70 → "1시간 10분"
+    static func shortText(_ minutes: Int) -> String {
+        if minutes < 60 { return "\(minutes)분" }
+        return minutes % 60 == 0 ? "\(minutes / 60)시간" : "\(minutes / 60)시간 \(minutes % 60)분"
     }
 
     // MARK: Running (가운데 제목 · 선 · 큰 숫자 · 선 / 아래 두 버튼)
@@ -446,6 +491,51 @@ struct AmbientSoundSheet: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("끄기") { sound.stop() }
                     }
+                }
+            }
+        }
+    }
+}
+
+/// 목표 시간 직접 정하기 (시간 · 분)
+struct TargetTimePicker: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var hours: Int
+    @State private var minutes: Int
+    let onDone: (Int) -> Void
+
+    init(minutes total: Int, onDone: @escaping (Int) -> Void) {
+        _hours = State(initialValue: min(total / 60, 12))
+        _minutes = State(initialValue: total % 60)
+        self.onDone = onDone
+    }
+
+    private var total: Int { hours * 60 + minutes }
+
+    var body: some View {
+        NavigationStack {
+            HStack(spacing: 0) {
+                Picker("시간", selection: $hours) {
+                    ForEach(0...12, id: \.self) { Text("\($0)시간").tag($0) }
+                }
+                .pickerStyle(.wheel)
+                Picker("분", selection: $minutes) {
+                    ForEach(0..<60, id: \.self) { Text("\($0)분").tag($0) }
+                }
+                .pickerStyle(.wheel)
+            }
+            .padding(.horizontal)
+            .navigationTitle("목표 시간")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("완료") {
+                        onDone(total)
+                        Haptics.tap()
+                        dismiss()
+                    }
+                    .disabled(total == 0)
                 }
             }
         }

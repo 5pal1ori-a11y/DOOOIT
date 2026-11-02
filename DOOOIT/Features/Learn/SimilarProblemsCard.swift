@@ -6,6 +6,8 @@ import SwiftUI
 /// 맞히면 올라가고, 틀리면 개념을 다시 보여주고 쉬운 문제로. 모든 풀이는 취약 개념 숙련도에 기록돼요.
 struct SimilarProblemsCard: View {
     @Bindable var note: MathNote
+    /// 유사 문제 단계 학습 없이 원래 문제 재도전만 (오답노트 풀이·학습 탭)
+    var retryOnly = false
     @Environment(\.modelContext) private var context
 
     @State private var ladder: PracticeLadder?
@@ -19,6 +21,16 @@ struct SimilarProblemsCard: View {
     private var basis: DoitPractice.Basis { DoitPractice.basis(problem: note.scan?.body ?? note.recognizedText, noteUnit: note.unit) }
 
     var body: some View {
+        if retryOnly {
+            retrySection
+                .softCard()
+                .onAppear { if ladder == nil { ladder = note.ladder } }
+        } else {
+            ladderBody
+        }
+    }
+
+    private var ladderBody: some View {
         VStack(alignment: .leading, spacing: 14) {
             FlowHeader(number: 5, title: "유사 문제 단계 학습", symbol: "stairs",
                        trailing: ladder.map { $0.finished ? "완료" : "\($0.level)단계" })
@@ -175,8 +187,8 @@ struct SimilarProblemsCard: View {
 
     private var retrySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            FlowHeader(number: 6, title: "원래 문제 재도전", symbol: "arrow.counterclockwise")
-            Text("유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.").font(.caption).foregroundStyle(.secondary)
+            FlowHeader(number: retryOnly ? 4 : 6, title: "원래 문제 재도전", symbol: "arrow.counterclockwise")
+            Text(retryOnly ? "정답을 보지 않고 다시 풀어 봐요." : "유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.").font(.caption).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 TextField("다시 푼 답", text: $retryAnswer)
                     .textInputAutocapitalization(.never)

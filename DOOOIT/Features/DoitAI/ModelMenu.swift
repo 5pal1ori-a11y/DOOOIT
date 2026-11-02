@@ -1,15 +1,11 @@
 import SwiftUI
 
-/// 두잇 AI 화면 위쪽의 모델 고르기 (ChatGPT·Gemini처럼): DOOOIT 1 / DOOOIT 2 다운로드·전환·삭제
+/// 두잇 AI 화면 위쪽의 모델 고르기 (ChatGPT·Gemini처럼): 두잇 1 / 두잇 2 다운로드·전환·삭제
+/// (사진 인식 설정은 오답노트에서)
 struct ModelMenu: View {
     @State private var brain = DoitBrain.shared
-    @State private var ocr = PaddleOCRService.shared
-    @State private var confirmOCRDownload = false
-    @State private var confirmOCRDelete = false
     @State private var confirmDownload: DoitBrain.Model?
     @State private var confirmDelete: DoitBrain.Model?
-    @State private var webEnabled = DoitWeb.isEnabled
-    @Binding var showNotes: Bool
 
     var body: some View {
         Menu {
@@ -24,7 +20,7 @@ struct ModelMenu: View {
                         } else if brain.isInstalled(model) {
                             Text("\(model.title) · \(model.detail)")
                         } else {
-                            Label("\(model.title) 다운로드 · \(model.sizeText)", systemImage: "arrow.down.circle")
+                            Label("\(model.title) 다운로드", systemImage: "arrow.down.circle")
                         }
                     }
                     .disabled(!DoitBrain.isSupported || (brain.downloading != nil && brain.downloading != model && !brain.isInstalled(model)))
@@ -35,25 +31,11 @@ struct ModelMenu: View {
                     if brain.selected == nil { Label("기본 (모델 없이)", systemImage: "checkmark") } else { Text("기본 (모델 없이)") }
                 }
             }
-            Section("사진 인식") {
-                ocrButton
-            }
-            Section {
-                Toggle(isOn: Binding(get: { webEnabled }, set: { webEnabled = $0; DoitWeb.isEnabled = $0 })) {
-                    Label("인터넷 검색", systemImage: "globe")
-                }
-                Button { showNotes = true } label: { Label("배운 내용", systemImage: "book.closed") }
-            }
-            if !brain.installed.isEmpty || ocr.isInstalled {
+            if !brain.installed.isEmpty {
                 Section("다운로드한 모델 삭제") {
                     ForEach(DoitBrain.Model.allCases.filter { brain.isInstalled($0) }) { model in
                         Button(role: .destructive) { confirmDelete = model } label: {
                             Label("\(model.title) 삭제", systemImage: "trash")
-                        }
-                    }
-                    if ocr.isInstalled {
-                        Button(role: .destructive) { confirmOCRDelete = true } label: {
-                            Label("정밀 인식 삭제", systemImage: "trash")
                         }
                     }
                 }
@@ -65,9 +47,6 @@ struct ModelMenu: View {
                     Text("\(Int(fraction * 100))%").font(.caption.weight(.semibold)).foregroundStyle(Theme.accent).monospacedDigit()
                 } else if brain.phase == .loading {
                     ProgressView().controlSize(.mini)
-                } else if case .downloading(let fraction) = ocr.phase {
-                    Label("\(Int(fraction * 100))%", systemImage: "doc.text.viewfinder")
-                        .font(.caption.weight(.semibold)).foregroundStyle(Theme.accent).monospacedDigit()
                 }
                 Image(systemName: "chevron.down").font(.caption.weight(.bold)).foregroundStyle(.secondary)
             }
@@ -81,19 +60,7 @@ struct ModelMenu: View {
             }
             Button("취소", role: .cancel) { confirmDownload = nil }
         } message: {
-            Text("\(confirmDownload?.sizeText ?? "")를 한 번만 받으면 인터넷 없이도 써요. 와이파이에서 받는 걸 추천해요. 받는 동안 앱을 켜 두세요.")
-        }
-        .alert("\(PaddleOCRConfig.title) 다운로드", isPresented: $confirmOCRDownload) {
-            Button("다운로드") { ocr.download() }
-            Button("취소", role: .cancel) {}
-        } message: {
-            Text("문제 사진(오답노트·사진 질문)을 더 정확하게 읽어요. \(PaddleOCRConfig.sizeText) · 와이파이에서 받는 걸 추천해요. 단어장 사진은 지금처럼 읽어요.")
-        }
-        .alert("정밀 인식을 삭제할까요?", isPresented: $confirmOCRDelete) {
-            Button("삭제", role: .destructive) { ocr.delete() }
-            Button("취소", role: .cancel) {}
-        } message: {
-            Text("삭제하면 문제 사진은 기본 인식으로 읽어요.")
+            Text("한 번 받으면 인터넷 없이도 써요. 와이파이에서 받아 주세요.")
         }
         .alert(confirmDelete.map { "\($0.title)을(를) 삭제할까요?" } ?? "", isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } })) {
             Button("삭제", role: .destructive) {
@@ -103,23 +70,6 @@ struct ModelMenu: View {
             Button("취소", role: .cancel) { confirmDelete = nil }
         } message: {
             Text("다시 쓰려면 새로 다운로드해야 해요. 배운 내용은 남아 있어요.")
-        }
-    }
-
-    /// 정밀 인식 받기 · 받는 중(누르면 취소) · 사용 중
-    @ViewBuilder private var ocrButton: some View {
-        if !PaddleOCRService.isSupported {
-            Text("\(PaddleOCRConfig.title) · 이 기기에서는 못 써요")
-        } else if case .downloading(let fraction) = ocr.phase {
-            Button { ocr.cancelDownload() } label: {
-                Label("정밀 인식 받는 중 \(Int(fraction * 100))% · 취소", systemImage: "xmark.circle")
-            }
-        } else if ocr.isInstalled {
-            Label("\(PaddleOCRConfig.title) · 사용 중", systemImage: "checkmark")
-        } else {
-            Button { confirmOCRDownload = true } label: {
-                Label("\(PaddleOCRConfig.title) · \(PaddleOCRConfig.sizeText)", systemImage: "arrow.down.circle")
-            }
         }
     }
 
@@ -151,7 +101,7 @@ struct ModelDownloadCard: View {
                         Haptics.tap()
                         Task { await brain.download(model) }
                     } label: {
-                        Label("\(model.title) 다운로드 · \(model.sizeText)", systemImage: "arrow.down.circle.fill")
+                        Label("\(model.title) 다운로드", systemImage: "arrow.down.circle.fill")
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity)
                     }
@@ -213,7 +163,7 @@ struct LearnedNotesSheet: View {
                         reload()
                     }
                 } footer: {
-                    Text("이 기기에만 저장돼요 · DOOOIT 1·2는 Apache-2.0 오픈소스 모델 기반")
+                    Text("이 기기에만 저장돼요 · 두잇 1·2는 Apache-2.0 오픈소스 모델 기반")
                 }
             }
             .navigationTitle("배운 내용")

@@ -10,7 +10,6 @@ struct DoitAIView: View {
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
     @FocusState private var focused: Bool
-    @State private var showNotes = false
 
     var body: some View {
         NavigationStack {
@@ -53,11 +52,10 @@ struct DoitAIView: View {
             .background { AppBackground() }
             .navigationTitle("두잇 AI")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $showNotes) { LearnedNotesSheet() }
             .toolbar {
                 // ChatGPT·Gemini처럼 위쪽에서 모델 고르기
                 ToolbarItem(placement: .principal) {
-                    ModelMenu(showNotes: $showNotes)
+                    ModelMenu()
                 }
                 if !assistant.messages.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {

@@ -285,18 +285,17 @@ enum DoitMistake {
         var list: [String] = []
         switch a.cause {
         case .concept, .formula:
-            list.append("개념 다시 보기 → 유사 문제 1단계(개념 확인)부터 풀기")
+            list.append("개념 다시 보기 → 원래 문제 다시 풀기")
         case .calculation, .careless:
-            list.append("유사 문제 2단계부터 풀면서 계산을 한 줄씩 적어 보기")
+            list.append("계산을 한 줄씩 적으면서 다시 풀기")
         case .condition, .interpretation:
-            list.append("문제에서 조건과 묻는 것에 밑줄 긋고 유사 문제 3단계 풀기")
+            list.append("조건과 묻는 것에 밑줄 긋고 다시 풀기")
         case .process:
-            list.append("틀린 줄부터 다시 풀어 보고 유사 문제 2단계부터 풀기")
+            list.append("틀린 줄부터 다시 풀어 보기")
         case .vocabulary, .grammar, .reading, .choiceMix, .memorization, .time:
             list.append("개념 다시 보기 → 원래 문제 다시 풀기")
         case .other, .unknown:
             list.append("풀이 과정을 적어서 어디서 틀렸는지 확인하기")
-            list.append("유사 문제 2단계부터 풀기")
         }
         list.append("같은 개념을 2~3일 뒤에 한 번 더 풀어 보기 (한 번 맞혔다고 끝이 아니에요)")
         return list

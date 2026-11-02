@@ -67,17 +67,14 @@ struct MathNoteEditorView: View {
                             }
                         }
                     case .grade:
-                        // 학습 순서: 채점 → 오답 원인 → 풀이(과정 채점·단계별 풀이) → 유사 문제 → 재도전 → 취약 개념
+                        // 학습 순서: 채점 → 오답 원인 → 과정 채점 → 재도전 → 취약 개념
                         VStack(spacing: 14) {
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             if note.isRecognitionConfirmed {
                                 MistakeAnalysisCard(note: note)
                                 WorkCheckCard(note: note)
-                                WrittenSolutionCard(note: note) {
-                                    withAnimation(.snappy) { tab = .text; isEditingText = true }
-                                }
-                                SimilarProblemsCard(note: note)
+                                SimilarProblemsCard(note: note, retryOnly: true)
                                 WeakConceptBadge(note: note)
                             }
                         }

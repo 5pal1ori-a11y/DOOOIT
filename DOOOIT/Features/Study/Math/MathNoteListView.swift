@@ -109,6 +109,9 @@ struct MathNoteListView: View {
         .navigationTitle("오답노트")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                PhotoRecognitionMenu()
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button { openScanner() } label: { Label("문제 촬영", systemImage: "doc.viewfinder") }
                     Button { showPhotoPicker = true } label: { Label("앨범에서 선택", systemImage: "photo.on.rectangle") }
@@ -586,5 +589,55 @@ private struct MathNoteRow: View {
         if !note.unit.isEmpty { parts.append(note.unit) }
         parts.append(note.createdAt.kr("M월 d일"))
         return parts.joined(separator: " · ")
+    }
+}
+
+/// 오답노트 사진 인식 설정: 정밀 인식(기본 · 와이파이에서 알아서 받음) / 기본 인식
+struct PhotoRecognitionMenu: View {
+    @State private var ocr = PaddleOCRService.shared
+    @State private var confirmOff = false
+
+    var body: some View {
+        Menu {
+            Section("사진 인식") {
+                if !PaddleOCRService.isSupported {
+                    Label("기본 인식", systemImage: "checkmark")
+                    Text("이 기기는 정밀 인식을 못 써요")
+                } else {
+                    Button {
+                        if case .downloading = ocr.phase { return }
+                        if !ocr.isEnabled || !ocr.isInstalled { ocr.turnOn() }
+                    } label: {
+                        if case .downloading(let fraction) = ocr.phase {
+                            Label("정밀 인식 받는 중 \(Int(fraction * 100))%", systemImage: "arrow.down.circle")
+                        } else if ocr.isEnabled && ocr.isInstalled {
+                            Label("정밀 인식", systemImage: "checkmark")
+                        } else if ocr.isEnabled {
+                            Label("정밀 인식 받기", systemImage: "arrow.down.circle")
+                        } else {
+                            Text("정밀 인식")
+                        }
+                    }
+                    Button {
+                        if ocr.isEnabled { confirmOff = true }
+                    } label: {
+                        if ocr.isEnabled { Text("기본 인식") } else { Label("기본 인식", systemImage: "checkmark") }
+                    }
+                }
+            }
+        } label: {
+            if case .downloading(let fraction) = ocr.phase {
+                Text("\(Int(fraction * 100))%").font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(Theme.accent)
+            } else {
+                Image(systemName: "text.viewfinder")
+            }
+        }
+        .accessibilityLabel("사진 인식 설정")
+        .alert("기본 인식으로 바꿀까요?", isPresented: $confirmOff) {
+            Button("바꾸기", role: .destructive) { ocr.turnOff() }
+            Button("취소", role: .cancel) {}
+        } message: {
+            Text("받아 둔 정밀 인식 모델을 지워요.")
+        }
     }
 }
