@@ -24,9 +24,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DEFAULT_MODELS: '["OpenGryd/PaddleOCR-VL-1.6-MLX-16bit","huggingfinger0/PaddleOCR-VL-1.5-4bit"]'
+  DEFAULT_MODELS: '["OpenGryd/PaddleOCR-VL-1.6-MLX-16bit","mlx-community/PaddleOCR-VL-1.6-4bit","huggingfinger0/PaddleOCR-VL-1.5-4bit"]'
   # 빠른 확인: 고르게 이만큼만 읽음 (비우면 전부)
-  PADDLE_LIMIT: "8"
+  PADDLE_LIMIT: ""
 
 jobs:
   # 앱 그대로 (Vision): 속도를 재려고 한 장씩, 원인 찾기용 읽기는 빼고

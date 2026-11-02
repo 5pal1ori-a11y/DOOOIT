@@ -36,6 +36,7 @@ def main():
     ap.add_argument("--filter", default="")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--max-tokens", type=int, default=1024)
+    ap.add_argument("--spot-kinds", default="words", help="Spotting:(글자+자리)도 읽을 종류 (쉼표, 비우면 안 함)")
     ap.add_argument("--limit", type=int, default=int(os.environ.get("PADDLE_LIMIT") or 0))
     ap.add_argument("--deadline", type=float, default=0, help="이 초가 지나면 남은 사진은 건너뜀")
     args = ap.parse_args()
@@ -128,6 +129,8 @@ def main():
             json.dump(out, f, ensure_ascii=False, indent=1)
 
     skipped = 0
+    spotted = 0
+    spot_prompt = apply_chat_template(processor, model.config, "Spotting:", num_images=1)
     for k, spec in enumerate(specs):
         if args.deadline and time.time() - started > args.deadline:
             skipped += 1
@@ -145,6 +148,20 @@ def main():
         except Exception as e:  # noqa: BLE001
             rec["error"] = f"{type(e).__name__}: {e}"
         rec["seconds"] = time.time() - t0
+        # 단어장은 글자 자리(Spotting)도 따로 읽어 둠: 앱의 WordParser는 줄 상자 위치로 단·행을 나눔
+        if args.spot_kinds and spec["kind"] in args.spot_kinds.split(","):
+            t1 = time.time()
+            try:
+                r = generate(model=model, processor=processor, prompt=spot_prompt, image=[image],
+                             max_tokens=args.max_tokens * 2, temperature=0.0, verbose=False)
+                rec["spot"] = r.text
+                rec["spotTokens"] = int(r.generation_tokens)
+            except Exception as e:  # noqa: BLE001
+                rec["spotError"] = f"{type(e).__name__}: {e}"
+            rec["spotSeconds"] = time.time() - t1
+            if spotted < 3:
+                print("   Spotting 원문:", repr(rec.get("spot", rec.get("spotError", "")))[:1500], flush=True)
+            spotted += 1
         out["cases"].append(rec)
         save()
         one = rec.get("error") or rec["text"].replace("\n", " ⏎ ")
