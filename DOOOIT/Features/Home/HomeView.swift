@@ -170,11 +170,14 @@ struct HomeView: View {
         let unlearned = words.filter { !$0.isLearned }.count
         let doneToday = wordGoalDoneKey == now.dayKey
         let wordsLeft = doneToday ? 0 : min(wordGoal, unlearned)
+        // 오늘 복습할 단어도 함께 셈
+        let due = words.filter(\.isDueForReview).count
+        let wordValue = wordsLeft + due == 0 ? "완료" : "\(wordsLeft + due)개"
         let unsolved = mathNotes.filter { $0.status != .correct }.count
         return HStack(spacing: 10) {
             tile(symbol: "flame.fill", color: Color(hex: "#FF7A45"), value: "\(streak(now: now))일", label: "연속 공부")
             NavigationLink { WordHomeView() } label: {
-                tile(symbol: "character.book.closed.fill", color: Theme.accent, value: doneToday ? "완료" : "\(wordsLeft)개", label: "외울 단어")
+                tile(symbol: "character.book.closed.fill", color: Theme.accent, value: wordValue, label: due > 0 ? "외울·복습 단어" : "외울 단어")
             }
             .buttonStyle(.pressable)
             NavigationLink { MathNoteListView() } label: {

@@ -164,7 +164,7 @@ struct DoitAIView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20))
+                    .background(Palette.card, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20))
                     .overlay(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20)
                         .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
@@ -222,7 +222,7 @@ struct DoitAIView: View {
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 8)
-                            .background(Color.white, in: .capsule)
+                            .background(Palette.card, in: .capsule)
                             .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.25), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -254,7 +254,7 @@ struct DoitAIView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(8)
-                .background(Color.white, in: .rect(cornerRadius: 16))
+                .background(Palette.card, in: .rect(cornerRadius: 16))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             HStack(alignment: .bottom, spacing: 8) {
@@ -394,7 +394,7 @@ private struct TypingIndicator: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(Color.white, in: .capsule)
+            .background(Palette.card, in: .capsule)
             .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         }
         .task {

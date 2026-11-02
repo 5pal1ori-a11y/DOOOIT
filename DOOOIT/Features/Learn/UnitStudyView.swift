@@ -153,7 +153,7 @@ struct UnitStudyView: View {
                     VStack(spacing: 6) {
                         ZStack {
                             Circle()
-                                .fill(isCurrent ? Theme.accent : (isDone ? Theme.accent.opacity(0.14) : Color.white))
+                                .fill(isCurrent ? Theme.accent : (isDone ? Theme.accent.opacity(0.14) : Palette.card))
                             Circle()
                                 .strokeBorder(isCurrent || isDone ? Color.clear : Color.primary.opacity(0.12), lineWidth: 1.5)
                             if isDone && !isCurrent {
@@ -190,7 +190,7 @@ struct UnitStudyView: View {
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 12)
-        .background(Color.white.opacity(0.6))
+        .background(Palette.card.opacity(0.7))
         .overlay(alignment: .bottom) { Divider() }
     }
 
@@ -435,7 +435,7 @@ struct ConceptStepView: View {
                         Label("자세히 알아보기", systemImage: "text.book.closed").font(.subheadline.weight(.bold))
                     }
                     .padding(14)
-                    .background(Color.white, in: .rect(cornerRadius: 16))
+                    .background(Palette.card, in: .rect(cornerRadius: 16))
                 }
                 Text("핵심 학습 포인트").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 14) {
@@ -631,7 +631,7 @@ struct OXStepView: View {
         }
         .buttonStyle(.plain)
         .background((value ? Palette.success : Palette.danger).opacity(0.08), in: .rect(cornerRadius: 22))
-        .background(Color.white, in: .rect(cornerRadius: 22))
+        .background(Palette.card, in: .rect(cornerRadius: 22))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         .opacity(picked == nil || picked == value ? 1 : 0.4)
         .scaleEffect(picked == value ? 1.04 : 1)
@@ -720,7 +720,7 @@ struct ProblemStepView: View {
                                 }
                             }
                             .padding(12)
-                            .background(Color.white, in: .rect(cornerRadius: 14))
+                            .background(Palette.card, in: .rect(cornerRadius: 14))
                             .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                             .scaleEffect(picked == number ? 1.02 : 1)
                             .overlay {
@@ -845,7 +845,7 @@ struct WeakStepView: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.white, in: .rect(cornerRadius: 16))
+                .background(Palette.card, in: .rect(cornerRadius: 16))
                 .overlay(alignment: .leading) {
                     UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
                         .fill(Palette.danger.opacity(0.7))

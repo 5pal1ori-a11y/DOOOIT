@@ -7,7 +7,8 @@ import SwiftUI
 /// 3. 단어 쓰기: 단어를 가리고 입력 → 같은 방식
 /// 4. 완료: 오늘의 단어목표 성공!
 struct WordSessionView: View {
-    enum Kind { case daily, extra, review }
+    /// spaced: 복습 일정이 된 단어 (뜻 쓰기만, 처음에 맞혔는지로 다음 복습 날을 정함)
+    enum Kind { case daily, extra, review, spaced }
     enum QuizType: Equatable { case meaning, term }
     enum Step: Equatable {
         case learn(review: QuizType?)
@@ -30,6 +31,8 @@ struct WordSessionView: View {
     @State private var result: Bool?
     @State private var totalWrong = 0
     @State private var showExitConfirm = false
+    /// 처음 물었을 때 틀린 단어 (복습 일정용)
+    @State private var firstTryWrong: Set<UUID> = []
     @FocusState private var inputFocused: Bool
 
     private var current: Word? { queue.indices.contains(index) ? queue[index] : nil }
@@ -63,7 +66,15 @@ struct WordSessionView: View {
             .padding(.horizontal, 20)
         }
         .onAppear {
-            if queue.isEmpty { queue = words }
+            guard queue.isEmpty else { return }
+            if kind == .spaced {
+                // 복습은 바로 뜻 쓰기부터
+                step = .quiz(.meaning)
+                queue = words.shuffled()
+                inputFocused = true
+            } else {
+                queue = words
+            }
         }
         .sensoryFeedback(trigger: result) { _, newValue in
             switch newValue {
@@ -92,6 +103,7 @@ struct WordSessionView: View {
 
     private var stepTitle: String {
         switch step {
+        case .quiz(.meaning) where kind == .spaced: return "오늘의 복습"
         case .learn(.none): return "단어 외우기"
         case .learn(.some): return "틀린 단어 복습"
         case .quiz(.meaning): return "뜻 쓰기"
@@ -126,7 +138,7 @@ struct WordSessionView: View {
 
                 VStack(spacing: 2) {
                     Text(stepTitle).font(.headline)
-                    if step != .finished {
+                    if step != .finished && kind != .spaced {
                         Text("\(stepIndex)/3 단계").font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -195,11 +207,15 @@ struct WordSessionView: View {
     }
 
     private func termText(_ text: String, color: Color = Palette.ink) -> some View {
-        Text(text)
-            .font(.custom("Noteworthy-Bold", size: 40, relativeTo: .largeTitle))
-            .foregroundStyle(color)
-            .minimumScaleFactor(0.5)
-            .lineLimit(2)
+        HStack(alignment: .center, spacing: 10) {
+            Text(text)
+                .font(.custom("Noteworthy-Bold", size: 40, relativeTo: .largeTitle))
+                .foregroundStyle(color)
+                .minimumScaleFactor(0.5)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+            SpeakButton(text: text)
+        }
     }
 
     private func meaningText(_ text: String, color: Color = Palette.ink) -> some View {
@@ -336,6 +352,7 @@ struct WordSessionView: View {
         } else {
             word.wrongCount += 1
             totalWrong += 1
+            firstTryWrong.insert(word.id)
             if !wrongs.contains(where: { $0.id == word.id }) { wrongs.append(word) }
         }
         inputFocused = false
@@ -368,7 +385,7 @@ struct WordSessionView: View {
                 let review = wrongs
                 wrongs = []
                 begin(.learn(review: type), queue: review)
-            } else if type == .meaning {
+            } else if type == .meaning && kind != .spaced {
                 begin(.quiz(.term), queue: words.shuffled())
             } else {
                 complete()
@@ -393,7 +410,20 @@ struct WordSessionView: View {
     private func complete() {
         let now = Date()
         for word in words {
+            if kind == .spaced {
+                // 처음에 맞혔으면 다음 간격, 틀렸으면 내일부터 다시
+                let schedule = WordReview.afterReview(stage: word.reviewStage, correct: !firstTryWrong.contains(word.id), now: now)
+                word.reviewStage = schedule.stage
+                word.nextReviewAt = schedule.next
+                continue
+            }
             if word.learnedAt == nil { word.learnedAt = now }
+            // 처음 외운 단어는 내일 첫 복습
+            if word.reviewStage == 0 {
+                let schedule = WordReview.afterLearning(now: now)
+                word.reviewStage = schedule.stage
+                word.nextReviewAt = schedule.next
+            }
             if kind == .review { word.wrongCount = 0 }
         }
         if kind == .daily { wordGoalDoneKey = now.dayKey }
@@ -422,9 +452,11 @@ struct WordSessionView: View {
             .glassEffect(.regular, in: .circle)
 
             VStack(spacing: 8) {
-                Text(kind == .daily ? "오늘의 단어목표 성공!" : (kind == .review ? "복습 완료!" : "학습 완료!"))
+                Text(kind == .daily ? "오늘의 단어목표 성공!" : (kind == .review || kind == .spaced ? "복습 완료!" : "학습 완료!"))
                     .font(.title.weight(.bold))
-                Text("\(words.count)개 단어를 모두 통과했어요 · 오답 \(totalWrong)회")
+                Text(kind == .spaced
+                     ? "\(words.count - firstTryWrong.count)개는 다음 간격으로, \(firstTryWrong.count)개는 내일 다시 물어볼게요"
+                     : "\(words.count)개 단어를 모두 통과했어요 · 오답 \(totalWrong)회")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

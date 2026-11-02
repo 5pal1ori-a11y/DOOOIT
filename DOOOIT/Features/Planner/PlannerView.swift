@@ -121,7 +121,7 @@ struct PlannerView: View {
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 12)
                 .frame(height: 34)
-                .background(Color.white, in: .capsule)
+                .background(Palette.card, in: .capsule)
                 .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
             }
             modeToggle
@@ -149,7 +149,7 @@ struct PlannerView: View {
             }
         }
         .padding(2)
-        .background(Color.white, in: .capsule)
+        .background(Palette.card, in: .capsule)
         .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
     }
 

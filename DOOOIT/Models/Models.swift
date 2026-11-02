@@ -194,6 +194,10 @@ final class Word {
     var correctCount: Int = 0
     var wrongCount: Int = 0
     var isStarred: Bool = false
+    /// 복습 단계 (0: 아직 안 외움, 1~5: 복습 기다리는 중, 6: 완전히 외움) — WordReview 참고
+    var reviewStage: Int = 0
+    /// 다음 복습 날 (없으면 복습 일정 없음)
+    var nextReviewAt: Date?
 
     init(term: String, meaning: String, deck: String = "기본 단어장", createdAt: Date = Date()) {
         self.id = UUID()
@@ -204,6 +208,8 @@ final class Word {
     }
 
     var isLearned: Bool { learnedAt != nil }
+    var isDueForReview: Bool { WordReview.isDue(stage: reviewStage, next: nextReviewAt) }
+    var isMastered: Bool { reviewStage >= WordReview.mastered }
 }
 
 enum NoteStatus: String, CaseIterable, Identifiable {

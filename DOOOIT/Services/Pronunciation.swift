@@ -1,12 +1,27 @@
 import AVFoundation
 import Observation
 import Speech
+import SwiftUI
 
 /// 영어 단어 읽어주기 (기기 안 음성)
 @MainActor
 final class WordSpeaker {
     static let shared = WordSpeaker()
     private let synthesizer = AVSpeechSynthesizer()
+
+    /// 발음: 미국식 / 영국식 (설정에 저장)
+    enum Accent: String, CaseIterable, Identifiable {
+        case us, uk
+        var id: String { rawValue }
+        var title: String { self == .us ? "미국식" : "영국식" }
+        var language: String { self == .us ? "en-US" : "en-GB" }
+    }
+
+    static let accentKey = "word.accent"
+
+    var accent: Accent {
+        Accent(rawValue: UserDefaults.standard.string(forKey: Self.accentKey) ?? "") ?? .us
+    }
 
     func speak(_ text: String, slow: Bool = false) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -15,9 +30,34 @@ final class WordSpeaker {
         try? AVAudioSession.sharedInstance().setActive(true)
         synthesizer.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: trimmed)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        utterance.voice = AVSpeechSynthesisVoice(language: accent.language) ?? AVSpeechSynthesisVoice(language: "en-US")
         utterance.rate = slow ? 0.32 : 0.45
         synthesizer.speak(utterance)
+    }
+}
+
+/// 🔊 단어 듣기 버튼 (누를 때마다 보통 ↔ 천천히)
+struct SpeakButton: View {
+    let text: String
+    var size: CGFloat = 40
+    @State private var slow = false
+    @State private var tick = 0
+
+    var body: some View {
+        Button {
+            WordSpeaker.shared.speak(text, slow: slow)
+            slow.toggle()
+            tick += 1
+        } label: {
+            Image(systemName: "speaker.wave.2.fill")
+                .font(.system(size: size * 0.4, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .symbolEffect(.bounce, value: tick)
+                .frame(width: size, height: size)
+                .background(Theme.accent.opacity(0.12), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("발음 듣기")
     }
 }
 

@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(AuthManager.self) private var auth
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+    @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
     @State private var showSplash = true
 
     var body: some View {
@@ -32,7 +33,7 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
-        .preferredColorScheme(.light)
+        .preferredColorScheme(AppearanceMode(rawValue: appearanceRaw)?.colorScheme)
     }
 }
 

@@ -193,7 +193,7 @@ struct AIQuestionDetailView: View {
                                       isEnabled: false, controller: CanvasController()) { _ in }
                     }
                 }
-                .background(Color.white, in: .rect(cornerRadius: 22))
+                .background(Palette.card, in: .rect(cornerRadius: 22))
                 .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
 
                 Toggle(isOn: $showNotes.animation()) {

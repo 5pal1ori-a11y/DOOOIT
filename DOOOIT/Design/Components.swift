@@ -14,8 +14,8 @@ extension View {
     /// 패딩 없이 흰 카드 배경만 (목록 묶음 등)
     func softCardBackground(cornerRadius: CGFloat = 20) -> some View {
         self
-            .background(Color.white, in: .rect(cornerRadius: cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
+            .background(Palette.card, in: .rect(cornerRadius: cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
             .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
     }
 }
@@ -181,7 +181,7 @@ struct ProcessingOverlay: View {
                 Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
             }
             .padding(28)
-            .background(Color.white, in: .rect(cornerRadius: 26))
+            .background(Palette.card, in: .rect(cornerRadius: 26))
             .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
         }
         .transition(.opacity)

@@ -16,6 +16,45 @@ extension Color {
     }
 }
 
+extension UIColor {
+    convenience init(hex: String) {
+        let s = hex.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "#", with: "")
+        var value: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&value)
+        self.init(red: CGFloat((value >> 16) & 0xFF) / 255, green: CGFloat((value >> 8) & 0xFF) / 255,
+                  blue: CGFloat(value & 0xFF) / 255, alpha: 1)
+    }
+}
+
+extension Color {
+    /// 밝은 화면 / 어두운 화면(다크 모드)에서 다른 색
+    init(light: String, dark: String) {
+        let lightColor = UIColor(hex: light), darkColor = UIColor(hex: dark)
+        self.init(uiColor: UIColor { $0.userInterfaceStyle == .dark ? darkColor : lightColor })
+    }
+}
+
+/// 화면 모드 (시스템 설정 따르기 / 밝게 / 어둡게)
+enum AppearanceMode: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .system: return "시스템 설정"
+        case .light: return "밝게"
+        case .dark: return "어둡게"
+        }
+    }
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
+    }
+    static let key = "appearanceMode"
+}
+
 enum Palette {
     static let swatches = [
         "#6C63FF", "#3B82F6", "#06B6D4", "#10B981", "#84CC16", "#F59E0B",
@@ -26,7 +65,12 @@ enum Palette {
     static let paperMargin = Color(hex: "#F2A7A7")
     static let notePage = Color(hex: "#FFFFFF")
     static let noteGrid = Color(hex: "#E7ECF3")
-    static let ink = Color(hex: "#1F2433")
+    /// 글자 색 (다크 모드에서는 밝게)
+    static let ink = Color(light: "#1F2433", dark: "#F2F3F7")
+    /// 카드 바탕 (흰색 / 다크 모드 진회색)
+    static let card = Color(light: "#FFFFFF", dark: "#1C1C1E")
+    /// 카드 안 한 단계 더 들어간 칸
+    static let cardInset = Color(light: "#F2F3F6", dark: "#2C2C2E")
     static let success = Color(hex: "#22C55E")
     static let danger = Color(hex: "#EF4444")
     static let warning = Color(hex: "#F59E0B")
@@ -77,7 +121,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
 enum Theme {
     /// 눈부시지 않은 흰색 바탕
-    static let base = Color(hex: "#F5F6F8")
+    static let base = Color(light: "#F5F6F8", dark: "#000000")
 
     static var current: ThemeColor {
         ThemeColor(rawValue: UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "") ?? .lavender
@@ -90,13 +134,21 @@ enum Theme {
 struct AppBackground: View {
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
 
+    @Environment(\.colorScheme) private var scheme
+
     var body: some View {
         let theme = ThemeColor(rawValue: themeRaw) ?? .lavender
         ZStack(alignment: .top) {
             Theme.base
-            LinearGradient(colors: [theme.soft.opacity(0.9), theme.softer.opacity(0.5), Theme.base.opacity(0)],
-                           startPoint: .top, endPoint: .bottom)
-                .frame(height: 320)
+            if scheme == .dark {
+                // 어두운 화면: 테마 색을 아주 살짝만
+                LinearGradient(colors: [theme.accent.opacity(0.16), theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 320)
+            } else {
+                LinearGradient(colors: [theme.soft.opacity(0.9), theme.softer.opacity(0.5), Theme.base.opacity(0)],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 320)
+            }
         }
         .ignoresSafeArea()
     }

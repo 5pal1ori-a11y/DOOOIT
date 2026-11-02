@@ -54,7 +54,7 @@ struct WorkCheckCard: View {
             }
         }
         .padding(18)
-        .background(Color.white, in: .rect(cornerRadius: 26))
+        .background(Palette.card, in: .rect(cornerRadius: 26))
         .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
         .animation(Motion.spring, value: note.workCheckData)
         .animation(Motion.spring, value: reading)

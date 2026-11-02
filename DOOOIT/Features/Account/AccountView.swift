@@ -19,6 +19,7 @@ struct AccountView: View {
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
     @AppStorage(SettingsKey.dDayTitle) private var dDayTitle = ""
     @AppStorage(SettingsKey.dDayDate) private var dDayDate: Double = 0
+    @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
 
     @State private var showNameEdit = false
     @State private var nameDraft = ""
@@ -84,6 +85,10 @@ struct AccountView: View {
                 }
 
                 Section("앱") {
+                    Picker(selection: $appearanceRaw) {
+                        ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
+                    } label: { item("화면 모드", "circle.lefthalf.filled", Color(hex: "#1F2433")) }
+                    .pickerStyle(.menu)
                     ThemePicker()
                     NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Color(hex: "#AF52DE")) }
                     NavigationLink { StatsView() } label: { item("공부 통계", "chart.bar.fill", Theme.accent) }

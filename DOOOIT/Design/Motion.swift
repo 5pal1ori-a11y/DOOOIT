@@ -159,7 +159,7 @@ struct PillSegmentedControl<Item: Hashable>: View {
             }
         }
         .padding(4)
-        .background(Color.white, in: .capsule)
+        .background(Palette.card, in: .capsule)
         .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
     }
 }

@@ -44,7 +44,7 @@ struct RankingView: View {
             .padding(.bottom, 40)
         }
         .scrollIndicators(.hidden)
-        .background(Color.white)
+        .background(Palette.card)
         .navigationTitle("두잇 랭킹")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(submit: true) }

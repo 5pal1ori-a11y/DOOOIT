@@ -38,7 +38,7 @@ struct DDayChip: View {
             .lineLimit(1)
             .padding(.horizontal, 11)
             .frame(height: 28)
-            .background(Color.white, in: .capsule)
+            .background(Palette.card, in: .capsule)
             .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
         }
     }
