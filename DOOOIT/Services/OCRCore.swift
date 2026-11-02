@@ -561,7 +561,8 @@ enum OCRService {
             // 1-1b) 줄 안에 붙어 읽힌 지수: "x2", "23" 중 숫자가 앞 글자보다 작고 위에 떠 있으면 ^ (x², 2³)
             if let ink {
                 func extent(_ box: CGRect) -> (top: Int, bottom: Int)? {
-                    let shrink = box.width * 0.12
+                    // 글자 상자 경계는 대략이라 옆 글자 획이 섞이지 않게 양쪽을 넉넉히 뺌
+                    let shrink = box.width * 0.25
                     let x0 = Int((box.minX + shrink) * CGFloat(ink.width)), x1 = Int((box.maxX - shrink) * CGFloat(ink.width))
                     let y0 = Int((1 - line.maxY - line.height * 0.15) * CGFloat(ink.height)), y1 = Int((1 - line.minY + line.height * 0.15) * CGFloat(ink.height))
                     return ink.extent(x0: x0, x1: x1, y0: y0, y1: y1)
