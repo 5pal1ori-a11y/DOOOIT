@@ -266,7 +266,9 @@ extension OCRService {
             var unitOf: [Int] = []
             for k in segments.indices {
                 let picked = Set(owner.filter { $0.value == k }.map(\.key))
-                if k > 0, let last = units.last, wordy(k), wordy(k - 1), unitOf.last == units.count - 1,
+                // 괄호·문장 부호만 있는 조각("(")은 옆 글자 조각과 함께 (영어 전용이 "(B),"처럼 한 낱말로 읽었을 때)
+                func joinable(_ k: Int) -> Bool { wordy(k) || chars[segments[k]].allSatisfy { "()[]{}.,'\"!?:;-".contains($0) } }
+                if k > 0, let last = units.last, joinable(k), joinable(k - 1), wordy(k) || wordy(k - 1), unitOf.last == units.count - 1,
                    touching.values.contains(where: { $0.contains(k) && $0.contains(k - 1) }),
                    !(segments[k - 1].upperBound..<segments[k].lowerBound).contains(where: { covered.contains($0) || !chars[$0].isWhitespace }) {
                     units[units.count - 1] = (last.range.lowerBound..<segments[k].upperBound, last.picked.union(picked))
