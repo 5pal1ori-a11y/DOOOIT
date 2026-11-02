@@ -37,7 +37,7 @@ jobs:
         run: |
           SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
           xcrun --sdk iphonesimulator swiftc -typecheck -swift-version 5 -sdk "$SDK" -target arm64-apple-ios26.0-simulator \
-            DOOOIT/Services/OCRService.swift DOOOIT/Services/OCRCore.swift DOOOIT/Services/MathOCRFixer.swift \
+            DOOOIT/Services/OCRService.swift DOOOIT/Services/OCRCore.swift DOOOIT/Services/OCRText.swift DOOOIT/Services/MathOCRFixer.swift \
             DOOOIT/Services/WordParser.swift DOOOIT/Services/ProblemSplitter.swift
 
       - name: Run image OCR tests

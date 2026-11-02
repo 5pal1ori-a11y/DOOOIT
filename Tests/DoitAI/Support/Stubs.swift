@@ -5,11 +5,9 @@ import FoundationNetworking
 #endif
 // ---- Linux stubs for UIKit / SwiftData parts ----
 class UIImage: Equatable { static func == (a: UIImage, b: UIImage) -> Bool { a === b } }
-struct OCRLine { let text: String; var confidence: Float = 1; let box: CGRect }
 enum OCRService {
     static func recognize(_ image: UIImage, languageCorrection: Bool = true, languages: [String] = ["ko-KR", "en-US"]) async throws -> [OCRLine] { [] }
     static func recognizeMath(_ image: UIImage) async throws -> [OCRLine] { [] }
-    static func printedText(from lines: [OCRLine]) -> String { "" }
     static func readMathProblem(_ image: UIImage, thorough: Bool = true) async -> (text: String, improved: Bool) { ("", false) }
 }
 enum MathSymbolBar { static func pretty(_ s: String) -> String { s } }

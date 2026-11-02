@@ -20,7 +20,7 @@ echo "▶ 읽기 도구 빌드 (앱 코드 그대로)"
 SRC="$BUILD/src"
 mkdir -p "$SRC"
 cd "$ROOT/DOOOIT"
-for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Mistake/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
+for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Mistake/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/OCRText.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
   case "$f" in *DoitActions.swift) continue;; esac
   sed 's/^import UIKit$/import Foundation/' "$f" > "$SRC/$(basename "$f")"
 done
@@ -28,7 +28,7 @@ cp Services/OCRCore.swift "$SRC/"
 # 리눅스 테스트용 가짜에서 진짜로 바뀌는 부분(OCRLine, OCRService 몸통)은 빼고 UIImage 입구만 가짜로
 sed -e '/^struct OCRLine /d' -e '/static func printedText(from lines/d' -e 's/^enum OCRService {/extension OCRService {/' \
   "$ROOT/Tests/DoitAI/Support/Stubs.swift" > "$SRC/Stubs.swift"
-cp "$HERE/Shared/CaseSpec.swift" "$SRC/"
+cp "$HERE/Shared/CaseSpec.swift" "$HERE/Shared/Checks.swift" "$SRC/"
 cp "$HERE/Runner/main.swift" "$SRC/main.swift"
 swiftc -swift-version 5 "$SRC"/*.swift -o "$BUILD/ocr-runner"
 
