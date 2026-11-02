@@ -828,6 +828,7 @@ runStudyScopeCases()
 await runChatContextCases()
 runProblemTypeCases()
 
+await runChatRelevanceCases()
 
 runGuidedSolveCases()
 

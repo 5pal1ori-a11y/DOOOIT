@@ -32,6 +32,9 @@ enum DoitEnglish {
         // 3. 형태 변화 ("go 과거형", "child 복수형", "big 비교급", "past tense of go")
         if let reply = EngForms.answer(text, lower: lower, compact: compact, hasHangul: hasHangul) { return reply }
 
+        // 3-2. 한국어 낱말을 영어로 ("사과를 영어로", "행복하다 영어로 뭐야")
+        if hasHangul, let reply = toEnglish(text) { return reply }
+
         // 4. 숙어 ("look forward to 뜻")
         if let reply = EngIdioms.answer(lower, hasHangul: hasHangul) { return reply }
 
@@ -1709,6 +1712,159 @@ private enum EngWords {
     problem|문제
     future|미래
     dream|꿈; 꿈꾸다
+    book|책
+    pen|펜
+    pencil|연필
+    desk|책상
+    chair|의자
+    bag|가방
+    classroom|교실
+    homework|숙제
+    test|시험
+    exam|시험
+    class|수업, 반
+    subject|과목, 주제
+    mother|어머니, 엄마
+    father|아버지, 아빠
+    brother|형제, 남동생
+    sister|자매, 여동생
+    baby|아기
+    child|아이
+    people|사람들
+    person|사람
+    man|남자
+    woman|여자
+    boy|소년
+    girl|소녀
+    name|이름
+    water|물
+    food|음식
+    rice|쌀, 밥
+    bread|빵
+    milk|우유
+    egg|달걀
+    fruit|과일
+    banana|바나나
+    orange|오렌지
+    grape|포도
+    strawberry|딸기
+    house|집
+    home|집, 가정
+    room|방
+    door|문
+    window|창문
+    car|자동차
+    bus|버스
+    train|기차
+    bike|자전거
+    road|길, 도로
+    city|도시
+    country|나라, 시골
+    world|세계
+    dog|개
+    cat|고양이
+    bird|새
+    fish|물고기
+    horse|말
+    tree|나무
+    flower|꽃
+    sun|해, 태양
+    moon|달
+    star|별
+    sky|하늘
+    sea|바다
+    river|강
+    mountain|산
+    rain|비
+    snow|눈
+    wind|바람
+    spring|봄
+    summer|여름
+    autumn|가을
+    winter|겨울
+    morning|아침
+    night|밤
+    day|날, 하루
+    week|주
+    month|달, 월
+    year|해, 년
+    time|시간
+    money|돈
+    music|음악
+    movie|영화
+    game|게임, 경기
+    song|노래
+    picture|그림, 사진
+    color|색깔
+    red|빨간
+    blue|파란
+    green|초록색의
+    yellow|노란
+    white|하얀
+    black|검은
+    big|큰
+    small|작은
+    tall|키가 큰
+    long|긴
+    short|짧은
+    new|새로운
+    old|늙은, 오래된
+    young|어린, 젊은
+    good|좋은
+    bad|나쁜
+    hot|뜨거운, 더운
+    cold|차가운, 추운
+    fast|빠른
+    slow|느린
+    easy|쉬운
+    busy|바쁜
+    tired|피곤한
+    hungry|배고픈
+    angry|화난
+    kind|친절한
+    smart|똑똑한
+    love|사랑; 사랑하다
+    hope|희망; 바라다
+    help|도움; 돕다
+    work|일; 일하다
+    study|공부하다
+    read|읽다
+    write|쓰다
+    speak|말하다
+    listen|듣다
+    walk|걷다
+    run|달리다
+    swim|수영하다
+    sleep|자다
+    eat|먹다
+    drink|마시다
+    play|놀다, 경기하다
+    sing|노래하다
+    dance|춤; 춤추다
+    open|열다
+    close|닫다
+    start|시작하다
+    finish|끝내다
+    buy|사다
+    sell|팔다
+    give|주다
+    take|가져가다, 잡다
+    make|만들다
+    know|알다
+    think|생각하다
+    like|좋아하다
+    want|원하다
+    need|필요하다
+    come|오다
+    go|가다
+    see|보다
+    look|보다
+    watch|보다, 시계
+    hear|듣다
+    learn|배우다
+    teach|가르치다
+    remember|기억하다
+    forget|잊다
     """
 
     static let dictionary: [String: String] = {
@@ -2933,5 +3089,69 @@ extension DoitEnglish {
         EngWords.meaningReply(word.lowercased())?
             .replacingOccurrences(of: "**", with: "")
             .replacingOccurrences(of: "\n", with: " · ")
+    }
+}
+
+// MARK: - 한국어 → 영어 낱말 ("사과를 영어로", "행복하다 영어로 뭐야")
+
+extension DoitEnglish {
+    /// 내장 단어장·동사 사전을 거꾸로 찾아서 영어 낱말로. "영어로"를 묻는 말이 아니면 nil
+    static func toEnglish(_ text: String) -> String? {
+        let pattern = #"^\s*['"‘“]?(.+?)['"’”]?\s*(?:이라는\s*말|라는\s*말)?\s*(?:영어로|영단어로|영어\s*단어로|영어\s*단어)\s*(?:는|은)?\s*(?:뭐야|뭐지|뭐예요|뭐라고\s*해|뭐라고\s*하지|뭐라고|알려\s*줘|해\s*줘|써\s*줘|말해\s*줘|번역해\s*줘|어떻게\s*(?:써|말해)\??)?\s*[?？.!]*\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+              let range = Range(m.range(at: 1), in: text) else { return nil }
+        let whole = String(text[range]).trimmingCharacters(in: .whitespaces)
+        guard !whole.isEmpty, EngText.hasHangul(whole) else { return nil }
+        // "고양이" → 그대로 먼저, 없으면 조사 뗀 말 ("사과를" → 사과)
+        let stripped = DoitRelevance.stripParticle(whole)
+        let word = englishWords(forKorean: whole).isEmpty && stripped != whole ? stripped : whole
+        if word.split(separator: " ").count >= 3 {
+            return "문장 번역은 아직 잘 못 해요. 낱말 하나씩 물어봐 주세요. 예: \"사과 영어로\""
+        }
+        let found = englishWords(forKorean: word)
+        guard let first = found.first else {
+            return "'\(word)'에 맞는 영어 낱말은 내장 단어장에 없어요. 다른 말로 물어보거나 영어 낱말의 뜻을 물어봐 주세요."
+        }
+        var line = "**\(word)** → **\(first)**"
+        if found.count > 1 { line += "\n비슷한 말: " + found.dropFirst().prefix(2).joined(separator: ", ") }
+        return line
+    }
+
+    /// 한국어 뜻으로 영어 낱말 찾기 (뜻이 똑같은 것 먼저, 그다음 '행복하다' ↔ '행복한'처럼 줄기가 같은 것)
+    static func englishWords(forKorean korean: String) -> [String] {
+        let key = korean.replacingOccurrences(of: " ", with: "")
+        let keyStem = koreanStem(key)
+        var exact: [String] = [], similar: [String] = []
+        var pool: [(String, String)] = EngWords.dictionary.map { ($0.key, $0.value) }
+        pool += EngVerbs.irregular.map { ($0.key, $0.value.meaning) }
+        pool += EngVerbs.regular.map { ($0.key, $0.value) }
+        for (english, meaning) in pool.sorted(by: { $0.0 < $1.0 }) {
+            let parts = meaning.replacingOccurrences(of: #"\([^)]*\)"#, with: "", options: .regularExpression)
+                .components(separatedBy: CharacterSet(charactersIn: ",;/·")).map { $0.replacingOccurrences(of: " ", with: "") }.filter { !$0.isEmpty }
+            if parts.contains(key) {
+                if !exact.contains(english) { exact.append(english) }
+            } else if keyStem.count >= 1, parts.contains(where: { koreanStem($0) == keyStem }), !similar.contains(english) {
+                similar.append(english)
+            }
+        }
+        // 짧은 낱말 먼저 (기본 낱말)
+        return (exact.sorted { $0.count < $1.count } + similar.sorted { $0.count < $1.count })
+    }
+
+    /// '행복하다', '행복한' → '행복하', '빠르다', '빠른' → '빠르', '작은' → '작'
+    private static func koreanStem(_ word: String) -> String {
+        var w = word
+        for ending in ["스럽다", "스러운", "적인", "하게", "하는", "다", "은", "는", "의"] where w.count > ending.count && w.hasSuffix(ending) {
+            w.removeLast(ending.count)
+            return w
+        }
+        // 받침 ㄴ으로 꾸미는 말 ("빠른" → "빠르", "행복한" → "행복하")
+        if w.count >= 2, let last = w.last, let v = last.unicodeScalars.first?.value, (0xAC00...0xD7A3).contains(v), (v - 0xAC00) % 28 == 4,
+           let plain = Unicode.Scalar(v - 4) {
+            w.removeLast()
+            w.append(Character(plain))
+        }
+        return w
     }
 }

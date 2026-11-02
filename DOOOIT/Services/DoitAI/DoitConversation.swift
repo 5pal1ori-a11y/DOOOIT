@@ -34,14 +34,24 @@ enum DoitConversation {
         if var a = tools(text, t, now: now) { a.isTool = true; return a }
         if let a = followUp(t, previousTopic: previousTopic) { return a }
         if let a = smallTalk(t) { return a }
-        // 지식 사전에서 비슷한 개념
-        if let best = DoitKnowledge.search(text, limit: 3).first, best.score >= 0.32 {
+        // 지식 사전에서 비슷한 개념 (질문의 핵심 낱말을 담은 개념만: 아무 개념이나 짐작해서 뜬금없는 설명을 하지 않게)
+        if let best = DoitKnowledge.search(text, limit: 3).first, best.score >= 0.32, isPlausibleGuess(best.entry, for: text),
+           !DoitRelevance.isStatement(text) || DoitRelevance.coversMost(text, "**\(best.entry.title)**\n" + best.entry.body) {
             let others = DoitKnowledge.search(text, limit: 3).dropFirst().filter { $0.score >= 0.28 }.map(\.entry.title)
             var answer = "혹시 **\(best.entry.title)**(\(best.entry.label))에 대해 묻는 건가요?\n\(best.entry.body)"
             if !others.isEmpty { answer += "\n\n비슷한 개념: " + others.joined(separator: ", ") }
             return Answer(text: answer, suggestions: ["\(best.entry.title) 퀴즈 내줘"] + others.prefix(2).map { "\($0) 설명해줘" }, topic: best.entry.title)
         }
-        return fallback(text, t)
+        return fallback(text, t, topic: previousTopic)
+    }
+
+    /// 짐작한 개념이 질문 낱말을 절반 이상 담았는지 (설명으로 물은 긴 질문은 설명 문장이 아주 비슷하면 됨)
+    private static func isPlausibleGuess(_ entry: DoitKnowledge.Entry, for question: String) -> Bool {
+        let words = DoitDialogue.keywords(question)
+        guard !words.isEmpty else { return false }
+        let text = ("**\(entry.title)**\n" + entry.body)
+        let hit = DoitRelevance.covered(words, in: text)
+        return Double(hit) >= Double(words.count) / 2
     }
 
     /// 정확해야 하는 도구 답만 (날짜 계산·주사위·이름 기억 등). 없으면 nil
@@ -344,27 +354,40 @@ enum DoitConversation {
             return Answer(text: personalize(pick(talk.replies)), suggestions: talk.chips)
         }
         // 2) 비슷한 말 (글자 묶음 비교)
+        // (부탁·어미 글자 묶음 "알려", "려줘", "고싶", "싶어"만 겹치는 건 비슷한 말이 아님: "자고 싶어" ≠ "놀고 싶어")
         guard t.count >= 3 && t.count <= 30 else { return nil }
-        let q = bigrams(t)
+        let q = content(bigrams(t))
+        guard !q.isEmpty else { return nil }
         var best: (Talk, Double)?
         for (talk, grams) in talkIndex {
-            let score = grams.map { cosine(q, $0) }.max() ?? 0
+            let score = grams.map { cosine(q, content($0)) }.max() ?? 0
             if score > (best?.1 ?? 0) { best = (talk, score) }
         }
-        guard let (talk, score) = best, score >= 0.55 else { return nil }
+        guard let (talk, score) = best, score >= 0.6 else { return nil }
         return Answer(text: personalize(pick(talk.replies)), suggestions: talk.chips)
     }
+
+    /// 뜻이 없는 글자 묶음 (부탁말·어미)
+    private static let functionGrams: Set<String> = ["알려", "려줘", "해줘", "고싶", "싶어", "싶다", "하고", "줄래", "주세", "세요", "해요", "했어", "할래", "하자",
+                                                     "있어", "없어", "뭐야", "어때", "할까", "까요", "는거", "하는", "해서", "어요", "아요", "이야", "거야", "줘요"]
+    private static func content(_ grams: [String: Double]) -> [String: Double] { grams.filter { !functionGrams.contains($0.key) } }
 
     // MARK: - 모를 때
 
     private static let positive = ["좋아", "행복", "신나", "기뻐", "최고", "재밌", "설레", "뿌듯", "다행", "성공", "합격", "칭찬받"]
-    private static let negative = ["싫어", "짜증", "슬퍼", "우울", "힘들", "피곤", "아파", "속상", "걱정", "망했", "화나", "외로"]
+    private static let negative = ["싫어", "짜증", "슬퍼", "우울", "힘들", "피곤", "아파", "속상", "걱정", "망했", "화나", "외로", "별로", "안좋", "최악", "꿀꿀", "답답", "안외워", "안돼", "못하겠"]
 
-    private static func fallback(_ text: String, _ t: String) -> Answer {
-        let isQuestion = text.contains("?") || has(t, ["뭐야", "뭐지", "누구", "언제", "어디", "왜", "어떻게", "얼마", "몇", "뭔가", "인가요", "일까", "알아?", "알아", "이유", "원리", "궁금"])
-        if isQuestion {
-            return Answer(text: personalize("그건 아직 제가 잘 몰라요 😅 위쪽 메뉴에서 DOOOIT 모델을 다운로드하면 인터넷에서 찾아 읽고 제 말로 정리해 드릴 수 있어요.\n지금도 수학 풀이, 영어 문법·단어, 과학 계산과 개념, 사회·역사, 공부 계획과 상담은 자신 있어요!"),
-                          suggestions: ["뭐 할 수 있어?", "수학 퀴즈 내줘"])
+    private static func fallback(_ text: String, _ t: String, topic: String? = nil) -> Answer {
+        let isQuestion = text.contains("?") || has(t, ["뭐야", "뭐지", "누구", "언제", "어디", "왜", "어떻게", "얼마", "몇", "뭔가", "인가요", "일까", "알아?", "알아", "이유", "원리", "궁금",
+                                                        "차이", "뜻", "설명", "알려", "뭐임", "머임", "머야", "방법", "하는법"])
+            || DoitRelevance.endsWithNoun(text)
+            // 끝맺음 없이 낱말만 늘어놓은 말 ("블랙핑크 멤버")도 묻는 말
+            || (text.split(separator: " ").count >= 2 && !DoitRelevance.isStatement(text) && !has(t, positive) && !has(t, negative))
+        // "그거 말고", "아까 말한 거"처럼 가리키는 말만 있으면 무엇인지 되물음
+        if isQuestion || DoitDialogue.containsPronoun(text) || has(t, ["아까", "저번에", "말고", "방금그"]) {
+            // 질문 낱말을 넣어 짧게 모른다고 하고 되묻기 (짐작해서 다른 이야기를 하지 않음)
+            let guarded = DoitRelevance.dontKnow(text, topic: topic)
+            return Answer(text: guarded.text, suggestions: guarded.suggestions)
         }
         if has(t, positive) {
             return Answer(text: personalize(pick(["좋은 일이 있었나 봐요! 저도 덩달아 기분이 좋아요 😊 더 이야기해 줄래요?", "와, 멋져요! 그 기분 그대로 오늘 공부도 신나게 해봐요!"])))
@@ -372,12 +395,9 @@ enum DoitConversation {
         if has(t, negative) {
             return Answer(text: personalize(pick(["그랬군요… 많이 힘들었겠어요. 무슨 일인지 조금 더 이야기해 줄래요?", "마음이 무거운 날이네요. 제가 들을게요. 천천히 말해줘요."])))
         }
-        return Answer(text: personalize(pick([
-            "그렇군요! 조금 더 이야기해 줄래요? 공부 이야기라면 더 잘 도와줄 수 있어요.",
-            "흥미로운 이야기네요 🙂 혹시 제가 도와줄 일이 있을까요? 일정, 타이머, 문제 풀이, 퀴즈 모두 할 수 있어요.",
-            "음, 제가 정확히 이해했는지 모르겠어요. 다르게 한 번만 더 말해 줄래요?"
-        ])), suggestions: ["뭐 할 수 있어?", "오늘 할 일 알려줘"])
+        return Answer(text: personalize("제가 정확히 이해했는지 모르겠어요. 무엇을 도와줄지 조금 더 말해 줄래요?"), suggestions: ["뭐 할 수 있어?", "오늘 할 일 알려줘"])
     }
+
 
     // MARK: - 도구
 

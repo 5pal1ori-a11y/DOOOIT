@@ -74,7 +74,7 @@ enum DoitEngine {
         }
         if text.isEmpty { return help() }
 
-        if has(t, ["뭐 할 수", "뭘 할 수", "뭐 할수", "뭘 할수", "할 수 있는 게", "할 수 있는 것", "도움말", "사용법", "기능 알려", "뭐해줄", "뭐 해줄"]) {
+        if has(t, ["뭐 할 수", "뭘 할 수", "뭐 할수", "뭘 할수", "할 수 있는 게", "할 수 있는 것", "도움말", "사용법", "기능 알려", "뭐해줄", "뭐 해줄", "할 줄 알", "할줄 알", "할줄알"]) {
             return help()
         }
 
@@ -101,10 +101,13 @@ enum DoitEngine {
         }
         // 식이 분명한 수학 문제는 앱 명령보다 먼저 ("x=2를 넣어" 같은 말이 플랜 추가로 잘못 가지 않게)
         if isClearlyMath(text), let solved = MathSolver.solve(text) { return mathReply(solved) }
+        // 말로 쓴 사칙연산 ("12 곱하기 7", "100 나누기 4는?", "루트 16")
+        if let spoken = spokenArithmetic(text), let solved = MathSolver.solve(spoken) { return mathReply(solved) }
 
         if has(t, ["메모"]) && !has(t, ["메모리"]) { return memo(text) }
         if has(t, ["d-day", "디데이", "dday", "d day"]) { return dDay(text) }
-        if has(t, ["목표"]) && has(t, ["시간", "분", "개", "단어"]) && !has(t, ["추가해", "일정"]) { return goals(text) }
+        if has(t, ["목표"]) && (has(t, ["시간", "분", "개", "단어"]) || has(t, ["설정", "정해줘", "바꿔", "변경"])) && !has(t, ["추가해", "일정", "세우는", "어떻게", "법"]) { return goals(text) }
+        if has(t, ["화면", "열어", "들어가"]), let navigation = navigate(t) { return navigation }
         if has(t, ["타이머", "스톱워치"]) || (has(t, ["공부"]) && has(t, ["시작할게", "시작해줘", "그만할게", "끝낼게", "종료해"])) {
             return timer(text)
         }
@@ -117,8 +120,9 @@ enum DoitEngine {
         if has(t, ["주간 리포트", "주간리포트", "이번 주 리포트", "이번주 리포트", "주간 보고", "한 주 정리", "일주일 정리", "이번 주 정리", "이번주 정리", "weekly"]) {
             return Reply(text: DoitActions.shared.weeklyReportText(), suggestions: ["통계 화면 열어줘", "수학 퀴즈 내줘"])
         }
-        if has(t, ["통계", "얼마나 공부", "공부 시간", "공부시간", "공부한 시간", "기록 보여"]) && !has(t, ["법", "어떻게 해야", "쉬어"]) { return stats(text) }
-        if has(t, ["틀린 단어", "단어 현황", "단어장 현황", "외운 단어", "단어 몇"]) {
+        if has(t, ["통계", "얼마나 공부", "공부 얼마나", "공부얼마나", "공부 시간", "공부시간", "공부한 시간", "기록 보여"])
+            && !has(t, ["법", "어떻게 해야", "쉬어", "해야 돼", "해야돼", "해야 해", "해야해", "해야 할", "적당", "좋아", "하면 돼", "하면돼"]) { return stats(text) }
+        if has(t, ["틀린 단어", "단어 현황", "단어장 현황", "외운 단어", "단어 몇"]) && !has(t, ["외워야", "해야", "외우면", "적당", "좋아"]) {
             return Reply(text: DoitActions.shared.records(kind: "words"), suggestions: ["단어 화면 열어줘", "내 단어로 퀴즈 내줘"])
         }
         if has(t, ["오답노트", "오답 노트", "오답 몇"]) && !has(t, ["저장", "넣어", "추가", "쓰는", "어떻게"]) {
@@ -129,11 +133,18 @@ enum DoitEngine {
         if has(t, ["완료 취소", "안 했", "체크 해제", "체크 풀"]), let reply = updatePlan(text, action: "uncomplete") { return reply }
         if has(t, ["완료", "끝냈", "다 했", "했어", "끝났", "체크해"]) && !has(t, ["추가", "타이머"]),
            let reply = updatePlan(text, action: "complete") { return reply }
-        if has(t, ["추가", "넣어", "잡아", "등록", "예약", "계획 세워", "일정 잡"]) || (has(t, ["만들어"]) && findDate(in: text) != nil) {
+        // ("공부 계획 세워줘"처럼 날짜·시간이 없으면 일정 추가가 아니라 계획 상담)
+        if has(t, ["추가", "넣어", "잡아", "등록", "예약", "일정 잡"])
+            || (has(t, ["만들어", "계획 세워"]) && (findDate(in: text) != nil || findTime(in: text) != nil)) {
             return addPlan(text)
         }
-        if has(t, ["할 일", "할일", "일정", "플랜", "스케줄", "계획", "뭐 있"]) && !has(t, ["법", "어떻게", "방법", "팁", "못 지", "안 지"]) {
+        if (has(t, ["할 일", "할일", "일정", "플랜", "스케줄", "계획", "뭐 있"]) || (has(t, ["뭐 해야", "뭐해야"]) && has(t, ["오늘", "내일", "모레", "요일"])))
+            && !has(t, ["법", "어떻게", "방법", "팁", "못 지", "안 지", "짜줘", "짜 줘", "세워", "짜볼", "시험", "전날"]) {
             return overview(text)
+        }
+        // 알 수 없는 것(실시간 정보·개인 정보·시험에 나올 문제)과 부탁말·과목 이름만 보낸 말: 짐작하지 않고 짧게
+        if let guarded = DoitRelevance.check(text, topic: conversationTopic) {
+            return Reply(text: guarded.text, suggestions: guarded.suggestions, origin: guarded.modelMayAnswer ? .conversation : .command)
         }
 
         // 공부 질문: 수학 → 영어 → 과학 → 사회 (모두 앱 안에서 바로 답함)
@@ -141,9 +152,10 @@ enum DoitEngine {
            looksLikeMathQuestion(text) || ![.expression, .calc, .linear, .quadraticEquation, .higherEquation].contains(solved.kind) {
             return mathReply(solved)
         }
-        if let english = DoitEnglish.answer(text) { return Reply(text: english, suggestions: ["영어 퀴즈 내줘", "더 자세히 알려줘"], origin: .subject) }
-        if let science = DoitScience.answer(text) { return Reply(text: science, suggestions: ["과학 퀴즈 내줘"], origin: .subject) }
-        if let social = DoitSocial.answer(text) { return Reply(text: social, suggestions: ["사회 퀴즈 내줘"], origin: .subject) }
+        // (과목 엔진 답이 질문 낱말을 다 담지 못했는데 사전에 다 담은 개념이 있으면 그 개념으로: "세포 분열" → '세포'가 아니라 '체세포 분열')
+        if let english = DoitEnglish.answer(text) { return specific(text, Reply(text: DoitRelevance.brief(english), suggestions: ["영어 퀴즈 내줘", "더 자세히 알려줘"], origin: .subject)) }
+        if let science = DoitScience.answer(text) { return specific(text, Reply(text: science, suggestions: ["과학 퀴즈 내줘"], origin: .subject)) }
+        if let social = DoitSocial.answer(text) { return specific(text, Reply(text: social, suggestions: ["사회 퀴즈 내줘"], origin: .subject)) }
 
         // "3시에 학원 가야 돼" → 일정으로 넣을지 물어봄
         if let time = findTime(in: text), has(t, ["가야", "해야", "있어", "약속", "만나", "가기로", "하기로"]), !has(t, ["?", "뭐", "어떻게"]) {
@@ -171,13 +183,35 @@ enum DoitEngine {
             return Reply(text: tool.text, suggestions: tool.suggestions)
         }
         // 내장 지식 사전에서 비슷한 개념 (이름이 정확히 안 맞아도)
-        if let known = DoitKnowledge.answer(text) {
-            return Reply(text: known, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"], origin: .knowledge)
+        // (묻는 말이 아닌 하는 말 "영어 단어가 안 외워져"에는 개념 설명을 붙이지 않음)
+        if let known = DoitKnowledge.answer(text), !DoitRelevance.isStatement(text) || DoitRelevance.coversMost(text, known) {
+            return Reply(text: DoitRelevance.brief(known), suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"], origin: .knowledge)
         }
         // 자유 대화
         let talk = DoitConversation.reply(text, previousTopic: conversationTopic)
         if let topic = talk.topic { conversationTopic = topic }
         return Reply(text: talk.text, suggestions: talk.suggestions, origin: talk.isTool ? .command : .conversation)
+    }
+
+    /// 과목 엔진 답보다 질문에 더 맞는 개념이 사전에 있으면 그 개념
+    private static func specific(_ text: String, _ reply: Reply) -> Reply {
+        guard let entry = DoitRelevance.betterEntry(for: text, than: reply.text) else { return reply }
+        return Reply(text: DoitRelevance.brief("**\(entry.title)** (\(entry.label))\n\(entry.body)"), suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"], origin: .knowledge)
+    }
+
+    /// 말로 쓴 사칙연산을 식으로 ("12 곱하기 7" → "12×7", "루트 16" → "√16"). 해당 없으면 nil
+    static func spokenArithmetic(_ text: String) -> String? {
+        guard text.contains(where: \.isNumber), has(text, ["곱하기", "나누기", "더하기", "빼기", "루트"]) else { return nil }
+        var s = text
+        for (word, symbol) in [("곱하기", "×"), ("나누기", "÷"), ("더하기", "+"), ("빼기", "−")] { s = s.replacingOccurrences(of: word, with: symbol) }
+        s = s.replacingOccurrences(of: #"루트\s*"#, with: "√", options: .regularExpression)
+        for tail in ["는?", "은?", "는", "은", "?", "얼마야", "얼마", "계산해줘", "계산", "해줘", "이야", "야"] where s.hasSuffix(tail) {
+            s = String(s.dropLast(tail.count))
+        }
+        s = s.trimmingCharacters(in: .whitespaces)
+        // 숫자와 기호만 남아야 식
+        guard s.allSatisfy({ $0.isNumber || " .×÷+−√()".contains($0) }) else { return nil }
+        return s
     }
 
     // MARK: 공부 질문 판별
@@ -456,7 +490,8 @@ enum DoitEngine {
             return Reply(text: "D-Day 날짜를 알려주세요. 예: 기말고사 D-Day 12월 10일로 설정해줘")
         }
         var rest = text.replacingOccurrences(of: date, with: " ")
-        for word in ["D-Day", "d-day", "D-DAY", "디데이", "DDay", "dday", "설정해줘", "설정", "으로", "로", "바꿔줘", "만들어줘"] {
+        rest = rest.replacingOccurrences(of: #"(?i)d\s*-?\s*day"#, with: " ", options: .regularExpression)
+        for word in ["디데이", "설정해줘", "설정", "으로", "로", "바꿔줘", "만들어줘"] {
             rest = rest.replacingOccurrences(of: word, with: " ")
         }
         let title = cleanTitle(rest)
@@ -645,7 +680,9 @@ enum DoitEngine {
     /// 단어 끝의 조사 떼기 ("수학을" → "수학", "학원에" → "학원")
     private static func strip(_ word: String) -> String {
         var w = word.trimmingCharacters(in: CharacterSet(charactersIn: ".?!~\"'"))
+        // 받침에 맞는 조사만 ("수행평가"의 '가'는 조사가 아님)
         for suffix in ["으로", "에서", "에게", "을", "를", "에", "로", "은", "는", "이", "가"] where w.count > suffix.count + 1 && w.hasSuffix(suffix) {
+            guard let last = w.dropLast(suffix.count).last, DoitRelevance.particleFits(suffix, after: last) else { continue }
             w.removeLast(suffix.count)
             break
         }

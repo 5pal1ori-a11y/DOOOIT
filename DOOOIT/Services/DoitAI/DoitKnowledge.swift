@@ -27,11 +27,24 @@ enum DoitKnowledge {
         list += DoitSocial.knowledgeEntries.map { Entry(subject: "사회", names: $0.names, body: $0.body) }
         list += DoitEnglish.knowledgeEntries.map { Entry(subject: "영어", names: $0.names, body: $0.body) }
         // 초등 ~ 대학교 교육과정 사전 (같은 이름이 이미 있으면 앞의 설명을 남기고 건너뜀)
-        var seen = Set(list.map { $0.title.lowercased().filter { !$0.isWhitespace } })
+        // (같은 이름이면 다른 이름들은 앞 개념의 다른 이름으로 더함: "공리주의"의 "벤담과 밀")
+        func squash(_ s: String) -> String { s.lowercased().filter { !$0.isWhitespace } }
+        var seen: [String: Int] = [:]
+        for (i, entry) in list.enumerated() where seen[squash(entry.title)] == nil { seen[squash(entry.title)] = i }
         for (subject, items) in DoitCurriculum.bySubject {
             for item in items {
-                let key = (item.names.first ?? "").lowercased().filter { !$0.isWhitespace }
-                guard !key.isEmpty, seen.insert(key).inserted else { continue }
+                let key = squash(item.names.first ?? "")
+                guard !key.isEmpty else { continue }
+                if let index = seen[key] {
+                    let old = list[index]
+                    let known = Set(old.names.map(squash))
+                    let extra = item.names.filter { !known.contains(squash($0)) }
+                    if !extra.isEmpty {
+                        list[index] = Entry(subject: old.subject, names: old.names + extra, body: old.body, level: old.level, unit: old.unit)
+                    }
+                    continue
+                }
+                seen[key] = list.count
                 list.append(Entry(subject: subject, names: item.names, body: item.body, level: item.level, unit: item.unit))
             }
         }
@@ -43,10 +56,95 @@ enum DoitKnowledge {
                                   "궁금해", "궁금", "란", "이란", "정의", "개념", "의미", "뜻", "좀", "해줘", "줘", "요", "어떻게", "대해", "대해서", "에", "이", "가",
                                   "은", "는", "을", "를", "의", "?", "!", ".", "말해줘", "쉽게", "뭐라고해", "뭐라고하지", "뭐라고", "라고해", "라고", "하는거", "것을"]
 
+    /// 낱말로만 빼는 말 (낱말 전체가 이 말일 때만: "구하는 법"의 '법'은 빼지만 "문법"은 그대로)
+    private static let wholeFillers: Set<String> = ["차이", "차이점", "구하는", "하는", "법", "방법", "구하는법", "하는법", "공식은", "언제야", "누구야", "어디야", "머야", "머임", "뭐임"]
+    private static let suffixFillers = (fillers + ["구하는법", "구하는방법", "하는법", "하는방법", "머야", "머임", "뭐임", "언제야", "누구야"]).filter { $0.count >= 2 }.sorted { $0.count > $1.count }
+
+    /// 묻는 말을 뺀 낱말들: 낱말 전체가 묻는 말이거나 낱말 끝에 붙은 묻는 말만 뗌
+    /// (예전처럼 글자 가운데서 빼면 "정의론" → "론", "설명문" → "문"처럼 개념 이름이 망가짐)
+    static func words(_ text: String) -> [String] {
+        let separators = CharacterSet.whitespacesAndNewlines.union(CharacterSet(charactersIn: "?!.,~'\"()？！"))
+        var result: [String] = []
+        for piece in text.lowercased().components(separatedBy: separators) where !piece.isEmpty {
+            var word = piece
+            if fillers.contains(word) || wholeFillers.contains(word) { continue }
+            var changed = true
+            while changed {
+                changed = false
+                for filler in suffixFillers where word.count > filler.count && word.hasSuffix(filler) {
+                    word.removeLast(filler.count)
+                    changed = true
+                    break
+                }
+            }
+            for prefix in ["무슨", "좀"] where word.hasPrefix(prefix) && word.count > prefix.count + 1 { word.removeFirst(prefix.count) }
+            if !word.isEmpty { result.append(word) }
+        }
+        return result
+    }
+
     static func normalize(_ text: String) -> String {
-        var t = text.lowercased()
-        for word in fillers.sorted(by: { $0.count > $1.count }) where word.count >= 2 { t = t.replacingOccurrences(of: word, with: " ") }
-        return t.filter { !$0.isWhitespace && !"?!.,~'\"()".contains($0) }
+        words(text).joined()
+    }
+
+    /// 낱말 비교용 모양들 (조사를 뗀 것도: "세종의" → 세종의, 세종)
+    private static func forms(_ word: String) -> [String] {
+        var list = [word]
+        let stripped = DoitRelevance.stripParticle(word)
+        if stripped != word { list.append(stripped) }
+        if word.count >= 3, word.hasSuffix("의") { list.append(String(word.dropLast())) }
+        // 한 글자 낱말 + 조사 ("되와" → 되, "원의" → 원)
+        if word.count == 2, let last = word.last, ["와", "과", "의", "랑", "는", "은", "를", "을", "가", "이", "도"].contains(String(last)),
+           let first = word.first, DoitRelevance.particleFits(String(last), after: first) {
+            list.append(String(first))
+        }
+        return list
+    }
+
+    /// 질문 낱말 하나와 이름 낱말 하나가 같은 말인지 ("세종대왕" ↔ "세종", "세포" ↔ "체세포", "벤담이랑" ↔ "벤담과")
+    private static func sameWord(_ q: String, _ n: String) -> Bool {
+        let qs = forms(q), ns = forms(n)
+        for a in qs {
+            for b in ns {
+                if a == b { return true }
+                if b.count >= 2, a.hasPrefix(b), a.count - b.count <= 2 { return true }
+                if a.count >= 2, b.hasSuffix(a), b.count - a.count <= 1 { return true }
+            }
+        }
+        return false
+    }
+
+    /// 이름의 낱말이 모두 질문에 있으면 (질문 낱말을 얼마나 덮었는지에 따라) 점수
+    private static func tokenScore(query: [String], name: String) -> Double {
+        let plain = name.replacingOccurrences(of: #"\([^)]*\)"#, with: " ", options: .regularExpression)
+        // (이름 속 "비교", "차이"는 묻는 말과 같아서 빼고 비교: "광합성과 호흡의 비교" ↔ "호흡과 광합성의 차이")
+        let parts = plain.lowercased().components(separatedBy: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "·,/")))
+            .filter { !$0.isEmpty && !["비교", "차이", "차이점"].contains($0) }
+        guard !parts.isEmpty, !query.isEmpty, parts.joined().count >= 2 else { return 0 }
+        guard parts.allSatisfy({ n in query.contains { sameWord($0, n) } }) else {
+            // 띄어 쓰지 않은 질문 ("세종대왕업적"): 이름의 낱말(두 글자 이상)이 모두 질문 속에 있으면 덮은 글자 수만큼
+            let joined = query.joined()
+            guard query.count <= 2, parts.count >= 2, parts.allSatisfy({ $0.count >= 2 }) else { return 0 }
+            var used = 0
+            for part in parts {
+                guard let form = forms(part).first(where: { $0.count >= 2 && joined.contains($0) }) else { return 0 }
+                used += form.count
+            }
+            return 0.45 + 0.4 * min(1, Double(used) / Double(max(1, joined.count)))
+        }
+        let covered = query.filter { q in parts.contains { sameWord(q, $0) } }.count
+        return 0.5 + 0.4 * Double(covered) / Double(query.count) + (parts.count >= 2 ? 0.05 : 0)
+    }
+
+    /// 이름이 질문 속 낱말의 시작에 있는지 ("반어법" 속 "어법"은 아님)
+    private static func startsAtWord(_ name: String, in tokens: [String]) -> Bool {
+        let joined = tokens.joined()
+        var offset = 0
+        for token in tokens {
+            if joined.dropFirst(offset).hasPrefix(name) { return true }
+            offset += token.count
+        }
+        return false
     }
 
     static func bigrams(_ text: String) -> [String: Double] {
@@ -75,7 +173,8 @@ enum DoitKnowledge {
 
     /// 가장 비슷한 개념들 (점수 0~1, 높을수록 비슷)
     static func search(_ query: String, limit: Int = 3) -> [Match] {
-        let q = normalize(query)
+        let queryWords = words(query)
+        let q = queryWords.joined()
         guard q.count >= 2 else { return [] }
         let qb = bigrams(q)
         var results: [Match] = []
@@ -87,8 +186,14 @@ enum DoitKnowledge {
             // 설명 문장과 아주 비슷하면 그 자체로 충분
             if q.count >= 8 { score = max(score, sentenceScore * 0.95) }
             // 이름이 질문에 그대로 들어 있으면 크게 올림 (긴 이름일수록)
-            if let hit = item.names.filter({ $0.count >= 2 && q.contains($0) }).max(by: { $0.count < $1.count }) {
+            // 낱말 가운데에 든 짧은 이름은 다른 말의 일부 ("반어법" 속 "어법", "시간" 속 "시")
+            if let hit = item.names.filter({ $0.count >= 2 && q.contains($0) && ($0.count >= 4 || startsAtWord($0, in: queryWords)) }).max(by: { $0.count < $1.count }) {
                 score = max(score, 0.6 + min(0.35, Double(hit.count) * 0.05))
+            }
+            // 이름의 낱말이 모두 질문에 있으면 ("세종대왕 업적" ↔ "세종의 업적", "삼각형 넓이 구하는 법" ↔ "삼각형의 넓이")
+            if queryWords.count <= 6 {
+                let best = entries[i].names.map { tokenScore(query: queryWords, name: $0) }.max() ?? 0
+                score = max(score, best)
             }
             if score > 0.18 { results.append(Match(entry: entries[i], score: score)) }
         }
@@ -98,7 +203,13 @@ enum DoitKnowledge {
     /// 확실한 답이 있으면 보기 좋게 (없으면 nil)
     static func answer(_ query: String) -> String? {
         guard let best = search(query, limit: 3).first, best.score >= 0.45 else { return nil }
-        var text = "**\(best.entry.title)** (\(best.entry.label))\n\(best.entry.body)"
+        // 다른 이름으로 물었으면 그 이름도 같이 ("논설문" → **주장하는 글** (논설문 · 초등 국어))
+        let asked = words(query).joined()
+        let alias = best.entry.names.dropFirst().first { name in
+            let key = name.lowercased().filter { !$0.isWhitespace }
+            return key.count >= 2 && asked.contains(key) && !best.entry.title.lowercased().filter({ !$0.isWhitespace }).contains(key)
+        }
+        var text = "**\(best.entry.title)** (\(alias.map { "\($0) · " } ?? "")\(best.entry.label))\n\(best.entry.body)"
         let others = search(query, limit: 4).dropFirst().filter { $0.score >= 0.35 }.map(\.entry.title)
         if !others.isEmpty { text += "\n\n함께 보면 좋아요: " + others.joined(separator: ", ") }
         return text

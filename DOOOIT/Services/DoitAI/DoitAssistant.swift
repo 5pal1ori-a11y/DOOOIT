@@ -208,9 +208,8 @@ final class DoitAssistant {
                 return
             }
             turn.kind = .chat
-            let word = DoitDialogue.keywords(routed).first ?? routed
-            messages.append(Message(role: .assistant, text: "'\(word)'은(는) 아직 잘 몰라요. 무엇이 궁금한지 조금 더 자세히 적어 줄래요?",
-                                    suggestions: ["\(word) 설명해줘", "뭐 할 수 있어?"]))
+            let guarded = DoitRelevance.dontKnow(routed)
+            messages.append(Message(role: .assistant, text: guarded.text, suggestions: guarded.suggestions))
             return
         }
 
@@ -225,7 +224,9 @@ final class DoitAssistant {
             // 앱 안 지식으로 답한 것도 이어서 묻기·저장할 수 있게
             let firstLine = reply.text.components(separatedBy: "\n").first ?? ""
             // "**광합성** (과학)" → "광합성"
-            let topic = firstLine.components(separatedBy: "**").dropFirst().first ?? firstLine.replacingOccurrences(of: "**", with: "")
+            let title = firstLine.components(separatedBy: "**").dropFirst().first ?? firstLine.replacingOccurrences(of: "**", with: "")
+            // "임진왜란: 1592~1598년" → "임진왜란"
+            let topic = DoitDialogue.topic(fromReply: reply.text) ?? title
             lastAnswer = (topic, reply.text)
             DoitEngine.conversationTopic = topic
         }
@@ -497,6 +498,12 @@ final class DoitAssistant {
             quiz = nil
             return nil
         }
+        // 답이 아니라 새 질문 ("광합성이 뭐야", "임진왜란 언제야?")이면 퀴즈를 끝내고 그 질문에 답함
+        let asking = ["뭐야", "뭐지", "뭔데", "뭐예요", "설명", "알려", "어떻게", "왜", "언제야", "누구야", "어디야", "이란", "뜻이"].contains { q.contains($0) }
+        if !giveUp, asking, !DoitChat.isCorrect(answer, item: state.item) {
+            quiz = nil
+            return nil
+        }
         let right = !giveUp && DoitChat.isCorrect(answer, item: state.item)
         if right { state.correct += 1 }
         let headline: String
@@ -618,7 +625,7 @@ final class DoitAssistant {
     /// 문제 유형 사전으로 "무슨 유형/과목인지" 답하기 (문제 글은 질문 속 글 → 사진 → 바로 전 문제 순)
     private func problemTypeReply(_ question: String, photo: DoitEngine.PhotoContext?) -> Message? {
         // "취약 유형 학습" 같은 말은 빼고, 유형을 묻는 말일 때만
-        let asksType = question.range(of: #"(무슨|어떤|어느|뭔|무엇)\s*(문제\s*)?유형|유형\s*(이|은|는|을|좀)?\s*(뭐|알려|말해|설명)|문제\s*유형"#, options: .regularExpression) != nil
+        let asksType = question.range(of: #"(무슨|어떤|어느|뭔|무엇)\s*(문제\s*)?유형|유형\s*(이|은|는|을|좀)?\s*(뭐|알려|말해|설명)|문제\s*유형|[?？.]\s*유형\s*[?？]*$"#, options: .regularExpression) != nil
         let asksSubject = question.range(of: #"(무슨|어떤|어느|뭔)\s*과목"#, options: .regularExpression) != nil
         guard asksType || asksSubject else { return nil }
         // 묻는 말을 빼고 남은 문제 글

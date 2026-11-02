@@ -120,6 +120,10 @@ enum DoitDialogue {
             "어째서", "어째서요", "이유는", "이유가뭐야", "이유는뭐야", "왜그런지", "왜그렇게", "그건왜", "그게왜", "왜그런가요"].contains($0) }) {
             return .why
         }
+        // "왜 중요해?", "그럼 왜 그래?" 처럼 '왜'로 시작하는 짧은 말 (주제 없이)
+        if rest.hasPrefix("왜") && rest.count <= 7 {
+            return .why
+        }
         if has(core, ["단계별", "풀이과정", "과정보여", "과정알려", "어떻게풀었", "어떻게나왔", "어떻게구했", "어떻게구해", "풀이보여", "자세한풀이", "차근차근", "한단계씩"]),
            core.count <= 20 {
             return .steps
@@ -131,7 +135,7 @@ enum DoitDialogue {
             || ["다시", "다시요", "다시해줘"].contains(core) {
             return .again
         }
-        if has(core, ["다른예시", "다른예", "예시", "예를들어", "예를들면", "예제", "예시들어"]), core.count <= 14,
+        if has(core, ["다른예시", "다른예", "예시", "예를들어", "예를들면", "예제", "예시들어", "예문"]), core.count <= 14,
            !has(core, ["뭐야", "란", "이란", "뜻", "무엇"]) {
             return .example
         }
@@ -152,7 +156,10 @@ enum DoitDialogue {
             let endings = m.2 == nil ? ["해", "줘", "요", "까", "게", "네", "래", "자", "지", "어", "아", "다", "야", "니", "냐"] : ["해", "줘", "요", "까"]
             let verbish = endings.contains { target.hasSuffix($0) }
             let asking = ["뭐", "어떻게", "언제", "어디", "누구", "진짜", "정말", "그래", "알겠", "고마워", "괜찮"].contains { target.hasPrefix($0) }
-            if target.count >= 2, !target.contains(where: \.isNumber), !pronouns.contains(target), !verbish, !asking {
+            // ("그럼 원은?"처럼 조사가 붙은 한 글자 이름도, "그럼 제3법칙은?"처럼 숫자가 든 이름도 — 숫자만 바꾸는 말은 위에서 처리)
+            let letters = target.filter { $0.isLetter }.count
+            let named = target.count >= 2 ? (!target.contains(where: \.isNumber) || letters >= 2) : (strong && m.2 != nil && letters == 1)
+            if named, !pronouns.contains(target), !verbish, !asking {
                 return .ellipsis(target)
             }
         }
@@ -183,6 +190,21 @@ enum DoitDialogue {
     // MARK: - 이어지는 말 풀기
 
     static func resolve(_ raw: String, state current: State) -> Resolution {
+        // 타이머를 켠 뒤 "멈춰", "그만", "꺼줘" → 타이머에게
+        let compact = raw.replacingOccurrences(of: " ", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "?!.~"))
+        if current.last == .command, current.question?.contains("타이머") == true,
+           ["멈춰", "멈춰줘", "그만", "그만해", "꺼", "꺼줘", "종료", "종료해줘", "끝", "끝내", "끝내줘", "정지", "일시정지", "잠깐", "잠깐만", "중지", "다시시작", "재개"].contains(compact) {
+            return .rewrite("타이머 " + compact)
+        }
+        // 앞 주제와 비교하는 말 ("광합성이랑 차이는?", "그럼 공리주의랑 다른 점은?") → "세포 호흡과 광합성의 차이"
+        if let topic = current.topic, current.focus?.isExplainable == true,
+           let m = compact.firstMatch(of: #/^(?:그럼|그러면|근데)?([가-힣A-Za-z0-9]{1,12}?)(?:이랑|랑|와|과|하고|이랑은|랑은|과는|와는)(?:의)?(?:차이|차이점|다른점|비교|공통점)(?:은|는|이|가)?(?:뭐야|뭐지|알려줘|뭔데|있어)?$/#) {
+            let other = String(m.1)
+            if other != topic, !pronouns.contains(other) {
+                let joined = DoitRelevance.particleFits("과", after: topic.last ?? "가") ? "과" : "와"
+                return .rewrite("\(topic)\(joined) \(other)의 차이")
+            }
+        }
         guard let follow = classify(raw) else { return .none }
         var state = current
         // "광합성 다른 예시"처럼 주제를 직접 말했으면 그 주제로 (앞 주제와 다르면 지식 사전에서 찾아서, 없으면 엔진에 맡김)
@@ -196,6 +218,10 @@ enum DoitDialogue {
         }
         // 앞 내용이 없을 때 "더 알려줘", "그 다음은?", "이 문제 풀어줘"는 원래 답(재밌는 사실 하나 더, 풀 문제 보내 달라는 말)에 맡김
         if !state.hasContext, [.more, .next, .pronoun].contains(follow) { return .none }
+        // 앞 내용이 없는 "일본 수도는?", "삼각형 내각의 합은?"은 이어 말하기가 아니라 새 질문
+        if case .ellipsis = follow, state.question == nil || state.focus == nil { return .none }
+        // "왜 공부해야 돼?"처럼 앞 내용 없이 '왜'로 시작하는 말은 새 질문 ("왜?"만 보낸 말은 되물음)
+        if follow == .why, !state.hasContext, strippedConnective(compact) != "왜", compact.count > 3 { return .none }
         let focus = state.focus
         let topic = state.topic
         switch follow {
@@ -259,6 +285,9 @@ enum DoitDialogue {
         case .example, .next:
             if focus == .math, state.mathProblem != nil {
                 return .rewrite("비슷한 문제 내줘")
+            }
+            if follow == .example, focus == .word, let word = state.entities["word"] {
+                return .rewrite("\(word) 영어 뜻 자세히")
             }
             if let topic, focus?.isExplainable == true {
                 if follow == .example {
@@ -358,7 +387,8 @@ enum DoitDialogue {
     static func isOffTopic(question: String, reply: String) -> Bool {
         let words = keywords(question)
         guard !words.isEmpty else { return false }
-        let body = reply.lowercased().replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "*", with: "")
+        // 답 제목 개념의 다른 이름도 봄 ("뉴턴 제2법칙" → '가속도 법칙', "논설문" → '주장하는 글')
+        let body = DoitRelevance.expanded(reply)
         if words.contains(where: { body.contains($0) }) { return false }
         // 글자 두 개 묶음이 꽤 겹치면 같은 이야기 ("물건값" ↔ "물가")
         let qGrams = Set(words.flatMap { word -> [String] in
@@ -373,25 +403,32 @@ enum DoitDialogue {
     /// 질문의 핵심 낱말 (조사·물음말·부탁말은 뺌)
     static func keywords(_ raw: String) -> [String] {
         let stop: Set<String> = ["뭐", "뭐야", "뭐지", "무엇", "무엇인가요", "어떻게", "왜", "언제", "어디", "누구", "알려", "알려줘", "설명", "설명해", "설명해줘",
-                                 "해줘", "좀", "진짜", "정말", "그럼", "그러면", "이거", "그거", "이건", "그건", "오늘", "내", "나", "너", "저", "제", "있어", "없어",
+                                 "해줘", "좀", "진짜", "정말", "그럼", "그러면", "그래서", "그래도", "아까", "저번에", "말고", "누가", "누구야", "이거", "그거", "이건", "그건", "오늘", "내", "나", "너", "저", "제", "있어", "없어",
                                  "하는", "되는", "이유", "원리", "뜻", "의미", "방법", "대해", "대해서", "관해", "관련", "말해", "말해줘", "궁금해", "궁금", "가르쳐",
                                  "가르쳐줘", "줘", "주세요", "해", "할", "수", "것", "거", "게", "더", "다시", "쉽게", "자세히", "간단히", "그리고", "근데", "혹시",
                                  "뭔가요", "뭔데", "인가요", "이야", "예요", "이에요", "있나요", "어때", "어떤", "무슨", "얼마", "몇", "개념", "일어나", "일어났어",
                                  "다른", "들어줘", "보여줘", "줄래", "해줄래", "그럼요", "그러면", "그렇다면", "들면", "들어", "들어서", "보면", "해봐", "알려줄래", "주라", "볼래",
                                  // 무엇을 알고 싶은지 나타내는 말 (주제가 아님): "광합성 예시" → 광합성
-                                 "예시", "예문", "예제", "특징", "종류", "장점", "단점", "차이점", "정의",
+                                 "예시", "예문", "예제", "특징", "종류", "장점", "단점", "차이점", "차이", "정의", "구하는", "방법", "하는법", "구하는법", "뭐임", "머임", "머야",
                                  "the", "a", "an", "is", "are", "what", "how", "why", "to", "of", "in", "do", "does"]
         let endings = ["이란게", "이란", "란게", "에대해서", "에대해", "에관해", "이라는게", "라는게", "이라는", "라는", "에서는", "에서", "으로는", "으로", "까지는",
                        "까지", "부터", "에게", "한테", "이랑", "랑", "하고", "이에요", "예요", "이야", "인가", "이다", "은", "는", "이", "가", "을", "를", "의",
                        "에", "로", "와", "과", "도", "만", "야", "란"]
+        // 무엇으로 답할지 나타내는 말 (주제가 아님): "책 영어로" → 책
+        let asking: Set<String> = ["영어로", "한국어로", "우리말로", "영단어로", "영어로는", "한글로", "숫자로", "그림으로", "표로"]
         var result: [String] = []
-        let tokens = raw.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        // 영어와 한글이 붙어 있으면 나눔 ("a와" → "a" + "와", "to부정사"는 그대로)
+        let spaced = raw.lowercased().replacingOccurrences(of: #"([a-z]{1,3})([가-힣])"#, with: "$1 $2", options: .regularExpression)
+            .replacingOccurrences(of: #"\bto ([가-힣])"#, with: "to$1", options: .regularExpression)
+        let tokens = spaced.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
         for token in tokens {
             var word = token
-            if stop.contains(word) { continue }
+            if stop.contains(word) || asking.contains(word) { continue }
             let hangul = word.unicodeScalars.contains { (0xAC00...0xD7A3).contains($0.value) }
             if hangul {
+                // 받침에 맞는 조사만 뗌 ("수행평가"의 '가'는 그대로)
                 for ending in endings where word.count > ending.count + 1 && word.hasSuffix(ending) {
+                    guard let last = word.dropLast(ending.count).last, DoitRelevance.particleFits(ending, after: last) else { continue }
                     word.removeLast(ending.count)
                     break
                 }
@@ -524,9 +561,14 @@ enum DoitDialogue {
         }
         if let topic = state.topic, question.contains(topic) { return topic }
         if let word = state.entities["word"], question.contains(word) { return word }
-        guard let first = keywords(question).first else { return nil }
+        // 바꿀 대상과 가장 비슷한 낱말 ("뉴턴 제2법칙" → "그럼 제3법칙은?"이면 '제2법칙'), 없으면 첫 낱말
+        let words = keywords(question)
+        guard !words.isEmpty else { return nil }
+        let targetGrams = Set(DoitKnowledge.bigrams(target.lowercased()).keys)
+        let similar = words.map { w in (w, Set(DoitKnowledge.bigrams(w).keys).intersection(targetGrams).count) }.max { $0.1 < $1.1 }
+        let chosen = (similar?.1 ?? 0) > 0 ? similar!.0 : words[0]
         // 낱말이 원래 글자 그대로 들어 있는 부분 (대소문자)
-        if let range = question.range(of: first, options: .caseInsensitive) { return String(question[range]) }
+        if let range = question.range(of: chosen, options: .caseInsensitive) { return String(question[range]) }
         return nil
     }
 
@@ -536,6 +578,10 @@ enum DoitDialogue {
         var topic = String(m.1).trimmingCharacters(in: .whitespaces)
         for suffix in [" 자세히", " 더 알아보기"] where topic.hasSuffix(suffix) { topic.removeLast(suffix.count) }
         if topic.hasPrefix("답:") || topic.hasPrefix("퀴즈") { return nil }
+        // "임진왜란: 1592~1598년" → "임진왜란"
+        if let colon = topic.range(of: ": ") ?? topic.range(of: ":"), colon.lowerBound > topic.startIndex {
+            topic = String(topic[..<colon.lowerBound]).trimmingCharacters(in: .whitespaces)
+        }
         return topic
     }
 

@@ -101,6 +101,11 @@ enum DoitTutor {
         if let entry, !previous.contains(entry.body.prefix(30)) {
             lines.append("**\(entry.title)** 자세히")
             lines.append(entry.body)
+        } else if let entry, !previous.contains(entry.body) {
+            // 앞에서 앞부분만 보여 줬으면 나머지 줄
+            let rest = entry.body.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && !previous.contains($0) }
+            lines.append("**\(entry.title)** 자세히")
+            lines.append(rest.isEmpty ? entry.body : rest.joined(separator: "\n"))
         } else {
             lines.append("**\(topic)** 더 알아보기")
         }
