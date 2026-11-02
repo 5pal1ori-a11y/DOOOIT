@@ -24,16 +24,150 @@ extension MathNote {
     }
 }
 
-/// 작은 과목 표시
+extension MathNote {
+    /// 화면에 보일 과목 이름 ("" → 수학, "윤리", "한국사" 같은 세부 과목도 그대로)
+    var subjectLabel: String { DoitSubjectNote.displayName(subject) }
+    /// 큰 과목 (수학 · 국어 · 영어 · 과학 · 사회 · 윤리 · 역사 · 기타)
+    var broadSubject: String { DoitSubjectDetector.broad(ofStored: subject) }
+    /// 과목을 AI가 정했고 사용자가 아직 바꾸지 않았는지
+    var isSubjectAuto: Bool { DoitSubjectNote.isAutoSubject(stored: subject, scan: scan) }
+
+    /// 직접 고른 과목 (다시 자동으로 바꾸지 않음)
+    func chooseSubject(_ label: String) {
+        subject = DoitSubjectNote.storedValue(label)
+        if var s = scan { s.autoSubject = nil; scan = s }
+        updatedAt = Date()
+    }
+
+    /// 글로 과목을 다시 정함 (사용자가 직접 고른 과목이면 그대로). 바뀌었으면 true
+    @discardableResult
+    func redetectSubject(force: Bool = false) -> Bool {
+        let text = recognizedText
+        if force {
+            let next = DoitSubjectNote.storedValue(DoitSubjectNote.detectedSubject(text) ?? DoitSubjectNote.fallbackSubject(text))
+            var s = scan ?? DoitProblemScan.scan(text, math: NoteSubject.from(next).isMath)
+            s.autoSubject = next
+            scan = s
+            guard next != subject else { return false }
+            subject = next
+            return true
+        }
+        guard let next = DoitSubjectNote.redetectedSubject(text: text, stored: subject, scan: scan) else { return false }
+        subject = next
+        if var s = scan { s.autoSubject = next; scan = s }
+        return true
+    }
+
+    /// 문제 유형을 다시 찾아 저장 (글이 없으면 지움)
+    func refreshProblemType() {
+        guard var s = scan else { return }
+        let text = recognizedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        s.typeID = text.isEmpty ? nil : DoitProblemTypes.bestID(for: text, subject: subjectLabel)
+        if s != scan { scan = s }
+    }
+}
+
+/// 작은 과목 표시 (세부 과목 이름도 그대로, 색은 큰 과목)
 struct SubjectTag: View {
-    let subject: NoteSubject
+    let label: String
+    var auto = false
+
+    init(subject: NoteSubject) { label = subject.rawValue }
+    init(label: String, auto: Bool = false) {
+        self.label = DoitSubjectNote.displayName(label)
+        self.auto = auto
+    }
+
+    private var spoken: String { auto ? "과목 \(label), 자동으로 정함" : "과목 \(label)" }
+
     var body: some View {
-        Text(subject.rawValue)
-            .font(.caption2.weight(.bold))
-            .foregroundStyle(subject.color)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 2)
-            .background(subject.color.opacity(0.14), in: .capsule)
+        let color = Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: label)))
+        HStack(spacing: 2) {
+            if auto { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)) }
+            Text(label).lineLimit(1)
+        }
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.14), in: .capsule)
+        .accessibilityLabel(spoken)
+    }
+}
+
+/// 과목 고르기 메뉴 내용 (큰 과목 → 세부 과목). 고르면 그 이름을 돌려줌
+struct SubjectMenuItems: View {
+    var includeAuto = false
+    var onAuto: (() -> Void)? = nil
+    let onPick: (String) -> Void
+
+    var body: some View {
+        if includeAuto, let onAuto {
+            Button(action: onAuto) { Label("자동으로 정하기", systemImage: "sparkles") }
+            Divider()
+        }
+        ForEach(DoitSubjectNote.subjectOptions, id: \.broad) { option in
+            if option.details.isEmpty {
+                Button { onPick(option.broad) } label: { Label(option.broad, systemImage: DoitSubjectNote.symbol(broad: option.broad)) }
+            } else {
+                Menu {
+                    Button(option.broad) { onPick(option.broad) }
+                    ForEach(option.details, id: \.self) { detail in
+                        Button(detail) { onPick(detail) }
+                    }
+                } label: {
+                    Label(option.broad, systemImage: DoitSubjectNote.symbol(broad: option.broad))
+                }
+            }
+        }
+    }
+}
+
+/// 문제 유형 칩: 이름만 보이고, 누르면 묻는 것 · 푸는 법 · 함정을 짧게
+struct ProblemTypeChip: View {
+    let type: ProblemType
+    @State private var open = false
+
+    var body: some View {
+        let summary = DoitSubjectNote.typeSummary(type)
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                withAnimation(.snappy) { open.toggle() }
+                Haptics.tap()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "list.bullet.clipboard").font(.caption.weight(.bold))
+                    Text("문제 유형").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(type.name).font(.caption.weight(.bold)).foregroundStyle(Palette.ink).lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: open ? "chevron.up" : "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
+                }
+                .foregroundStyle(Theme.accent)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(hint)
+            if open {
+                VStack(alignment: .leading, spacing: 6) {
+                    line("묻는 것", summary.asks)
+                    line("푸는 법", summary.steps)
+                    if let trap = summary.trap { line("함정", trap) }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+    }
+
+    private var hint: String { open ? "설명 접기" : "푸는 법 보기" }
+
+    private func line(_ title: String, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title).font(.caption2.weight(.bold)).foregroundStyle(.secondary).frame(width: 40, alignment: .leading)
+            Text(text).font(.caption).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
@@ -276,7 +410,8 @@ struct SubjectExplainCard: View {
         aiFailed = false
         defer { aiWorking = false }
         let prompt = DoitSubjectNote.explainPrompt(problem: problemBody, choices: choices, correct: note.correctAnswer, mine: note.myAnswer,
-                                                   subject: subject, concepts: concepts)
+                                                   subject: subject, concepts: concepts, subjectName: note.subjectLabel,
+                                                   problemType: note.scan?.problemType)
         guard let raw = try? await DoitBrain.shared.complete(system: DoitMind.persona, prompt: prompt, maxTokens: 500, temperature: 0.3) else {
             aiFailed = true
             return

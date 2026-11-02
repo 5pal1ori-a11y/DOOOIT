@@ -13,10 +13,11 @@ struct MathNoteListView: View {
     @Query private var weakConcepts: [WeakConcept]
 
     @State private var filter: Filter = .all
-    /// 과목 고르기 (nil = 전체)
-    @State private var subjectFilter: NoteSubject?
-    /// 새 문제를 넣을 과목 (마지막에 쓴 과목)
-    @AppStorage("mistakeNote.lastSubject") private var addSubjectRaw = NoteSubject.math.rawValue
+    /// 과목 고르기: 큰 과목 (nil = 전체) · 그 안의 세부 과목 (nil = 모두)
+    @State private var subjectFilter: String?
+    @State private var detailFilter: String?
+    /// 새 문제를 넣을 과목 ("자동" = 문제 글을 읽고 AI가 정함. 아니면 고른 과목 이름)
+    @AppStorage("mistakeNote.addSubject") private var addSubjectRaw = DoitSubjectNote.autoLabel
     @State private var showScanner = false
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
@@ -32,12 +33,25 @@ struct MathNoteListView: View {
     @State private var openedNote: MathNote?
     @State private var errorMessage: String?
 
-    private var addSubject: NoteSubject { NoteSubject(rawValue: addSubjectRaw) ?? .math }
+    private var isAutoSubject: Bool { addSubjectRaw == DoitSubjectNote.autoLabel }
+    /// 새 문제의 과목 (자동이면 사진을 읽은 뒤 정함)
+    private var addSubject: NoteSubject { isAutoSubject ? .math : NoteSubject.from(addSubjectRaw) }
+    private var addSubjectSpoken: String { isAutoSubject ? "과목 자동" : "과목 \(addSubjectRaw)" }
+    private var addSubjectColor: Color {
+        isAutoSubject ? Theme.accent : Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: addSubjectRaw)))
+    }
 
-    /// 고른 과목의 노트 (과목 거르기는 메모리에서)
+    /// 노트에 실제로 있는 과목들 (큰 과목별 묶음)
+    private var groups: [(broad: String, total: Int, details: [(label: String, count: Int)])] {
+        DoitSubjectNote.subjectGroups(notes.map(\.subject))
+    }
+
+    /// 고른 과목의 노트 (과목 거르기는 메모리에서. #Predicate 문자열 함수는 쓰지 않음)
     private var scoped: [MathNote] {
         guard let subjectFilter else { return notes }
-        return notes.filter { $0.subjectKind == subjectFilter }
+        return notes.filter { note in
+            note.broadSubject == subjectFilter && (detailFilter == nil || note.subjectLabel == detailFilter)
+        }
     }
 
     private var filtered: [MathNote] {
@@ -87,6 +101,7 @@ struct MathNoteListView: View {
             .padding(.bottom, 32)
             .animation(Motion.spring, value: filter)
             .animation(Motion.spring, value: subjectFilter)
+            .animation(Motion.spring, value: detailFilter)
             .animation(Motion.spring, value: notes.count)
         }
         .scrollIndicators(.hidden)
@@ -179,23 +194,33 @@ struct MathNoteListView: View {
         .softCard(cornerRadius: 26, padding: 20)
     }
 
-    /// 새 문제의 과목 고르기
+    /// 새 문제의 과목 고르기 (자동 = 문제를 읽고 AI가 정함)
+    @ViewBuilder
     private var subjectPicker: some View {
-        Picker("과목", selection: $addSubjectRaw) {
-            ForEach(NoteSubject.allCases) { Label($0.rawValue, systemImage: $0.symbol).tag($0.rawValue) }
+        Menu {
+            SubjectMenuItems(includeAuto: true, onAuto: { addSubjectRaw = DoitSubjectNote.autoLabel }, onPick: { addSubjectRaw = $0 })
+        } label: {
+            Label("과목: \(addSubjectRaw)", systemImage: isAutoSubject ? "sparkles" : DoitSubjectNote.symbol(broad: DoitSubjectDetector.broad(ofStored: addSubjectRaw)))
         }
     }
 
     private var captureButtons: some View {
         HStack(spacing: 10) {
-            Menu { subjectPicker } label: {
-                Text(addSubject.rawValue)
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(addSubject.color)
-                    .frame(width: 52, height: 52)
-                    .background(addSubject.color.opacity(0.12), in: .rect(cornerRadius: 16))
+            Menu {
+                SubjectMenuItems(includeAuto: true, onAuto: { addSubjectRaw = DoitSubjectNote.autoLabel }, onPick: { addSubjectRaw = $0 })
+            } label: {
+                VStack(spacing: 1) {
+                    if isAutoSubject { Image(systemName: "sparkles").font(.caption2.weight(.bold)) }
+                    Text(addSubjectRaw)
+                        .font(addSubjectRaw.count > 3 ? .caption2.weight(.bold) : .subheadline.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .foregroundStyle(addSubjectColor)
+                .frame(width: 52, height: 52)
+                .background(addSubjectColor.opacity(0.12), in: .rect(cornerRadius: 16))
             }
-            .accessibilityLabel("과목 \(addSubject.rawValue)")
+            .accessibilityLabel(addSubjectSpoken)
             Button { openScanner() } label: {
                 Label("틀린 문제 찍기", systemImage: "camera.fill")
             }
@@ -212,20 +237,57 @@ struct MathNoteListView: View {
         }
     }
 
-    /// 과목 고르기 (개수 함께). 과목을 고르면 새 문제도 그 과목으로
+    /// 과목 고르기 (노트에 있는 과목만, 큰 과목별 · 개수 함께). 과목을 고르면 새 문제도 그 과목으로, 전체면 자동으로
     private var subjectChips: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                chip(title: "전체", number: notes.count, color: nil, isOn: subjectFilter == nil) { subjectFilter = nil }
-                ForEach(NoteSubject.allCases) { item in
-                    chip(title: item.rawValue, number: notes.filter { $0.subjectKind == item }.count, color: item.color, isOn: subjectFilter == item) {
-                        subjectFilter = item
-                        addSubjectRaw = item.rawValue
+        let groups = self.groups
+        let current = groups.first { $0.broad == subjectFilter }
+        return VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal) {
+                HStack(spacing: 8) {
+                    chip(title: "전체", number: notes.count, color: nil, isOn: subjectFilter == nil) {
+                        subjectFilter = nil
+                        detailFilter = nil
+                        addSubjectRaw = DoitSubjectNote.autoLabel
+                    }
+                    ForEach(groups, id: \.broad) { group in
+                        chip(title: group.broad, number: group.total, color: Color(hex: DoitSubjectNote.colorHex(broad: group.broad)),
+                             isOn: subjectFilter == group.broad) {
+                            subjectFilter = group.broad
+                            detailFilter = nil
+                            addSubjectRaw = group.details.count == 1 ? group.details[0].label : group.broad
+                        }
                     }
                 }
             }
+            .scrollIndicators(.hidden)
+            // 고른 과목 안에 세부 과목이 둘 이상이면 (예: 윤리 → 생활과 윤리 · 윤리와 사상)
+            if let current, current.details.count >= 2 {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 6) {
+                        ForEach(current.details, id: \.label) { detail in
+                            let isOn = detailFilter == detail.label
+                            Button {
+                                withAnimation(.snappy) {
+                                    detailFilter = isOn ? nil : detail.label
+                                    addSubjectRaw = isOn ? current.broad : detail.label
+                                }
+                                Haptics.tap()
+                            } label: {
+                                Text("\(detail.label) \(detail.count)")
+                                    .font(.caption.weight(.semibold))
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 26)
+                                    .foregroundStyle(isOn ? Palette.card : Palette.ink)
+                                    .background(isOn ? AnyShapeStyle(Palette.ink.opacity(0.8)) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .capsule)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                .transition(.opacity)
+            }
         }
-        .scrollIndicators(.hidden)
     }
 
     private func chip(title: String, number: Int, color: Color?, isOn: Bool, action: @escaping () -> Void) -> some View {
@@ -342,7 +404,14 @@ struct MathNoteListView: View {
 
     private func createBlank() {
         let note = MathNote(title: "오답 \(notes.count + 1)", imageData: nil, thumbnailData: nil, recognizedText: "")
-        note.subjectKind = addSubject
+        if isAutoSubject {
+            // 다 적은 뒤 글을 보고 과목을 정함 (그때까지는 수학)
+            var scan = DoitProblemScan.scan("")
+            scan.autoSubject = ""
+            note.scan = scan
+        } else {
+            note.subject = DoitSubjectNote.storedValue(addSubjectRaw)
+        }
         // 직접 적는 문제도 다 적은 뒤 "이대로 확정"을 눌러야 채점·풀이를 시작
         note.recognitionRaw = "pending"
         context.insert(note)
@@ -384,10 +453,19 @@ struct MathNoteListView: View {
     private func create(from pairs: [(original: UIImage, problem: UIImage)]) async {
         withAnimation { isProcessing = true }
         var created: [MathNote] = []
-        let subject = addSubject
+        let chosen = addSubjectRaw
+        let auto = isAutoSubject
         for (i, pair) in pairs.enumerated() {
-            guard subject.isMath else {
-                created.append(await createSubjectNote(pair, subject: subject, index: i))
+            // 자동: 먼저 글자 그대로 읽어 과목을 정함 (수학이면 수식 교정 읽기로 다시)
+            var label = DoitSubjectNote.storedValue(chosen)
+            var plainRead: (text: String, unsure: [String])?
+            if auto {
+                let read = await SubjectOCR.read(pair.problem)
+                plainRead = read
+                label = DoitSubjectNote.storedValue(DoitSubjectNote.detectedSubject(read.text) ?? DoitSubjectNote.fallbackSubject(read.text))
+            }
+            guard NoteSubject.from(label).isMath else {
+                created.append(await createSubjectNote(pair, subject: label, index: i, read: plainRead, auto: auto))
                 continue
             }
             // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
@@ -405,8 +483,12 @@ struct MathNoteListView: View {
             // 인식 결과는 사용자가 확인하기 전까지 임시 (흐리게 읽은 줄·이상한 수식은 표시)
             note.recognitionRaw = "pending"
             let graph = await VisionAnalyzer.analyze(pair.problem)
-            note.scan = DoitProblemScan.scan(text, lowConfidence: read.unsure, graphNote: graph.graph != nil ? graphNote(graph) : nil)
-            note.kind = note.scan?.kind
+            var scan = DoitProblemScan.scan(text, lowConfidence: read.unsure, graphNote: graph.graph != nil ? graphNote(graph) : nil)
+            note.subject = label
+            scan.autoSubject = auto ? label : nil
+            scan.typeID = DoitProblemTypes.bestID(for: text, subject: DoitSubjectNote.displayName(label))
+            note.scan = scan
+            note.kind = scan.kind
             context.insert(note)
             created.append(note)
         }
@@ -416,8 +498,10 @@ struct MathNoteListView: View {
     }
 
     /// 수학이 아닌 과목: 한글·영어 문장 그대로 읽고 (수식 교정 없이), 선택지·정답 표기만 나눔
-    private func createSubjectNote(_ pair: (original: UIImage, problem: UIImage), subject: NoteSubject, index: Int) async -> MathNote {
-        let read = await SubjectOCR.read(pair.problem)
+    private func createSubjectNote(_ pair: (original: UIImage, problem: UIImage), subject: String, index: Int,
+                                   read already: (text: String, unsure: [String])?, auto: Bool) async -> MathNote {
+        let read: (text: String, unsure: [String])
+        if let already { read = already } else { read = await SubjectOCR.read(pair.problem) }
         let note = MathNote(
             title: DoitSubjectNote.title(from: read.text) ?? "오답 \(notes.count + index + 1)",
             imageData: pair.original.jpegForStorage(maxDimension: 2000),
@@ -425,11 +509,14 @@ struct MathNoteListView: View {
             recognizedText: read.text,
             correctAnswer: DoitSubjectNote.printedAnswer(in: read.text) ?? ""
         )
-        note.subjectKind = subject
+        note.subject = subject
         note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
         note.recognitionRaw = "pending"
-        note.scan = DoitProblemScan.scan(read.text, lowConfidence: read.unsure, math: false)
-        note.kind = note.scan?.kind
+        var scan = DoitProblemScan.scan(read.text, lowConfidence: read.unsure, math: false)
+        scan.autoSubject = auto ? subject : nil
+        scan.typeID = DoitProblemTypes.bestID(for: read.text, subject: DoitSubjectNote.displayName(subject))
+        note.scan = scan
+        note.kind = scan.kind
         context.insert(note)
         return note
     }
@@ -455,7 +542,7 @@ private struct MathNoteRow: View {
                     if let data = note.thumbnailData, let image = UIImage(data: data) {
                         Image(uiImage: image).resizable().scaledToFill()
                     } else {
-                        Image(systemName: note.subjectKind.symbol).font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: DoitSubjectNote.symbol(broad: note.broadSubject)).font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
                     }
                 }
                 .clipShape(.rect(cornerRadius: 12))
@@ -467,7 +554,7 @@ private struct MathNoteRow: View {
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                 HStack(spacing: 6) {
-                    SubjectTag(subject: note.subjectKind)
+                    SubjectTag(label: note.subjectLabel, auto: note.isSubjectAuto)
                     Text(subtitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -494,7 +581,8 @@ private struct MathNoteRow: View {
 
     private var subtitle: String {
         var parts: [String] = []
-        if let kind = note.kind { parts.append(kind.title) }
+        // 문제 유형 이름이 있으면 그것 (예: 빈칸 추론), 없으면 채점 방식 (객관식)
+        if let type = note.scan?.problemType { parts.append(type.name) } else if let kind = note.kind { parts.append(kind.title) }
         if !note.unit.isEmpty { parts.append(note.unit) }
         parts.append(note.createdAt.kr("M월 d일"))
         return parts.joined(separator: " · ")

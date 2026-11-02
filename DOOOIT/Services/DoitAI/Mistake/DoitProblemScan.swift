@@ -34,8 +34,15 @@ struct ProblemScan: Codable, Equatable {
     /// 사진 속에 적힌 정답 표기 (있을 때만)
     var printedAnswer: String?
     var doubts: [Doubt] = []
+    /// 글로 자동으로 정한 과목 (노트 과목이 이 값과 같으면 사용자가 아직 직접 고르지 않은 것). 예전 노트는 nil
+    var autoSubject: String?
+    /// 문제 유형 사전(DoitProblemTypes)에서 찾은 유형 id
+    var typeID: String?
 
     var hasDoubts: Bool { !doubts.isEmpty }
+
+    /// 찾은 문제 유형
+    var problemType: ProblemType? { typeID.flatMap(DoitProblemTypes.type(id:)) }
 }
 
 /// 문제 글을 본문·수식·선택지·조건·표·질문으로 나눔 (사진에서 확인할 수 없는 내용은 만들지 않음)

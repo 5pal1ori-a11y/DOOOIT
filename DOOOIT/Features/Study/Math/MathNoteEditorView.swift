@@ -45,6 +45,10 @@ struct MathNoteEditorView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     infoCard
+                    if tab != .note, let type = note.scan?.problemType {
+                        ProblemTypeChip(type: type)
+                            .id(type.id)
+                    }
                     tabBar
 
                     switch tab {
@@ -142,6 +146,13 @@ struct MathNoteEditorView: View {
             if !subject.isMath, note.kind == .math { note.kind = nil }
             rescan(note.recognizedText)
         }
+        // 다 고친 뒤 · 확정할 때: 직접 고르지 않은 과목은 글로 다시 정하고, 문제 유형도 다시 찾음
+        .onChange(of: isEditingText) { _, editing in
+            if !editing { refreshSubjectAndType() }
+        }
+        .onChange(of: note.isRecognitionConfirmed) { _, confirmed in
+            if confirmed { refreshSubjectAndType() }
+        }
     }
 
     // MARK: Info
@@ -166,12 +177,17 @@ struct MathNoteEditorView: View {
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Palette.ink)
                 HStack(spacing: 6) {
+                    // 과목: AI가 정한 과목이면 반짝이 표시. 직접 고르면 다시 자동으로 바꾸지 않음
                     Menu {
-                        Picker("과목", selection: $note.subjectKind) {
-                            ForEach(NoteSubject.allCases) { Text($0.rawValue).tag($0) }
-                        }
+                        SubjectMenuItems(includeAuto: true, onAuto: {
+                            note.redetectSubject(force: true)
+                            Haptics.tap()
+                        }, onPick: { label in
+                            note.chooseSubject(label)
+                            Haptics.tap()
+                        })
                     } label: {
-                        SubjectTag(subject: subject)
+                        SubjectTag(label: note.subjectLabel, auto: note.isSubjectAuto)
                     }
                     TextField(subject.isMath ? "단원 (예: 이차함수)" : "단원", text: $note.unit)
                         .font(.subheadline)
@@ -522,6 +538,7 @@ struct MathNoteEditorView: View {
             note.isRecognitionConfirmed = false
             apply(read.text, message: read.text.isEmpty ? "글자를 찾지 못했어요" : "다시 읽었어요")
             rescan(read.text, unsure: read.unsure)
+            refreshSubjectAndType()
             return
         }
         let result = await OCRService.readMathProblemDetailed(problem)
@@ -531,6 +548,7 @@ struct MathNoteEditorView: View {
               : result.improved ? "여러 방법으로 읽어서 수식이 가장 자연스러운 결과를 골랐어요. 틀린 곳은 \"고치기\"로 바꿔주세요."
               : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
         rescan(result.text, unsure: result.unsure)
+        refreshSubjectAndType()
     }
 
     // MARK: Text annotations
@@ -571,12 +589,27 @@ struct MathNoteEditorView: View {
         // 인식 결과를 아직 확인하지 않았으면 문제 탭부터, 확인했으면 풀이·학습부터
         tab = note.isRecognitionConfirmed ? .grade : .text
         if note.scan == nil, !note.recognizedText.isEmpty { rescan(note.recognizedText) }
+        // 예전 노트: 문제 유형만 찾아 붙임 (과목·글은 그대로)
+        if note.scan?.typeID == nil, !note.recognizedText.isEmpty { note.refreshProblemType() }
+    }
+
+    private func refreshSubjectAndType() {
+        withAnimation(.snappy) {
+            note.redetectSubject()
+            note.refreshProblemType()
+        }
     }
 
     private func rescan(_ text: String, unsure: [String]? = nil) {
         let previous = note.scan?.doubts.filter { $0.reason.hasPrefix("글자가") }.map(\.text) ?? []
         let low = (unsure ?? previous).filter { text.contains($0) }
-        note.scan = DoitProblemScan.scan(text, lowConfidence: low, graphNote: note.scan?.graphNote, math: subject.isMath)
+        let old = note.scan
+        var next = DoitProblemScan.scan(text, lowConfidence: low, graphNote: old?.graphNote, math: subject.isMath)
+        // 자동 과목 표시는 그대로, 문제 유형은 다 고친 뒤에만 다시 찾음 (글자마다 찾지 않도록)
+        next.autoSubject = old?.autoSubject
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        next.typeID = isEditingText ? old?.typeID : (trimmed.isEmpty ? nil : DoitProblemTypes.bestID(for: trimmed, subject: note.subjectLabel))
+        note.scan = next
     }
 
     private func saveAnnotations() {
