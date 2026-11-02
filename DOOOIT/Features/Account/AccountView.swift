@@ -43,87 +43,61 @@ struct AccountView: View {
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
 
-                Section {
-                    ThemePicker()
-                } header: {
-                    Text("화면")
-                } footer: {
-                    Text("바탕은 흰색이고, 버튼과 강조 색이 바뀌어요.")
-                }
-
-                Section("학습 목표") {
-                    Stepper(value: $wordGoal, in: 5...200, step: 5) {
-                        settingLabel("하루 단어 목표", value: "\(wordGoal)개", symbol: "character.book.closed.fill")
-                    }
+                Section("목표") {
                     Stepper(value: $studyGoalMinutes, in: 30...720, step: 30) {
-                        settingLabel("하루 공부 목표", value: TimeText.duration(minutes: studyGoalMinutes), symbol: "clock.fill")
+                        settingLabel("하루 공부", value: TimeText.duration(minutes: studyGoalMinutes), symbol: "clock.fill", color: Theme.accent)
+                    }
+                    Stepper(value: $wordGoal, in: 5...200, step: 5) {
+                        settingLabel("하루 단어", value: "\(wordGoal)개", symbol: "character.book.closed.fill", color: Color(hex: "#5AC8FA"))
                     }
                 }
 
                 Section {
-                    TextField("목표 이름 (예: 수능, 기말고사)", text: $dDayTitle)
-                    DatePicker("목표일", selection: dDayBinding, displayedComponents: .date)
+                    HStack(spacing: 12) {
+                        icon("flag.fill", Palette.danger)
+                        TextField("D-Day 이름 (예: 수능)", text: $dDayTitle)
+                    }
+                    DatePicker(selection: dDayBinding, displayedComponents: .date) {
+                        HStack(spacing: 12) {
+                            icon("calendar", Palette.danger)
+                            Text("날짜")
+                        }
+                    }
                 } header: {
                     Text("D-Day")
-                } footer: {
-                    Text("이름을 입력하면 홈 화면에 D-Day 카드가 나타나요.")
                 }
 
                 Section {
-                    Toggle(isOn: $notificationsEnabled) {
-                        Label("일정 알림", systemImage: "bell.badge.fill")
-                    }
+                    Toggle(isOn: $notificationsEnabled) { item("일정 알림", "bell.badge.fill", Palette.danger) }
                     Picker(selection: $leadMinutes) {
                         Text("5분 전").tag(5)
                         Text("10분 전").tag(10)
                         Text("15분 전").tag(15)
                         Text("30분 전").tag(30)
-                    } label: {
-                        Label("미리 알림", systemImage: "alarm")
-                    }
-                    Toggle(isOn: $liveActivityEnabled) {
-                        Label("다이나믹 아일랜드", systemImage: "capsule.fill")
-                    }
-                    Toggle(isOn: $autoStartTimer) {
-                        Label("공부 타이머 자동 시작", systemImage: "timer")
-                    }
+                    } label: { item("미리 알림", "alarm.fill", Palette.warning) }
+                    Toggle(isOn: $liveActivityEnabled) { item("다이나믹 아일랜드", "capsule.fill", Color(hex: "#1F2433")) }
+                    Toggle(isOn: $autoStartTimer) { item("타이머 자동 시작", "timer", Palette.success) }
                 } header: {
-                    Text("알림 및 타이머")
+                    Text("알림 · 타이머")
                 } footer: {
-                    Text("공부 카테고리 일정이 다가오면 다이나믹 아일랜드에 남은 시간을 보여주고, 시작 시간이 되면 타이머를 자동으로 실행해요.")
+                    Text("공부 일정이 시작되면 타이머가 자동으로 켜져요.")
                 }
 
-                Section("플래너 · 통계") {
-                    NavigationLink {
-                        CategoryManagerView()
-                    } label: {
-                        Label("과목 · 카테고리 관리", systemImage: "tag.fill")
-                    }
-                    NavigationLink {
-                        StatsView()
-                    } label: {
-                        Label("공부 통계", systemImage: "chart.pie.fill")
-                    }
-                }
-
-                Section("정보") {
-                    LabeledContent {
-                        Text(appVersion)
-                    } label: {
-                        Label("버전", systemImage: "info.circle")
-                    }
-                    Button(role: .destructive) { showResetRecords = true } label: {
-                        Label("공부 기록 초기화", systemImage: "arrow.counterclockwise")
-                    }
+                Section("앱") {
+                    ThemePicker()
+                    NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Color(hex: "#AF52DE")) }
+                    NavigationLink { StatsView() } label: { item("공부 통계", "chart.bar.fill", Theme.accent) }
+                    NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Color(hex: "#FF7A45")) }
                 }
 
                 Section {
-                    Button { showSignOut = true } label: {
-                        Label("로그아웃", systemImage: "rectangle.portrait.and.arrow.right")
-                    }
-                    .tint(.primary)
+                    LabeledContent { Text(appVersion) } label: { item("버전", "info", Color.gray) }
+                    Button { showResetRecords = true } label: { item("공부 기록 초기화", "arrow.counterclockwise", Color.gray) }
+                        .tint(.primary)
+                    Button { showSignOut = true } label: { item("로그아웃", "rectangle.portrait.and.arrow.right", Color.gray) }
+                        .tint(.primary)
                     Button(role: .destructive) { showDelete = true } label: {
-                        Label("계정 삭제", systemImage: "person.crop.circle.badge.xmark")
+                        Text("계정 삭제").frame(maxWidth: .infinity, alignment: .center)
                     }
                 }
             }
@@ -240,14 +214,31 @@ struct AccountView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func settingLabel(_ title: String, value: String, symbol: String) -> some View {
-        HStack {
-            Label(title, systemImage: symbol)
+    private func settingLabel(_ title: String, value: String, symbol: String, color: Color) -> some View {
+        HStack(spacing: 12) {
+            icon(symbol, color)
+            Text(title)
             Spacer()
             Text(value)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         }
+    }
+
+    /// iOS 설정 앱처럼 색깔 네모 아이콘 + 제목
+    private func item(_ title: String, _ symbol: String, _ color: Color) -> some View {
+        HStack(spacing: 12) {
+            icon(symbol, color)
+            Text(title).foregroundStyle(Palette.ink)
+        }
+    }
+
+    private func icon(_ symbol: String, _ color: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 29, height: 29)
+            .background(color, in: .rect(cornerRadius: 7))
     }
 
     // MARK: Helpers
@@ -276,6 +267,7 @@ struct AccountView: View {
         try? context.delete(model: StudyContent.self)
         try? context.delete(model: QuizRecord.self)
         try? context.delete(model: AIQuestion.self)
+        try? context.delete(model: WeakConcept.self)
         try? context.save()
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()

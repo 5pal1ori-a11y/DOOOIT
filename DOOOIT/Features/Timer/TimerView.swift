@@ -115,33 +115,60 @@ struct TimerView: View {
         studyCategories.first { $0.id == selectedCategoryID } ?? studyCategories.first
     }
 
+    /// 가운데 큰 목표 시간 → 목표 칩 → 과목 칩 → 할 일(선택) → 공부 시작
     private var setup: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Spacer(minLength: 20)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("무엇을 공부할까요?").font(.title.weight(.bold))
-                Text("시작하면 다이나믹 아일랜드에 공부 시간이 표시돼요.").font(.subheadline).foregroundStyle(Color(white: 0.6))
+        VStack(spacing: 0) {
+            Spacer(minLength: 16)
+
+            // 고른 목표 시간을 크게
+            VStack(spacing: 10) {
+                Text(selectedCategory.map { "\($0.name) · 목표" } ?? "목표 시간")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(white: 0.55))
+                Text(targetMinutes.map { String(format: "%02d:00", $0) } ?? "∞")
+                    .font(.system(size: 76, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
             }
+            .frame(maxWidth: .infinity)
+            .animation(.snappy, value: targetMinutes)
 
-            TextField("예: 수학 문제집 3단원", text: $freeTitle)
-                .font(.title3)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-                .background(panel, in: .rect(cornerRadius: 16))
+            HStack(spacing: 8) {
+                ForEach(targets, id: \.self) { minutes in
+                    let isOn = targetMinutes == minutes
+                    Button {
+                        targetMinutes = minutes
+                        Haptics.tap()
+                    } label: {
+                        Text(minutes.map { "\($0)분" } ?? "무제한")
+                            .font(.subheadline.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .foregroundStyle(isOn ? Color.black : Color.white)
+                            .background(isOn ? Color.white : panel, in: .capsule)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.top, 28)
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("카테고리").font(.subheadline.weight(.semibold)).foregroundStyle(Color(white: 0.6))
+            Spacer(minLength: 24)
+
+            VStack(spacing: 12) {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
                         ForEach(studyCategories) { category in
                             let isOn = selectedCategory?.id == category.id
                             Button {
                                 selectedCategoryID = category.id
+                                Haptics.tap()
                             } label: {
                                 Label(category.name, systemImage: category.symbol)
                                     .font(.subheadline.weight(.semibold))
                                     .padding(.horizontal, 14)
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, 9)
                                     .foregroundStyle(isOn ? Color.black : Color.white)
                                     .background(isOn ? Color.white : panel, in: .capsule)
                             }
@@ -150,48 +177,36 @@ struct TimerView: View {
                     }
                 }
                 .scrollIndicators(.hidden)
-            }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("목표 시간").font(.subheadline.weight(.semibold)).foregroundStyle(Color(white: 0.6))
-                HStack(spacing: 8) {
-                    ForEach(targets, id: \.self) { minutes in
-                        let isOn = targetMinutes == minutes
-                        Button {
-                            targetMinutes = minutes
-                        } label: {
-                            Text(minutes.map { "\($0)분" } ?? "무제한")
-                                .font(.subheadline.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 11)
-                                .foregroundStyle(isOn ? Color.black : Color.white)
-                                .background(isOn ? Color.white : panel, in: .capsule)
-                        }
-                        .buttonStyle(.plain)
-                    }
+                HStack(spacing: 10) {
+                    Image(systemName: "pencil")
+                        .foregroundStyle(Color(white: 0.5))
+                    TextField("할 일 (선택)", text: $freeTitle)
                 }
-            }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+                .background(panel, in: .rect(cornerRadius: 16))
 
-            Spacer()
-
-            Button {
-                let category = selectedCategory
-                studyTimer.start(
-                    title: freeTitle.trimmingCharacters(in: .whitespaces),
-                    categoryName: category?.name ?? "공부",
-                    symbol: category?.symbol ?? "book.fill",
-                    targetMinutes: targetMinutes
-                )
-                Haptics.success()
-            } label: {
-                Label("공부 시작", systemImage: "play.fill")
-                    .font(.body.weight(.bold))
-                    .foregroundStyle(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(green, in: .capsule)
+                Button {
+                    let category = selectedCategory
+                    studyTimer.start(
+                        title: freeTitle.trimmingCharacters(in: .whitespaces),
+                        categoryName: category?.name ?? "공부",
+                        symbol: category?.symbol ?? "book.fill",
+                        targetMinutes: targetMinutes
+                    )
+                    Haptics.success()
+                } label: {
+                    Label("공부 시작", systemImage: "play.fill")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(green, in: .capsule)
+                }
+                .buttonStyle(.pressable)
+                .padding(.top, 4)
             }
-            .buttonStyle(.pressable)
         }
     }
 

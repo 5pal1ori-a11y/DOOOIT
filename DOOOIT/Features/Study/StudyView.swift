@@ -1,29 +1,50 @@
 import SwiftData
 import SwiftUI
 
-/// 공부 탭: 영어 단어 요약 카드 → 공부 도구 목록 → AI 학습
+/// 공부 탭: 큰 타일 2×2(영어 단어 · 오답노트 · 메모장 · 공부 랭킹) → AI 학습 목록 → 공부 통계
 struct StudyView: View {
     @Query(sort: \Word.createdAt) private var words: [Word]
     @Query(sort: \Memo.updatedAt, order: .reverse) private var memos: [Memo]
+    @Query private var mathNotes: [MathNote]
 
     @AppStorage(SettingsKey.dailyWordGoal) private var wordGoal = 20
     @AppStorage(SettingsKey.wordGoalDoneKey) private var wordGoalDoneKey = ""
+
+    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
-                    wordsHero
-                        .appearAnimation()
-                    VStack(alignment: .leading, spacing: 10) {
-                        SectionTitle("공부 도구")
-                        toolList
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        NavigationLink { WordHomeView() } label: {
+                            tile(symbol: "character.book.closed.fill", color: Theme.accent, title: "영어 단어", detail: wordDetail)
+                        }
+                        NavigationLink { MathNoteListView() } label: {
+                            tile(symbol: "function", color: Palette.success, title: "오답노트", detail: noteDetail)
+                        }
+                        NavigationLink { MemoListView() } label: {
+                            tile(symbol: "note.text", color: Palette.warning, title: "메모장", detail: memos.isEmpty ? "메모 쓰기" : "\(memos.count)개")
+                        }
+                        NavigationLink { RankingView() } label: {
+                            tile(symbol: "trophy.fill", color: Color(hex: "#FF7A45"), title: "공부 랭킹", detail: "오늘 순위 보기")
+                        }
                     }
-                    .appearAnimation(delay: 0.08)
+                    .buttonStyle(.pressable)
+                    .appearAnimation()
+
                     LearnHubSection()
-                        .appearAnimation(delay: 0.14)
+                        .appearAnimation(delay: 0.08)
+
+                    NavigationLink { StatsView() } label: {
+                        RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
+                            .softCardBackground(cornerRadius: 20)
+                    }
+                    .buttonStyle(.pressable)
+                    .appearAnimation(delay: 0.14)
                 }
                 .padding(.horizontal, 20)
+                .padding(.top, 4)
                 .padding(.bottom, 32)
             }
             .scrollIndicators(.hidden)
@@ -32,63 +53,38 @@ struct StudyView: View {
         }
     }
 
-    /// 영어 단어 요약 카드: 제목 → 오늘 진행 막대 → 세 칸 숫자
-    private var wordsHero: some View {
-        let unlearned = words.filter { !$0.isLearned }.count
-        let done = wordGoalDoneKey == Date().dayKey
-        let remaining = done ? 0 : min(wordGoal, unlearned)
-        let wrong = words.filter { $0.wrongCount > 0 }.count
-
-        return NavigationLink { WordHomeView() } label: {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 12) {
-                    Image(systemName: "character.book.closed.fill")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 44, height: 44)
-                        .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 13))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("영어 단어").font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
-                        Text("단어장을 찍으면 암기 노트가 돼요").font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    if done {
-                        TagLabel(text: "오늘 목표 성공", symbol: "checkmark", color: Palette.success)
-                    } else {
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-                    }
-                }
-                LinearProgressBar(value: Double(max(0, wordGoal - remaining)) / Double(max(wordGoal, 1)), color: done ? Palette.success : Theme.accent)
-                HStack(spacing: 0) {
-                    StatColumn(value: "\(remaining)", label: "오늘 외울 단어")
-                    StatColumn(value: "\(words.count - unlearned)", label: "외운 단어")
-                    StatColumn(value: "\(wrong)", label: "틀린 단어", color: wrong > 0 ? Palette.danger : Palette.ink)
-                }
-            }
-            .softCard(cornerRadius: 24, padding: 20)
-        }
-        .buttonStyle(.pressable)
+    private var wordDetail: String {
+        if words.isEmpty { return "단어장 찍어서 시작" }
+        if wordGoalDoneKey == Date().dayKey { return "오늘 목표 완료 ✓" }
+        let left = min(wordGoal, words.filter { !$0.isLearned }.count)
+        return "오늘 \(left)개 외울 차례"
     }
 
-    private var toolList: some View {
-        VStack(spacing: 0) {
-            NavigationLink { MathNoteListView() } label: {
-                RowLabel(symbol: "function", color: Palette.success, title: "오답노트", subtitle: "찍으면 채점·원인 분석·유사 문제까지")
-            }
-            RowDivider()
-            NavigationLink { MemoListView() } label: {
-                RowLabel(symbol: "note.text", color: Palette.warning, title: "메모장", value: "\(memos.count)")
-            }
-            RowDivider()
-            NavigationLink { RankingView() } label: {
-                RowLabel(symbol: "trophy.fill", color: Palette.warning, title: "공부 랭킹", subtitle: "일간·주간·월간 순위")
-            }
-            RowDivider()
-            NavigationLink { StatsView() } label: {
-                RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
-            }
+    private var noteDetail: String {
+        let unsolved = mathNotes.filter { $0.status != .correct }.count
+        if mathNotes.isEmpty { return "틀린 문제 찍기" }
+        return unsolved > 0 ? "복습할 문제 \(unsolved)개" : "모두 복습 완료 ✓"
+    }
+
+    /// 큰 정사각 타일: 위 아이콘 · 아래 제목과 한 줄 설명
+    private func tile(symbol: String, color: Color, title: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Image(systemName: symbol)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(color)
+                .frame(width: 46, height: 46)
+                .background(color.opacity(0.12), in: .rect(cornerRadius: 14))
+            Spacer(minLength: 16)
+            Text(title)
+                .font(.headline)
+                .foregroundStyle(Palette.ink)
+            Text(detail)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
-        .buttonStyle(.pressable)
-        .softCardBackground(cornerRadius: 20)
+        .frame(maxWidth: .infinity, minHeight: 138, alignment: .topLeading)
+        .softCard(cornerRadius: 22, padding: 16)
     }
 }

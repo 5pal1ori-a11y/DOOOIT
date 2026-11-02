@@ -200,10 +200,13 @@ struct ThemePicker: View {
                 Text(theme.title).tag(theme.rawValue)
             }
         } label: {
-            Label {
+            HStack(spacing: 12) {
+                Image(systemName: "paintpalette.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 29, height: 29)
+                    .background(current.accent, in: .rect(cornerRadius: 7))
                 Text("테마 색")
-            } icon: {
-                Image(systemName: "circle.fill").foregroundStyle(current.accent)
             }
         }
         .pickerStyle(.menu)
