@@ -149,6 +149,17 @@ func runWordCases() {
     add("유의어 같은 줄 (목록)", ["happy 행복한 (= glad)", "brave 용감한 ↔ cowardly"], "happy=행복한 | brave=용감한")
     add("유의어 같은 줄 (책)", ["happy 형 행복한 = glad ↔ sad", "brave 형 용감한 유 courageous"], "happy=형 행복한 | brave=형 용감한")
     add("유의어 줄 (책, 발음)", ["happy [hǽpi] 형 행복한", "= glad, pleased", "↔ sad", "brave [breiv] 형 용감한", "반 cowardly"], "happy=형 행복한 | brave=형 용감한")
+    // 유의어·반의어에 한글 뜻까지 붙은 줄, 영어 약자, 괄호 한글 표시, 제목 아래 목록, 옆에 적힌 유의어
+    add("유의어 줄에 뜻까지", ["happy 행복한", "= glad 기쁜", "↔ sad 슬픈", "brave 용감한"], "happy=행복한 | brave=용감한")
+    add("유의어 한글 표시 + 뜻", ["happy 행복한", "유의어 glad 기쁜", "반의어 sad 슬픈", "brave 용감한"], "happy=행복한 | brave=용감한")
+    add("Syn. / Ant. 줄", ["happy 행복한", "Syn. glad, pleased", "Ant. sad", "brave 용감한", "syn: courageous"], "happy=행복한 | brave=용감한")
+    add("[유] [반] 괄호 표시", ["happy 행복한", "[유] glad", "(반) sad", "brave 용감한"], "happy=행복한 | brave=용감한")
+    add("≒ ⇔ 기호", ["happy 행복한 ≒ glad", "brave 용감한 ⇔ cowardly", "calm 차분한"], "happy=행복한 | brave=용감한 | calm=차분한")
+    add("유의어 제목 아래 목록", ["happy 행복한", "brave 용감한", "유의어", "glad", "courageous", "calm 차분한"], "happy=행복한 | brave=용감한 | calm=차분한")
+    add("Synonyms 제목 + 쉼표 목록", ["happy 행복한", "Synonyms:", "glad, cheerful, joyful", "brave 용감한"], "happy=행복한 | brave=용감한")
+    add("영어만 쉼표로 늘어놓은 줄", ["happy 행복한", "glad, cheerful", "brave 용감한"], "happy=행복한 | brave=용감한")
+    add("뜻 옆에 적힌 유의어", ["happy 행복한, glad", "brave 용감한, courageous", "calm 차분한"], "happy=행복한 | brave=용감한 | calm=차분한")
+    add("번호 붙은 유의어 줄", ["1. happy 행복한", "• = glad", "2. brave 용감한", "▶ ↔ cowardly 비겁한"], "happy=행복한 | brave=용감한")
     add("cf. 참고 표시", ["affect [əfékt] 동 영향을 미치다 cf. effect 명 영향", "effort [éfərt] 명 노력"], "affect=동 영향을 미치다 | effort=명 노력")
     add("cf. 참고 (목록)", ["affect 영향을 미치다 cf. effect", "effort 노력"], "affect=영향을 미치다 | effort=노력")
 

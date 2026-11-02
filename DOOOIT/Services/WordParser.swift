@@ -99,7 +99,19 @@ enum WordParser {
             }
         }
 
-        let joined = rows.map { row in normalizeRow(row.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ")) }
+        let raw = rows.map { row in row.sorted { $0.box.minX < $1.box.minX }.map(\.text).joined(separator: " ") }
+        // 유의어·반의어 줄은 통째로 버림 ("= glad 기쁜", "유의어 glad", "Syn. glad", "glad, joyful, cheerful")
+        // "유의어" 같은 제목 줄 바로 아래의 영어만 있는 줄도 유의어 목록으로 봄
+        var kept: [String] = []
+        var inSynonymBlock = false
+        for line in raw {
+            if isSynonymHeading(line) { inSynonymBlock = true; continue }
+            if isSynonymLine(line) { continue }
+            if inSynonymBlock, line.range(of: "[가-힣]", options: .regularExpression) == nil, line.contains(where: \.isLetter) { continue }
+            inSynonymBlock = false
+            kept.append(line)
+        }
+        let joined = kept.map(normalizeRow)
         // 머리말·꼬리말·쪽수, 유의어만 남은 빈 줄은 버림
         var texts: [String] = []
         for (i, text) in joined.enumerated() where !text.trimmingCharacters(in: .whitespaces).isEmpty {
@@ -107,6 +119,30 @@ enum WordParser {
         }
         // 시중 단어장(표제어 + [발음] + 품사 + 뜻 + 예시 구·예문)은 품사 표시를 기준으로 읽음
         return isBookPage(texts) ? parseBook(texts) : parseList(texts)
+    }
+
+    // MARK: - 유의어 · 반의어
+
+    /// 유의어·반의어 표시 (기호 · 영어 약자 · 한글)
+    private static let synonymMarker = #"(=|≒|≈|≃|≅|↔|⇔|⟷|⇄|⇆|←→|<->|<=>|≠|\bsyn(onyms?)?\b\.?|\bant(onyms?)?\b\.?|\bopp\.|\bsim\.|[\[\(]\s*(유|반|동의|유의|반의)\s*[\]\)]|유의어|반의어|동의어|반대어|반대말|비슷한\s?말|유의|반의|(?<![가-힣])(유|반)(?![가-힣]))"#
+
+    /// 줄이 유의어·반의어 표시로 시작하면 그 줄 전체가 유의어 (뒤에 한글 뜻이 있어도)
+    static func isSynonymLine(_ raw: String) -> Bool {
+        var t = raw.trimmingCharacters(in: .whitespaces)
+        t = t.replacingOccurrences(of: #"^[\(\[]?\d{1,3}[\.\)\]]?\s*"#, with: "", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"^[•·\-\*▶►▷→]+\s*"#, with: "", options: .regularExpression)
+        if t.range(of: "^" + synonymMarker + #"\s*[:：]?\s*[A-Za-z]"#, options: [.regularExpression, .caseInsensitive]) != nil { return true }
+        // 영어 낱말만 쉼표로 늘어놓은 줄 (glad, joyful, cheerful)
+        if t.range(of: "[가-힣]", options: .regularExpression) == nil,
+           t.range(of: #"^[A-Za-z][A-Za-z'’\-]*(\s*,\s*[A-Za-z][A-Za-z'’\-]*){1,}\s*$"#, options: .regularExpression) != nil { return true }
+        return false
+    }
+
+    /// "유의어", "Synonyms", "유의어 · 반의어" 같은 제목만 있는 줄
+    static func isSynonymHeading(_ raw: String) -> Bool {
+        let t = raw.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: ":：[]()<>【】"))
+        return t.range(of: #"^((유의어|반의어|동의어|반대말|비슷한\s?말|synonyms?|antonyms?)\s*[·/&,와과및]?\s*)+$"#,
+                       options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     // MARK: - 줄 다듬기
@@ -119,7 +155,8 @@ enum WordParser {
         t = t.replacingOccurrences(of: #"[\(\[](n|v|vt|vi|adj|adv|ad|prep|conj|pron|int)\.?[\)\]]"#, with: "$1.",
                                    options: [.regularExpression, .caseInsensitive])
         t = t.replacingOccurrences(of: #"(^|\s)/[^/\s가-힣]{1,30}/(?=\s|$)"#, with: "$1", options: .regularExpression)
-        t = t.replacingOccurrences(of: #"\(?\s*(=|≒|≈|↔|⇔|≠|<->|\bsyn\.|\bant\.|\bopp\.|(?<![가-힣])(유의어|반의어|동의어|유|반))\s*[A-Za-z][A-Za-z ,'’\-]*\)?"#,
+        // 줄 중간의 유의어·반의어 (뒤따르는 영어 낱말들까지, 괄호째)
+        t = t.replacingOccurrences(of: #"[\(\[]?\s*"# + synonymMarker + #"\s*[:：]?\s*[A-Za-z][A-Za-z ,'’\-]*[\)\]]?"#,
                                    with: " ", options: [.regularExpression, .caseInsensitive])
         t = t.replacingOccurrences(of: #"\s\(?cf\.\s.*$"#, with: "", options: [.regularExpression, .caseInsensitive])
         return t
@@ -435,8 +472,15 @@ enum WordParser {
         var t = normalizeEnumeration(raw).replacingOccurrences(of: #"[;；]"#, with: ",", options: .regularExpression)
         t = stripExample(from: stripNoise(t))
         t = t.replacingOccurrences(of: #"\s+[A-Za-z][A-Za-z\-']*\s*$"#, with: "", options: .regularExpression)
-        let parts = t.components(separatedBy: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        let hasKorean = t.range(of: "[가-힣]", options: .regularExpression) != nil
+        let parts = t.components(separatedBy: ",").map { part -> String in
+            // 한글 뜻 뒤에 붙은 영어 낱말 (옆에 적힌 유의어: "행복한 glad") 떼기
+            part.replacingOccurrences(of: #"(?<=[가-힣\)])\s+[A-Za-z][A-Za-z'’\-]*(\s+[A-Za-z][A-Za-z'’\-]*)?\s*$"#, with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+        }
             .filter { !$0.isEmpty && !looksLikeKoreanSentence($0) && $0.range(of: "[가-힣A-Za-z]", options: .regularExpression) != nil }
+            // 뜻에 한글이 있으면, 영어만 있는 쉼표 칸은 유의어 (품사 표시 n. 같은 건 남김)
+            .filter { !hasKorean || $0.range(of: "[가-힣]", options: .regularExpression) != nil || isPOS($0) }
         t = parts.joined(separator: ", ")
         t = t.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
         return t.trimmingCharacters(in: CharacterSet(charactersIn: " ,/;:.|=-："))

@@ -120,6 +120,9 @@ struct WordImportView: View {
                 all.append(word)
             }
         }
+        // 뜻을 못 찾은 줄은 대부분 유의어·제목 같은 군더더기라 빼고 보여 줌 (개수를 억지로 채우지 않음)
+        let withMeaning = all.filter { !$0.meaning.trimmingCharacters(in: .whitespaces).isEmpty }
+        if !withMeaning.isEmpty { all = withMeaning }
         items = all
         if all.isEmpty {
             failedMessage = "글자를 찾지 못했어요. 밝은 곳에서 단어장을 정면으로 찍거나 직접 입력해주세요."
