@@ -77,9 +77,30 @@ enum OCRService {
         // 두 번 읽기를 동시에 (기다리는 시간 절반)
         async let koreanRead = try? observe(cgImage, languages: ["ko-KR", "en-US"], correction: true)
         async let englishRead = try? observe(cgImage, languages: ["en-US"], correction: false)
+        // 빈칸 네모 상자 (글자 인식은 빈 네모를 아예 안 읽는 경우가 많아서 따로 찾음)
+        async let boxRead = detectRectangles(cgImage)
         guard let korean = await koreanRead else { return [] }
         let english = await englishRead ?? []
-        return merge(korean: korean, english: english)
+        let rects = await boxRead
+        return merge(korean: korean, english: english, rects: rects)
+    }
+
+    /// 사진 속 네모 상자들 (빈칸 □ 후보)
+    private static func detectRectangles(_ cgImage: CGImage) async -> [CGRect] {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNDetectRectanglesRequest()
+                request.minimumAspectRatio = 0.25
+                request.maximumAspectRatio = 1.0
+                request.minimumSize = 0.012
+                request.maximumObservations = 40
+                request.minimumConfidence = 0.5
+                request.quadratureTolerance = 25
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                try? handler.perform([request])
+                continuation.resume(returning: (request.results ?? []).map(\.boundingBox))
+            }
+        }
     }
 
     private static func observe(_ cgImage: CGImage, languages: [String], correction: Bool) async throws -> [VNRecognizedTextObservation] {
@@ -107,7 +128,7 @@ enum OCRService {
     }
 
     /// 한국어 줄의 수식 부분(한글이 없는 구간)을 같은 자리의 영어 전용 인식 결과와 비교해서 더 수식다운 쪽을 고름
-    private static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation]) -> [OCRLine] {
+    private static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation], rects: [CGRect] = []) -> [OCRLine] {
         // 영어 전용 결과를 낱말 단위 위치로
         var words: [Word] = []
         for observation in english {
@@ -162,6 +183,24 @@ enum OCRService {
         }
         var usedTiny = Set<Int>()
 
+        // 빈 네모 상자 → 그 줄에 □ (글자 상자와 겹치지 않는 것만)
+        var letterBoxes = words.map(\.box)
+        for observation in korean {
+            guard let candidate = observation.topCandidates(1).first else { continue }
+            let text = candidate.string
+            var index = text.startIndex
+            while index < text.endIndex {
+                guard let start = text[index...].firstIndex(where: { !$0.isWhitespace }) else { break }
+                let end = text[start...].firstIndex(where: { $0.isWhitespace }) ?? text.endIndex
+                if let box = try? candidate.boundingBox(for: start..<end)?.boundingBox { letterBoxes.append(box) }
+                index = end
+            }
+        }
+        var blanksByLine: [Int: [CGRect]] = [:]
+        for blank in MathOCRFixer.blankBoxes(rects: rects, lines: korean.map(\.boundingBox), letters: letterBoxes) {
+            blanksByLine[blank.host, default: []].append(blank.box)
+        }
+
         let lines = korean.indices.map { lineIndex -> OCRLine? in
             let observation = korean[lineIndex]
             if fractionPieces.contains(lineIndex) { return nil }      // 분수 조각은 줄에 끼워 넣음
@@ -211,6 +250,20 @@ enum OCRService {
                     offset = i + 1
                 }
                 insertions.append((offset, " " + fraction.text + " "))
+            }
+
+            // 1-3) 빈칸 □ 끼워 넣기 (이미 □·口로 읽었으면 그대로)
+            if !original.contains(where: { "□口ㅁ".contains($0) }) {
+                for blank in blanksByLine[lineIndex] ?? [] {
+                    var offset = 0
+                    var bestMaxX = -1.0
+                    for i in chars.indices where !chars[i].isWhitespace {
+                        guard let cb = charBox(i), cb.maxX <= blank.minX + 0.006, cb.maxX > bestMaxX else { continue }
+                        bestMaxX = cb.maxX
+                        offset = i + 1
+                    }
+                    insertions.append((offset, " □ "))
+                }
             }
 
             // 2) 한글이 없는 구간(수식)을 영어 전용 결과와 비교
@@ -588,7 +641,10 @@ enum OCRService {
             guard !text.isEmpty, line.confidence >= 0.35 else { return false }
             let hasHangul = text.range(of: "[가-힣]", options: .regularExpression) != nil
             let hasChoice = text.range(of: "[①②③④⑤]", options: .regularExpression) != nil
-            if hasHangul || hasChoice { return true }
+            // 보기 번호를 "(1) 12", "1) 3", "(2 √3"처럼 읽은 짧은 줄과 빈칸이 있는 줄도 문제의 일부
+            let looksChoice = text.range(of: #"^\s*(\([1-5lIZS]\)|\([1-5lIZS](?=\s)|[1-5]\))"#, options: .regularExpression) != nil
+            let hasBlank = text.contains(where: { "□口".contains($0) })
+            if hasHangul || hasChoice || looksChoice || hasBlank { return true }
             if text.count <= 6 { return false }
             return line.confidence >= 0.5
         }

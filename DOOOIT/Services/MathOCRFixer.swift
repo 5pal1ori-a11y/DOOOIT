@@ -147,7 +147,9 @@ enum MathOCRFixer {
     /// 엉뚱하게 합치지 않도록, 두 조각 사이 높이에 문장 줄(host)이 지나가야만 분수로 봄 (Vision 좌표: 아래가 0)
     static func stackedFractions(pieces: [(text: String, box: CGRect)], hosts: [CGRect]) -> [Fraction] {
         func isShort(_ text: String) -> Bool {
-            text.range(of: #"^[0-9a-zA-Z+\-−√π()]{1,7}$"#, options: .regularExpression) != nil
+            // 보기 번호 "(1)", "2)" 같은 조각은 분수가 아님
+            guard !isChoiceMarker(text) else { return false }
+            return text.range(of: #"^[0-9a-zA-Z+\-−√π()]{1,7}$"#, options: .regularExpression) != nil
         }
         var used = Set<Int>()
         var result: [Fraction] = []
@@ -188,8 +190,127 @@ enum MathOCRFixer {
         return result
     }
 
-    static func fix(_ text: String) -> String {
+    // MARK: 보기 번호 ①~⑤
+
+    private static let circledDigits: [Character] = ["①", "②", "③", "④", "⑤"]
+
+    /// 보기 번호처럼 생긴 조각인지 ("①", "(1)", "1)", "(1")
+    static func isChoiceMarker(_ raw: String) -> Bool {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        if t.count == 1, let c = t.first, circledDigits.contains(c) { return true }
+        return t.range(of: #"^(\([1-5lIZS]\)?|[1-5]\))$"#, options: .regularExpression) != nil
+    }
+
+    /// 글자 인식이 ①~⑤를 다르게 읽은 것 → 원래 번호로.
+    /// "(1) 12 (2) 14 (3) 16 (4) 18 (5) 20", "1) 3  2) 5 …", 사이에 낀 "©", "®", "@" 같은 기호까지.
+    /// 소문항 (1)(2)와 헷갈리지 않도록 번호가 1부터 차례로 4개 이상이고 보기 내용이 짧을 때만 바꿈
+    static func normalizeChoices(_ text: String) -> String {
+        if text.filter({ circledDigits.contains($0) }).count >= 4 { return fillCircledGaps(text) }
+        // 번호 후보: "(n)", "(n", "n)" (앞은 줄 처음이나 빈칸)
+        let pattern = #"(?:^|(?<=[\s,]))(?:\(([1-5lIZS])\)|\(([1-5lIZS])(?=\s)|([1-5])\))"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else { return text }
+        let ns = text as NSString
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        func number(_ m: NSTextCheckingResult) -> Int? {
+            for group in [1, 2, 3] where m.range(at: group).location != NSNotFound {
+                switch ns.substring(with: m.range(at: group)) {
+                case "1", "l", "I": return 1
+                case "2", "Z": return 2
+                case "3": return 3
+                case "4": return 4
+                case "5", "S": return 5
+                default: return nil
+                }
+            }
+            return nil
+        }
+        // 1부터 차례로 이어지는 가장 긴 줄
+        var chain: [(range: NSRange, n: Int)] = []
+        for m in matches {
+            guard let n = number(m) else { continue }
+            if n == (chain.last?.n ?? 0) + 1 { chain.append((m.range, n)) } else if n == 1 { chain = [(m.range, 1)] }
+        }
+        guard chain.count >= 4, chain.first?.n == 1 else { return fillCircledGaps(text) }
+        // 보기 내용이 짧아야 함 (소문항은 "…구하시오" 같은 긴 문장)
+        for (i, item) in chain.enumerated() {
+            let start = item.range.location + item.range.length
+            let end = i + 1 < chain.count ? chain[i + 1].range.location : ns.length
+            let content = ns.substring(with: NSRange(location: start, length: max(0, end - start)))
+                .components(separatedBy: "\n").first ?? ""
+            if content.count > 40 || content.range(of: #"(시오|하라|인가|는가)"#, options: .regularExpression) != nil { return text }
+        }
         var result = text
+        for item in chain.reversed() {
+            guard let range = Range(item.range, in: result) else { continue }
+            result.replaceSubrange(range, with: String(circledDigits[item.n - 1]))
+        }
+        return fillCircledGaps(result)
+    }
+
+    /// ①②④⑤처럼 하나가 빠졌는데 그 자리에 "©", "®", "@", "0", "O" 같은 기호가 있으면 빠진 번호로
+    private static func fillCircledGaps(_ text: String) -> String {
+        var result = text
+        for k in 1..<4 {   // 빠진 번호: ②, ③, ④ (양옆 번호가 있을 때)
+            let before = circledDigits[k - 1], missing = circledDigits[k], after = circledDigits[k + 1]
+            guard !result.contains(missing), let lower = result.firstIndex(of: before),
+                  let upper = result[lower...].firstIndex(of: after) else { continue }
+            let segment = result[result.index(after: lower)..<upper]
+            // 보기 값 뒤 빈칸 다음에 오는 낯선 기호 하나
+            if let m = segment.range(of: #"(?<=\s)[©®@Ⓒⓒ®OD](?=\s)"#, options: .regularExpression) {
+                result.replaceSubrange(m, with: String(missing))
+            }
+        }
+        return result
+    }
+
+    // MARK: 빈칸 □
+
+    /// 빈칸 상자를 다르게 읽은 것 → "□": 口, 사이 빈 괄호·대괄호, 밑줄, 연산 기호 사이에서 빠진 칸
+    static func normalizeBlanks(_ text: String) -> String {
+        var t = text
+        // 한자 口, 네모 기호들
+        t = t.replacingOccurrences(of: #"[口☐▢◻⬜]"#, with: "□", options: .regularExpression)
+        // 식 안의 낱자 ㅁ (한글 낱말의 일부가 아닐 때)
+        t = t.replacingOccurrences(of: #"(?<![가-힣ㄱ-ㅎ])ㅁ(?![가-힣ㄱ-ㅎ])"#, with: "□", options: .regularExpression)
+        // [ ], [], (   ) — 식 안이나 "( ) 안에 알맞은" 처럼 빈 괄호
+        t = t.replacingOccurrences(of: #"\[\s*\]"#, with: "□", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"\(\s{2,}\)|\(\s*\)(?=\s*(안에|에\s*알맞은|[=+\-×÷*/:<>]))|(?<=[=+\-×÷*/:]\s?)\(\s*\)"#, with: "□", options: .regularExpression)
+        // 밑줄 빈칸 ___
+        t = t.replacingOccurrences(of: #"_{3,}"#, with: "□", options: .regularExpression)
+        // 연산 기호 사이에서 빈칸이 통째로 빠진 경우: "3 + = 7" → "3 + □ = 7", "45 ÷ = 9", "3 : 4 = : 20"
+        t = t.replacingOccurrences(of: #"([+×÷*/:=])[ \t]*(?=[=×÷*/:]|\+(?!\d))"#, with: "$1 □ ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"([\-−])[ \t]+(?==)"#, with: "$1 □ ", options: .regularExpression)
+        // 맨 앞 빈칸: 짧은 식 줄이 연산 기호로 시작 "+ 4 = 9" → "□ + 4 = 9" (긴 식이 줄바꿈된 경우는 제외)
+        t = t.replacingOccurrences(of: #"(?m)^([ \t]*)([+×÷*/])[ \t]*(?=\d[^A-Za-z가-힣\n]{0,16}=[^A-Za-z가-힣\n]{0,10}$)"#, with: "$1□ $2 ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
+        return t
+    }
+
+    /// 사진에서 찾은 빈 네모 상자 중 글자와 겹치지 않고 문장 줄 높이에 있는 것 → 그 줄에 □를 끼워 넣을 자리
+    /// rects: 찾은 상자들, lines: 줄 상자들, letters: 글자 상자들 (모두 Vision 좌표, 아래가 0)
+    static func blankBoxes(rects: [CGRect], lines: [CGRect], letters: [CGRect]) -> [(box: CGRect, host: Int)] {
+        let heights = lines.map(\.height).sorted()
+        guard !heights.isEmpty else { return [] }
+        let median = heights[heights.count / 2]
+        var result: [(box: CGRect, host: Int)] = []
+        for rect in rects {
+            // 글자 한두 칸 크기의 네모 (너무 크면 그림·표, 너무 작으면 점)
+            guard rect.height >= median * 0.6, rect.height <= median * 2.6,
+                  rect.width >= rect.height * 0.6, rect.width <= rect.height * 4 else { continue }
+            // 안이 비어 있어야 함 (글자와 겹치면 글자를 감싼 테두리)
+            let inner = rect.insetBy(dx: rect.width * 0.15, dy: rect.height * 0.15)
+            if letters.contains(where: { $0.intersects(inner) && $0.width < rect.width * 1.5 }) { continue }
+            // 높이가 맞는 줄
+            guard let host = lines.indices.min(by: { abs(lines[$0].midY - rect.midY) < abs(lines[$1].midY - rect.midY) }),
+                  abs(lines[host].midY - rect.midY) <= max(lines[host].height, rect.height) * 0.6 else { continue }
+            if result.contains(where: { $0.box.intersects(rect) }) { continue }
+            result.append((rect, host))
+        }
+        return result
+    }
+
+    static func fix(_ text: String) -> String {
+        var result = normalizeBlanks(text)
         let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil
         for rule in (isComplex ? complexRules : digitRules) {
             guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
@@ -215,6 +336,6 @@ enum MathOCRFixer {
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: rule.template)
         }
-        return result
+        return normalizeChoices(result)
     }
 }
