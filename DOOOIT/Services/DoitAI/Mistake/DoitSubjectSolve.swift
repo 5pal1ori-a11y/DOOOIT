@@ -311,6 +311,12 @@ enum DoitSubjectSolve {
         list += group("과학", [(["포유류"], mammals), (["조류"], birds), (["파충류"], reptiles), (["양서류"], amphibians), (["어류"], fish),
                               (["척추동물"], vertebrates), (["무척추동물"], insects + otherArthropods + otherInvertebrates),
                               (["곤충", "곤충류"], insects), (["절지동물"], insects + otherArthropods)])
+        // 세포 소기관 (액포는 식물 세포에서 크게 발달해서 '공통'에서는 아닌 것으로, '식물 세포에만'에서는 넣지 않음)
+        let shared = ["핵", "세포막", "세포질", "미토콘드리아"], plantOnly = ["세포벽", "엽록체"]
+        list.append(Category(names: ["모두 있는", "공통으로 있는", "공통적으로 있는", "모두 가지고 있는", "공통으로 가지고"], members: Set(shared.map(key)),
+                             universe: Set((shared + plantOnly + ["액포"]).map(key)), subject: "과학"))
+        list.append(Category(names: ["식물 세포에만", "식물 세포에서만"], members: Set(plantOnly.map(key)),
+                             universe: Set((shared + plantOnly).map(key)), subject: "과학"))
         // 행성
         list += group("과학", [(["지구형 행성"], ["수성", "금성", "지구", "화성"]), (["목성형 행성"], ["목성", "토성", "천왕성", "해왕성"]),
                               (["내행성"], ["수성", "금성"]), (["외행성"], ["화성", "목성", "토성", "천왕성", "해왕성"])], extra: ["지구"])
@@ -510,7 +516,7 @@ enum DoitSubjectSolve {
         f(["법원"], [#"(재판을통해|사법권을가진).{0,20}(국가기관|기관)"#], "사법권(재판으로 법을 적용하는 권한)은 법원이 가져요."),
         f(["정부", "행정부"], [#"(행정권을가진|법을집행하는).{0,10}(국가기관|기관)"#], "행정권(법을 집행하는 권한)은 정부가 가져요."),
         f(["평등 선거"], [#"(한사람이?한표|1인1표)"#], "누구나 똑같이 한 표씩 가지는 것은 평등 선거예요."),
-        f(["보통 선거"], [#"일정한?(나이|연령)가?이?되면.{0,10}(누구나|모든)"#], "일정한 나이가 되면 누구나 투표할 수 있는 것은 보통 선거예요."),
+        f(["보통 선거"], [#"일정한?(나이|연령)가?이?되면.{0,10}(누구나|모든)"#, #"(누구나|모든국민이?).{0,4}일정한?(나이|연령)가?이?되면"#], "일정한 나이가 되면 누구나 투표할 수 있는 것은 보통 선거예요."),
         f(["비밀 선거"], [#"(누구를|어떤후보를).{0,8}(뽑았는지|찍었는지|투표했는지).{0,10}(모르|비밀|알수없)"#], "누구를 뽑았는지 알 수 없게 하는 것은 비밀 선거예요."),
         f(["수요 법칙", "수요의 법칙"], [#"가격이?(오르면|상승하면).{0,6}수요량이?.{0,4}(감소|줄)"#, #"가격이?(내리면|하락하면).{0,6}수요량이?.{0,4}(증가|늘)"#], "가격이 오르면 수요량이 줄고 내리면 늘어나는 것이 수요 법칙이에요."),
         f(["공급 법칙", "공급의 법칙"], [#"가격이?(오르면|상승하면).{0,6}공급량이?.{0,4}(증가|늘)"#, #"가격이?(내리면|하락하면).{0,6}공급량이?.{0,4}(감소|줄)"#], "가격이 오르면 공급량이 늘고 내리면 줄어드는 것이 공급 법칙이에요."),
@@ -958,7 +964,8 @@ enum DoitSubjectSolve {
     private static let subjectPronouns: Set<String> = ["i", "you", "he", "she", "we", "they", "it", "my", "his", "her", "our", "their", "your", "tom", "the", "a", "an", "this", "that", "everyone", "people", "mr", "mrs", "ms"]
     private static let possessedNouns: Set<String> = [
         "father", "mother", "name", "brother", "sister", "parents", "hair", "eyes", "house", "car", "dog", "son", "daughter", "roof",
-        "cover", "tail", "legs", "color", "job", "wife", "husband", "friend", "uncle", "aunt", "dream", "window", "door"
+        "cover", "tail", "legs", "color", "job", "wife", "husband", "uncle", "aunt", "dream", "window", "door",
+        "songs", "books", "paintings", "novels", "hobby", "names", "sons", "daughters"
     ]
 
     private static func relativePronoun(_ p: Problem, _ b: Blank, _ options: [String]) -> Found? {
@@ -968,6 +975,7 @@ enum DoitSubjectSolve {
         guard person != thing else { return nil }
         var allowed: Set<String>
         var role: String
+        // 관사 없는 명사 + 동사는 "the book which students read"(목적격)일 수도 있어서, 흔히 '누구의 것'인 명사일 때만 소유격으로
         if possessedNouns.contains(next), b.right.count >= 2, isVerbLike(b.right[1]) {
             allowed = ["whose"]; role = "뒤에 명사(\(next))가 바로 오고 '\(antecedent)의 \(next)'라는 뜻이라 소유격"
         } else if isVerbLike(next) {

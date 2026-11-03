@@ -355,7 +355,38 @@ let subjectBattery: [SubjectBatteryCase] = [
     SubjectBatteryCase("사회", "다음 중 화석 연료가 아닌 것은?\n① 석탄 ② 석유 ③ 천연가스 ④ 풍력", "4"),
     SubjectBatteryCase("사회", "법률을 만드는 기관은?", "국회"),
     SubjectBatteryCase("국어", "다음 중 바르게 쓴 말은?\n① 희안하다 ② 희한하다", "2"),
-    SubjectBatteryCase("국어", "다음 문장 중 맞춤법이 틀린 것은?\n① 숙제를 금세 끝냈다. ② 그는 일부러 웃었다. ③ 며칠 동안 비가 왔다. ④ 깨끗히 청소했다.", "4")
+    SubjectBatteryCase("국어", "다음 문장 중 맞춤법이 틀린 것은?\n① 숙제를 금세 끝냈다. ② 그는 일부러 웃었다. ③ 며칠 동안 비가 왔다. ④ 깨끗히 청소했다.", "4"),
+
+    // MARK: 사진 글 모양 (줄바꿈 선지, (1) 번호, 띄어쓰기 빠짐, 문제 번호)
+    SubjectBatteryCase("과학", "12. 질량이 3kg인 물체에 12N의 힘이 작용할 때 물체의 가속도의 크기는?\n① 2m/s²\n② 4m/s²\n③ 9m/s²\n④ 15m/s²\n⑤ 36m/s²", "2"),
+    SubjectBatteryCase("과학", "3. 밀도가 0.5g/cm³인 나무 도막의 부피가 40cm³일때 질량은 몇g인가?", "20 g"),
+    SubjectBatteryCase("과학", "저항이 6Ω인 전구에 3A의 전류가 흐른다. 전구에 걸린 전압은?\n(1) 2V (2) 3V (3) 9V (4) 18V (5) 36V", "4"),
+    SubjectBatteryCase("과학", "07 질량 2 kg인 공이 4 m/s 의 속력으로 움직인다. 이 공의 운동에너지는 몇 J 인가?\n① 4 ② 8 ③ 16 ④ 32 ⑤ 64", "3"),
+    SubjectBatteryCase("과학", "물 50g 에 소금 50g을 녹인 소금물의 농도는 몇 % 인가?", "50%"),
+    SubjectBatteryCase("과학", "파장이 0.5 m 이고 진동수가 680 Hz 인 소리의 속력은?\n① 170 m/s ② 340 m/s ③ 680 m/s ④ 1360 m/s ⑤ 3400 m/s", "2"),
+    SubjectBatteryCase("과학", "다음 중 동물 세포와 식물 세포에 모두 있는 것은?\n① 세포벽 ② 엽록체 ③ 핵 ④ 액포", "3"),
+    SubjectBatteryCase("과학", "8. 다음중 비금속원소인것은?\n① 철 ② 구리 ③ 산소 ④ 나트륨 ⑤ 칼슘", "3"),
+    SubjectBatteryCase("과학", "다음 중 변성암에 해당하지 않는 것은?\n① 편마암 ② 대리암 ③ 규암 ④ 역암", "4"),
+    SubjectBatteryCase("과학", "원자 번호 6번인 원소의 원소 기호는?", "C"),
+    SubjectBatteryCase("과학", "다음 중 조류에 속하는 동물은?\n① 박쥐 ② 타조 ③ 거북 ④ 개구리 ⑤ 고래", "2"),
+    SubjectBatteryCase("과학", "다음 중 혼합물이 아닌 것은?\n① 공기 ② 바닷물 ③ 우유 ④ 증류수 ⑤ 흙탕물", "4"),
+    SubjectBatteryCase("영어", "5. 빈칸에 알맞은 말은? My dad ______ to work by subway every day.\n① go ② goes ③ went ④ going ⑤ gone", "2"),
+    SubjectBatteryCase("영어", "괄호 안에 알맞은 것은?\nThey ( ) to the zoo last weekend.\n① go ② goes ③ went ④ will go ⑤ going", "3"),
+    SubjectBatteryCase("영어", "다음 빈칸에 들어갈 말로 가장 적절한 것은?\nMy room is ______ than my sister's room.\n(1) small (2) smaller (3) smallest (4) more small (5) most small", "2"),
+    SubjectBatteryCase("영어", "The pictures were ______ by Picasso.\n① paint ② painted ③ painting ④ paints ⑤ to paint", "2"),
+    SubjectBatteryCase("영어", "Minsu ______ his bike tomorrow.\n① ride ② rode ③ will ride ④ rides ⑤ riding", "3"),
+    SubjectBatteryCase("영어", "We enjoyed ______ to music.\n① listen ② to listen ③ listening ④ listened ⑤ listens", "3"),
+    SubjectBatteryCase("영어", "She is a singer ______ songs are popular.\n① who ② which ③ whose ④ what ⑤ whom", "3"),
+    SubjectBatteryCase("영어", "다음 중 단어와 뜻의 연결이 바른 것은?\n① ancient - 현대의 ② benefit - 이익 ③ available - 불가능한 ④ various - 같은 ⑤ polite - 무례한", "2"),
+    SubjectBatteryCase("사회", "4. 다음중 아프리카에 있는 나라는?\n① 케냐 ② 페루 ③ 태국 ④ 스웨덴 ⑤ 멕시코", "1"),
+    SubjectBatteryCase("사회", "베트남의 수도로 옳은 것은?\n① 방콕 ② 하노이 ③ 마닐라 ④ 자카르타 ⑤ 프놈펜", "2"),
+    SubjectBatteryCase("사회", "임진왜란은 몇 년에 일어났나요?", "1592년|1592"),
+    SubjectBatteryCase("사회", "다음 중 가장 나중에 일어난 일은?\n① 임진왜란 ② 병자호란 ③ 훈민정음 반포 ④ 조선 건국", "2"),
+    SubjectBatteryCase("사회", "다음 중 간접세에 해당하는 것은?\n① 소득세 ② 법인세 ③ 부가 가치세 ④ 상속세 ⑤ 재산세", "3"),
+    SubjectBatteryCase("사회", "다음 중 2차 산업은?\n① 어업 ② 제조업 ③ 상업 ④ 관광업 ⑤ 임업", "2"),
+    SubjectBatteryCase("사회", "누구나 일정한 나이가 되면 선거권을 갖는 선거의 원칙은?\n① 보통 선거 ② 평등 선거 ③ 직접 선거 ④ 비밀 선거", "1"),
+    SubjectBatteryCase("국어", "다음 중 맞춤법에 맞는 것은?\n① 할께요 ② 할게요 ③ 할깨요 ④ 할개요", "2"),
+    SubjectBatteryCase("국어", "밑줄 친 말의 표기가 바른 것은?\n① 오늘 몇일이야? ② 금새 끝났다. ③ 웬일로 왔니? ④ 됬어, 그만해.", "3")
 ]
 
 /// 풀면 안 되는 문제: 단서가 없거나 둘 이상이 맞거나 자료에 없는 것 (규칙 풀이가 nil이어야 함)
@@ -383,6 +414,7 @@ let subjectTraps: [SubjectBatteryCase] = [
     SubjectBatteryCase("영어", "There ______ many people at the party yesterday.\n① is ② are ③ was ④ were ⑤ be", ""),
     SubjectBatteryCase("영어", "I would like ______ some coffee.\n① drink ② drinks ③ drinking ④ drank ⑤ drunk", ""),
     SubjectBatteryCase("영어", "다음 중 abundant와 뜻이 반대인 것은?\n① 풍부한 ② 부족한 ③ 거대한 ④ 다양한 ⑤ 드문", ""),
+    SubjectBatteryCase("영어", "This is the book ______ students read most.\n① who ② which ③ whose ④ what ⑤ where", ""),
     SubjectBatteryCase("영어", "This bag is less ______ than that one.\n① expensive ② more expensive ③ most expensive ④ expensiver ⑤ the most expensive", "")
 ]
 
