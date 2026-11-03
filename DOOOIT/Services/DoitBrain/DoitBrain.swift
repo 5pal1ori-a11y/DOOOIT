@@ -11,11 +11,12 @@ import MLXLMCommon
 import Tokenizers
 #endif
 
-/// 두잇 AI 모델 관리: DOOOIT 1 · DOOOIT 2 (휴대폰 안에서 돌아가는 언어 모델)
+/// 두잇 AI 모델 관리: 두잇 1 · 두잇 2 (휴대폰 안에서 돌아가는 언어 모델)
 /// - 고른 모델을 처음 한 번만 다운로드하면 인터넷 없이도 돌아가요.
 /// - 앱 기능, 수학 풀이, 계산처럼 정확해야 하는 일은 규칙형 엔진이 그대로 맡고,
 ///   설명·대화·학습 자료 만들기처럼 "자기 말로" 해야 하는 일을 모델이 맡아요.
-/// (DOOOIT 1 = Qwen3 0.6B, DOOOIT 2 = Qwen3 1.7B — Apache-2.0 오픈소스 모델을 바탕으로 함)
+/// (두잇 1 = Qwen3.5 2B, 두잇 2 = Qwen3.5 4B — Apache-2.0 오픈소스 모델을 바탕으로 함)
+/// 예전 두잇 1·2(Qwen3 0.6B·1.7B)를 받아 둔 기기는 처음 켤 때 예전 파일을 지우고 새로 받게 해요.
 @MainActor
 @Observable
 final class DoitBrain {
@@ -27,13 +28,18 @@ final class DoitBrain {
         var id: String { rawValue }
         var title: String { self == .dooit1 ? "두잇 1" : "두잇 2" }
         var detail: String { self == .dooit1 ? "빠르고 가벼워요" : "더 똑똑하고 자세해요" }
-        var sizeText: String { self == .dooit1 ? "약 0.4GB" : "약 1GB" }
-        var repository: String { self == .dooit1 ? "mlx-community/Qwen3-0.6B-4bit" : "mlx-community/Qwen3-1.7B-4bit" }
+        var sizeText: String { self == .dooit1 ? "약 1.6GB" : "약 2.9GB" }
+        var repository: String { self == .dooit1 ? "mlx-community/Qwen3.5-2B-4bit" : "mlx-community/Qwen3.5-4B-MLX-4bit" }
 
-        /// 기기 메모리에 맞는 모델 (6GB 미만이면 DOOOIT 1)
-        static var recommended: Model {
-            ProcessInfo.processInfo.physicalMemory >= 5_500_000_000 ? .dooit2 : .dooit1
-        }
+        /// 이 모델을 돌릴 메모리 (6GB 기기는 실제로 5.5~6GB로 잡혀요): 두잇 1(2B)은 6GB, 두잇 2(4B)는 8GB 이상
+        var minimumMemory: UInt64 { self == .dooit1 ? 5_500_000_000 : 7_500_000_000 }
+        var fitsDevice: Bool { ProcessInfo.processInfo.physicalMemory >= minimumMemory }
+
+        /// 기기 메모리에 맞는 모델 (8GB 미만이면 두잇 1)
+        static var recommended: Model { Model.dooit2.fitsDevice ? .dooit2 : .dooit1 }
+
+        /// 예전 버전 모델 (Qwen3 0.6B·1.7B) — 새 모델로 바꿀 때 지움
+        static let legacyRepositories = ["mlx-community/Qwen3-0.6B-4bit", "mlx-community/Qwen3-1.7B-4bit"]
     }
 
     enum Phase: Equatable {
@@ -70,6 +76,8 @@ final class DoitBrain {
     private(set) var installed: Set<Model> = []
 
     private let selectedKey = "doitModel.selected"
+    /// 모델 세대 (2 = Qwen3.5). 예전 세대의 '받아 둠' 표시는 새 모델에 맞지 않아서 지움
+    private let generationKey = "doitModel.generation"
     private func installedKey(_ model: Model) -> String { "doitModel.installed.\(model.rawValue)" }
 
     func isInstalled(_ model: Model) -> Bool { installed.contains(model) }
@@ -85,10 +93,10 @@ final class DoitBrain {
 
     var isBusy: Bool { generating }
 
-    /// 휴대폰 실기기에서만 (시뮬레이터·리눅스 테스트에서는 꺼짐)
+    /// 휴대폰 실기기에서만 (시뮬레이터·리눅스 테스트에서는 꺼짐), 메모리 6GB 이상 (두잇 1을 돌릴 수 있어야 함)
     static var isSupported: Bool {
         #if canImport(MLXLLM) && !targetEnvironment(simulator)
-        return true
+        return Model.dooit1.fitsDevice
         #else
         return false
         #endif
@@ -109,6 +117,16 @@ final class DoitBrain {
             defaults.set(true, forKey: installedKey(model))
             if defaults.object(forKey: "doitBrain.enabled") as? Bool ?? true { defaults.set(model.rawValue, forKey: selectedKey) }
             for key in ["doitBrain.installed", "doitBrain.enabled", "doitBrain.size"] { defaults.removeObject(forKey: key) }
+        }
+        // 예전 세대(Qwen3) 모델을 받아 둔 기기: 표시와 파일을 지우고 새 모델을 다시 받게 함 (고른 모델은 기억)
+        if defaults.integer(forKey: generationKey) < 2 {
+            for model in Model.allCases { defaults.removeObject(forKey: installedKey(model)) }
+            #if canImport(MLXLLM)
+            for name in Model.legacyRepositories {
+                if let repo = Repo.ID(rawValue: name) { try? FileManager.default.removeItem(at: HubCache.default.repoDirectory(repo: repo, kind: .model)) }
+            }
+            #endif
+            defaults.set(2, forKey: generationKey)
         }
         installed = Set(Model.allCases.filter { defaults.bool(forKey: installedKey($0)) })
         selected = defaults.string(forKey: selectedKey).flatMap(Model.init(rawValue:)).flatMap { installed.contains($0) ? $0 : nil }
@@ -135,7 +153,7 @@ final class DoitBrain {
     /// 다운로드하고 그 모델로 바꿈 (이미 받았으면 바로 바꿈)
     @discardableResult
     func download(_ model: Model) async -> Bool {
-        guard Self.isSupported else { phase = .failed(BrainError.unsupported.localizedDescription); return false }
+        guard Self.isSupported, model.fitsDevice else { phase = .failed(BrainError.unsupported.localizedDescription); return false }
         if installed.contains(model) { select(model); return await prepare() }
         guard downloading == nil else { return false }
         unload()
@@ -177,7 +195,7 @@ final class DoitBrain {
         let task = Task { @MainActor () -> Bool in
             defer { self.loadTask = nil; self.downloading = nil }
             #if canImport(MLXLLM)
-            let configuration = model == .dooit2 ? LLMRegistry.qwen3_1_7b_4bit : LLMRegistry.qwen3_0_6b_4bit
+            let configuration = ModelConfiguration(id: model.repository, defaultPrompt: "", extraEOSTokens: ["<|im_end|>"])
             let fresh = !self.installed.contains(model)
             if fresh { self.downloading = model }
             self.phase = fresh ? .downloading(0) : .loading
@@ -276,7 +294,7 @@ final class DoitBrain {
     }
 
     /// 이전 대화에 쓸 토큰 예산 (작은 모델은 짧게)
-    var historyBudget: Int { selected == .dooit2 ? 1100 : 600 }
+    var historyBudget: Int { selected == .dooit2 ? 1500 : 1000 }
 }
 
 /// 모델이 내보내는 <think>…</think> (생각 과정)를 걸러냄 — 조각으로 나뉘어 와도 처리

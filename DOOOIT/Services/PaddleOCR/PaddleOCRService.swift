@@ -223,8 +223,8 @@ final class PaddleOCRService {
             phase = .notInstalled
             return false
         }
-        // 6GB 기기에서는 대화 모델(DOOOIT 1·2)을 잠시 내려 메모리를 비움
-        if ProcessInfo.processInfo.physicalMemory < 7_500_000_000 { DoitBrain.shared.sleep() }
+        // 6GB 기기이거나 큰 대화 모델(두잇 2, 4B)을 쓰면 대화 모델을 잠시 내려 메모리를 비움
+        if ProcessInfo.processInfo.physicalMemory < 7_500_000_000 || DoitBrain.shared.selected == .dooit2 { DoitBrain.shared.sleep() }
         phase = .loading
         let engine = self.engine
         let task = Task { @MainActor () -> Bool in

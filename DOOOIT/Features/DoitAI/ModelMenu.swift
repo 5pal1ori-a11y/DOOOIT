@@ -19,11 +19,13 @@ struct ModelMenu: View {
                             Label("\(model.title) · \(model.detail)", systemImage: "checkmark")
                         } else if brain.isInstalled(model) {
                             Text("\(model.title) · \(model.detail)")
+                        } else if !model.fitsDevice {
+                            Text("\(model.title) · 이 기기에서는 못 써요")
                         } else {
                             Label("\(model.title) 다운로드", systemImage: "arrow.down.circle")
                         }
                     }
-                    .disabled(!DoitBrain.isSupported || (brain.downloading != nil && brain.downloading != model && !brain.isInstalled(model)))
+                    .disabled(!DoitBrain.isSupported || !model.fitsDevice || (brain.downloading != nil && brain.downloading != model && !brain.isInstalled(model)))
                 }
                 Button {
                     brain.select(nil)
