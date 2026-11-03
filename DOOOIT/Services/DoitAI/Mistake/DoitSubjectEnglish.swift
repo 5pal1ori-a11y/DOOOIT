@@ -10,7 +10,7 @@ extension DoitSubjectSolve {
     /// - 옳은 것 하나: 나머지가 모두 확실히 틀렸을 때
     static func englishSentences(_ p: Problem) -> Found? {
         let c = p.compact
-        guard p.isChoice, p.box.isEmpty, c.contains("어법"), !matches(c, #"(개수|몇개|모두|있는대로|문맥)"#),
+        guard p.isChoice, p.box.isEmpty, c.contains("어법"), !matches(c, #"(개수|몇개|모두|있는대로|문맥|밑줄)"#),
               p.choices.allSatisfy(DoitSentenceCheck.isEnglishSentence) else { return nil }
         let issues = p.choices.map(DoitSentenceCheck.error(in:))
         let bad = issues.indices.filter { issues[$0] != nil }
@@ -80,7 +80,7 @@ extension DoitSubjectSolve {
     // MARK: 두 빈칸 (A), (B)
 
     static func englishTwoBlanks(_ p: Problem) -> Found? {
-        guard p.isChoice, p.full.contains("(A)"), p.full.contains("(B)") else { return nil }
+        guard p.isChoice, p.full.contains("(A)"), p.full.contains("(B)"), !p.full.contains("["), !p.full.contains("［") else { return nil }
         // 선지: "who - which"
         let split = p.choices.map { $0.components(separatedBy: CharacterSet(charactersIn: "-–/")).map { $0.trimmingCharacters(in: .whitespaces) } }
         guard split.allSatisfy({ $0.count == 2 && $0.allSatisfy { !$0.isEmpty && $0.allSatisfy(\.isASCII) } }) else { return nil }

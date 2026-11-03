@@ -301,6 +301,7 @@ let subjectBattery2: [SubjectBatteryCase] = [
     SubjectBatteryCase("과학", "식물의 잎에서 물이 기공을 통해 수증기 상태로 빠져나가는 현상은?\n① 광합성 ② 호흡 ③ 증산 작용 ④ 삼투 ⑤ 확산", "3"),
     SubjectBatteryCase("과학", "산과 염기가 반응하여 물이 생성되는 반응은?\n① 산화 ② 환원 ③ 중화 반응 ④ 연소 ⑤ 분해", "3"),
     SubjectBatteryCase("과학", "5 Ω인 저항 2개를 직렬로 연결하고 10 V의 전압을 걸었다. 회로에 흐르는 전류는?\n① 0.5 A ② 1 A ③ 2 A ④ 5 A ⑤ 10 A", "2"),
+    SubjectBatteryCase("영어", "다음 중 어법상 어색한 문장은?\n① I am interesting in music.\n② She is good at tennis.\n③ He has a lot of friends.\n④ They live in Seoul.\n⑤ We like pizza.", "1"),
 ]
 
 // 함정: 답이 하나로 안 정해지거나 앱 자료로 알 수 없는 것 → 풀면 안 됨
@@ -316,7 +317,8 @@ let subjectBattery2Traps: [SubjectBatteryCase] = [
     SubjectBatteryCase("과학", "다음 중 정온 동물이 아닌 것은?\n① 고래 ② 펭귄 ③ 박쥐 ④ 오리너구리 ⑤ 개", ""),
     SubjectBatteryCase("과학", "볼록 렌즈의 배율은 몇 배인가? (물체의 크기 2 cm)", ""),
     SubjectBatteryCase("과학", "a + b의 값은? aFe + bO2 → Fe2O3 ① 3 ② 4 ③ 5 ④ 6 ⑤ 7", ""),
-    SubjectBatteryCase("영어", "다음 중 어법상 어색한 문장은?\n① I am interesting in music.\n② She is good at tennis.\n③ He has a lot of friends.\n④ They live in Seoul.\n⑤ We like pizza.", ""),
+    // (예전엔 규칙으로 못 가렸던 "I am interesting in music"은 이제 감정 분사 규칙으로 풀려서 본 배터리로 옮김 — 대신 모두 바른 문장)
+    SubjectBatteryCase("영어", "다음 중 어법상 어색한 문장은?\n① She stopped to talk to him.\n② I tried opening the window.\n③ He forgot meeting her.\n④ We remember calling him.\n⑤ They like swimming.", ""),
     SubjectBatteryCase("영어", "다음 중 어법상 어색한 문장은?\n① He put the book on the desk.\n② She read the letter.\n③ I cut the paper.\n④ They hit the ball.\n⑤ We let him go.", ""),
     SubjectBatteryCase("영어", "다음 중 어법상 바른 것끼리 묶인 것은?\na) I wish I had a car.\nb) She suggested that he go home.\nc) The news are good.\nd) It's time we left.\n① a, b ② a, c ③ b, c ④ c, d ⑤ b, d", ""),
     SubjectBatteryCase("영어", "다음 중 어법상 어색한 문장은?\n① She plays the piano every day.\n② They were at home yesterday.\n③ I have lived here since 2015.\n④ He went to the park last Sunday.\n⑤ We are watching TV now.", ""),

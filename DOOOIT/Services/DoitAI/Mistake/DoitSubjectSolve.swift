@@ -12,8 +12,10 @@ enum DoitSubjectSolve {
         guard !full.isEmpty else { return nil }
         let p = Problem(full: full, body: body, choices: choices, box: boxItems)
         let calc: [(Problem) -> Found?] = [scienceMore, scienceCalc]
-        var solvers: [(Problem) -> Found?] = [chartData, itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling,
-                                              englishGrammar, englishVocabulary, oddWordClass, category, statements, phenomena, eraQuestion, personEvent,
+        // 영어 어법: 지문 밑줄 · 네모 · 개수 · 고치기 · 문장 전환은 문장 선지 풀이보다 먼저, 빈칸 대입은 빈칸 규칙 다음에
+        let englishFirst: [(Problem) -> Found?] = [englishUnderlinedPassage, englishBoxes, englishCount, englishFixError, englishTransform]
+        var solvers: [(Problem) -> Found?] = [chartData] + englishFirst + [itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling,
+                                              englishGrammar, englishBlankSubstitute, englishVocabulary, oddWordClass, category, statements, phenomena, eraQuestion, personEvent,
                                               socialLookup, timeZone, element, facts, colorMix]
         // 과학이면 계산을 먼저 (계산 문제에 낱말 사실표가 먼저 걸리지 않게)
         solvers = subjectBroad == "과학" ? calc + solvers : solvers + calc
@@ -1294,6 +1296,12 @@ enum DoitSubjectSolve {
         } else if ["have", "has", "had", "'ve"].contains(last)
                     || (["already", "just", "never", "ever", "not", "recently", "once"].contains(last) && ["have", "has", "had"].contains(previous)) {
             guard base != "have" || last != "have" else { return nil }
+            // been(경험 · 다녀옴)과 gone(가 버림)은 뜻으로 갈려요: 횟수·경험 단서가 있을 때만 been
+            if options.contains("been"), options.contains("gone") {
+                let cue = matches(" " + b.whole + " ", #" (twice|once|before|ever|never|\d+ times|many times|several times|three times) "#)
+                guard cue, b.right.first == "to" else { return nil }
+                return choose(p, options, allowed: ["been"], concept: "have been to (경험)", why: ["횟수·경험(twice, ever …)을 말하면 have been to (have gone to는 '가 버리고 없다')"])
+            }
             allowed = ppForms; why = ["have/has + 과거분사: 현재완료", "\(base) → \(ppForms.sorted().joined(separator: "/"))"]; concept = "현재완료"
         } else if ["am", "is", "are", "was", "were", "be", "been"].contains(last) {
             let rightWindow = b.right.prefix(6)
