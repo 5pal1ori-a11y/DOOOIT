@@ -15,8 +15,9 @@ import Tokenizers
 /// - 고른 모델을 처음 한 번만 다운로드하면 인터넷 없이도 돌아가요.
 /// - 앱 기능, 수학 풀이, 계산처럼 정확해야 하는 일은 규칙형 엔진이 그대로 맡고,
 ///   설명·대화·학습 자료 만들기처럼 "자기 말로" 해야 하는 일을 모델이 맡아요.
-/// (두잇 1 = Qwen3.5 2B, 두잇 2 = Qwen3.5 4B — Apache-2.0 오픈소스 모델을 바탕으로 함)
-/// 예전 두잇 1·2(Qwen3 0.6B·1.7B)를 받아 둔 기기는 처음 켤 때 예전 파일을 지우고 새로 받게 해요.
+/// (두잇 1 = Qwen3 1.7B, 두잇 2 = Qwen3.5 4B — Apache-2.0 오픈소스 모델을 바탕으로 함)
+/// 100문제 비교: 수학 외 과목 4B 45/60 · 1.7B 34/60 · Qwen3.5 2B 29/60 → 2B보다 1.7B가 나아서 두잇 1은 1.7B
+/// 예전 두잇 2(1.7B)를 받아 둔 기기는 그 파일을 새 두잇 1로 그대로 쓰고, 예전 두잇 1(0.6B) 파일은 지워요.
 @MainActor
 @Observable
 final class DoitBrain {
@@ -28,18 +29,20 @@ final class DoitBrain {
         var id: String { rawValue }
         var title: String { self == .dooit1 ? "두잇 1" : "두잇 2" }
         var detail: String { self == .dooit1 ? "빠르고 가벼워요" : "더 똑똑하고 자세해요" }
-        var sizeText: String { self == .dooit1 ? "약 1.6GB" : "약 2.9GB" }
-        var repository: String { self == .dooit1 ? "mlx-community/Qwen3.5-2B-4bit" : "mlx-community/Qwen3.5-4B-MLX-4bit" }
+        var sizeText: String { self == .dooit1 ? "약 0.9GB" : "약 2.9GB" }
+        var repository: String { self == .dooit1 ? "mlx-community/Qwen3-1.7B-4bit" : "mlx-community/Qwen3.5-4B-MLX-4bit" }
 
-        /// 이 모델을 돌릴 메모리 (6GB 기기는 실제로 5.5~6GB로 잡혀요): 두잇 1(2B)은 6GB, 두잇 2(4B)는 8GB 이상
-        var minimumMemory: UInt64 { self == .dooit1 ? 5_500_000_000 : 7_500_000_000 }
+        /// 이 모델을 돌릴 메모리: 두잇 1(1.7B)은 지금처럼 모든 기기, 두잇 2(4B)는 8GB 이상 (8GB 기기는 7.5GB 넘게 잡혀요)
+        var minimumMemory: UInt64 { self == .dooit1 ? 0 : 7_500_000_000 }
+        /// 생각 모드를 쓸 수 있는지: Qwen3.5 4B는 앱의 토큰 예산 안에서 생각을 끝내지 못해 답이 비어서 끔
+        var thinks: Bool { self == .dooit1 }
         var fitsDevice: Bool { ProcessInfo.processInfo.physicalMemory >= minimumMemory }
 
         /// 기기 메모리에 맞는 모델 (8GB 미만이면 두잇 1)
         static var recommended: Model { Model.dooit2.fitsDevice ? .dooit2 : .dooit1 }
 
-        /// 예전 버전 모델 (Qwen3 0.6B·1.7B) — 새 모델로 바꿀 때 지움
-        static let legacyRepositories = ["mlx-community/Qwen3-0.6B-4bit", "mlx-community/Qwen3-1.7B-4bit"]
+        /// 예전 두잇 1 (Qwen3 0.6B) — 새 모델로 바꿀 때 지움
+        static let legacyRepositories = ["mlx-community/Qwen3-0.6B-4bit"]
     }
 
     enum Phase: Equatable {
@@ -118,9 +121,17 @@ final class DoitBrain {
             if defaults.object(forKey: "doitBrain.enabled") as? Bool ?? true { defaults.set(model.rawValue, forKey: selectedKey) }
             for key in ["doitBrain.installed", "doitBrain.enabled", "doitBrain.size"] { defaults.removeObject(forKey: key) }
         }
-        // 예전 세대(Qwen3) 모델을 받아 둔 기기: 표시와 파일을 지우고 새 모델을 다시 받게 함 (고른 모델은 기억)
+        // 예전 세대: 두잇 1 = 0.6B, 두잇 2 = 1.7B → 새 세대: 두잇 1 = 1.7B, 두잇 2 = 4B
+        // 받아 둔 1.7B는 새 두잇 1로 그대로 쓰고 (다시 받지 않음), 0.6B 파일은 지움
         if defaults.integer(forKey: generationKey) < 2 {
+            let had17 = defaults.bool(forKey: installedKey(.dooit2))
             for model in Model.allCases { defaults.removeObject(forKey: installedKey(model)) }
+            if had17 {
+                defaults.set(true, forKey: installedKey(.dooit1))
+                if defaults.string(forKey: selectedKey) != nil { defaults.set(Model.dooit1.rawValue, forKey: selectedKey) }
+            } else {
+                defaults.removeObject(forKey: selectedKey)
+            }
             #if canImport(MLXLLM)
             for name in Model.legacyRepositories {
                 if let repo = Repo.ID(rawValue: name) { try? FileManager.default.removeItem(at: HubCache.default.repoDirectory(repo: repo, kind: .model)) }
@@ -257,6 +268,8 @@ final class DoitBrain {
                 guard await self.prepare() else { continuation.finish(throwing: BrainError.notReady); return }
                 self.generating = true
                 defer { self.generating = false }
+                // 생각 모드를 못 쓰는 모델(두잇 2, Qwen3.5 4B)은 끔
+                let thinking = thinking && (self.selected?.thinks ?? false)
                 #if canImport(MLXLLM)
                 guard let container = self.container else { continuation.finish(throwing: BrainError.notReady); return }
                 let parameters = GenerateParameters(maxTokens: maxTokens, temperature: temperature, topP: 0.9, repetitionPenalty: 1.1)
@@ -295,7 +308,7 @@ final class DoitBrain {
     }
 
     /// 이전 대화에 쓸 토큰 예산 (작은 모델은 짧게)
-    var historyBudget: Int { selected == .dooit2 ? 1500 : 1000 }
+    var historyBudget: Int { selected == .dooit2 ? 1500 : 1100 }
 }
 
 /// 모델이 내보내는 <think>…</think> (생각 과정)를 걸러냄 — 조각으로 나뉘어 와도 처리
