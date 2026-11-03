@@ -269,6 +269,10 @@ enum DoitMathTopics {
         let candidates: [String] = runs.filter { $0.contains("i") && $0.count >= 2 }
         let run: String = candidates.max(by: { $0.count < $1.count }) ?? ""
         guard !run.isEmpty else { return nil }
+        // 식에 실수 x 같은 문자가 붙어 있으면 ("(1 + i)x + 2 − 3i") 계산 문제가 아님 (조건 문제: 다른 풀이로)
+        let withLetters = Set("0123456789.+-*/^() abcdefghijklmnopqrstuvwxyz")
+        let wide = t.split(whereSeparator: { !withLetters.contains($0) }).map(String.init)
+        if wide.contains(where: { $0.contains(run) && $0.contains(where: { $0.isLetter && $0 != "i" }) }) { return nil }
         let wantsConjugate = has(t, ["켤레"])
         var parser = ComplexParser(chars: Array(run.replacingOccurrences(of: " ", with: "")))
         guard let value = parser.expression(), parser.i == parser.chars.count else { return nil }

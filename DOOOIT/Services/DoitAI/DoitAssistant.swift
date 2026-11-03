@@ -612,7 +612,8 @@ final class DoitAssistant {
         if isMath || DoitMath.looksLikeMath(text) {
             solution = DoitAutoSolve.engine(text: text, choices: choices, isChoice: isChoice, body: scan.body)
         }
-        if solution == nil || solution?.finalAnswer.hasPrefix("계산한 값") == true, DoitMind.isAvailable {
+        // 모델은 수학이 아닌 과목만 (작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만)
+        if !isMath, solution == nil, DoitMind.isAvailable {
             status = "두잇 AI가 문제를 푸는 중…"
             let body = scan.body.isEmpty ? text : scan.body
             let prompt = DoitAutoSolve.modelPrompt(problem: body, choices: isChoice ? choices : [],
@@ -636,7 +637,8 @@ final class DoitAssistant {
             if !type.steps.isEmpty { lines.append("푸는 법 · " + type.steps.prefix(3).joined(separator: " → ")) }
         }
         lines.append("\n읽은 문제\n" + MathSymbolBar.pretty(String(text.prefix(400))))
-        if !DoitMind.isAvailable { lines.append("\n위쪽 메뉴에서 두잇 모델을 받으면 다른 과목 문제도 풀어 봐요.") }
+        if isMath { lines.append("\n틀린 답을 보여 주지 않으려고 계산으로 확인한 답만 알려 줘요. 글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
+        else if !DoitMind.isAvailable { lines.append("\n위쪽 메뉴에서 두잇 모델을 받으면 다른 과목 문제도 풀어 봐요.") }
         else { lines.append("\n글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
         return Message(role: .assistant, text: lines.joined(separator: "\n"), suggestions: suggestions)
     }

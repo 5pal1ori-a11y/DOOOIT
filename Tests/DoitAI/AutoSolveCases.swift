@@ -66,4 +66,18 @@ func runAutoSolveCases() {
     let guess = WrittenSolution(concept: "", steps: [SolutionStep(hint: "", work: "어제라서 과거형")], finalAnswer: "1", source: DoitAutoSolve.modelSource)
     let guessText = DoitAutoSolve.chatText(guess, choices: opts)
     check("대화 사진 풀기: 모델 답은 추측 표시", guessText.contains("AI 추측") && guessText.contains("1번 (went)") && guessText.contains("확인해"), guessText)
+
+    // 실수 x가 들어간 복소수 (z, z²이 실수·순허수·양/음의 실수)
+    let complexCases: [(String, String)] = [
+        ("복소수 z = (2+4i)(x−8i)에 대하여 z²이 양의 실수가 되도록 하는 실수 x의 값을 a, z²이 음의 실수가 되도록 하는 실수 x의 값을 b라 할 때, a+b의 값은?", "-12"),
+        ("z = (1+i)x + 2 - 3i가 실수가 되도록 하는 실수 x의 값은?", "x = 3"),
+        ("z = x^2 - 4 + (x+2)i가 순허수일 때 실수 x의 값은?", "x = 2"),
+        ("복소수 z = (1+2i)(x-i)가 실수일 때 실수 x의 값을 구하시오.", "x = 1/2"),
+    ]
+    for (text, expected) in complexCases {
+        let got = MathSolver.solve(text)?.answer
+        check("복소수 조건: \(text.prefix(30))", got == expected, got ?? "nil")
+    }
+    check("복소수 계산은 그대로", MathSolver.solve("(2+4i)(3-8i)")?.answer == "38 − 4i")
+    check("문자가 붙은 복소수는 계산으로 풀지 않음", MathSolver.solve("z = (1+i)x + 2 - 3i가 실수가 되도록 하는 실수 x의 값은?")?.answer != "2 − 3i")
 }

@@ -416,6 +416,8 @@ enum DoitMathConstants {
         if let s = continuity(t) { return s }
         // 복소수가 서로 같을 조건: "x + yi = (2 + i)(1 − i)를 만족시키는 실수 x, y"
         if let s = complexEquality(t) { return s }
+        // 실수 x가 들어간 복소수: "z = (2 + 4i)(x − 8i)에 대하여 z²이 양의 실수가 되는 x를 a, 음의 실수가 되는 x를 b라 할 때 a + b"
+        if let s = complexParameter(t) { return s }
         if let s = plainEquations(t) { return s }
         var found = unknownLetters(t)
         // 상수 하나라도, 한 근이 1 + √2, 2 + i 꼴이면 여기서 (켤레근)
@@ -779,6 +781,98 @@ enum DoitMathConstants {
         let e = last[1].trimmingCharacters(in: .whitespaces)
         guard Set(e.filter { $0.isLetter }).count == 2, e.contains(where: { "+-*/^".contains($0) }) || e == "xy" else { return nil }
         return e
+    }
+
+    // MARK: - 실수 x가 들어간 복소수의 조건 (실수 · 순허수 · 양/음의 실수, z와 z²)
+
+    private static func complexParameter(_ t: String) -> Solved? {
+        guard t.range(of: #"(?<![a-z])i(?![a-z])"#, options: .regularExpression) != nil,
+              let def = match(t, #"(?<![a-z])([a-hj-z])\s*=\s*([0-9a-z+\-*/^()\s.]+?)\s*(?=[가-힣,]|$)"#),
+              let name = def[1].first else { return nil }
+        let exprText = def[2].trimmingCharacters(in: .whitespaces)
+        let letters = Set(exprText.filter { $0.isLetter && $0 != "i" })
+        guard exprText.contains("i"), letters.count == 1, let u = letters.first, u != name else { return nil }
+        guard let Z = parse(exprText, variables: [u, "i"]), Z.degree(in: "i") <= 1 else { return nil }
+        let R = Z.coefficient("i", 0), I = Z.coefficient("i", 1)
+        guard R.letters.isSubset(of: [u]), I.letters.isSubset(of: [u]), !(R.letters.isEmpty && I.letters.isEmpty) else { return nil }
+        let n = String(name)
+        let target = "(\(n)\\s*\\^\\s*2|\(n)²|\(n))"
+        let kind = #"(양의\s*실수|음의\s*실수|순허수|실수)"#
+        // 조건 하나: (z 또는 z², 무엇이 되는지, 값을 담을 문자)
+        var clauses: [(squared: Bool, kind: String, letter: Character?)] = []
+        for m in matches(t, target + #"\s*(?:의\s*값)?\s*(?:이|가)\s*"# + kind + #"[^,.]*?값을\s*([a-z])(?![a-z])"#) {
+            clauses.append((m[1] != n, m[2].replacingOccurrences(of: " ", with: ""), m[3].first))
+        }
+        if clauses.isEmpty, let m = match(t, target + #"\s*(?:의\s*값)?\s*(?:이|가)\s*"# + kind) {
+            clauses.append((m[1] != n, m[2].replacingOccurrences(of: " ", with: ""), nil))
+        }
+        // 식 바로 뒤에 조건: "z = (1 + i)x + 2 − 3i가 실수가 되도록"
+        if clauses.isEmpty, let m = match(t, #"[0-9i)]\s*(?:이|가|은|는)\s*"# + kind) {
+            clauses.append((false, m[1].replacingOccurrences(of: " ", with: ""), nil))
+        }
+        guard !clauses.isEmpty else { return nil }
+
+        func solveFor(_ eq: GPoly) -> [Double] {
+            guard let sols = solveEquations([eq], unknowns: [u]) else { return [] }
+            return sols.compactMap { $0[u] }
+        }
+        func at(_ p: GPoly, _ v: Double) -> Double { p.evaluate([u: v]) ?? .nan }
+        var steps = [SolutionStep(hint: "i² = −1을 써서 \(n)를 a + bi 꼴로 정리하면", work: "\(n) = (\(describe(R))) + (\(describe(I)))i",
+                                  concept: "실수부분과 허수부분으로 나누어 조건을 따져요.")]
+        var values: [Character: Double] = [:]
+        var single: Double?
+        for clause in clauses {
+            let what = clause.squared ? "\(n)²" : n
+            var found: [Double]
+            var why: String
+            switch (clause.squared, clause.kind) {
+            case (false, "실수"):
+                found = solveFor(I); why = "\(n)가 실수 → 허수부분 = 0"
+            case (false, "순허수"):
+                found = solveFor(R).filter { abs(at(I, $0)) > 1e-9 }; why = "\(n)가 순허수 → 실수부분 = 0, 허수부분 ≠ 0"
+            case (false, "양의실수"):
+                found = solveFor(I).filter { at(R, $0) > 1e-9 }; why = "\(n)가 양의 실수 → 허수부분 = 0, 실수부분 > 0"
+            case (false, "음의실수"):
+                found = solveFor(I).filter { at(R, $0) < -1e-9 }; why = "\(n)가 음의 실수 → 허수부분 = 0, 실수부분 < 0"
+            case (true, "양의실수"):
+                found = solveFor(I).filter { abs(at(R, $0)) > 1e-9 }; why = "\(n)²이 양의 실수 → \(n)가 0이 아닌 실수 → 허수부분 = 0, 실수부분 ≠ 0"
+            case (true, "음의실수"):
+                found = solveFor(R).filter { abs(at(I, $0)) > 1e-9 }; why = "\(n)²이 음의 실수 → \(n)가 순허수 → 실수부분 = 0, 허수부분 ≠ 0"
+            case (true, "실수"):
+                found = solveFor(R) + solveFor(I); why = "\(n)²이 실수 → 실수부분 = 0 또는 허수부분 = 0"
+            default:
+                return nil
+            }
+            var uniq: [Double] = []
+            for v in found where !uniq.contains(where: { abs($0 - v) < 1e-9 }) { uniq.append(v) }
+            guard !uniq.isEmpty else { return nil }
+            let shown = uniq.map { "\(u) = \(f(clean($0)))" }.joined(separator: " 또는 ")
+            steps.append(SolutionStep(hint: why, work: shown + (clause.letter.map { " → \($0) = \(uniq.count == 1 ? f(clean(uniq[0])) : "?")" } ?? "")))
+            if let letter = clause.letter {
+                guard uniq.count == 1 else { return nil }
+                values[letter] = uniq[0]
+            } else if clauses.count == 1, uniq.count == 1 {
+                single = uniq[0]
+            } else if clauses.count == 1 {
+                return Solved(kind: .complex, topic: "복소수가 실수·순허수가 될 조건", concept: "a + bi에서 실수는 b = 0, 순허수는 a = 0이고 b ≠ 0이에요.",
+                              steps: steps, answer: shown)
+            }
+            _ = what
+        }
+        var answer: String
+        if let asked = askedExpression(t), !values.isEmpty, let p = parse(asked, variables: Set(values.keys)), let v = p.evaluate(values) {
+            steps.append(SolutionStep(hint: "\(pretty(asked))의 값은", work: "\(pretty(asked)) = \(f(clean(v)))"))
+            answer = f(clean(v))
+        } else if let single {
+            answer = "\(u) = \(f(clean(single)))"
+        } else if !values.isEmpty {
+            answer = values.keys.sorted().map { "\($0) = \(f(clean(values[$0]!)))" }.joined(separator: ", ")
+        } else {
+            return nil
+        }
+        return Solved(kind: .complex, topic: "복소수가 실수·순허수가 될 조건",
+                      concept: "z = a + bi일 때 z²이 양의 실수 ⇔ z가 0이 아닌 실수(b = 0), z²이 음의 실수 ⇔ z가 순허수(a = 0, b ≠ 0)예요.",
+                      steps: steps, answer: answer)
     }
 
     // MARK: - 복소수가 서로 같을 조건

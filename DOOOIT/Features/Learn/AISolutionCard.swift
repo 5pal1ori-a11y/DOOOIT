@@ -22,7 +22,10 @@ struct AISolutionCard: View {
         note.solutionData.flatMap { try? JSONDecoder().decode(WrittenSolution.self, from: $0) }
     }
     private var current: WrittenSolution? {
-        DoitAutoSolve.isCurrent(solution, problem: problemText) ? solution : nil
+        guard DoitAutoSolve.isCurrent(solution, problem: problemText) else { return nil }
+        // 예전에 모델이 추측한 수학 답은 버리고 계산으로 다시 풂
+        if note.subjectKind.isMath, solution?.source == DoitAutoSolve.modelSource { return nil }
+        return solution
     }
     private var noteKey: String { note.correctAnswer.trimmingCharacters(in: .whitespaces) }
 
@@ -151,7 +154,8 @@ struct AISolutionCard: View {
 
     private var failedState: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(DoitMind.isAvailable ? "AI가 이 문제를 풀지 못했어요" : "AI가 이 문제를 풀지 못했어요. 두잇 AI 탭에서 모델을 받으면 더 많은 문제를 풀어요.")
+            Text(note.subjectKind.isMath ? "AI가 이 문제를 확실하게 풀지 못했어요. 틀린 답을 보여 주지 않으려고 계산으로 확인한 답만 보여 줘요. 문제 글이 맞게 읽혔는지 확인하거나 'AI와 함께 풀기'로 풀어 봐요."
+                 : DoitMind.isAvailable ? "AI가 이 문제를 풀지 못했어요" : "AI가 이 문제를 풀지 못했어요. 두잇 AI 탭에서 모델을 받으면 더 많은 문제를 풀어요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -189,8 +193,8 @@ struct AISolutionCard: View {
             if noteKey.isEmpty, !isChoice || matchesChoice(solved.finalAnswer) { note.correctAnswer = solved.finalAnswer; save() }
             return
         }
-        // 2) 두잇 1·2 모델
-        if DoitMind.isAvailable {
+        // 2) 두잇 1·2 모델 (수학이 아닌 과목만: 작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만 보여 줌)
+        if !note.subjectKind.isMath, DoitMind.isAvailable {
             let body = note.scan.map { $0.body.isEmpty ? text : $0.body } ?? text
             let prompt = DoitAutoSolve.modelPrompt(problem: body, choices: isChoice ? choices : [],
                                                    subjectName: note.subjectLabel, problemType: note.scan?.problemType)
