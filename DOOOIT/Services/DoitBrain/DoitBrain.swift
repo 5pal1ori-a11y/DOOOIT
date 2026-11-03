@@ -2,6 +2,10 @@ import Foundation
 import Observation
 #if canImport(UIKit)
 import UIKit
+import os
+#endif
+#if canImport(MLX)
+import MLX
 #endif
 #if canImport(MLXLLM)
 import HuggingFace
@@ -34,6 +38,8 @@ final class DoitBrain {
 
         /// 이 모델을 돌릴 메모리: 두잇 1(1.7B)은 지금처럼 모든 기기, 두잇 2(4B)는 8GB 이상 (8GB 기기는 7.5GB 넘게 잡혀요)
         var minimumMemory: UInt64 { self == .dooit1 ? 0 : 7_500_000_000 }
+        /// 불러올 때 앱이 더 쓸 수 있어야 하는 메모리 (Mac 측정: 1.7B 최대 1.6GB, 4B 최대 3.2GB + 여유)
+        var neededMemory: UInt64 { self == .dooit1 ? 2_000_000_000 : 3_700_000_000 }
         /// 생각 모드를 쓸 수 있는지: Qwen3.5 4B는 앱의 토큰 예산 안에서 생각을 끝내지 못해 답이 비어서 끔
         var thinks: Bool { self == .dooit1 }
         var fitsDevice: Bool { ProcessInfo.processInfo.physicalMemory >= minimumMemory }
@@ -199,10 +205,31 @@ final class DoitBrain {
         return await load(selected, downloading: false)
     }
 
+    /// iOS가 앱을 끄기 전까지 앱이 더 쓸 수 있는 메모리 (리눅스 테스트·맥에서는 제한 없음)
+    static var availableMemory: UInt64 {
+        #if canImport(UIKit) && !targetEnvironment(simulator)
+        return UInt64(os_proc_available_memory())
+        #else
+        return .max
+        #endif
+    }
+
     private func load(_ model: Model, downloading isDownload: Bool) async -> Bool {
         // 받지 않은 모델은 사용자가 직접 "다운로드"를 눌렀을 때만 받음 (데이터 요금 방지)
         guard isDownload || installed.contains(model) else { return false }
         if let loadTask { return await loadTask.value }
+        // 메모리가 모자라면 불러오지 않음 (불러오다 iOS가 앱을 끄는 것 막기) → 규칙형 엔진으로 답함
+        if loadedModel != model {
+            unload()
+            #if canImport(MLX)
+            MLX.Memory.clearCache()
+            #endif
+            if Self.availableMemory < model.neededMemory {
+                phase = .failed(model == .dooit2 ? "메모리가 모자라 두잇 2를 켜지 못했어요. 다른 앱을 닫거나 두잇 1을 써 주세요."
+                                                 : "메모리가 모자라 \(model.title)을(를) 켜지 못했어요. 다른 앱을 닫고 다시 해 주세요.")
+                return false
+            }
+        }
         let task = Task { @MainActor () -> Bool in
             defer { self.loadTask = nil; self.downloading = nil }
             #if canImport(MLXLLM)
@@ -221,6 +248,10 @@ final class DoitBrain {
                 })
                 self.container = loaded
                 self.loadedModel = model
+                #if canImport(MLX)
+                // 계산에 쓴 메모리를 오래 붙잡지 않게 (메모리 부족으로 앱이 꺼지지 않게)
+                MLX.Memory.cacheLimit = 64 * 1024 * 1024
+                #endif
                 self.installed.insert(model)
                 UserDefaults.standard.set(true, forKey: self.installedKey(model))
                 // 받는 동안 다른 모델로 바꿨으면 그 모델을 그대로 둠
