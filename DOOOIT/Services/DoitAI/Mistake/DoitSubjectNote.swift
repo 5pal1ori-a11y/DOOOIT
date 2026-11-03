@@ -165,7 +165,7 @@ enum DoitSubjectNote {
     static func title(from text: String) -> String? {
         for line in text.components(separatedBy: "\n") {
             var t = line.trimmingCharacters(in: .whitespaces)
-            t = t.replacingOccurrences(of: #"^(\d{1,2}[.)]|\(\d{1,2}\))\s*"#, with: "", options: .regularExpression)
+            t = t.replacingOccurrences(of: #"^(\d{1,3}\s*번\s*[).:]?|\d{1,2}[.)]|\(\d{1,2}\))\s*"#, with: "", options: .regularExpression)
             t = t.trimmingCharacters(in: .whitespaces)
             guard t.count >= 2, t.contains(where: { $0.isLetter }) else { continue }
             if t.count <= 24 { return t }

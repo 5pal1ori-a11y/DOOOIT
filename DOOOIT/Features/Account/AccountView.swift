@@ -137,6 +137,8 @@ struct AccountView: View {
         List {
             Section {
                 LabeledContent { Text(appVersion) } label: { item("버전", "info", Color.gray) }
+                NavigationLink { LegalDocumentView(kind: .terms) } label: { item("이용약관", "doc.text", Color.gray) }
+                NavigationLink { LegalDocumentView(kind: .privacy) } label: { item("개인정보 처리방침", "hand.raised", Color.gray) }
             }
             Section {
                 Button { showResetRecords = true } label: { item("공부 기록 초기화", "arrow.counterclockwise", Color.gray) }

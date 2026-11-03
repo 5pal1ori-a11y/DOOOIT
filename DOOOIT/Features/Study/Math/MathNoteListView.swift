@@ -477,7 +477,7 @@ struct MathNoteListView: View {
             let graph = await VisionAnalyzer.analyze(pair.problem)
             let figure = await FigureReader.read(pair.problem, problemText: read.text, analysis: graph)
             let text = DoitFigureFacts.attach(figure, to: read.text)
-            let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
+            let title = DoitProblemScan.titled(read.text, base: MathOCRFixer.title(from:)) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
@@ -512,7 +512,7 @@ struct MathNoteListView: View {
             read.text = DoitFigureFacts.attach(figure, to: read.text)
         }
         let note = MathNote(
-            title: DoitSubjectNote.title(from: read.text) ?? "오답 \(notes.count + index + 1)",
+            title: DoitProblemScan.titled(read.text, base: DoitSubjectNote.title(from:)) ?? "오답 \(notes.count + index + 1)",
             imageData: pair.original.jpegForStorage(maxDimension: 2000),
             thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
             recognizedText: read.text,

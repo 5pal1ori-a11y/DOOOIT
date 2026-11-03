@@ -98,4 +98,28 @@ func runAutoSolveCases() {
     check("문제 나누기: 복소수 식이 잘리지 않음", shotScan.formulas.contains("z=(2+4i)(x-8i)"), "\(shotScan.formulas)")
     check("문제 나누기: 괄호 짝 경고 없음", !shotScan.doubts.contains { $0.reason.contains("괄호") }, "\(shotScan.doubts)")
     check("문제 나누기: 조건 닫는 괄호", shotScan.conditions.contains("(단, x는 실수이다.)"), "\(shotScan.conditions)")
+
+    // 문제 번호 → "N번)"
+    let numberCases: [(String, String)] = [
+        ("12. 다음 중 옳은 것은?", "12번) 다음 중 옳은 것은?"),
+        ("3.다음 식의 값은?", "3번) 다음 식의 값은?"),
+        ("07 일차함수 y=2x-3의 그래프", "7번) 일차함수 y=2x-3의 그래프"),
+        ("[5] 다음을 구하시오.", "5번) 다음을 구하시오."),
+        ("문제 4 다음 빈칸에 알맞은 것은?", "4번) 다음 빈칸에 알맞은 것은?"),
+        ("Q8. What is the main idea?", "8번) What is the main idea?"),
+        ("1^1. x= 2일 때, 식 3x- 1의 값은?", "11번) x= 2일 때, 식 3x- 1의 값은?"),
+        ("15) 다음 중 소수인 것은?", "15번) 다음 중 소수인 것은?"),
+        ("12번) 이미 바꾼 글", "12번) 이미 바꾼 글"),
+    ]
+    for (input, expected) in numberCases {
+        check("문제 번호: \(input.prefix(16))", DoitProblemScan.numbered(input) == expected, DoitProblemScan.numbered(input))
+    }
+    let notNumbers = ["3.5 × 2의 값은?", "2x + 3 = 7의 해는?", "1) went\n2) go\n3) gone", "0.3 × 0.4의 값은?", "x^2 - 5x + 6 = 0"]
+    for input in notNumbers {
+        check("문제 번호 아님: \(input.prefix(16))", DoitProblemScan.numbered(input) == input, DoitProblemScan.numbered(input))
+    }
+    let scanned = DoitProblemScan.scan("12번) 다음 중 옳은 것은?\n① 1 ② 2 ③ 3 ④ 4 ⑤ 5")
+    check("문제 번호: 나누기에서 번호 따로", scanned.number == 12 && !scanned.body.contains("12") && scanned.choices.count == 5, "\(scanned.number ?? -1) \(scanned.body)")
+    check("문제 번호: 제목", DoitProblemScan.titled("12번) 다음 중 옳은 것은?", base: DoitSubjectNote.title(from:)) == "12번) 다음 중 옳은 것은?")
+    check("문제 번호: 풀이 엔진은 번호를 빼고 풂", DoitAutoSolve.engine(text: "10번) (2x+ 1)(x- 3)을 전개하시오", choices: [], isChoice: false)?.finalAnswer == "2x² − 5x − 3")
 }

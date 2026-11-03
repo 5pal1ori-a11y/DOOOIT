@@ -42,6 +42,8 @@ struct ProblemScan: Codable, Equatable {
     var boxItems: [String]?
     /// 그림·그래프·차트·표에서 읽은 줄 (문제 글 끝 "[그림에서 읽음]" 블록, 기계가 읽은 값이라 확인 필요). 없으면 nil
     var figureLines: [String]?
+    /// 문제 번호 ("12." · "12번)" · "[12]" → 12). 없거나 예전 노트는 nil
+    var number: Int?
 
     var hasDoubts: Bool { !doubts.isEmpty }
 
@@ -59,7 +61,12 @@ enum DoitProblemScan {
         var result = ProblemScan()
         // 그림에서 읽은 블록은 떼어 두고 문제 글만 나눔 (선택지·질문·수식에 섞이지 않게)
         let figure = DoitFigureFacts.split(raw.replacingOccurrences(of: "\r", with: ""))
-        let text = figure.problem
+        var text = figure.problem
+        // 0) 맨 앞 문제 번호는 따로 ("12번) 다음 중…" → 번호 12, 본문 "다음 중…")
+        if let found = leadingNumber(text) {
+            result.number = found.number
+            text = found.rest
+        }
         var lines = text.components(separatedBy: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         // <보기> ㄱ. ㄴ. ㄷ. 항목: 글자 인식이 ㄱ을 "7", ㄴ을 "L", ㄷ을 "C"로 읽은 것도 바로잡음
         let box = boxItems(in: lines)
@@ -320,6 +327,58 @@ enum DoitProblemScan {
     static func isJamoList(_ choice: String) -> Bool {
         let parts = choice.components(separatedBy: ", ")
         return !parts.isEmpty && parts.allSatisfy { $0.count == 1 && jamoMarks.contains($0.first!) }
+    }
+
+    // MARK: - 문제 번호
+
+    /// 맨 앞 문제 번호 찾기: "12." "12)" "07" "[3]" "문제 3" "Q3" "12번)" "1^1."(11이 지수로 읽힘) → (번호, 나머지 글)
+    /// 소수("3.5 × 2"), 선택지("1) …"가 이어지는 것), 식("2x + 3")은 번호로 보지 않음
+    static func leadingNumber(_ raw: String) -> (number: Int, rest: String)? {
+        let text = raw.replacingOccurrences(of: "．", with: ".").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        func take(_ pattern: String, join: Bool = false) -> (Int, String)? {
+            guard let regex = try? NSRegularExpression(pattern: pattern),
+                  let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                  let whole = Range(m.range, in: text), let r1 = Range(m.range(at: 1), in: text) else { return nil }
+            var digits = String(text[r1])
+            if join, m.numberOfRanges > 2, let r2 = Range(m.range(at: 2), in: text) { digits += text[r2] }
+            guard let n = Int(digits), (1...999).contains(n) else { return nil }
+            let rest = String(text[whole.upperBound...]).trimmingCharacters(in: .whitespaces)
+            guard rest.count >= 2 else { return nil }
+            return (n, rest)
+        }
+        // 이미 바꾼 모양 "12번)" · "12번."
+        if let found = take(#"^(\d{1,3})\s*번\s*[).:]?\s*"#) { return found }
+        // [12] 【12】 〔12〕
+        if let found = take(#"^[\[【〔]\s*(\d{1,3})\s*[\]】〕]\s*"#) { return found }
+        // 문제 12 · 문항 12 · Q12 · Q.12
+        if let found = take(#"^(?:문제|문항|Q|q)\s*\.?\s*(\d{1,3})(?![\d,]|\.\d)\s*[.):]?\s*"#) { return found }
+        // "1^1." "1^6." — 두 자리 번호의 뒷자리가 지수로 읽힘
+        if let found = take(#"^(\d)\s*\^\s*(\d)\s*\.(?![\d.])\s*"#, join: true) { return found }
+        // 12. (소수 3.5, 말줄임 1.. 은 제외)
+        if let found = take(#"^(\d{1,3})\s?\.(?![\d.])\s*"#) { return found }
+        // 07 · 012 (앞에 0을 붙인 번호)
+        if let found = take(#"^(0\d{1,2})(?![\d.,:/^])\s+"#) { return found }
+        // 12) — 1)~5)는 선택지일 수 있어서, 다음 줄들에 "2)" 같은 선택지가 없을 때만
+        if let found = take(#"^(\d{1,3})\)\s+"#) {
+            let choiceLike = text.components(separatedBy: "\n").dropFirst().contains { $0.trimmingCharacters(in: .whitespaces).range(of: #"^[2-5]\)"#, options: .regularExpression) != nil }
+                || text.range(of: #"\s[2-5]\)\s"#, options: .regularExpression) != nil
+            if found.0 > 5 || !choiceLike { return found }
+        }
+        return nil
+    }
+
+    /// 노트 제목: 번호가 있으면 "12번) " + 내용 제목 ("12번) 다음 중 옳은 것")
+    static func titled(_ text: String, base: (String) -> String?) -> String? {
+        guard let found = leadingNumber(text) else { return base(text) }
+        let rest = base(found.rest) ?? ""
+        return "\(found.number)번)" + (rest.isEmpty ? "" : " " + rest)
+    }
+
+    /// 문제 글 맨 앞 번호를 "12번) " 모양으로 (번호가 없으면 그대로)
+    static func numbered(_ text: String) -> String {
+        guard let found = leadingNumber(text) else { return text }
+        return "\(found.number)번) " + found.rest
     }
 
     // MARK: - 표 · 문장 · 조건 · 질문

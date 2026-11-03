@@ -241,7 +241,7 @@ final class DoitActions {
         let text = problem.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || image != nil else { return "저장할 문제가 없어요." }
         let name = (title ?? "").trimmingCharacters(in: .whitespaces)
-        let noteTitle = name.isEmpty ? (MathOCRFixer.title(from: text) ?? "두잇 AI 오답") : name
+        let noteTitle = name.isEmpty ? (DoitProblemScan.titled(text, base: MathOCRFixer.title(from:)) ?? "두잇 AI 오답") : name
         let note = MathNote(
             title: noteTitle,
             imageData: image?.jpegForStorage(maxDimension: 2000),
