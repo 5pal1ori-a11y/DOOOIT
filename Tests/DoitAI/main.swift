@@ -840,6 +840,7 @@ runAutoSolveCases()
 runItemJudgeCases()
 runSolverBatteryCases()
 runSubjectBatteryCases()
+runSubjectBattery2Cases()
 runGeometryCases()
 runFigureCases()
 
