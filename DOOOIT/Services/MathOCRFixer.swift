@@ -665,7 +665,7 @@ enum MathOCRFixer {
         // 도형 문제: ∠·△·°·선분·평행(//)을 다르게 읽은 것부터
         // (∠x를 "Zx"로 읽은 것이 아래 규칙에서 "2x"가, l // m이 빈칸 규칙에서 "l / □ / m"이 되지 않게)
         let isGeometric = GeometryText.isGeometric(result)
-        if isGeometric { result = GeometryText.fixOCR(result) }
+        result = GeometryText.fixOCR(result)
         result = normalizeBlanks(result)
         let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil
         for rule in (isComplex ? complexRules : digitRules) {

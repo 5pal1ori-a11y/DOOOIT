@@ -96,6 +96,13 @@ extension OCRService {
         }
         // 보기 번호를 읽은 쪽을 더 믿음
         score += text.filter { "①②③④⑤".contains($0) }.count * 4
+        // 도형 문제: 제대로 읽은 각(∠A = 50°, ∠C의 크기)·삼각형(△ABC)은 더 믿고, 끼어든 키릴 글자(В, С)는 덜 믿음
+        if text.contains(where: { "∠△".contains($0) }) {
+            score += 3 * text.matches(of: #/∠[A-Za-z]{1,3}\s*=\s*\d{1,3}(?:\.\d+)?°/#).count
+            score += 2 * text.matches(of: #/∠[A-Za-z]{1,3}\s*의\s*(?:크기|외각)/#).count
+            score += 2 * text.matches(of: #/△[A-Z]{3}(?![A-Za-z])/#).count
+            score -= 3 * text.filter { ("\u{0400}"..."\u{04FF}").contains($0) }.count
+        }
         return score
     }
 

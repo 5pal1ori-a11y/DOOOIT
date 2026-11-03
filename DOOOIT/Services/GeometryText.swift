@@ -99,7 +99,7 @@ enum GeometryText {
         if text.contains(where: { "∠△⊥∥≡∽⌒".contains($0) }) { return true }
         // 숫자 뒤 °는 각도 (x°처럼 글자 뒤 °는 지수 ²를 잘못 읽은 것일 수도 있어서 넣지 않음)
         if text.range(of: #"[0-9]\s?°"#, options: .regularExpression) != nil { return true }
-        return text.range(of: #"삼각형|사각형|각형|선분|이등변|평행|수직|원주각|중심각|내각|외각|맞꼭지각|동위각|엇각|닮음|합동|꼭짓점|대각선|반직선|각의\s*크기|이등분선|외접원|내접원|부채꼴|중점|빗변|원\s*O"#,
+        return text.range(of: #"삼각형|사각형|각형|선분|이등변|평행|수직|원주각|중심각|내각|외각|맞꼭지각|동위각|엇각|닮음|합동|꼭짓점|대각선|반직선|각의\s*크기|이등분선|외접원|내접원|부채꼴|중점|빗변|원\s*[O0]|의\s*크기(?:는|를|가)|(?<![A-Za-z])[A-Z]{3,4}(?:에서|의\s|는|이고)"#,
                           options: .regularExpression) != nil
     }
 
@@ -113,33 +113,106 @@ enum GeometryText {
     /// 도형 문제에서만 쓰는 교정. MathOCRFixer.fix가 숫자·변수 규칙보다 먼저 부름
     /// (∠x를 "Zx"로 읽은 것을 먼저 고쳐야 "2x"로 바뀌지 않음)
     static func fixOCR(_ text: String) -> String {
-        guard isGeometric(text) else { return text }
+        guard isGeometric(text) else { return piFix(text) }
         var t = text
+        // 원 O를 "원 0"으로 읽음
+        t = re(t, #"원[ \t]*0(?=[ \t]*(?:에서|의|위|과|와|이|은|는|을|$))"#, "원 O")
         // 삼각형 △ABC를 "ΔABC", "AABC", "4ABC", "▵ABC"로 읽음 (꼭짓점 셋 앞)
         t = re(t, #"(?<![A-Za-z0-9.])(?:[Δ∆▵▲]|4)[ \t]?(?=[A-Z]{3}(?![A-Za-z]))"#, "△")
         t = re(t, #"(?<![A-Za-z0-9.])A(?=A[A-Z]{2}(?![A-Za-z]))"#, "△")
-        // 각 ∠ABC, ∠A를 "LABC", "ZABC", "<ABC", "zA"로 읽음
+        // 닮음 ∽을 "S", "~"로 읽음 (뒤 삼각형의 △도 "A"로): △ABC S ADEF → △ABC ∽ △DEF
+        t = re(t, #"(△[A-Z]{3})[ \t]*[S~∼∽][ \t]*(?:[A4Δ△][ \t]?)?([A-Z]{3})(?![A-Za-z])"#, "$1 ∽ △$2")
+        // 사각형 □ABCD를 "DABCD", "OABCD", "ㅁABCD"로 읽음 (사각형 낱말이 있을 때만)
+        if t.range(of: "사각형|마름모|사다리꼴|평행사변형", options: .regularExpression) != nil {
+            t = re(t, #"(?<![A-Za-z0-9])[DOㅁ口□][ \t]?(?=([A-Z])(?!\1)([A-Z])(?!\1|\2)([A-Z])(?!\1|\2|\3)[A-Z](?![A-Za-z]))"#, "사각형 ")
+        }
+        // 각 ∠ABC, ∠A를 "LABC", "ZABC", "<ABC", "≤B", "2A", "CB"로 읽음
         //   꼭짓점 셋 앞이면 바로, 한 글자 앞이면 뒤에 = 값·의 크기·: 비·+ 가 올 때만
-        t = re(t, #"(?<![A-Za-z0-9])[LZz<][ \t]?(?=[A-Z]{3}(?![A-Za-z]))"#, "∠")
-        t = re(t, #"(?<![A-Za-z0-9])[LZz<][ \t]?(?=[A-Z](?![A-Za-z])[ \t]*(?:=|의[ \t]*(?:크기|외각|이등분선)|:|\+|,|와|과|는|은))"#, "∠")
+        t = re(t, #"(?<![A-Za-z0-9])[LZz<≤][ \t]?(?=[A-Z]{3}(?![A-Za-z]))"#, "∠")
+        t = re(t, #"(?<![A-Za-z0-9])[LZz<≤][ \t]?(?=[A-Z](?![A-Za-z])[ \t]*(?:=|의[ \t]*(?:크기|외각|이등분선)|:|\+|,|와|과|는|은))"#, "∠")
+        //   "2A = 40°", "CB의 크기": 숫자 2·글자 C는 값이 °로 끝나거나 "의 크기"가 올 때만
+        t = re(t, #"(?<![A-Za-z0-9.])[2C][ \t]?(?=[A-Z](?![A-Za-z])[ \t]*=[ \t]*[0-9]{1,3}(?:\.[0-9]+)?[ \t]*[°º])"#, "∠")
+        t = re(t, #"(?<![A-Za-z0-9.])[2C][ \t]?(?=[A-Za-z](?![A-Za-z])[ \t]*의[ \t]*크기)"#, "∠")
+        //   ∠A를 "<4"로 읽음 (A를 4로)
+        t = re(t, #"(?<![A-Za-z0-9])[<L≤]4(?=[ \t]*=[ \t]*[0-9])"#, "∠A")
         //   ∠x, ∠a: 소문자 각 이름 (Zx, Lx, <x) — 뒤에 = 값·의 크기·+ 가 올 때만
-        t = re(t, #"(?<![A-Za-z0-9])[LZ<][ \t]?(?=[a-hxyz](?![A-Za-z])[ \t]*(?:=|의[ \t]*크기|\+|-|−|:|,|와|과|는|은))"#, "∠")
-        // 평행: 선 이름 사이의 "ll", "||", "|", "11" (l ∥ m, AB ∥ CD)
+        t = re(t, #"(?<![A-Za-z0-9])[LZ<≤][ \t]?(?=[a-hxyz](?![A-Za-z])[ \t]*(?:=|의[ \t]*크기|\+|-|−|:|,|와|과|는|은))"#, "∠")
+        //   비 ∠A : ∠B : ∠C의 뒤쪽 각: "∠B : 4C" → "∠B : ∠C"
+        for _ in 0..<2 { t = re(t, #"(?<=∠[A-Z][ \t]?:[ \t]?)[4LZ<2]?(?=[A-Z](?![A-Za-z]))"#, "∠") }
+        //   각 크기 자리에서 ∠를 놓침: "∠A = 45°, B = 70°" → ∠B (∠가 이미 있는 글에서만)
+        if t.contains("∠") {
+            t = re(t, #"(?<![A-Za-z0-9∠△□\x{305}])([A-Z])(?=[ \t]*=[ \t]*[0-9]{1,3}(?:\.[0-9]+)?[ \t]*[°º])"#, "∠$1")
+        }
+        // 평행: 선 이름 사이의 "ll", "||", "I", "/", "11" (l ∥ m, AB ∥ CD)
         t = re(t, #"(?<![A-Za-z])([lmn])[ \t]+(?:ll|\|\||11|//|II)[ \t]+([lmn])(?![A-Za-z])"#, "$1 ∥ $2")
         t = re(t, #"(?<![A-Za-z])([lmn])[ \t]*//[ \t]*([lmn])(?![A-Za-z])"#, "$1 ∥ $2")
+        //   "l // m"의 l을 I, 1로 읽음: "I/ m이고", "/ 1/ m일 때"
+        t = re(t, #"(?<![A-Za-z0-9])(?:/[ \t]*)?[Il1|][ \t]*/{1,2}[ \t]*m(?![A-Za-z])(?=[ \t]*(?:일|이고|이면|이다|이므로|,|\)))"#, "l ∥ m")
         t = re(t, #"(?<=[A-Z]{2})[ \t]*(?:\|\||ll|II|//)[ \t]*(?=[A-Z]{2}(?![A-Za-z]))"#, " ∥ ")
+        t = re(t, #"(?<=[A-Z]{2})[ \t]+(?:I|\||/)[ \t]+(?=[A-Z]{2}(?![A-Za-z]))"#, " ∥ ")
         // 수직: 선분 사이의 "1", "L", "⊥" → ⊥ (AB 1 CD)
         t = re(t, #"(?<=[A-Z]{2})[ \t]+[1L⊥][ \t]+(?=[A-Z]{2}(?![A-Za-z]))"#, " ⊥ ")
         t = re(t, #"(?<![A-Za-z])([lmn])[ \t]+[1L][ \t]+([lmn])(?![A-Za-z])"#, "$1 ⊥ $2")
-        // 도 °를 "o", "O", "º"로 읽음: 30o → 30°  (각 값 자리: = 뒤, 쉼표·조사 앞)
+        // 선분 이름의 A를 4로 읽음: "4C = 6", "4E의 길이" (뒤 글자가 대문자 하나이고 = 값·의 길이가 올 때)
+        t = re(t, #"(?<![A-Za-z0-9.∠])4(?=[B-Z](?![A-Za-z])[ \t]*(?:=[ \t]*[0-9](?![0-9]*[ \t]*[°º])|의[ \t]*길이))"#, "A")
+        // 도 °를 "o", "O", "º", "^0"으로 읽음: 30o → 30°  (각 값 자리: = 뒤, 쉼표·조사 앞)
         if isAngular(t) {
-            t = re(t, #"(?<=[0-9])[oOº˚](?![0-9A-Za-z])"#, "°")
+            t = re(t, #"(?<=[0-9])(?:[oOº˚]|\^0)(?![0-9A-Za-z])"#, "°")
+            // 80°의 0을 °로 읽음: 8°° → 80°
+            t = re(t, #"(?<=[0-9])°°"#, "0°")
             // x°를 "xo"로 읽음 (각 크기 x°, 2x°)
             t = re(t, #"(?<![A-Za-z])([0-9]{0,3}[xyab])[oº˚](?![0-9A-Za-z])"#, "$1°")
+            // ∠B = 609: 각의 값 뒤 °를 9로 읽음 (10 이상, 끝자리 0·5인 값 + 9)
+            t = re(t, #"(∠[A-Za-z]{1,3}[ \t]*=[ \t]*)([1-9][0-9]?[05])9(?![0-9°])"#, "$1$2°")
+            t = degreeChoices(t)
         }
+        // 원주율 π를 T로 읽음 (원·부채꼴 문제의 수 뒤): 9T cm² → 9π cm²
+        t = piFix(t)
         // 선분: 윗줄을 놓친 두 꼭짓점 이름 → A̅B̅ (= 값, 의 길이, ⊥, ∥, 비 앞에서. 직선·선분·호 뒤는 그대로)
         t = restoreSegments(t)
         return t
+    }
+
+    /// 원·부채꼴·구 문제의 원주율 π를 "T", "TT", "ㅠ"로 읽은 것 (수 바로 뒤나 보기 자리에서만)
+    static func piFix(_ text: String) -> String {
+        guard text.range(of: "원|부채꼴|반지름|지름|구의|원기둥|원뿔|호의", options: .regularExpression) != nil else { return text }
+        var t = re(text, #"(?<=[0-9①②③④⑤ \t(])(?:TT|T|ㅠ)(?=[ \t]*(?:cm|m|$|\)|,|[+\-−²³]|[ \t]))"#, "π")
+        // 넓이 단위 cm² 의 ²를 ?로 읽음 (π 뒤)
+        t = re(t, #"(?<=π)[ \t]*(cm|m)\?"#, " $1²")
+        return t
+    }
+
+    /// 각도 보기 줄: 다른 보기가 모두 °로 끝나는데 한 보기만 "1050", "700", "609"처럼 °를 0·9로 읽었으면
+    /// 앞뒤 보기 값 사이에 맞는 쪽으로 (105°가 95°와 115° 사이) — 어느 쪽인지 분명할 때만 고침
+    static func degreeChoices(_ text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        for li in lines.indices {
+            let line = lines[li]
+            guard line.contains("①"), let regex = try? NSRegularExpression(pattern: #"([①②③④⑤])[ \t]*([0-9]{1,4})(°|\.(?![0-9]))?(?![0-9.°])"#) else { continue }
+            let ns = line as NSString
+            let ms = regex.matches(in: line, range: NSRange(location: 0, length: ns.length))
+            guard ms.count >= 4 else { continue }
+            let values = ms.map { Int(ns.substring(with: $0.range(at: 2))) ?? -1 }
+            let hasDeg = ms.map { $0.range(at: 3).location != NSNotFound && ns.substring(with: $0.range(at: 3)) == "°" }
+            guard hasDeg.filter({ $0 }).count >= ms.count - 1, hasDeg.contains(false) else { continue }
+            var result = line
+            for k in ms.indices.reversed() where !hasDeg[k] {
+                let raw = values[k]
+                let prev = k > 0 ? values[k - 1] : nil, next = k + 1 < values.count ? values[k + 1] : nil
+                func fits(_ v: Int) -> Bool { (prev.map { v > $0 } ?? true) && (next.map { v < $0 } ?? true) && v > 0 && v <= 3600 }
+                let dropped = raw % 10 == 0 || raw % 10 == 9 ? raw / 10 : -1
+                let keep = fits(raw), drop = dropped > 0 && fits(dropped) && raw >= 100
+                let value: Int
+                if drop && !keep { value = dropped } else if keep && !drop { value = raw } else { continue }
+                // 숫자 뒤 "." 도 °를 잘못 읽은 것 (60. → 60°)
+                let mark = ms[k].range(at: 3)
+                let end = mark.location != NSNotFound ? mark.location + mark.length : ms[k].range(at: 2).location + ms[k].range(at: 2).length
+                guard let range = Range(NSRange(location: ms[k].range(at: 2).location, length: end - ms[k].range(at: 2).location), in: result) else { continue }
+                result.replaceSubrange(range, with: "\(value)°")
+            }
+            lines[li] = result
+        }
+        return lines.joined(separator: "\n")
     }
 
     /// 도형 문제에서 윗줄 없이 읽힌 선분 이름 되살리기: "AB = 6", "AC의 길이", "AB ⊥ CD", "AD : DB"
