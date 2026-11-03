@@ -14,7 +14,13 @@ struct TimerView: View {
     @State private var showStopConfirm = false
     @State private var savedSeconds: Int?
     @State private var sound = AmbientSoundPlayer.shared
-    @State private var showSounds = false
+    @State private var showSounds: Bool = {
+        #if DEBUG
+        return UIShot.matches(.soundMixer)
+        #else
+        return false
+        #endif
+    }()
 
     /// 마지막으로 고른 목표 시간 (0 = 무제한)
     private static let targetKey = "timer.targetMinutes"

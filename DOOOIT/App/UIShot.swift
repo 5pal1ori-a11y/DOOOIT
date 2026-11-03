@@ -9,6 +9,7 @@ import UIKit
 /// - 설정값은 등록 기본값(registration domain)으로만 넣어서 저장되지 않음
 enum UIShotScreen: String, CaseIterable {
     case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, timer, auth
+    case badges, badgeNew, mockExam, mockResult, soundMixer, voice
 }
 
 @MainActor
@@ -33,10 +34,10 @@ enum UIShot {
 
     static var tab: AppTab {
         switch screen {
-        case .study, .words, .mathList, .mathNote: return .study
-        case .ai: return .ai
+        case .study, .words, .mathList, .mathNote, .mockExam, .mockResult: return .study
+        case .ai, .voice: return .ai
         case .planner: return .planner
-        case .account, .accountSettings: return .account
+        case .account, .accountSettings, .badges: return .account
         default: return .home
         }
     }
@@ -74,6 +75,10 @@ enum UIShot {
             await assistant.send("2x + 3 = 11 풀어줘")
             await assistant.send("오늘 공부 계획 알려줘")
         case .timer:
+            try? await Task.sleep(for: .milliseconds(300))
+            timer.isPresented = true
+        case .soundMixer:
+            AmbientSoundPlayer.shared.showDemo([.rain, .cafe, .clock], levels: [.rain: 0.7, .cafe: 0.45, .clock: 0.25])
             try? await Task.sleep(for: .milliseconds(300))
             timer.isPresented = true
         default:
@@ -200,8 +205,23 @@ enum UIShot {
             c.attemptCount = w.4
             c.mastery = w.5
             c.lastWrongAt = now.addingTimeInterval(-86_400)
+            // 틀린 뒤 다시 맞힌 기록 (배지)
+            c.records = (0..<w.4).map { k in
+                DoitMastery.Record(date: now.addingTimeInterval(TimeInterval(-86_400 * (6 - k))), correct: k % 2 == 1, level: 2 + k % 3, source: "유사 문제")
+            }
             context.insert(c)
         }
+
+        // AI 학습 · 모의고사 풀이 기록
+        context.insert(QuizRecord(subject: "공통수학1", unit: "인수분해", step: "problem", correct: 3, total: 5))
+        context.insert(QuizRecord(subject: "공통영어", unit: "관계사", step: "ox", correct: 4, total: 6))
+        let mockDate = now.addingTimeInterval(-86_400 * 2)
+        for (subject, unit, correct, total) in [("수학", "이차방정식", 4, 6), ("영어", "to부정사", 3, 4)] {
+            let record = QuizRecord(subject: subject, unit: unit, step: DoitMockExam.step, correct: correct, total: total)
+            record.date = mockDate
+            context.insert(record)
+        }
+        context.insert(AIQuestion(question: "이차방정식 근의 공식 설명해줘", imageData: nil, subject: "수학"))
 
         // 메모
         let memo = Memo(title: "수학 공식", content: "근과 계수: α+β = -b/a, αβ = c/a\nα²+β² = (α+β)² - 2αβ")

@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 공부 탭의 "AI 학습" 영역: 목록 하나로 (단원별 학습 · 취약 유형 · 질문 · 주간 리포트)
+/// 공부 탭의 "AI 학습" 영역: 목록 하나로 (단원별 학습 · 취약 유형 · 모의고사 · 주간 리포트)
 struct LearnHubSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -13,6 +13,10 @@ struct LearnHubSection: View {
                 RowDivider()
                 NavigationLink { WeaknessView() } label: {
                     RowLabel(symbol: "target", color: Palette.pink, title: "취약 유형")
+                }
+                RowDivider()
+                NavigationLink { MockExamView() } label: {
+                    RowLabel(symbol: "doc.text", color: Palette.sky, title: "AI 모의고사")
                 }
                 RowDivider()
                 NavigationLink { WeeklyReportView() } label: {

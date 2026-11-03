@@ -34,8 +34,11 @@ struct HomeView: View {
                             .appearAnimation()
                         focusPanel(now: now)
                             .appearAnimation(delay: 0.06)
-                        quickTiles(now: now)
-                            .appearAnimation(delay: 0.12)
+                        VStack(spacing: 10) {
+                            quickTiles(now: now)
+                            RecentBadgeChip()
+                        }
+                        .appearAnimation(delay: 0.12)
                         plansSection(now: now)
                             .appearAnimation(delay: 0.18)
                         weekSection(now: now)

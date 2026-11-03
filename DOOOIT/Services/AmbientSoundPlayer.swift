@@ -139,4 +139,15 @@ extension AmbientSoundPlayer {
             return noErr
         }
     }
+
+    #if DEBUG
+    /// 화면 사진용: 소리를 내지 않고 섞은 모습만 (저장하지 않음)
+    func showDemo(_ kinds: [SoundKind], levels: [SoundKind: Float]) {
+        var demo = SoundMix()
+        for kind in kinds { demo.toggle(kind) }
+        for (kind, value) in levels { demo.setLevel(kind, value) }
+        mix = demo
+        isPlaying = true
+    }
+    #endif
 }
