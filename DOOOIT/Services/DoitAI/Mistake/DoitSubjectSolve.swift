@@ -11,7 +11,7 @@ enum DoitSubjectSolve {
         let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !full.isEmpty else { return nil }
         let p = Problem(full: full, body: body, choices: choices, box: boxItems)
-        var solvers: [(Problem) -> Found?] = [koreanSpelling, englishGrammar, englishVocabulary, category, socialLookup, element, facts, colorMix, scienceCalc]
+        var solvers: [(Problem) -> Found?] = [chartData, koreanSpelling, englishGrammar, englishVocabulary, category, socialLookup, element, facts, colorMix, scienceCalc]
         // 과학이면 계산을 먼저 (계산 문제에 낱말 사실표가 먼저 걸리지 않게)
         if subjectBroad == "과학" { solvers = [scienceCalc] + solvers.dropLast() }
         for solver in solvers {
@@ -91,6 +91,25 @@ enum DoitSubjectSolve {
 
     private static func matches(_ text: String, _ pattern: String) -> Bool {
         text.range(of: pattern, options: .regularExpression) != nil
+    }
+
+    // MARK: - 그림에서 읽은 자료 (차트·표)
+
+    /// 학생이 확인한 차트·표 자료로 답하는 질문 (가장 많은 것, 합, 평균, 차, 증가율). 선지가 있으면 값·이름이 같은 선지 하나일 때만
+    static func chartData(_ p: Problem) -> Found? {
+        let figure = DoitFigureFacts.split(p.full)
+        guard !figure.facts.isEmpty else { return nil }
+        let question = DoitFigureFacts.split(p.stem).problem
+        guard let found = DoitFigureFacts.solveChart(question: question, facts: figure.facts) else { return nil }
+        let concept = "그림(자료)에서 읽은 값으로 비교·계산해요. 읽은 값이 그림과 같은지 먼저 확인해요."
+        let steps = found.steps.map { SolutionStep(hint: $0.0, work: $0.1) }
+        guard p.isChoice else { return Found(answer: found.answer, concept: concept, steps: steps) }
+        if let label = found.label, let index = uniqueChoice(p, matching: [label]) { return pick(p, index: index, concept: concept, steps: steps) }
+        if let value = found.value {
+            let hits = p.choices.indices.filter { DoitFigureFacts.number(in: p.choices[$0]).map { abs($0 - value) < 1e-6 } ?? false }
+            if hits.count == 1 { return pick(p, index: hits[0], concept: concept, steps: steps) }
+        }
+        return nil
     }
 
     // MARK: - 과학 계산 (공식 · 단위)

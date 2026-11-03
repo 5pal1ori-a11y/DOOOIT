@@ -24,8 +24,11 @@ enum MathSolver {
     /// 문장을 보고 알맞은 풀이를 찾아 풂 (못 풀면 nil)
     /// 객관식(①~⑤)이면 보기를 떼고 풀어서, 값이 같은 보기를 답에 붙여요 ("④ 12").
     static func solve(_ input: String) -> Solved? {
+        // 그림에서 읽은 블록 (학생이 확인한 값): 차트·표 자료로 답하는 질문은 자료로 풀고, 나머지는 사실 줄을 문제 글에 넣어 풂
+        let figure = DoitFigureFacts.split(input)
+        if !figure.facts.isEmpty, let solved = chartSolve(problem: figure.problem, facts: figure.facts) { return solved }
         // 도형 기호는 앱 표기로 맞추고 선분 윗줄은 지움 (A̅B̅ = 6 → AB = 6, □ABCD → 사각형 ABCD)
-        let raw = GeometryText.forSolver(input)
+        let raw = GeometryText.forSolver(figure.facts.isEmpty ? input : DoitFigureFacts.solverText(input))
         if let split = DoitMathExact.splitChoices(raw) {
             // 보기마다 참·거짓을 확인하는 문제 ("옳은 것", "아닌 것", "모두 고르면", "소수인 것")
             if let s = DoitMathChoice.solve(body: split.body, choices: split.choices) { return s }
@@ -36,6 +39,24 @@ enum MathSolver {
             return DoitMathExact.pickChoice(solved, from: split.choices)
         }
         return solveText(raw).flatMap { DoitMathAsked.focus($0, raw) }
+    }
+
+    /// 차트·표 자료로 답하는 질문 (가장 많은 것, 평균, 합, 차, 증가율 …). 선택지가 있으면 같은 값의 선택지로
+    private static func chartSolve(problem: String, facts: [String]) -> Solved? {
+        let parts = DoitFigureFacts.stemAndChoices(problem)
+        guard let found = DoitFigureFacts.solveChart(question: parts.stem, facts: facts) else { return nil }
+        let solved = Solved(kind: .statistics, topic: found.topic, concept: "그림(자료)에서 읽은 값으로 계산해요. 읽은 값이 그림과 같은지 먼저 확인해요.",
+                            steps: found.steps.map { SolutionStep(hint: $0.0, work: $0.1) }, answer: found.answer)
+        guard !parts.choices.isEmpty, let split = DoitMathExact.splitChoices(problem) else { return solved }
+        if let label = found.label, let hit = split.choices.firstIndex(where: { $0.1.trimmingCharacters(in: .whitespaces) == label }),
+           split.choices.filter({ $0.1.trimmingCharacters(in: .whitespaces) == label }).count == 1 {
+            var out = solved
+            let (mark, text) = split.choices[hit]
+            out.steps.append(SolutionStep(hint: "보기에서 찾으면", work: "\(found.answer) → \(mark) \(text)"))
+            out.answer = "\(mark) \(text)"
+            return out
+        }
+        return DoitMathExact.pickChoice(solved, from: split.choices)
     }
 
     private static func solveText(_ raw: String) -> Solved? {

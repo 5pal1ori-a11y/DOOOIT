@@ -221,6 +221,8 @@ final class DoitBrain {
         // 메모리가 모자라면 불러오지 않음 (불러오다 iOS가 앱을 끄는 것 막기) → 규칙형 엔진으로 답함
         if loadedModel != model {
             unload()
+            // 그림 읽기(두잇 2 사진 모델)가 올라와 있으면 내림: 큰 모델은 한 번에 하나만
+            DoitVision.shared.unload()
             #if canImport(MLX)
             MLX.Memory.clearCache()
             #endif
@@ -238,7 +240,9 @@ final class DoitBrain {
             if fresh { self.downloading = model }
             self.phase = fresh ? .downloading(0) : .loading
             do {
-                let loaded = try await #huggingFaceLoadModelContainer(configuration: configuration, progressHandler: { progress in
+                // 글 모델로만 올림 (앱에 사진을 보는 MLXVLM도 들어 있어서, 공용 불러오기를 쓰면 Qwen3.5가 사진 쪽 무게까지 올라감)
+                let loaded = try await LLMModelFactory.shared.loadContainer(from: #hubDownloader(), using: #huggingFaceTokenizerLoader(),
+                                                                            configuration: configuration, progressHandler: { progress in
                     let fraction = progress.fractionCompleted
                     Task { @MainActor in
                         let brain = DoitBrain.shared
