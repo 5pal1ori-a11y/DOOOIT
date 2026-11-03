@@ -40,6 +40,8 @@ struct ProblemScan: Codable, Equatable {
     var typeID: String?
     /// <보기> 상자의 항목 ("ㄱ. …", "ㄴ. …"). 예전 노트는 nil
     var boxItems: [String]?
+    /// 그림·그래프·차트·표에서 읽은 줄 (문제 글 끝 "[그림에서 읽음]" 블록, 기계가 읽은 값이라 확인 필요). 없으면 nil
+    var figureLines: [String]?
     /// 문제 번호 ("12." · "12번)" · "[12]" → 12). 없거나 예전 노트는 nil
     var number: Int?
 
@@ -57,7 +59,9 @@ enum DoitProblemScan {
     /// - math: false면 수학이 아닌 과목 (수식 찾기·수학 유형 판단을 하지 않고, 정답 표기는 줄 맨 앞의 것만)
     static func scan(_ raw: String, lowConfidence: [String] = [], graphNote: String? = nil, math: Bool = true) -> ProblemScan {
         var result = ProblemScan()
-        var text = raw.replacingOccurrences(of: "\r", with: "")
+        // 그림에서 읽은 블록은 떼어 두고 문제 글만 나눔 (선택지·질문·수식에 섞이지 않게)
+        let figure = DoitFigureFacts.split(raw.replacingOccurrences(of: "\r", with: ""))
+        var text = figure.problem
         // 0) 맨 앞 문제 번호는 따로 ("12번) 다음 중…" → 번호 12, 본문 "다음 중…")
         if let found = leadingNumber(text) {
             result.number = found.number
@@ -119,16 +123,22 @@ enum DoitProblemScan {
         if tableRows.count >= 2 { result.table = tableRows; bodyLines = keep }
 
         result.body = bodyLines.joined(separator: "\n")
+        let problemBody = result.body
+        if !figure.facts.isEmpty {
+            result.figureLines = figure.facts
+            // 본문에는 블록을 그대로 둠 (풀이·설명이 그림에서 읽은 값을 쓰게)
+            result.body += (result.body.isEmpty ? "" : "\n") + DoitFigureFacts.block(figure.facts)
+        }
 
         // 4) 조건: "단," "(단 …)" "~일 때" "자연수·정수·실수·양수" 같은 제한
-        let sentences = splitSentences(result.body)
+        let sentences = splitSentences(problemBody)
         result.conditions = sentences.filter(isCondition)
 
         // 5) 질문의 핵심: "구하시오/고르시오/쓰시오/설명하시오/~은?" 문장
         result.question = sentences.last(where: isQuestion) ?? sentences.last ?? ""
 
         // 6) 수식: 수식다운 덩어리
-        if math { result.formulas = formulas(in: result.body + "\n" + result.choices.joined(separator: "\n")) }
+        if math { result.formulas = formulas(in: problemBody + "\n" + result.choices.joined(separator: "\n")) }
 
         result.graphNote = graphNote
         result.kind = guessKind(body: result.body, choices: result.choices, question: result.question, math: math)
@@ -144,10 +154,10 @@ enum DoitProblemScan {
         if result.kind == .multipleChoice, result.choices.count < 5, result.choices.count >= 2, numbered(result.choices) {
             doubts.append(.init(text: "선택지 \(result.choices.count)개", reason: "선택지가 5개가 아니에요. 빠진 보기가 없는지 확인해 주세요"))
         }
-        if graphNote == nil, result.body.contains("그래프") || result.body.contains("그림") {
+        if graphNote == nil, figure.facts.isEmpty, problemBody.contains("그래프") || problemBody.contains("그림") {
             doubts.append(.init(text: "그래프·그림", reason: "문제에 그래프나 그림이 있지만 내용을 읽지 못했어요. 필요한 값은 직접 적어 주세요"))
         }
-        if result.body.count < 6 && result.choices.isEmpty {
+        if problemBody.count < 6 && result.choices.isEmpty {
             doubts.append(.init(text: "문제 본문", reason: "읽은 글이 너무 짧아요. 영역을 다시 고르거나 직접 적어 주세요"))
         }
         var seen = Set<String>()

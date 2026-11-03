@@ -190,6 +190,30 @@ final class PaddleOCRService {
         return PaddleOCRText.isUsable(text) ? text : nil
     }
 
+    /// 정밀 인식의 표·차트 읽기: "Table Recognition:" / "Chart Recognition:" 지시로 표 글(OTSL·마크다운)을 받음
+    /// (못 쓰거나 실패하면 nil → 호출한 쪽이 Vision 문서 읽기로)
+    func tableText(cgImage: CGImage, chart: Bool) async -> String? {
+        guard PaddleOCRRouting.shouldUsePaddle(.subjectProblem, supported: Self.isSupported, installed: isInstalled,
+                                               physicalMemory: ProcessInfo.processInfo.physicalMemory, failures: failures) else { return nil }
+        #if canImport(MLX)
+        guard !busy, await prepare() else { return nil }
+        busy = true
+        defer { busy = false; scheduleIdleUnload() }
+        let engine = self.engine
+        do {
+            let reading = try await engine.read(cgImage, instruction: chart ? PaddleOCRConfig.chartInstruction : PaddleOCRConfig.tableInstruction,
+                                                maxTokens: PaddleOCRConfig.maxTokens)
+            failures = 0
+            return reading.text
+        } catch {
+            failures += 1
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+
     private func rawText(_ image: UIImage, cgImage: CGImage) async -> String? {
         if let lastImage, lastImage === image, let lastRaw { return lastRaw }
         #if canImport(MLX)

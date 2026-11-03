@@ -35,6 +35,10 @@ struct ImageAnalysis {
     var faceCount: Int
     /// QR·바코드 내용 (자동으로 열지 않음)
     var codes: [String]
+    /// 글자 조각과 위치 (차트 판독용)
+    var textLabels: [TextLabel] = []
+    /// 판독에 쓴 픽셀 (차트 막대 높이 재기용)
+    var pixels: PixelImage?
 
     /// 채팅에 보여줄 글
     var message: String {
@@ -114,7 +118,7 @@ enum VisionAnalyzer {
             details.append("사진 속 글자: \(String(text.prefix(120)))")
         }
         return ImageAnalysis(kind: kind, summary: summary, details: details, text: text, graph: graph, shapes: shapes,
-                             labels: vision.classes, faceCount: vision.faces, codes: vision.codes)
+                             labels: vision.classes, faceCount: vision.faces, codes: vision.codes, textLabels: vision.labels, pixels: pixels)
     }
 
     // MARK: - 수학 문제처럼 보이는지

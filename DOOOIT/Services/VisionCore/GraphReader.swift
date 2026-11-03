@@ -253,6 +253,7 @@ enum GraphReader {
     /// 축·눈금·글자·격자를 빼고 남은 선의 픽셀을 열마다 가운데 점으로
     static func curvePixels(_ image: PixelImage, axes: GraphAxes?, labels: [TextLabel]) -> (points: [VPoint], multiRunRatio: Double) {
         let w = image.width, h = image.height
+        func px(_ v: Int) -> Double { Double(v) }
         var mask = [Bool](repeating: false, count: w * h)
         let boxes = labels.map { $0.box.insetBy(-3) }
         // 아주 긴 직선(격자·테두리)은 빼기
@@ -266,6 +267,10 @@ enum GraphReader {
                 if let axes {
                     if abs(Double(y) - axes.xAxisY) <= axes.xAxisHalf + 5 { continue }
                     if abs(Double(x) - axes.yAxisX) <= axes.yAxisHalf + 5 { continue }
+                    // 좌표평면 밖(위쪽 문제 글, 옆의 선택지 등)은 그래프가 아님: 축이 그려진 범위 + 조금
+                    let marginX = Double(axes.xAxisRange.count) * 0.08, marginY = Double(axes.yAxisRange.count) * 0.08
+                    if px(x) < Double(axes.xAxisRange.lowerBound) - marginX || px(x) > Double(axes.xAxisRange.upperBound) + marginX { continue }
+                    if px(y) < Double(axes.yAxisRange.lowerBound) - marginY || px(y) > Double(axes.yAxisRange.upperBound) + marginY { continue }
                 }
                 let px = Double(x), py = Double(y)
                 if boxes.contains(where: { $0.contains(px, py) }) { continue }

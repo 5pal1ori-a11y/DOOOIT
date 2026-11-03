@@ -72,6 +72,7 @@ struct ProblemReviewCard: View {
                 }
                 if !scan.table.isEmpty { tableView(scan.table) }
                 if let graph = scan.graphNote { row("그래프", graph, symbol: "chart.xyaxis.line", color: Theme.accent) }
+                if let lines = scan.figureLines, !lines.isEmpty { FigureFactsBox(note: note, lines: lines) }
                 kindPicker
             }
 
@@ -159,6 +160,74 @@ struct ProblemReviewCard: View {
             .padding(10)
             .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 12))
         }
+    }
+}
+
+/// 그림·그래프·표에서 읽은 것 (기계가 읽은 값): 확정 전에는 한 줄씩 고치거나 지움
+struct FigureFactsBox: View {
+    @Bindable var note: MathNote
+    let lines: [String]
+    @State private var editing: Int?
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    private var locked: Bool { note.isRecognitionConfirmed }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Image(systemName: "eye").foregroundStyle(Theme.accent)
+                Text("\(DoitFigureFacts.title(lines))에서 읽음").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+                if !locked { Text("사진과 같은지 확인").font(.caption2.weight(.semibold)).foregroundStyle(Palette.warning) }
+            }
+            ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
+                if editing == index {
+                    HStack(spacing: 8) {
+                        TextField("읽은 값", text: $draft)
+                            .font(.subheadline)
+                            .focused($focused)
+                            .submitLabel(.done)
+                            .onSubmit { commit(index) }
+                        Button("완료") { commit(index) }.font(.caption.weight(.bold))
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Text(MathSymbolBar.pretty(line)).font(.subheadline).foregroundStyle(Palette.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                        if !locked {
+                            Button { draft = line; editing = index; focused = true } label: { Image(systemName: "pencil") }
+                                .accessibilityLabel("고치기")
+                            Button { save(lines.enumerated().filter { $0.offset != index }.map(\.element)) } label: { Image(systemName: "xmark") }
+                                .accessibilityLabel("지우기")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.accent.opacity(0.06), in: .rect(cornerRadius: 12))
+    }
+
+    private func commit(_ index: Int) {
+        var next = lines
+        let text = draft.trimmingCharacters(in: .whitespaces)
+        if text.isEmpty { next.remove(at: index) } else { next[index] = GeometryText.canonical(text) }
+        editing = nil
+        save(next)
+    }
+
+    /// 문제 글의 블록과 나눈 결과를 함께 바꿈 (다른 인식 결과·불확실 표시는 그대로)
+    private func save(_ next: [String]) {
+        note.recognizedText = DoitFigureFacts.replacing(note.recognizedText, with: next)
+        var scan = note.scan ?? DoitProblemScan.scan(note.recognizedText, math: note.subjectKind.isMath)
+        scan.figureLines = next.isEmpty ? nil : next
+        scan.body = DoitFigureFacts.replacing(scan.body, with: next)
+        note.scan = scan
     }
 }
 

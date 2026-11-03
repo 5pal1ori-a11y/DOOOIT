@@ -151,7 +151,7 @@ struct MathNoteListView: View {
         }
         .overlay {
             if isProcessing {
-                ProcessingOverlay(message: "문제를 분석하고 있어요")
+                ProcessingOverlay(message: FigureReader.status)
             } else if isDetecting {
                 ProcessingOverlay(message: "문제 번호를 찾고 있어요")
             }
@@ -473,8 +473,11 @@ struct MathNoteListView: View {
             }
             // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
             let read = await OCRService.readMathProblemDetailed(pair.problem)
-            let text = read.text
-            let title = DoitProblemScan.titled(text, base: MathOCRFixer.title(from:)) ?? "오답 \(notes.count + i + 1)"
+            // 그림·그래프·표에서 읽은 것은 "[그림에서 읽음]" 블록으로 붙임 (문제 탭에서 확인 · 고치기)
+            let graph = await VisionAnalyzer.analyze(pair.problem)
+            let figure = await FigureReader.read(pair.problem, problemText: read.text, analysis: graph)
+            let text = DoitFigureFacts.attach(figure, to: read.text)
+            let title = DoitProblemScan.titled(read.text, base: MathOCRFixer.title(from:)) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
@@ -485,8 +488,7 @@ struct MathNoteListView: View {
             note.problemImageData = pair.problem.jpegForStorage(maxDimension: 2000, quality: 0.85)
             // 인식 결과는 사용자가 확인하기 전까지 임시 (흐리게 읽은 줄·이상한 수식은 표시)
             note.recognitionRaw = "pending"
-            let graph = await VisionAnalyzer.analyze(pair.problem)
-            var scan = DoitProblemScan.scan(text, lowConfidence: read.unsure, graphNote: graph.graph != nil ? graphNote(graph) : nil)
+            var scan = DoitProblemScan.scan(text, lowConfidence: read.unsure, graphNote: graph.graph != nil && figure == nil ? graphNote(graph) : nil)
             note.subject = label
             scan.autoSubject = auto ? label : nil
             scan.typeID = DoitProblemTypes.bestID(for: text, subject: DoitSubjectNote.displayName(label))
@@ -503,8 +505,12 @@ struct MathNoteListView: View {
     /// 수학이 아닌 과목: 한글·영어 문장 그대로 읽고 (수식 교정 없이), 선택지·정답 표기만 나눔
     private func createSubjectNote(_ pair: (original: UIImage, problem: UIImage), subject: String, index: Int,
                                    read already: (text: String, unsure: [String])?, auto: Bool) async -> MathNote {
-        let read: (text: String, unsure: [String])
+        var read: (text: String, unsure: [String])
         if let already { read = already } else { read = await SubjectOCR.read(pair.problem) }
+        // 사회·과학의 표·차트 (자료 값): 도형·좌표 그림은 수학만
+        if let figure = await FigureReader.read(pair.problem, problemText: read.text, figures: false) {
+            read.text = DoitFigureFacts.attach(figure, to: read.text)
+        }
         let note = MathNote(
             title: DoitProblemScan.titled(read.text, base: DoitSubjectNote.title(from:)) ?? "오답 \(notes.count + index + 1)",
             imageData: pair.original.jpegForStorage(maxDimension: 2000),

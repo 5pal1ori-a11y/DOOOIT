@@ -307,5 +307,34 @@ do {
     check("선 없는 좌표평면", r != nil && r!.kind == .unknown, "kind=\(String(describing: r?.kind))")
 }
 
+// MARK: - 차트 판독 (글자 위치 + 막대 높이)
+
+do {
+    func label(_ t: String, _ cx: Double, _ cy: Double) -> TextLabel {
+        let w = Double(max(10, 9 * t.count)); return TextLabel(text: t, box: VRect(x: cx - w / 2, y: cy - 8, w: w, h: 16))
+    }
+    // 값이 적힌 막대그래프 (위에 문제 글, 아래 선택지)
+    let bars = [label("다음", 60, 20), label("막대그래프에서", 140, 20), label("(개)", 40, 60), label("30", 100, 200), label("45", 180, 140), label("25", 260, 220),
+                label("1월", 100, 330), label("2월", 180, 330), label("3월", 260, 330), label("①", 40, 380), label("1월", 70, 380)]
+    let read = ChartReader.read(bars)
+    check("차트: 값이 적힌 막대", read == [.init(label: "1월", value: 30), .init(label: "2월", value: 45), .init(label: "3월", value: 25)], "\(read)")
+    // 원그래프: 한 조각 / 낱말로 나뉜 조각
+    let pie = ChartReader.read([label("사과 40%", 200, 100), label("배", 100, 200), label("30%", 125, 200), label("포도 30%", 260, 220)])
+    check("차트: 원그래프", Set(pie.map(\.label)) == ["사과", "배", "포도"] && pie.map(\.value).reduce(0, +) == 100, "\(pie)")
+    // 값이 없는 막대: 눈금 숫자로 높이를 잼 (0 → y 300, 50 → y 100)
+    var canvas = Canvas(400, 360)
+    var ticks: [TextLabel] = []
+    for v in stride(from: 0, through: 50, by: 10) { ticks.append(label(String(v), 30, 300 - Double(v) * 4)) }
+    for (i, v) in [20.0, 35, 15].enumerated() {
+        let cx = 120 + Double(i) * 90
+        for y in Int(300 - v * 4)..<300 { for x in Int(cx - 15)...Int(cx + 15) { canvas.dot(x, y, 150, 120) } }
+    }
+    canvas.line(50, 300, 380, 300, t: 2)
+    let cats = [label("A", 120, 325), label("B", 210, 325), label("C", 300, 325)]
+    let measured = ChartReader.read(ticks + cats, image: canvas.image)
+    check("차트: 눈금으로 막대 높이", measured.count == 3 && zip(measured.map(\.value), [20.0, 35, 15]).allSatisfy { abs($0 - $1) <= 1.5 }, "\(measured)")
+    check("차트: 글자만 있는 사진은 없음", ChartReader.read([label("오늘은", 50, 20), label("맑음", 120, 20)]).isEmpty, "")
+}
+
 print("\n결과: \(passed)개 통과, \(failed)개 실패")
 exit(failed == 0 ? 0 : 1)

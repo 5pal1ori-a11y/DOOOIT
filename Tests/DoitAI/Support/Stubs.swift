@@ -47,3 +47,6 @@ struct ImageAnalysis {
     var message: String = ""
 }
 enum VisionAnalyzer { static func analyze(_ image: UIImage) async -> ImageAnalysis { ImageAnalysis() } }
+enum FigureReader {
+    static func read(_ image: UIImage, problemText: String, analysis: ImageAnalysis? = nil, figures: Bool = true) async -> DoitFigureFacts.Reading? { nil }
+}
