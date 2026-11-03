@@ -96,7 +96,7 @@ struct TimerView: View {
                 Button {
                     showSounds = true
                 } label: {
-                    Image(systemName: sound.current?.symbol ?? "speaker.wave.2")
+                    Image(systemName: sound.leadKind?.symbol ?? "speaker.wave.2")
                         .font(.headline)
                         .foregroundStyle(sound.isPlaying ? green : .white)
                         .symbolEffect(.variableColor.iterative, isActive: sound.isPlaying)
@@ -109,7 +109,7 @@ struct TimerView: View {
         .padding(.top, 4)
         .sheet(isPresented: $showSounds) {
             AmbientSoundSheet()
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -442,58 +442,112 @@ struct TimerAccessoryView: View {
     }
 }
 
-/// 집중 사운드 고르기 + 음량
+/// 집중 사운드 섞기: 소리 칩을 눌러 켜고, 켠 소리마다 음량 + 전체 음량
 struct AmbientSoundSheet: View {
     @State private var sound = AmbientSoundPlayer.shared
 
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
+
     var body: some View {
-        @Bindable var sound = sound
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
-                        ForEach(AmbientSoundPlayer.Kind.allCases) { kind in
-                            let isOn = sound.current == kind
-                            Button {
-                                sound.toggle(kind)
-                                Haptics.tap()
-                            } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Image(systemName: kind.symbol)
-                                        .font(.title3)
-                                        .symbolEffect(.variableColor.iterative, isActive: isOn)
-                                    Text(kind.title).font(.subheadline.weight(.bold))
-                                    Text(kind.subtitle).font(.caption2).opacity(0.75).lineLimit(1)
-                                }
-                                .foregroundStyle(isOn ? Color.white : Color.primary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(14)
-                                .background(isOn ? Theme.accent : Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
-                            }
-                            .buttonStyle(.plain)
+                VStack(alignment: .leading, spacing: 18) {
+                    LazyVGrid(columns: columns, spacing: 10) {
+                        ForEach(SoundKind.allCases) { kind in
+                            chip(kind)
                         }
                     }
 
-                    HStack(spacing: 12) {
-                        Image(systemName: "speaker.fill").foregroundStyle(.secondary)
-                        Slider(value: $sound.volume, in: 0...1)
-                        Image(systemName: "speaker.wave.3.fill").foregroundStyle(.secondary)
+                    if !sound.mix.activeKinds.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(sound.mix.activeKinds) { kind in
+                                levelRow(kind)
+                                if kind != sound.mix.activeKinds.last { Divider().padding(.leading, 48) }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 20, style: .continuous))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                     }
-                    .padding(.horizontal, 4)
 
+                    HStack(spacing: 12) {
+                        Image(systemName: "speaker").foregroundStyle(.secondary)
+                        Slider(value: Binding(get: { Double(sound.master) }, set: { sound.master = Float($0) }), in: 0...1)
+                            .accessibilityLabel("전체 음량")
+                        Image(systemName: "speaker.wave.3").foregroundStyle(.secondary)
+                    }
+                    .font(.subheadline)
+                    .padding(.horizontal, 4)
                 }
                 .padding(20)
+                .animation(.snappy, value: sound.mix.on)
             }
             .navigationTitle("집중 사운드")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if sound.isPlaying {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("끄기") { sound.stop() }
+                        Button("멈춤") { sound.stop(); Haptics.tap() }
+                    }
+                } else if !sound.mix.isEmpty {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("재생") { sound.resume(); Haptics.tap() }
                     }
                 }
             }
         }
+    }
+
+    /// 소리 칩: 동그란 파스텔 네모 + 이름 (켜면 색이 차오르고 아이콘이 살짝 움직임)
+    private func chip(_ kind: SoundKind) -> some View {
+        let isOn = sound.isOn(kind)
+        let selected = sound.mix.isOn(kind)
+        let color = Color(hex: kind.colorHex)
+        return Button {
+            sound.toggle(kind)
+            Haptics.tap()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: kind.symbol)
+                    .environment(\.symbolVariants, .none)
+                    .font(.system(size: 19, weight: .regular))
+                    .foregroundStyle(isOn ? .white : color)
+                    .symbolEffect(.bounce, value: isOn)
+                    .frame(width: 52, height: 52)
+                    .background(isOn ? color : color.pastel, in: .rect(cornerRadius: 18, style: .continuous))
+                    .overlay {
+                        if selected && !isOn {
+                            RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(color, lineWidth: 1.5)
+                        }
+                    }
+                Text(kind.title)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(isOn ? Palette.ink : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.pressable)
+        .accessibilityLabel(kind.title)
+        .accessibilityAddTraits(isOn ? .isSelected : [])
+    }
+
+    private func levelRow(_ kind: SoundKind) -> some View {
+        let color = Color(hex: kind.colorHex)
+        return HStack(spacing: 12) {
+            Image(systemName: kind.symbol)
+                .environment(\.symbolVariants, .none)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundStyle(color)
+                .frame(width: 32, height: 32)
+                .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))
+            Slider(value: Binding(get: { Double(sound.mix.level(kind)) }, set: { sound.setLevel(kind, Float($0)) }), in: 0...1)
+                .tint(color)
+                .accessibilityLabel("\(kind.title) 음량")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 }
 

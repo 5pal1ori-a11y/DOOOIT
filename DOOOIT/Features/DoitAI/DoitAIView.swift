@@ -9,6 +9,8 @@ struct DoitAIView: View {
     @State private var showScanner = false
     @State private var showPhotoPicker = false
     @State private var photoItems: [PhotosPickerItem] = []
+    /// 말로 질문하기
+    @State private var voice = VoiceQuestion()
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -70,6 +72,27 @@ struct DoitAIView: View {
             .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 1) { images in
                 attached = images.first
             }
+            // 말하는 동안 글자가 입력창에 바로 보임
+            .onChange(of: voice.transcript) { _, text in
+                if voice.isListening { input = text }
+            }
+            .onDisappear { voice.cancel() }
+            .alert(voice.problem == .denied ? "마이크를 켜 주세요" : "지금은 들을 수 없어요", isPresented: Binding(
+                get: { voice.problem != nil }, set: { if !$0 { voice.problem = nil } })) {
+                if voice.problem == .denied {
+                    Button("설정 열기") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }
+                }
+                Button("닫기", role: .cancel) {}
+            } message: {
+                Text(voice.problem == .denied ? "설정에서 마이크와 음성 인식을 허용하면 말로 물어볼 수 있어요." : "잠시 후 다시 해 주세요.")
+            }
+            #if DEBUG
+            .task {
+                if UIShot.matches(.voice) { voice.showDemo("이차방정식 근의 공식 알려줘") }
+            }
+            #endif
         }
     }
 
@@ -285,13 +308,17 @@ struct DoitAIView: View {
                 }
 
                 HStack(alignment: .bottom, spacing: 6) {
-                    TextField("두잇 AI에게 물어보기", text: $input, axis: .vertical)
+                    TextField(voice.isListening ? "듣고 있어요…" : "두잇 AI에게 물어보기", text: $input, axis: .vertical)
                         .submitLabel(.send)
                         .onSubmit { submit() }
                         .lineLimit(1...5)
                         .focused($focused)
                         .padding(.leading, 16)
                         .padding(.vertical, 11)
+                        .disabled(voice.isListening)
+
+                    micButton
+                        .padding(.bottom, 5)
 
                     Button { submit() } label: {
                         Image(systemName: "arrow.up")
@@ -316,6 +343,40 @@ struct DoitAIView: View {
         .animation(.snappy, value: focused)
     }
 
+    /// 마이크: 누르면 듣기 시작 → 다시 누르거나 말을 멈추면 보내기
+    private var micButton: some View {
+        Button {
+            Haptics.tap()
+            focused = false
+            Task {
+                await voice.toggle { text in
+                    input = text
+                    if !text.isEmpty { submit() }
+                }
+            }
+        } label: {
+            ZStack {
+                if voice.isListening {
+                    Circle()
+                        .fill(Theme.accent.opacity(0.18))
+                        .scaleEffect(1 + CGFloat(voice.level) * 0.5)
+                        .animation(.easeOut(duration: 0.15), value: voice.level)
+                }
+                Image(systemName: voice.isListening ? "waveform" : "mic")
+                    .font(.subheadline.weight(voice.isListening ? .bold : .regular))
+                    .foregroundStyle(voice.isListening ? .white : Palette.ink)
+                    .symbolEffect(.variableColor.iterative, isActive: voice.isListening)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 32, height: 32)
+                    .background(voice.isListening ? Theme.accent : Color.clear, in: .circle)
+            }
+            .frame(width: 32, height: 32)
+        }
+        .buttonStyle(.plain)
+        .disabled(assistant.isResponding)
+        .accessibilityLabel(voice.isListening ? "말하기 끝내기" : "말로 질문하기")
+    }
+
     /// **굵게** 같은 간단한 마크다운만 적용
     private static func markdown(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
@@ -333,7 +394,7 @@ struct DoitAIView: View {
     }
 
     private var canSend: Bool {
-        !assistant.isResponding && (!input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || attached != nil)
+        !assistant.isResponding && !voice.isListening && (!input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || attached != nil)
     }
 }
 
