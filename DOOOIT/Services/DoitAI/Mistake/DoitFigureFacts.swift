@@ -62,6 +62,24 @@ enum DoitFigureFacts {
         return "그림"
     }
 
+    // MARK: - 어떤 그림인지 (문제 글로)
+
+    /// 그림을 어떻게 읽을지: 표 / 차트(막대·꺾은선·원그래프) / 좌표 그래프 / 도형 / 없음
+    enum Route: String { case table, chart, graph, geometry, none }
+
+    static func route(_ problem: String) -> Route {
+        let t = problem.replacingOccurrences(of: " ", with: "")
+        func has(_ w: [String]) -> Bool { w.contains { t.contains($0) } }
+        if has(["막대그래프", "꺾은선그래프", "원그래프", "띠그래프", "그림그래프", "히스토그램", "도수분포다각형", "그래프는", "그래프를"]),
+           !has(["함수", "직선", "포물선", "좌표", "방정식", "기울기", "절편", "x축", "y축", "y=", "꼭짓점"]) { return .chart }
+        if t.range(of: #"(도수분포|상대도수)?(?<![가-힣])표(는|를|에서|와|의|이다|로|$|,|\.)"#, options: .regularExpression) != nil
+            || has(["도수분포표", "다음표", "아래표"]) { return .table }
+        if has(["그래프", "좌표평면"]), has(["함수", "직선", "포물선", "좌표", "방정식", "기울기", "절편", "x축", "y축", "y=", "꼭짓점", "그래프의식"]) { return .graph }
+        if has(["그래프"]) { return .chart }
+        if has(["그림", "도형", "삼각형", "사각형", "원O", "∠", "△", "∥", "평행", "부채꼴", "직각"]) { return .geometry }
+        return .none
+    }
+
     // MARK: - 표 읽기 (정밀 인식의 표·차트 결과, 마크다운, HTML, OTSL)
 
     /// 모델이 낸 표 글 → 칸들 (빈 줄·구분선은 뺌). 표가 아니면 빈 배열
@@ -430,7 +448,7 @@ enum DoitFigureFacts {
         let (problem, facts) = split(text)
         guard !facts.isEmpty else { return text }
         var lines = facts.filter { !($0.hasPrefix("[") && $0.contains("]")) && !$0.contains(" | ") }
-        if let eq = graphEquation(facts) { lines.append("그래프의 식은 \(eq)") }
+        if !lines.contains(where: { $0.hasPrefix("그래프의 식") }), let eq = graphEquation(facts) { lines.append("그래프의 식은 \(eq)") }
         let parts = stemAndChoices(problem)
         return ([parts.stem] + lines + (parts.choices.isEmpty ? [] : [parts.choices])).joined(separator: "\n")
     }
@@ -511,7 +529,8 @@ enum DoitFigureFacts {
                 }
             case "평행", "parallel":
                 let segs = matchAll(value, seg).map { GeometryText.segment($0[1] + $0[2]) }
-                if segs.count == 2 { add("\(segs[0]) ∥ \(segs[1])") }
+                let named = matchAll(value, #"(?<![A-Za-z])([a-z])(?![A-Za-z])"#).map { $0[1] }
+                if segs.count == 2 { add("\(segs[0]) ∥ \(segs[1])") } else if named.count == 2 { add("\(named[0]) ∥ \(named[1])") }
             case "수직", "perpendicular":
                 let segs = matchAll(value, seg).map { GeometryText.segment($0[1] + $0[2]) }
                 if segs.count == 2 { add("\(segs[0]) ⊥ \(segs[1])") }
