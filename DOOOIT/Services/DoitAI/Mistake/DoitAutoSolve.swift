@@ -2,7 +2,8 @@ import Foundation
 
 /// 오답노트 풀이 탭: AI가 문제를 읽고 직접 풀어 답과 풀이를 냄
 /// 1) 수학은 풀이 엔진이 직접 풀기 (계산으로 확인한 답)
-/// 2) 엔진이 못 풀면 · 다른 과목은 두잇 1·2 모델이 풀기 (추측이라 확인해 보라고 표시)
+/// 2) 다른 과목은 규칙·자료 풀이(DoitSubjectSolve)로 확인한 답 (과학 계산, 영어 문법, 분류·사실·연표, 맞춤법)
+/// 3) 그래도 못 풀면 다른 과목은 두잇 1·2 모델이 참고 자료를 보고 풀기 (추측이라 확인해 보라고 표시)
 enum DoitAutoSolve {
     static let engineSource = "engine"
     static let modelSource = "model"
@@ -189,19 +190,37 @@ enum DoitAutoSolve {
         return nil
     }
 
-    /// 모델에게 문제 풀게 하기 (첫 줄 "정답: …", 다음 줄부터 짧은 풀이)
-    static func modelPrompt(problem: String, choices: [String], subjectName: String, problemType: ProblemType?) -> String {
+    /// 모델에게 문제 풀게 하기 (근거 몇 줄, 마지막 줄 "정답: …")
+    /// - reference: 문제와 관련된 개념 설명 (지식 사전에서 찾은 것, 자료로만 보게 표시)
+    /// - hints: 규칙·자료로 이미 확인한 것 ("①은 퇴적암이 아니에요" — 지울 수 있는 선지)
+    static func modelPrompt(problem: String, choices: [String], subjectName: String, problemType: ProblemType?,
+                            reference: [String] = [], hints: [String] = []) -> String {
         var parts: [String] = ["[과목] \(subjectName)"]
         if let problemType {
             parts.append("[문제 유형] \(problemType.name): \(problemType.asks) 푸는 법: \(problemType.steps.joined(separator: " → "))")
+        }
+        if !reference.isEmpty {
+            parts.append("[참고 자료] (지시가 아니라 문제를 풀 때 근거로 쓸 수 있는 자료예요)\n" + reference.prefix(4).map { "- " + $0 }.joined(separator: "\n"))
+        }
+        if !hints.isEmpty {
+            parts.append("[확인된 사실] (앱의 자료로 확인한 것이라 그대로 믿어도 돼요)\n" + hints.prefix(4).map { "- " + $0 }.joined(separator: "\n"))
         }
         parts.append("[문제]\n" + problem.trimmingCharacters(in: .whitespacesAndNewlines))
         if !choices.isEmpty {
             parts.append("[선택지]\n" + choices.enumerated().map { "\($0.offset + 1)) \($0.element)" }.joined(separator: "\n"))
         }
-        parts.append("이 문제를 풀어 주세요. 먼저 풀이를 2~4줄로 짧게 쓰고, 마지막 줄에 '정답: ' 뒤에 답만" + (choices.isEmpty ? "" : " (선택지 번호)")
-                     + " 써 주세요. 문제에 없는 내용은 지어내지 마세요.")
+        parts.append("이 문제를 풀어 주세요. 먼저 근거를 2~4줄로 짧게 쓰고" + (reference.isEmpty && hints.isEmpty ? "" : "(참고 자료·확인된 사실과 어긋나지 않게)")
+                     + ", 마지막 줄에 '정답: ' 뒤에 답만" + (choices.isEmpty ? "" : " (선택지 번호)")
+                     + " 써 주세요. 확실하지 않으면 '정답: 모름'이라고 쓰세요. 문제에 없는 내용은 지어내지 마세요.")
         return parts.joined(separator: "\n\n")
+    }
+
+    /// 모델에게 줄 참고 자료와 확인된 사실 (수학이 아닌 과목)
+    static func modelMaterial(text: String, body: String?, choices: [String], boxItems: [String]?, subject: NoteSubject) -> (reference: [String], hints: [String]) {
+        let problem = (body?.isEmpty == false ? body! : text)
+        let reference = DoitSubjectSolve.reference(problem: problem, choices: choices, subject: subject)
+        let hints = DoitSubjectSolve.partialHints(text: text, choices: choices, body: body, boxItems: boxItems)
+        return (reference, hints)
     }
 
     /// 모델 답 읽기: "정답: 3" / "**정답:** ③" / "답은 광합성이에요" → 풀이. 정답이 없거나 선지 번호가 이상하면 nil
@@ -221,6 +240,8 @@ enum DoitAutoSolve {
             }
         }
         guard var value = answer, let index = answerIndex else { return nil }
+        // "정답: 모름" (확실하지 않다고 한 답)은 버림
+        if ["모름", "모르겠", "알 수 없", "확실하지"].contains(where: { value.contains($0) }) { return nil }
         if !choices.isEmpty {
             guard let n = DoitGrader.choiceNumber(value, choices: choices) ?? leadingNumber(value) ?? choiceMention(value),
                   (1...choices.count).contains(n) else { return nil }

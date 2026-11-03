@@ -609,15 +609,24 @@ final class DoitAssistant {
         turn.kind = .chat
 
         var solution: WrittenSolution?
+        var mathSolved = false
         if isMath || DoitMath.looksLikeMath(text) {
             solution = DoitAutoSolve.engine(text: text, choices: choices, isChoice: isChoice, body: scan.body)
+            mathSolved = solution != nil
+        }
+        // 규칙·자료로 확인한 답 (과학 계산은 수학처럼 보여도 여기서 풀림: 과학 공식, 영어 문법, 분류·사실·연표, 맞춤법)
+        if solution == nil {
+            solution = DoitSubjectSolve.solve(text: text, choices: isChoice ? choices : [], subjectBroad: subject?.broad, body: scan.body, boxItems: scan.boxItems)
         }
         // 모델은 수학이 아닌 과목만 (작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만)
         if !isMath, solution == nil, DoitMind.isAvailable {
             status = "두잇 AI가 문제를 푸는 중…"
             let body = scan.body.isEmpty ? text : scan.body
+            let material = DoitAutoSolve.modelMaterial(text: text, body: scan.body, choices: isChoice ? choices : [], boxItems: scan.boxItems,
+                                                       subject: NoteSubject.from(subject?.broad ?? "기타"))
             let prompt = DoitAutoSolve.modelPrompt(problem: body, choices: isChoice ? choices : [],
-                                                   subjectName: subject?.noteLabel ?? (isMath ? "수학" : "모름"), problemType: type)
+                                                   subjectName: subject?.noteLabel ?? (isMath ? "수학" : "모름"), problemType: type,
+                                                   reference: material.reference, hints: material.hints)
             if let raw = try? await DoitBrain.shared.complete(system: DoitMind.persona, prompt: prompt, maxTokens: 600, temperature: 0.2),
                let guess = DoitAutoSolve.parseModel(DoitMind.answer(raw), problem: text, choices: isChoice ? choices : []),
                solution == nil {
@@ -626,7 +635,7 @@ final class DoitAssistant {
         }
         var suggestions = ["오답노트에 저장해줘"]
         if let solution {
-            if isMath, solution.source == DoitAutoSolve.engineSource { lastMath = scan.body.isEmpty ? text : scan.body; suggestions.append("비슷한 문제 내줘") }
+            if isMath, mathSolved { lastMath = scan.body.isEmpty ? text : scan.body; suggestions.append("비슷한 문제 내줘") }
             suggestions.append("이 문제 무슨 유형이야?")
             return Message(role: .assistant, text: DoitAutoSolve.chatText(solution, choices: choices, typeName: type?.name), suggestions: suggestions)
         }

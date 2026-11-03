@@ -2,7 +2,8 @@ import SwiftData
 import SwiftUI
 
 /// 오답노트 풀이 탭 맨 위: AI가 문제를 읽고 직접 풀어 정답과 풀이를 보여 줌
-/// 수학은 풀이 엔진이 계산해서 풀고, 못 풀면 · 다른 과목은 두잇 1·2 모델이 풀어요 (추측이라 확인 표시)
+/// 수학은 풀이 엔진이 계산해서 풀고, 다른 과목은 규칙·자료로 확인해서 풀어요.
+/// 그래도 못 풀면 다른 과목은 두잇 1·2 모델이 참고 자료를 보고 풀어요 (추측이라 확인 표시)
 struct AISolutionCard: View {
     @Bindable var note: MathNote
     /// 못 풀었을 때 '문제 글 고치기' (문제 탭으로)
@@ -175,8 +176,20 @@ struct AISolutionCard: View {
     // MARK: 풀기
 
     private func solveIfNeeded() async {
-        guard current == nil, !problemText.isEmpty else { return }
+        guard !problemText.isEmpty else { return }
+        // 예전에 모델이 추측한 답은 규칙·자료로 확인한 답이 생기면 바꿈
+        if let current, current.source == DoitAutoSolve.modelSource {
+            if let verified = subjectSolved(problemText) { store(verified) }
+            return
+        }
+        guard current == nil else { return }
         await solve(force: false)
+    }
+
+    /// 규칙·자료로 확인한 답 (과학 계산, 영어 문법, 분류·사실·연표, 맞춤법)
+    private func subjectSolved(_ text: String) -> WrittenSolution? {
+        DoitSubjectSolve.solve(text: text, choices: isChoice ? choices : [], subjectBroad: note.subjectKind.rawValue,
+                               body: note.scan?.body, boxItems: note.scan?.boxItems)
     }
 
     private func solve(force: Bool) async {
@@ -193,11 +206,20 @@ struct AISolutionCard: View {
             if noteKey.isEmpty, !isChoice || matchesChoice(solved.finalAnswer) { note.correctAnswer = solved.finalAnswer; save() }
             return
         }
-        // 2) 두잇 1·2 모델 (수학이 아닌 과목만: 작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만 보여 줌)
+        // 2) 규칙·자료로 확인한 답 (다른 과목, 수학 노트에 들어온 과학 계산도)
+        if let solved = subjectSolved(text) {
+            store(solved)
+            if noteKey.isEmpty, !isChoice || matchesChoice(solved.finalAnswer) { note.correctAnswer = solved.finalAnswer; save() }
+            return
+        }
+        // 3) 두잇 1·2 모델 (수학이 아닌 과목만: 작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만 보여 줌)
         if !note.subjectKind.isMath, DoitMind.isAvailable {
             let body = note.scan.map { $0.body.isEmpty ? text : $0.body } ?? text
+            let material = DoitAutoSolve.modelMaterial(text: text, body: note.scan?.body, choices: isChoice ? choices : [],
+                                                       boxItems: note.scan?.boxItems, subject: note.subjectKind)
             let prompt = DoitAutoSolve.modelPrompt(problem: body, choices: isChoice ? choices : [],
-                                                   subjectName: note.subjectLabel, problemType: note.scan?.problemType)
+                                                   subjectName: note.subjectLabel, problemType: note.scan?.problemType,
+                                                   reference: material.reference, hints: material.hints)
             // 생각 모드는 쓰지 않음 (생각만 길게 하다 답을 못 쓰는 일이 있어서) → 풀이를 쓰고 마지막 줄에 정답
             for attempt in 0..<2 {
                 if attempt > 0 { try? await Task.sleep(for: .seconds(2)) }   // 대화 답을 쓰는 중이면 잠깐 기다렸다 다시

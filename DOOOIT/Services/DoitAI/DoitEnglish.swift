@@ -3155,3 +3155,34 @@ extension DoitEnglish {
         return w
     }
 }
+
+
+// MARK: - 과목 풀이(DoitSubjectSolve)용: 동사·형용사 변화와 내장 단어장
+
+extension DoitEnglish {
+    /// 동사 원형 ("went" → "go", "is" → "be", "plays" → "play"). 동사가 아니면 nil
+    static func verbBase(_ word: String) -> String? {
+        let w = word.lowercased()
+        if ["am", "is", "are", "was", "were", "been", "being", "be"].contains(w) { return "be" }
+        if EngVerbs.isBaseVerb(w) { return w }
+        return EngVerbs.analyze(w)?.0
+    }
+
+    static func pastForms(_ base: String) -> [String] { EngVerbs.pastForms(base) }
+    static func ppForms(_ base: String) -> [String] { EngVerbs.ppForms(base) }
+    static func thirdPerson(_ base: String) -> String { EngVerbs.third(base) }
+    static func ingForm(_ base: String) -> String { EngVerbs.ing(base) }
+
+    /// 비교급 · 최상급 (여러 모양이면 모두)
+    static func comparison(_ adjective: String) -> (comparative: [String], superlative: [String]) {
+        let forms = EngAdjectives.compare(adjective.lowercased())
+        let split: (String) -> [String] = { $0.components(separatedBy: " / ").map { $0.trimmingCharacters(in: .whitespaces) } }
+        return (split(forms.comparative), split(forms.superlative))
+    }
+
+    /// 내장 단어장 (단어 → 뜻 글)
+    static var vocabulary: [String: String] { EngWords.dictionary }
+
+    /// 불규칙 복수형 → 단수 ("children" → "child")
+    static func singular(ofIrregular plural: String) -> String? { EngNouns.pluralToSingular[plural.lowercased()] }
+}
