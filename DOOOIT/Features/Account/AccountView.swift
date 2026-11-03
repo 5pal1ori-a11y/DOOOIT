@@ -138,6 +138,7 @@ struct AccountView: View {
     /// 계정 설정: 버전 · 공부 기록 초기화 · 로그아웃 · 계정 삭제
     private var accountSettings: some View {
         List {
+            if AccountStore.syncReady {
             Section {
                 Toggle(isOn: Binding(get: { syncOn }, set: { changeSync($0) })) {
                     item("iCloud 동기화", "icloud", Color(hex: "#3B82F6"))
@@ -145,6 +146,7 @@ struct AccountView: View {
                 .disabled(!AccountStore.iCloudAvailable && !syncOn)
             } footer: {
                 Text(AccountStore.iCloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
+            }
             }
             Section {
                 LabeledContent { Text(appVersion) } label: { item("버전", "info", Color.gray) }

@@ -32,6 +32,10 @@ enum AccountStore {
     /// 동기화를 켜고 끄면 저장소를 다시 엶
     static let storeChanged = Notification.Name("AccountStore.storeChanged")
 
+    /// iCloud 권한(CloudKit 컨테이너)이 앱에 들어 있는지 — 개발자 계정에 컨테이너를 만든 뒤 권한을 넣고 true로
+    /// (권한 없이 켜면 기기 안에만 저장되면서 동기화되는 것처럼 보이므로, 그 전에는 스위치를 숨김)
+    static let syncReady = false
+
     /// iPhone에 iCloud 로그인이 되어 있는지
     static var iCloudAvailable: Bool { FileManager.default.ubiquityIdentityToken != nil }
 
