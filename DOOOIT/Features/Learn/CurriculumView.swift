@@ -182,7 +182,9 @@ struct CurriculumView: View {
         var matches: [(subject: CurriculumSubject, unit: CurriculumUnit)] = []
         for subject in Curriculum.subjects {
             for unit in subject.units {
-                let haystack = (subject.name + " " + unit.chapter + " " + unit.title).lowercased()
+                // 영어 문법 단원은 "영어 문법"·"영문법"·"어법"으로도 찾게
+                let grammar = DoitGrammar.isGrammarUnit(subjectName: subject.name, unit: unit.title) ? " 영어 문법 영문법 어법" : ""
+                let haystack = (subject.name + " " + unit.chapter + " " + unit.title + grammar).lowercased()
                 if words.allSatisfy({ haystack.contains($0) }) { matches.append((subject, unit)) }
                 if matches.count >= 20 { break }
             }

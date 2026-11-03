@@ -126,9 +126,8 @@ enum Curriculum {
     /// AI 학습에서 고를 수 있는 모든 과목: 고1 공통과목 + 초등 ~ 대학교 국·영·수·과·사
     static let subjects: [CurriculumSubject] = highSchoolCommon + DoitCurriculum.studySubjects.map { item in
         let symbols = ["국어": "book.fill", "영어": "character.book.closed.fill", "수학": "function", "과학": "atom", "사회": "globe.asia.australia.fill"]
-        // 영어 문법 단원은 "영어 문법"·"영문법"으로도 찾게
         return CurriculumSubject(name: item.name, symbol: symbols[item.subject] ?? "book",
-                                 units: item.units.map { CurriculumUnit(chapter: DoitGrammar.isGrammarUnit(subjectName: item.name, unit: $0) ? item.name + " · 영문법" : item.name, title: $0) })
+                                 units: item.units.map { CurriculumUnit(chapter: item.name, title: $0) })
     }
 
     /// 고1 공통과목 (단원 목록은 DoitStudy.commonSubjects 한 곳에서 관리)

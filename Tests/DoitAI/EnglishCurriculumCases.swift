@@ -188,10 +188,10 @@ func runEnglishCurriculumCases() async {
         }
     }
     // 목록 검색(낱말이 모두 들어간 단원)으로도 "영어 문법"이 나옴
-    // (화면의 Curriculum.subjects와 같은 방법: 문법 단원의 chapter = 과목 이름 + " · 영문법")
+    // (화면 CurriculumView의 목록 검색과 같은 방법: 문법 단원은 " 영어 문법 영문법 어법"을 더해서 찾음)
     let listed = DoitCurriculum.studySubjects.flatMap { s in s.units.filter { unit in
-        let chapter = DoitGrammar.isGrammarUnit(subjectName: s.name, unit: unit) ? s.name + " · 영문법" : s.name
-        let haystack = "\(s.name) \(chapter) \(unit)"
+        let grammar = DoitGrammar.isGrammarUnit(subjectName: s.name, unit: unit) ? " 영어 문법 영문법 어법" : ""
+        let haystack = "\(s.name) \(s.name) \(unit)\(grammar)"
         return haystack.contains("영어") && haystack.contains("문법")
     } }
     check("영문법 목록 검색: '영어 문법'으로 단원이 나옴", listed.count >= 30, "\(listed.count)개")
