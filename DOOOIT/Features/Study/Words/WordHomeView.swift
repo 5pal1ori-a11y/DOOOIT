@@ -210,7 +210,7 @@ struct WordHomeView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Theme.accent, in: .rect(cornerRadius: 16))
+                    .background(Theme.accent, in: .rect(cornerRadius: 20, style: .continuous))
             }
             .padding(.top, 14)
         }
@@ -303,7 +303,7 @@ struct WordHomeView: View {
             }
         }
         .buttonStyle(.pressable)
-        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 18))
+        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 24, style: .continuous))
     }
 
     private func addMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {

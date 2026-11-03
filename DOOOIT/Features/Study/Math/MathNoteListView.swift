@@ -76,7 +76,7 @@ struct MathNoteListView: View {
                         .appearAnimation()
                     if !weakConcepts.isEmpty {
                         NavigationLink { WeakConceptListView() } label: {
-                            RowLabel(symbol: "target", color: Palette.danger, title: "취약 개념",
+                            RowLabel(symbol: "target", color: Palette.pink, title: "취약 개념",
                                      value: "\(weakConcepts.count)")
                                 .softCardBackground(cornerRadius: 20)
                         }
@@ -226,7 +226,7 @@ struct MathNoteListView: View {
                 }
                 .foregroundStyle(addSubjectColor)
                 .frame(width: 52, height: 52)
-                .background(addSubjectColor.opacity(0.12), in: .rect(cornerRadius: 16))
+                .background(addSubjectColor.pastel, in: .rect(cornerRadius: 20, style: .continuous))
             }
             .accessibilityLabel(addSubjectSpoken)
             Button { openScanner() } label: {
@@ -238,7 +238,7 @@ struct MathNoteListView: View {
                     .font(.headline)
                     .foregroundStyle(Theme.accent)
                     .frame(width: 52, height: 52)
-                    .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 16))
+                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 20, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("앨범에서 선택")

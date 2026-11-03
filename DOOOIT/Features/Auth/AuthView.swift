@@ -268,7 +268,7 @@ struct AuthView: View {
         }
         .signInWithAppleButtonStyle(scheme == .dark ? .white : .black)
         .frame(height: 52)
-        .clipShape(.rect(cornerRadius: 16, style: .continuous))
+        .clipShape(.rect(cornerRadius: 20, style: .continuous))
         .id(scheme) // 다크모드 전환 시 버튼 스타일 갱신
         .disabled(isSubmitting)
         // 동의 전에는 Apple 창을 띄우지 않고 동의 칸을 알려 줌
@@ -305,8 +305,8 @@ struct AuthView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
-            .background(Palette.card, in: .rect(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
+            .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
         }
         .buttonStyle(.pressable)
         .disabled(isSubmitting)
@@ -378,7 +378,7 @@ private struct AuthField<Content: View, Trailing: View>: View {
         self.trailing = trailing()
     }
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 16, style: .continuous) }
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 20, style: .continuous) }
 
     private var borderColor: Color {
         if message != nil { return Palette.danger.opacity(0.85) }
