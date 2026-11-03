@@ -296,6 +296,26 @@ let subjectBattery: [SubjectCase] = [
     SubjectCase("국어", "‘일부로’를 바르게 고치면?", "일부러")
 ]
 
+/// 풀면 안 되는 문제: 단서가 없거나 둘 이상이 맞거나 자료에 없는 것 (규칙 풀이가 nil이어야 함)
+let subjectTraps: [SubjectCase] = [
+    SubjectCase("영어", "I ______ to school.\n① go ② went ③ will go ④ going ⑤ gone", ""),
+    SubjectCase("영어", "She is the teacher ______ everyone likes.\n① who ② which ③ that ④ whose ⑤ what", ""),
+    SubjectCase("영어", "This is the ______ of the two.\n① tall ② taller ③ tallest ④ more tall ⑤ most tall", ""),
+    SubjectCase("영어", "Last night, I ______ TV and my brother ______ a book.\n① watch ② watched ③ watches ④ watching ⑤ will watch", ""),
+    SubjectCase("영어", "Yesterday I ______ a movie, and tomorrow I will see another.\n① see ② saw ③ will see ④ seeing ⑤ seen", ""),
+    SubjectCase("영어", "I like ______ books.\n① read ② reads ③ reading ④ to read ⑤ readed", ""),
+    SubjectCase("과학", "질량이 2 kg인 물체의 운동 에너지는 몇 J인가?\n① 2 J ② 4 J ③ 9.8 J ④ 19.6 J ⑤ 40 J", ""),
+    SubjectCase("과학", "다음 중 광합성에 대한 설명으로 옳은 것은?\n① 밤에만 일어난다. ② 산소를 흡수한다. ③ 엽록체에서 일어난다. ④ 이산화 탄소를 방출한다. ⑤ 뿌리에서 일어난다.", ""),
+    SubjectCase("과학", "다음 중 퇴적암인 것은?\n① 현무암 ② 사암 ③ 석회암 ④ 화강암 ⑤ 편마암", ""),
+    SubjectCase("과학", "다음 중 포유류가 아닌 것은?\n① 고래 ② 박쥐 ③ 오리너구리 ④ 개 ⑤ 소", ""),
+    SubjectCase("과학", "속력이 2 m/s인 물체의 질량은 몇 kg인가?\n① 1 ② 2 ③ 3 ④ 4 ⑤ 5", ""),
+    SubjectCase("과학", "세포 호흡 결과 생성되는 기체는?\n① 미토콘드리아 ② 엽록체 ③ 핵 ④ 세포막 ⑤ 액포", ""),
+    SubjectCase("사회", "임진왜란 이후에 일어난 사건은?\n① 병자호란 ② 고려 건국 ③ 조선 건국 ④ 훈민정음 반포 ⑤ 삼국 통일", ""),
+    SubjectCase("사회", "다음 중 수도가 아닌 도시는?\n① 파리 ② 런던 ③ 뉴욕 ④ 베를린 ⑤ 로마", ""),
+    SubjectCase("국어", "다음 중 맞춤법이 바른 것은?\n① 금세 ② 며칠 ③ 몇일 ④ 금새", ""),
+    SubjectCase("국어", "다음 중 맞춤법이 틀린 것은?\n① 몇일 ② 금새 ③ 며칠 ④ 금세", "")
+]
+
 /// 단답 답이 맞는지: 글이 같거나, 수가 같고 단위가 같으면 (단위 없는 정답은 수만)
 func subjectMatches(_ answer: String, expected: String) -> Bool {
     func squash(_ s: String) -> String {
@@ -352,6 +372,11 @@ func runSubjectBatteryCases() {
         if right { s.correct += 1 } else { s.wrong += 1; wrongs.append("\(label) → 답 '\(answer)', 정답 '\(item.answer)'") }
         check("과목 배터리 오답 없음: \(label)", right, "답 '\(answer)', 정답 '\(item.answer)'")
         stats[item.subject] = s
+    }
+    for trap in subjectTraps {
+        let scan = DoitProblemScan.scan(trap.text, math: false)
+        let solved = DoitSubjectSolve.solve(text: trap.text, choices: scan.choices, subjectBroad: trap.subject, body: scan.body, boxItems: scan.boxItems)
+        check("과목 배터리 함정은 풀지 않음: \(trap.text.prefix(40))", solved == nil, "답 '\(solved?.finalAnswer ?? "")'")
     }
     check("과목 배터리: 200문제 이상", subjectBattery.count >= 200, "\(subjectBattery.count)문제")
     check("과목 배터리: 오답 0개", wrongs.isEmpty, "오답 \(wrongs.count)개")

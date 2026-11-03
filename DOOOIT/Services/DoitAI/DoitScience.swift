@@ -647,7 +647,7 @@ enum DoitScience {
 
     private static func electricity(_ c: SciContext) -> String? {
         let v = c.first(.voltage), i = c.first(.current), r = c.first(.resistance), p = c.first(.power), t = c.first(.time)
-        if c.asked("전력량") {
+        if c.asked("전력량") || c.askedAny(["소비한 전기 에너지", "사용한 전기 에너지", "소비한 전기에너지", "사용한 전기에너지"]) {
             var watts: Double?
             var how = ""
             if let p { watts = p.si; how = "\(fmt(p.si)) W" }
@@ -798,7 +798,7 @@ enum DoitScience {
     private static let avogadro = 6.02e23
 
     private static func mole(_ c: SciContext) -> String? {
-        let askMol = c.asked("몰", notAfter: ["질량", "농도", " 질량", " 농도", "질"]) || c.has(["몰수", "몰 수", "물질의 양"])
+        let askMol = c.asked("몰", notAfter: ["질량", "농도", " 질량", " 농도", "질"]) || c.has(["몰수", "몰 수", "물질의 양", "몇 mol", "몇mol"])
         let askParticles = c.askedAny(["분자 수", "분자수", "입자 수", "입자수", "원자 수", "원자수", "개수", "몇 개"])
         let askMass = c.asked("질량")
         let askVolume = c.asked("부피") && c.has(["기체", "0℃", "0 ℃", "표준", "STP"])
