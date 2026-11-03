@@ -415,6 +415,7 @@ let subjectTraps: [SubjectBatteryCase] = [
     SubjectBatteryCase("영어", "I would like ______ some coffee.\n① drink ② drinks ③ drinking ④ drank ⑤ drunk", ""),
     SubjectBatteryCase("영어", "다음 중 abundant와 뜻이 반대인 것은?\n① 풍부한 ② 부족한 ③ 거대한 ④ 다양한 ⑤ 드문", ""),
     SubjectBatteryCase("영어", "This is the book ______ students read most.\n① who ② which ③ whose ④ what ⑤ where", ""),
+    SubjectBatteryCase("사회", "다음 중 유럽 연합(EU) 회원국이 아닌 것은?\n① 프랑스 ② 독일 ③ 이탈리아 ④ 노르웨이 ⑤ 캐나다", ""),
     SubjectBatteryCase("영어", "This bag is less ______ than that one.\n① expensive ② more expensive ③ most expensive ④ expensiver ⑤ the most expensive", "")
 ]
 

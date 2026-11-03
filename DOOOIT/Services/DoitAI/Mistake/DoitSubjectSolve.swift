@@ -282,6 +282,8 @@ enum DoitSubjectSolve {
         let members: Set<String>
         let universe: Set<String>
         let subject: String
+        /// 이름 바로 뒤에 와야 하는 말 ("아시아에", "유럽의"): "유럽 연합" 속 "유럽"을 대륙으로 읽지 않게
+        var followers: [String]? = nil
     }
 
     /// 사실표: 무리 하나(universe) 안에서 각 분류에 속하는 것 (빠짐없이 아는 것만 넣어요)
@@ -363,7 +365,8 @@ enum DoitSubjectSolve {
             var names = [continent]
             if continent == "남아메리카" { names.append("남미") }
             if continent == "북아메리카" { names.append("북미") }
-            list.append(Category(names: names, members: members, universe: countryUniverse, subject: "사회"))
+            list.append(Category(names: names, members: members, universe: countryUniverse, subject: "사회",
+                                 followers: ["에", "의", "대륙", "지역", "주에"]))
         }
         // 금속·비금속 원소 (준금속은 넣지 않음)
         let known = DoitScience.elementList.filter { $0.number <= 56 || ["Au", "Hg", "Pb", "Pt", "U"].contains($0.symbol) }
@@ -384,8 +387,9 @@ enum DoitSubjectSolve {
                 let k = key(name)
                 var from = c.startIndex
                 while let r = c.range(of: k, range: from..<c.endIndex) {
-                    found.append((category, r))
                     from = r.upperBound
+                    if let followers = category.followers, !followers.contains(where: { c[r.upperBound...].hasPrefix($0) }) { continue }
+                    found.append((category, r))
                 }
             }
         }
