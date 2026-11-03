@@ -814,8 +814,15 @@ enum DoitMathConstants {
             clauses.append((m[1] != n, kindName(m[2]), nil))
         }
         // 식 바로 뒤에 조건: "z = (1 + i)x + 2 − 3i가 실수가 되도록"
-        if clauses.isEmpty, let m = match(t, #"[0-9i)]\s*(?:이|가|은|는)\s*"# + kind) {
-            clauses.append((false, kindName(m[1]), nil))
+        if clauses.isEmpty, let m = match(t, #"[0-9i)]\s*(?:이|가|은|는)\s*"# + kind + #"(?:[^,.]*?값을\s*([a-z])(?![a-z]))?"#) {
+            clauses.append((false, kindName(m[1]), m.count > 2 ? m[2].first : nil))
+        }
+        // 주어를 줄인 다음 조건: "z²이 양의 실수가 되도록 하는 x의 값을 a, 음의 실수가 되도록 하는 x의 값을 b" → b도 z²
+        if let first = clauses.first {
+            for m in matches(t, #"(?:,|그리고|하고|이고)\s*"# + kind + #"(?:가|이)?\s*(?:되도록|되게|일\s*때|인)[^,.]*?값을\s*([a-z])(?![a-z])"#) {
+                guard let letter = m[2].first, !clauses.contains(where: { $0.letter == letter }) else { continue }
+                clauses.append((first.squared, kindName(m[1]), letter))
+            }
         }
         guard !clauses.isEmpty else { return nil }
 
@@ -868,7 +875,7 @@ enum DoitMathConstants {
         }
         var answer: String
         // 묻는 식의 문자를 다 구하지 못했으면 (조건 하나를 못 읽음) 반쪽 답을 내지 않음
-        if let asked = askedExpression(t), !values.isEmpty {
+        if let asked = askedExpression(t), !values.isEmpty || asked.contains(where: { $0.isLetter && $0 != u }) {
             let needed = Set(asked.filter { $0.isLetter })
             guard needed.isSubset(of: Set(values.keys)) else { return nil }
         }

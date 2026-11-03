@@ -89,4 +89,13 @@ func runAutoSolveCases() {
     check("복소수 조건: 조건 하나를 못 읽으면 반쪽 답(a = 4)을 내지 않음", half == nil || half == "-12", half ?? "nil")
     check("복소수 계산은 그대로", MathSolver.solve("(2+4i)(3-8i)")?.answer == "38 − 4i")
     check("문자가 붙은 복소수는 계산으로 풀지 않음", MathSolver.solve("z = (1+i)x + 2 - 3i가 실수가 되도록 하는 실수 x의 값은?")?.answer != "2 − 3i")
+
+    // 사진 화면에서 나온 글: 주어를 줄인 두 번째 조건, 수식 잘림, 조건 괄호
+    let shot = "복소수 z=(2+4i)(x-8i)에 대하여 z²이 양의 실수가 되도록 하는 x의 값을 a, 음의 실수가 되도록 하는 x의 값을 b라 할 때, a+b의 값을 구하시오.\n(단, x는 실수이다.)"
+    check("복소수 조건: 두 번째 조건의 z² 생략", MathSolver.solve(shot)?.answer == "-12", MathSolver.solve(shot)?.answer ?? "nil")
+    check("복소수 조건: 실수·순허수 a + b", MathSolver.solve("z=(1+i)x+2-3i가 실수가 되도록 하는 x의 값을 a, 순허수가 되도록 하는 x의 값을 b라 할 때 a+b의 값은?")?.answer == "1")
+    let shotScan = DoitProblemScan.scan(shot)
+    check("문제 나누기: 복소수 식이 잘리지 않음", shotScan.formulas.contains("z=(2+4i)(x-8i)"), "\(shotScan.formulas)")
+    check("문제 나누기: 괄호 짝 경고 없음", !shotScan.doubts.contains { $0.reason.contains("괄호") }, "\(shotScan.doubts)")
+    check("문제 나누기: 조건 닫는 괄호", shotScan.conditions.contains("(단, x는 실수이다.)"), "\(shotScan.conditions)")
 }

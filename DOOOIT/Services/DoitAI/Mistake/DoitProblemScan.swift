@@ -336,7 +336,18 @@ enum DoitProblemScan {
         }
         let rest = current.trimmingCharacters(in: .whitespacesAndNewlines)
         if !rest.isEmpty { result.append(rest) }
-        return result
+        // "(단, x는 실수이다.)"처럼 마침표 뒤 닫는 괄호는 앞 문장에 붙임
+        var merged: [String] = []
+        for sentence in result {
+            if sentence.hasPrefix(")"), let last = merged.popLast() {
+                let tail = sentence.dropFirst().trimmingCharacters(in: .whitespaces)
+                merged.append(last + ")")
+                if !tail.isEmpty { merged.append(tail) }
+            } else {
+                merged.append(sentence)
+            }
+        }
+        return merged
     }
 
     static func isCondition(_ sentence: String) -> Bool {
@@ -365,12 +376,31 @@ enum DoitProblemScan {
     static func formulas(in text: String) -> [String] {
         var found: [String] = []
         for line in text.components(separatedBy: "\n") {
-            let expression = DoitMath.extractExpression(line)
+            let expression = formulaRun(line)
             if expression.count >= 3, expression.contains(where: { "=+-−×÷*/^²³√<>≤≥".contains($0) }) || expression.contains("x") {
                 if !found.contains(expression) { found.append(expression) }
             }
         }
         return found
+    }
+
+    /// 한 줄에서 가장 긴 수식 덩어리 (문자 i·z·a 같은 것도 포함: "z=(2+4i)(x-8i)"가 "=(2+4"로 잘리지 않게)
+    static func formulaRun(_ line: String) -> String {
+        let base = DoitMath.extractExpression(line)
+        let allowed = Set("0123456789.+-*/^=()[]×÷−–·²³⁴⁵√<>≤≥ abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        var best = "", current = ""
+        for character in line + "\u{0}" {
+            if allowed.contains(character) { current.append(character); continue }
+            let t = current.trimmingCharacters(in: .whitespaces)
+            if t.count > best.count { best = t }
+            current = ""
+        }
+        // 낱말(영어 문장)이 아닌 수식일 때만: 연산 기호가 있고, 글자가 세 개 넘게 붙은 덩어리가 없어야 함
+        let hasOperator = best.contains(where: { "=+-−×÷*/^²³√<>≤≥".contains($0) })
+        let wordy = best.range(of: #"[A-Za-z]{4,}"#, options: .regularExpression) != nil
+        let opens = best.filter { $0 == "(" }.count, closes = best.filter { $0 == ")" }.count
+        guard hasOperator, !wordy, best.count > base.count, opens == closes || base.isEmpty else { return base }
+        return best
     }
 
     /// 잘못 읽었을 가능성이 큰 수식
