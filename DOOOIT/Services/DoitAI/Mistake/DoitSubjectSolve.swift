@@ -102,7 +102,7 @@ enum DoitSubjectSolve {
         if p.isChoice, !p.choices.allSatisfy(isNumericChoice) { return nil }
         if let special = scienceSpecial(p) { return special }
         guard let reply = DoitScience.calculation(stem) else { return nil }
-        guard let parsed = parseCalc(reply) else { return nil }
+        guard let parsed = parseCalc(reply), !ambiguousValues(stem, title: parsed.title) else { return nil }
         let asked = askedUnit(stem)
         // 계산한 값: 기본 단위 값과 보여 준 단위
         guard let value = DoitScience.quantities(in: parsed.answerHead).first ?? plainNumber(parsed.answerHead) else { return nil }
@@ -124,6 +124,19 @@ enum DoitSubjectSolve {
         }
         steps.append(SolutionStep(hint: "답", work: shown))
         return Found(answer: shown, concept: parsed.title, steps: steps)
+    }
+
+    /// 같은 종류 값이 둘 이상인데 공식이 하나만 골라 썼으면 (저항 두 개 중 첫째, "1시간 30분"의 1시간) 믿지 않음
+    private static func ambiguousValues(_ stem: String, title: String) -> Bool {
+        let counts = Dictionary(grouping: DoitScience.quantities(in: stem), by: \.dimension).mapValues(\.count)
+        let allowed: [String: [String]] = [
+            "resistance": ["합성 저항"], "temperature": ["열량", "비열"], "speed": ["가속도"],
+            "mass": ["농도", "녹아 있는"]
+        ]
+        for (dimension, count) in counts where count >= 2 {
+            guard let titles = allowed[dimension], titles.contains(where: title.contains) else { return true }
+        }
+        return false
     }
 
     private struct Calc {
@@ -436,8 +449,8 @@ enum DoitSubjectSolve {
 
     static let factTable: [Fact] = [
         // 세포
-        f(["엽록체"], [#"광합성이?일어나는(장소|곳|세포소기관|구조)"#, #"광합성을?하는(장소|곳|세포소기관|구조)"#], "엽록체는 빛 에너지로 광합성을 하는 곳이에요."),
-        f(["미토콘드리아"], [#"세포호흡이?일어나.{0,30}(세포소기관|곳|장소|구조)"#, #"에너지를(만드|생성하|얻)는(세포소기관|곳|구조)"#], "미토콘드리아에서 세포 호흡으로 생명 활동에 필요한 에너지를 만들어요."),
+        f(["엽록체"], [#"광합성이?일어나는.{0,6}(장소|곳|세포소기관|구조)"#, #"광합성을?하는.{0,6}(장소|곳|세포소기관|구조)"#], "엽록체는 빛 에너지로 광합성을 하는 곳이에요."),
+        f(["미토콘드리아"], [#"세포호흡이?일어나.{0,30}(세포소기관|곳|장소|구조)"#, #"에너지를(만드|생성하|얻)는.{0,6}(세포소기관|곳|구조)"#], "미토콘드리아에서 세포 호흡으로 생명 활동에 필요한 에너지를 만들어요."),
         f(["핵"], [#"유전물질.{0,30}(곳|것|세포소기관|구조)는?\?"#, #"생명활동을조절하는(곳|것|구조|세포소기관)"#], "핵에는 유전 물질(DNA)이 있어 세포의 생명 활동을 조절해요."),
         f(["세포막"], [#"물질이?.{0,8}(출입|드나드).{0,10}조절하는(것|곳|구조)"#], "세포막은 세포를 둘러싸고 물질이 드나드는 것을 조절해요."),
         f(["세포벽"], [#"식물세포의?모양을.{0,8}유지.{0,20}(것|곳|구조)"#], "세포벽은 식물 세포의 모양을 일정하게 유지하고 보호해요."),
@@ -460,7 +473,13 @@ enum DoitSubjectSolve {
         f(["응고"], [#"액체(가|에서|이)?고체로(변|바뀌|되)"#], "액체 → 고체: 응고 (열을 방출해요)"),
         f(["기화"], [#"액체(가|에서|이)?기체로(변|바뀌|되)"#], "액체 → 기체: 기화 (열을 흡수해요)"),
         f(["액화"], [#"기체(가|에서|이)?액체로(변|바뀌|되)"#], "기체 → 액체: 액화 (열을 방출해요)"),
-        f(["승화"], [#"고체(가|에서|이)?액체(상태)?를?거치지않고.{0,4}기체로"#, #"기체(가|에서|이)?액체(상태)?를?거치지않고.{0,4}고체로"#], "고체 ↔ 기체로 바로 변하는 것: 승화"),
+        f(["승화"], [#"고체(가|에서|이)?액체(상태)?를?거치지않고.{0,4}기체로"#, #"기체(가|에서|이)?액체(상태)?를?거치지않고.{0,4}고체로"#,
+                    #"(드라이아이스|나프탈렌|좀약).{0,12}(작아지|사라지|없어지).{0,20}(상태변화|현상)"#], "고체 ↔ 기체로 바로 변하는 것: 승화"),
+        // 생활 속 상태 변화
+        f(["융해"], [#"(얼음|아이스크림|버터|초콜릿|눈)이?.{0,4}녹.{0,20}(상태변화|현상)"#], "고체가 녹아 액체가 되는 것: 융해"),
+        f(["응고"], [#"(물|촛농|용암|쇳물)이?.{0,6}(얼어|얼면|얼|굳).{0,20}(상태변화|현상)"#], "액체가 얼거나 굳어 고체가 되는 것: 응고"),
+        f(["기화"], [#"(젖은빨래|빨래|물웅덩이|머리카락)가?이?.{0,6}(마르|말라|마른).{0,20}(상태변화|현상)"#], "액체가 기체(수증기)로 되는 것: 기화(증발)"),
+        f(["액화"], [#"(이슬이?맺|김이?서리|물방울이?맺|안경에김).{0,20}(상태변화|현상)"#], "수증기(기체)가 차가운 곳에서 물(액체)이 되는 것: 액화"),
         // 물리
         f(["관성"], [#"(원래|처음|현재)의?(운동)?상태를.{0,8}유지하려는성질"#], "물체가 원래의 운동 상태를 유지하려는 성질이 관성이에요(뉴턴 운동 제1법칙)."),
         f(["N", "뉴턴"], [#"(?<![가-힣])힘의(크기의)?단위"#], "힘의 단위는 N(뉴턴)이에요."),
@@ -733,7 +752,7 @@ enum DoitSubjectSolve {
         ("웬지", "왠지"), ("왠만", "웬만"), ("오랫만", "오랜만"), ("희안", "희한"), ("역활", "역할"), ("할께", "할게"),
         ("됬", "됐"), ("되서", "돼서"), ("되요", "돼요"), ("뵈요", "봬요"), ("어떻해", "어떡해"), ("어떡게", "어떻게"), ("어떻케", "어떻게"),
         ("곰곰히", "곰곰이"), ("깨끗히", "깨끗이"), ("일일히", "일일이"), ("틈틈히", "틈틈이"), ("꼼꼼이", "꼼꼼히"), ("솔직이", "솔직히"),
-        ("구지", "굳이"), ("윗층", "위층"), ("윗쪽", "위쪽"), ("웃사람", "윗사람"), ("아랫층", "아래층"), ("갯수", "개수"), ("촛점", "초점"),
+        ("구지 ", "굳이 "), ("윗층", "위층"), ("윗쪽", "위쪽"), ("웃사람", "윗사람"), ("아랫층", "아래층"), ("갯수", "개수"), ("촛점", "초점"),
         ("댓가", "대가"), ("설레임", "설렘"), ("하마트면", "하마터면"), ("귀뜸", "귀띔"), ("뒷풀이", "뒤풀이"), ("어의없", "어이없"),
         ("곱배기", "곱빼기"), ("짜집기", "짜깁기"), ("왠걸", "웬걸"), ("문안하", "무난하"), ("개였다", "개었다"), ("했읍니다", "했습니다"),
         ("않 돼", "안 돼"), ("않돼", "안 돼"), ("안되요", "안 돼요")
@@ -813,7 +832,8 @@ enum DoitSubjectSolve {
 
     static func englishVocabulary(_ p: Problem) -> Found? {
         let c = p.compact
-        guard matches(c, #"(뜻|의미|우리말|단어)"#), !c.contains("빈칸"), !c.contains("___") else { return nil }
+        guard matches(c, #"(뜻|의미|우리말|단어)"#), !c.contains("빈칸"), !c.contains("___"),
+              !matches(c, #"(반대|반의|비슷한|유의|동의|영영|철자)"#) else { return nil }
         // 단어 - 뜻 짝 고르기
         if p.isChoice, p.choices.allSatisfy({ $0.contains("-") || $0.contains(":") }) {
             var hits: [Int] = []
@@ -1002,7 +1022,7 @@ enum DoitSubjectSolve {
         var allowed: Set<String>
         var why: [String]
         if next == "than" {
-            guard previous != "the", previous != "most", previous != "more" else { return nil }
+            guard !["the", "most", "more", "less", "very", "least"].contains(previous) else { return nil }
             allowed = Set(forms.comparative); why = ["뒤에 than이 있으면 비교급을 써요.", "\(base) → \(forms.comparative.joined(separator: " / "))"]
         } else if previous == "as", next == "as" {
             allowed = [base]; why = ["as + 원급 + as: '~만큼 …한'", "그대로 \(base)"]
@@ -1028,15 +1048,22 @@ enum DoitSubjectSolve {
     /// 주어의 인칭·수 (모르면 nil)
     private static func person(_ words: [String], original: String) -> Person? {
         guard !words.isEmpty else { return nil }
+        // 꾸미는 말이 붙은 주어 ("The boys in the park")·의문사·there는 주어를 확실히 모름
+        let unsure: Set<String> = ["in", "of", "on", "at", "with", "from", "for", "near", "under", "behind", "who", "which", "that",
+                                   "what", "where", "when", "why", "how", "there", "here"]
+        if words.count > 1 || ["there", "here", "what", "where", "when", "why", "how", "who", "which"].contains(words[0]) {
+            if words.contains(where: unsure.contains) && !(words.count == 1 && words[0] == "that") { return nil }
+        }
         if words.contains("and") { return .plural }
         let last = words.last!
         if words.count == 1 {
             switch last {
             case "i": return .first
-            case "you", "we", "they", "people": return .plural
+            case "you", "we", "they", "people", "children", "men", "women": return .plural
             case "he", "she", "it", "this", "that", "everyone", "someone", "somebody", "everybody", "nobody", "everything": return .third
             default:
-                // 사람 이름 (대문자로 시작한 낱말)
+                // 복수형일 수 있는 말(-s, 불규칙 복수)은 모름, 나머지 대문자 낱말은 사람 이름
+                if last.hasSuffix("s") || DoitEnglish.singular(ofIrregular: last) != nil { return nil }
                 if let word = original.split(separator: " ").first(where: { $0.lowercased() == last }), word.first?.isUppercase == true { return .third }
                 return nil
             }
@@ -1045,7 +1072,7 @@ enum DoitSubjectSolve {
         guard determiners.contains(words[words.count - 2]) || words.count == 2 && original.first?.isUppercase == true else { return nil }
         if ["mr", "mrs", "ms", "dr", "mr.", "mrs.", "ms."].contains(words[words.count - 2]) { return .third }
         if ["these", "those"].contains(words[words.count - 2]) { return .plural }
-        if DoitEnglish.singular(ofIrregular: last) != nil, DoitEnglish.singular(ofIrregular: last) != last { return .plural }
+        if let single = DoitEnglish.singular(ofIrregular: last) { return single == last ? nil : .plural }
         if ["people", "children", "men", "women"].contains(last) { return .plural }
         if last.hasSuffix("s"), !last.hasSuffix("ss"), !["bus", "news", "class", "glass"].contains(last) { return .plural }
         if ["someone", "one"].contains(last) { return .third }
@@ -1138,7 +1165,8 @@ enum DoitSubjectSolve {
             allowed = ppForms; why = ["have/has + 과거분사: 현재완료", "\(base) → \(ppForms.sorted().joined(separator: "/"))"]; concept = "현재완료"
         } else if ["am", "is", "are", "was", "were", "be", "been"].contains(last) {
             let rightWindow = b.right.prefix(6)
-            if rightWindow.contains("by"), base != "be" {
+            let intransitive: Set<String> = ["stand", "sit", "live", "stay", "wait", "walk", "run", "go", "come", "arrive", "sleep", "lie", "swim", "travel"]
+            if rightWindow.contains("by"), base != "be", !intransitive.contains(base) {
                 allowed = ppForms; why = ["be동사 + 과거분사 + by …: 수동태", "\(base) → \(ppForms.sorted().joined(separator: "/"))"]; concept = "수동태"
             } else if timeCue(b) == .now, ["am", "is", "are"].contains(last), base != "be" {
                 allowed = [ing]; why = ["now 같은 지금을 나타내는 말: 현재진행형 (be동사 + -ing)", "\(base) → \(ing)"]; concept = "현재진행형"
@@ -1146,7 +1174,7 @@ enum DoitSubjectSolve {
         } else if let v = listedVerb(last), gerundVerbs.contains(v) || bothVerbs.contains(v) || infinitiveVerbs.contains(v),
                   !["i", "you", "he", "she", "we", "they", "it"].contains(last) {
             if gerundVerbs.contains(v) { allowed = [ing]; why = ["\(v)는 목적어로 동명사(-ing)를 써요.", "\(base) → \(ing)"]; concept = "동명사를 목적어로 쓰는 동사" }
-            else if infinitiveVerbs.contains(v) { allowed = ["to " + base]; why = ["\(v)는 목적어로 to부정사를 써요.", "to + \(base)"]; concept = "to부정사를 목적어로 쓰는 동사" }
+            else if infinitiveVerbs.contains(v) || (v == "like" && previous == "would") { allowed = ["to " + base]; why = ["\(v)는 목적어로 to부정사를 써요.", "to + \(base)"]; concept = "to부정사를 목적어로 쓰는 동사" }
             else { allowed = [ing, "to " + base]; why = ["\(v)는 동명사와 to부정사를 모두 목적어로 써요."]; concept = "동명사·to부정사" }
         } else if gerundPhrases.contains(where: { leftText.hasSuffix($0) || leftText.hasSuffix($0.replacingOccurrences(of: "give", with: "gave")) }) {
             allowed = [ing]; why = ["'\(left.suffix(2).joined(separator: " "))' 뒤에는 동명사(-ing)를 써요.", "\(base) → \(ing)"]; concept = "동명사"
@@ -1156,7 +1184,7 @@ enum DoitSubjectSolve {
             let adverbs: Set<String> = ["always", "usually", "often", "sometimes", "never", "also", "really"]
             while let w = subject.last, adverbs.contains(w) { subject.removeLast() }
             guard !subject.isEmpty, subject.count <= 4, !subject.contains(where: { modalsList.contains($0) || ["is", "are", "was", "were", "am", "has", "have", "does", "did", "do"].contains($0) }),
-                  let time = timeCue(b) else { return nil }
+                  !["i", "you", "he", "she", "we", "they", "it"].contains(b.right.first ?? ""), let time = timeCue(b) else { return nil }
             let originalLeft = b.sentence.components(separatedBy: "___").first ?? ""
             let originalSubject = originalLeft.split(separator: " ").suffix(subject.count + (left.count - subject.count)).joined(separator: " ")
             let who = person(subject, original: originalSubject)
