@@ -27,7 +27,8 @@ enum DoitAutoSolve {
         guard !full.isEmpty else { return nil }
         var best: (solved: MathSolver.Solved, key: String, matched: Bool, score: Int)?
         for candidate in candidates(full: full, body: body, choices: choices) {
-            guard let solved = MathSolver.solve(candidate) else { continue }
+            // 고쳐 쓴 글(식만 뗀 것 등)에는 물음이 빠져 있을 수 있어서, 물은 값인지는 원래 글로 다시 확인
+            guard let solved = MathSolver.solve(candidate).flatMap({ DoitMathAsked.focus($0, full) }) else { continue }
             var key = solved.answer
             var matched = false
             if isChoice, let n = choiceIndex(for: key, choices: choices) {

@@ -44,12 +44,17 @@ enum DoitMathAsked {
     static func focus(_ solved: Solved, _ raw: String) -> Solved? {
         let t = DoitAlgebra.normalize(DoitMathExact.tidy(raw))
         let answer = solved.answer
+        // 선지 번호를 고른 답은 이미 본문으로 맞춰 본 것
+        if let first = answer.first, "①②③④⑤".contains(first) { return solved }
+        // 수 하나를 묻는 말 ("가장 큰 정수", "개수", "경우의 수")인데 답이 식·범위면 물은 값이 아님
+        if has(t, ["가장 큰 정수", "가장 작은 정수", "가장 큰 자연수", "가장 작은 자연수", "의 개수", "몇 개", "경우의 수"]), !looksLikeValue(answer) { return nil }
         func pick(_ value: String) -> Solved {
             var out = solved
             if value != answer { out.steps.append(SolutionStep(hint: "구한 값을 정리하면", work: answer)) }
             out.answer = value
             return out
         }
+        if let s = aliased(solved, t) { return s }
         // 판별식의 값: "D = 13 → 서로 다른 두 실근" → 13
         if answer.hasPrefix("D = "), has(t, ["판별식의 값", "D의 값", "D 의 값", "D값"]), let m = match(answer, #"^D = ([^→]+?)\s*→"#) {
             return pick(m[1])
@@ -116,11 +121,58 @@ enum DoitMathAsked {
             if let named = match(t, "([가-힣]+)\\s*\(m[1])\\s*의\\s*값"), answer.hasPrefix(named[1]) { return solved }
             return nil
         }
+        // "a − b의 값"을 물었는데 답에 a, b가 없고 값도 아니면 (예: 인수분해한 식만) 물은 값이 아님
+        if let e = askedExpression(t) {
+            let letters = Set(e.filter { $0.isASCII && $0.isLetter })
+            if !letters.isEmpty, letters.isDisjoint(with: Set(answer.filter { $0.isASCII && $0.isLetter })), !looksLikeValue(answer) { return nil }
+        }
         // "x의 값의 범위"인데 범위가 아닌 답
         if has(t, ["값의 범위", "의 범위를", "의 범위는"]), !has(t, ["자료", "변량", "평균"]), !answer.contains(where: { "<>≤≥".contains($0) }), !has(answer, ["모든 실수", "해가 없", "없어요"]) {
             return nil
         }
         return solved
+    }
+
+    /// "y절편을 b라 할 때 b의 값", "중점의 좌표를 (a, b)라 할 때 a + b의 값", "제10항을 a라 할 때 2a의 값"
+    /// 구한 값을 그 문자로 놓고 묻는 식을 계산 (값이 하나로 정해질 때만)
+    private static func aliased(_ solved: Solved, _ t: String) -> Solved? {
+        guard let m = match(t, #"(?:을|를)\s*(\(\s*[a-w]\s*,\s*[a-w]\s*\)|[a-w])\s*(?:이라|라)\s*(?:할|하면|하자|하고|놓)"#),
+              let e = askedExpression(t) else { return nil }
+        let names = m[1].filter { $0.isLetter }
+        let letters = Set(e.filter { $0.isASCII && $0.isLetter })
+        guard !letters.isEmpty, letters.isSubset(of: Set(names)) else { return nil }
+        var a = solved.answer.replacingOccurrences(of: #"\s*\(≈[^)]*\)"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        // 이름표가 여러 개면 물은 것 하나 ("기울기 2, y절편 3"에서 y절편)
+        let parts = labeledParts(a)
+        if parts.count >= 2 {
+            let asked = parts.filter { asks(t, $0.label) }
+            guard asked.count == 1 else { return nil }
+            a = asked[0].value
+        }
+        a = a.replacingOccurrences(of: #"^(?:[가-힣0-9]+\s+|[^=]{1,15}=\s*)"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        var values: [Character: Double] = [:]
+        if names.count == 2 {
+            guard let tuple = match(a, "^\\((\(num))\\s*,\\s*(\(num))\\)$"), let x = value(tuple[1]), let y = value(tuple[2]) else { return nil }
+            values[names.first!] = x; values[names.last!] = y
+        } else {
+            guard let v = value(a.replacingOccurrences(of: "−", with: "-")) else { return nil }
+            values[names.first!] = v
+        }
+        var filled = e
+        for (name, v) in values { filled = filled.replacingOccurrences(of: String(name), with: "(\(v))") }
+        guard let v = Expression.evaluate(filled), isNice(v) else { return nil }
+        var out = solved
+        out.steps.append(SolutionStep(hint: names.count == 2 ? "\(m[1]) = \(a)이므로" : "\(names) = \(a)이므로", work: "\(e) = \(f(v))"))
+        out.answer = f(v)
+        return out
+    }
+
+    /// 값 하나로 된 답인지 ("7", "−3/4", "2√2 (≈ 2.83)", "36π", "25%", "4개")
+    private static func looksLikeValue(_ answer: String) -> Bool {
+        var a = answer.replacingOccurrences(of: #"\s*\(≈[^)]*\)"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+        // 이름표 하나 ("빗변 10", "x = 4")
+        a = a.replacingOccurrences(of: #"^(?:[가-힣]+\s+|[a-zA-Z()∪∩ᶜ ]{1,12}=\s*)"#, with: "", options: .regularExpression)
+        return a.range(of: #"^[-−]?[0-9./√π ]+(%|개|명|가지|cm|m|km|kg|g|원|°)?$"#, options: .regularExpression) != nil
     }
 
     /// 문제가 이 이름표의 값을 묻는지 ("반지름의 길이는?" → 반지름)
@@ -393,7 +445,18 @@ enum DoitMathAsked {
             guard !filled.contains(where: { $0.isLetter }), let v = Expression.evaluate(filled) else { return nil }
             results.append(v)
         }
-        guard abs(results[0] - results[1]) < 1e-9, isNice(results[0]), let factored = DoitAlgebra.factor(p) else { return nil }
+        var chosen = results[0]
+        if abs(results[0] - results[1]) > 1e-9 {
+            // "(단, a > b)"처럼 두 상수의 크기가 주어지면 그 순서로
+            let order = match(c, "\\(단,?(?:\(m[2])([<>])\(m[4])|\(m[4])([<>])\(m[2]))\\)")
+            guard let order else { return nil }
+            let aBigger = order[1] == ">" || order[2] == "<"
+            let pairs = first.map { (constant(m[1], $0.0), constant(m[3], $0.1)) }
+            guard let index = pairs.firstIndex(where: { aBigger ? $0.0 > $0.1 : $0.0 < $0.1 }) else { return nil }
+            chosen = results[index]
+        }
+        results = [chosen]
+        guard isNice(chosen), let factored = DoitAlgebra.factor(p) else { return nil }
         return Solved(kind: .factor, topic: "인수분해", concept: "x² + (a + b)x + ab = (x + a)(x + b): 곱해서 상수항, 더해서 x의 계수가 되는 두 수를 찾아요.",
                       steps: [SolutionStep(hint: "인수분해하면", work: factored.text),
                               SolutionStep(hint: "\(e)의 값", work: f(results[0]))],

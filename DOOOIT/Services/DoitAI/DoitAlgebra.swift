@@ -796,7 +796,9 @@ enum DoitAlgebra {
                     if let b = best { best = wantsMax ? max(b, k) : min(b, k) } else { best = k }
                 }
                 let openSide = solution.contains { wantsMax ? !$0.high.isFinite : !$0.low.isFinite }
-                if let best, !openSide {
+                // 끝이 열린 쪽의 가장 큰(작은) 정수는 없어요: 범위만 답하면 물은 값이 아님
+                if openSide { return nil }
+                if let best {
                     steps.append(SolutionStep(hint: "범위 안의 \(wantsMax ? "가장 큰" : "가장 작은") \(label)", work: "\(best)"))
                     return MathSolver.Solved(kind: .inequality, topic: "부등식을 만족하는 \(label)", concept: "부등식의 해를 구한 뒤, 그 범위에 들어가는 \(label)를 찾아요. 경계값이 포함되는지(≤, <) 꼭 확인해요.",
                                              steps: steps, answer: "\(best)")
