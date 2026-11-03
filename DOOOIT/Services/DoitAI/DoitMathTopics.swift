@@ -475,6 +475,8 @@ enum DoitMathTopics {
         let values = (listed?.count ?? 0) >= 2 ? listed! : numbers(in: text)
         // "시험 범위는 1단원부터 3단원까지"처럼 '범위'만 있고 자료가 없으면 통계가 아님
         if !has(text, ["평균", "중앙값", "최빈값", "분산", "표준편차", "중간값"]), listed == nil, values.count < 3 { return nil }
+        // "3x − 1 ≤ 2x + 4 를 만족하는 x의 값의 범위"는 부등식의 해 (자료의 범위가 아님)
+        if !has(text, ["평균", "중앙값", "최빈값", "분산", "표준편차", "중간값", "자료", "변량"]), text.contains(where: { "<>≤≥".contains($0) }) { return nil }
         guard values.count >= 2 else { return nil }
         let n = Double(values.count)
         let mean = values.reduce(0, +) / n
@@ -877,6 +879,11 @@ enum DoitMathTopics {
             return Solved(kind: .geometry, topic: "평행사변형의 넓이", concept: "밑변 × 높이", steps: step("\(f(v[0])) × \(f(v[1]))", f(v[0] * v[1])), answer: f(v[0] * v[1]))
         }
         if has(t, ["직육면체"]) && v.count == 3 {
+            if has(t, ["대각선"]) {
+                let d2 = v[0] * v[0] + v[1] * v[1] + v[2] * v[2]
+                return Solved(kind: .geometry, topic: "직육면체의 대각선", concept: "가로 a, 세로 b, 높이 c인 직육면체의 대각선 = √(a² + b² + c²)",
+                              steps: step("√(\(f(v[0]))² + \(f(v[1]))² + \(f(v[2]))²)", "√\(f(d2)) = \(DoitAlgebra.sqrtText(d2))"), answer: DoitAlgebra.sqrtText(d2))
+            }
             if has(t, ["겉넓이"]) {
                 let area = 2 * (v[0] * v[1] + v[1] * v[2] + v[2] * v[0])
                 return Solved(kind: .geometry, topic: "직육면체의 겉넓이", concept: "2(ab + bc + ca) (서로 다른 세 면의 넓이의 합 × 2)", steps: step("2 × (\(f(v[0]))×\(f(v[1])) + \(f(v[1]))×\(f(v[2])) + \(f(v[2]))×\(f(v[0])))", f(area)), answer: f(area))
@@ -884,10 +891,12 @@ enum DoitMathTopics {
             return Solved(kind: .geometry, topic: "직육면체의 부피", concept: "가로 × 세로 × 높이", steps: step("\(f(v[0])) × \(f(v[1])) × \(f(v[2]))", f(v[0] * v[1] * v[2])), answer: f(v[0] * v[1] * v[2]))
         }
         if has(t, ["정육면체"]) && v.count == 1 {
+            if has(t, ["대각선"]) { return Solved(kind: .geometry, topic: "정육면체의 대각선", concept: "한 모서리가 a인 정육면체의 대각선 = √3 a", steps: step("√(\(f(r))² × 3)", "√\(f(3 * r * r))"), answer: DoitAlgebra.sqrtText(3 * r * r)) }
             if has(t, ["겉넓이"]) { return Solved(kind: .geometry, topic: "정육면체의 겉넓이", concept: "한 면의 넓이 × 6 = 6a²", steps: step("\(f(r)) × \(f(r)) × 6", f(6 * r * r)), answer: f(6 * r * r)) }
             return Solved(kind: .geometry, topic: "정육면체의 부피", concept: "a³", steps: step("\(f(r)) × \(f(r)) × \(f(r))", f(r * r * r)), answer: f(r * r * r))
         }
-        if has(t, ["직사각형"]) && v.count == 2 {
+        // "가로가 세로보다 3cm 긴 직사각형의 둘레가 26cm일 때"처럼 길이 사이의 관계가 주어진 것은 방정식 (여기서 곱하면 틀려요)
+        if has(t, ["직사각형"]) && v.count == 2 && !has(t, ["보다", "배인", "배이고", "배가"]) {
             if has(t, ["대각선"]) { let d2 = v[0] * v[0] + v[1] * v[1]; return Solved(kind: .geometry, topic: "직사각형의 대각선", concept: "대각선 = √(가로² + 세로²)", steps: step("√(\(f(v[0]))² + \(f(v[1]))²)", "√\(f(d2))"), answer: DoitAlgebra.sqrtText(d2)) }
             if has(t, ["둘레"]) { return Solved(kind: .geometry, topic: "직사각형의 둘레", concept: "2 × (가로 + 세로)", steps: step("2 × (\(f(v[0])) + \(f(v[1])))", f(2 * (v[0] + v[1]))), answer: f(2 * (v[0] + v[1]))) }
             return Solved(kind: .geometry, topic: "직사각형의 넓이", concept: "가로 × 세로", steps: step("\(f(v[0])) × \(f(v[1]))", f(v[0] * v[1])), answer: f(v[0] * v[1]))

@@ -778,9 +778,32 @@ enum DoitAlgebra {
                 }
             }
             let bounded = solution.allSatisfy { $0.high.isFinite && ($0.low.isFinite || natural) && $0.high - ($0.low.isFinite ? $0.low : 0) <= 5000 }
+            // 한쪽이 열린 범위의 가장 큰(작은) 정수: x < 4 → 3, x ≥ −2.5 → −2
+            let label = natural ? "자연수" : "정수"
+            let wantsMax = has(normalized, ["가장 큰", "최댓값"]), wantsMin = has(normalized, ["가장 작은", "최솟값"])
+            if !bounded, wantsMax != wantsMin, !has(normalized, ["개수", "몇 개", "합", "모두 구", "모두 쓰"]) {
+                var best: Int?
+                for i in solution {
+                    let edge = wantsMax ? i.high : i.low
+                    guard edge.isFinite, abs(edge) < 1e9 else { continue }
+                    var k = wantsMax ? Int(edge.rounded(.down)) : Int(edge.rounded(.up))
+                    let onEdge = abs(Double(k) - edge) < 1e-12
+                    if onEdge && !(wantsMax ? i.highIn : i.lowIn) { k += wantsMax ? -1 : 1 }
+                    // 범위 안에 있는지 (다른 쪽 끝을 넘지 않게)
+                    let other = wantsMax ? i.low : i.high
+                    if other.isFinite, wantsMax ? Double(k) < other : Double(k) > other { continue }
+                    if natural && k < 1 { continue }
+                    if let b = best { best = wantsMax ? max(b, k) : min(b, k) } else { best = k }
+                }
+                let openSide = solution.contains { wantsMax ? !$0.high.isFinite : !$0.low.isFinite }
+                if let best, !openSide {
+                    steps.append(SolutionStep(hint: "범위 안의 \(wantsMax ? "가장 큰" : "가장 작은") \(label)", work: "\(best)"))
+                    return MathSolver.Solved(kind: .inequality, topic: "부등식을 만족하는 \(label)", concept: "부등식의 해를 구한 뒤, 그 범위에 들어가는 \(label)를 찾아요. 경계값이 포함되는지(≤, <) 꼭 확인해요.",
+                                             steps: steps, answer: "\(best)")
+                }
+            }
             if bounded {
                 integers.sort()
-                let label = natural ? "자연수" : "정수"
                 steps.append(SolutionStep(hint: "범위 안의 \(label) x", work: integers.isEmpty ? "없어요" : integers.map(String.init).joined(separator: ", ")))
                 var answer: String?
                 if has(normalized, ["개수", "몇 개"]) { answer = "\(integers.count)개" }

@@ -29,10 +29,11 @@ enum MathSolver {
             if let s = DoitMathChoice.solve(body: split.body, choices: split.choices) { return s }
             // "아닌 것은?", "옳지 않은 것은?", "모두 고르면?"은 값 하나를 맞춰 보는 문제가 아님
             guard !has(split.body, ["아닌", "않은", "틀린", "않는", "모두 고르", "옳은 것", "바르게 나타낸 것", "같은 것", "모두 구하"]) else { return nil }
-            guard let solved = solveText(split.body) else { return nil }
+            let body = split.body.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard let solved = solveText(body).flatMap({ DoitMathAsked.focus($0, body) }) else { return nil }
             return DoitMathExact.pickChoice(solved, from: split.choices)
         }
-        return solveText(raw)
+        return solveText(raw).flatMap { DoitMathAsked.focus($0, raw) }
     }
 
     private static func solveText(_ raw: String) -> Solved? {
@@ -41,6 +42,8 @@ enum MathSolver {
         if has(text, ["최댓값", "최솟값"]) {
             text = text.replacingOccurrences(of: #"\(\s*(-?\d+(?:\.\d+)?)\s*(≤|<)\s*x\s*(≤|<)\s*(-?\d+(?:\.\d+)?)\s*\)"#, with: ", $1 $2 x $3 $4 ", options: .regularExpression)
         }
+        // "(g ∘ f)(1)" → "(g∘f)(1)"
+        text = text.replacingOccurrences(of: #"\(\s*([fgh])\s*∘\s*([fgh])\s*\)"#, with: "($1∘$2)", options: .regularExpression)
         let t = text
 
         // 빈칸(□): □를 미지수로. 못 풀면 다른 풀이로 넘기지 않음 (□를 지운 식은 엉뚱한 답이 나와요)
@@ -51,6 +54,8 @@ enum MathSolver {
             case .pass: return DoitMathExact.blank(t)
             }
         }
+        // 물은 값이 분명한 유형 (두 근으로 이차방정식, x + 1/x, 미분계수의 정의, 나머지 두 개, 지나는 점, 여사건, 몇 % …)
+        if let s = DoitMathAsked.solve(t) { return s }
         // 새로 더한 유형 (조건제시법, 도수분포표, 상수 여러 개, 지수·로그·삼각방정식, 문장제, 꼭짓점 이름이 붙은 도형 …)
         if let s = DoitMathMore.solve(t) { return s }
         // 비례식, 상수 구하기, 문장제처럼 모양이 분명한 것부터
@@ -61,7 +66,8 @@ enum MathSolver {
         if let s = DoitMathWord.solve(t) { return s }
 
         // 0) 문자 a, b, c로 쓴 식의 전개: (a+b)² → 여러 문자 다항식으로 계산
-        if has(t, ["전개", "정리", "곱셈 공식", "곱셈공식", "간단히"]), !t.contains(where: { "xyz".contains($0) }),
+        // 나눗셈이 든 단항식(12a³b² ÷ 4ab)은 아래 지수법칙으로: 다항식으로 읽으면 ÷ 4ab를 ÷ 4 × ab로 계산해요
+        if has(t, ["전개", "정리", "곱셈 공식", "곱셈공식", "간단히"]), !t.contains(where: { "xyz÷/".contains($0) }),
            t.range(of: #"[abc]"#, options: .regularExpression) != nil, let s = expandLetters(t) { return s }
 
         // 1) 키워드가 분명한 유형부터
