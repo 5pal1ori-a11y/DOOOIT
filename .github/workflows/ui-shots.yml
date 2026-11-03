@@ -47,35 +47,6 @@ jobs:
             uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-
             uishots-${{ runner.os }}-
 
-      - name: Build (Debug, iOS Simulator)
-        run: |
-          set -o pipefail
-          xcodebuild build \
-            -project DOOOIT.xcodeproj \
-            -scheme DOOOIT \
-            -configuration Debug \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$RUNNER_TEMP/dd" \
-            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
-            -skipMacroValidation \
-            -skipPackagePluginValidation \
-            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
-            CODE_SIGNING_ALLOWED=NO \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            COMPILATION_CACHE_ENABLE_CACHING=YES \
-            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|warning: unre|\*\* BUILD" || true
-          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build.log"; then
-            grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40 | while IFS= read -r line; do
-              echo "::error title=Build::${line:0:900}"
-            done
-            tail -80 "$RUNNER_TEMP/build.log"
-            exit 1
-          fi
-          APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "*.app" | head -1)
-          echo "APP=$APP" >> "$GITHUB_ENV"
-          echo "::notice title=Build::$APP"
-
       - name: Boot simulator
         run: |
           UDID=$(xcrun simctl list devices available -j | python3 -c "
@@ -95,6 +66,36 @@ jobs:
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+
+      - name: Build (Debug, iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project DOOOIT.xcodeproj \
+            -scheme DOOOIT \
+            -configuration Debug \
+            -destination "id=$UDID" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
+            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|warning: unre|\*\* BUILD" || true
+          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build.log"; then
+            grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error title=Build::${line:0:900}"
+            done
+            tail -80 "$RUNNER_TEMP/build.log"
+            exit 1
+          fi
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "*.app" | head -1)
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          echo "::notice title=Build::$APP"
+
+      - name: Install
+        run: |
           # 서명 없이 만든 앱: 시뮬레이터에 넣을 수 있게 임시 서명
           codesign --force --deep --sign - "$APP" || true
           xcrun simctl install "$UDID" "$APP"
