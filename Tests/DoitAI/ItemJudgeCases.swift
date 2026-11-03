@@ -48,4 +48,12 @@ func runItemJudgeCases() {
     // 항목이 아닌 보통 객관식은 해당 없음
     check("항목 판단: 보통 객관식은 아님", DoitItemJudge.setup(text: "다음 중 과거형은?\n① went ② go ③ goes", body: nil, choices: ["went", "go", "goes"], boxItems: nil) == nil)
     check("항목 판단: 한 줄에 붙은 항목", DoitItemJudge.extractItems("a) I am happy. b) She are tall.").count == 2)
+
+    // 단어장 유의어·반의어 표시 (동그라미 글자 · 한 글자 괄호)
+    for line in ["ⓢ glad, joyful", "Ⓐ sad", "(동) glad", "[비] similar", "비슷한 뜻: glad", "반대 뜻 sad"] {
+        check("단어장 유의어 줄 버림: \(line)", WordParser.isSynonymLine(line))
+    }
+    check("단어장 유의어 제목 줄", WordParser.isSynonymHeading("비슷한 뜻 · 반대 뜻"))
+    check("단어장 뜻 속 유의어 지움", !WordParser.normalizeRow("happy 행복한 ⓢ glad ⓐ sad").contains("glad"), WordParser.normalizeRow("happy 행복한 ⓢ glad ⓐ sad"))
+    check("단어장 보통 줄은 그대로", !WordParser.isSynonymLine("happy 행복한") && !WordParser.isSynonymLine("run 동 달리다"))
 }

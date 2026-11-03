@@ -124,7 +124,7 @@ enum WordParser {
     // MARK: - 유의어 · 반의어
 
     /// 유의어·반의어 표시 (기호 · 영어 약자 · 한글)
-    private static let synonymMarker = #"(=|≒|≈|≃|≅|↔|⇔|⟷|⇄|⇆|←→|<->|<=>|≠|\bsyn(onyms?)?\b\.?|\bant(onyms?)?\b\.?|\bopp\.|\bsim\.|[\[\(]\s*(유|반|동의|유의|반의)\s*[\]\)]|유의어|반의어|동의어|반대어|반대말|비슷한\s?말|유의|반의|(?<![가-힣])(유|반)(?![가-힣]))"#
+    private static let synonymMarker = #"(=|≒|≈|≃|≅|↔|⇔|⟷|⇄|⇆|←→|<->|<=>|≠|\bsyn(onyms?)?\b\.?|\bant(onyms?)?\b\.?|\bopp\.|\bsim\.|[\[\(]\s*(유|반|동의|유의|반의)\s*[\]\)]|유의어|반의어|동의어|반대어|반대말|비슷한\s?말|비슷한\s?뜻|반대\s?뜻|유의|반의|ⓢ|ⓐ|Ⓢ|Ⓐ|ⓞ|Ⓞ|[\[\(]\s*(동|비|대)\s*[\]\)]|(?<![가-힣])(유|반)(?![가-힣]))"#
 
     /// 줄이 유의어·반의어 표시로 시작하면 그 줄 전체가 유의어 (뒤에 한글 뜻이 있어도)
     static func isSynonymLine(_ raw: String) -> Bool {
@@ -141,7 +141,7 @@ enum WordParser {
     /// "유의어", "Synonyms", "유의어 · 반의어" 같은 제목만 있는 줄
     static func isSynonymHeading(_ raw: String) -> Bool {
         let t = raw.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: ":：[]()<>【】"))
-        return t.range(of: #"^((유의어|반의어|동의어|반대말|비슷한\s?말|synonyms?|antonyms?)\s*[·/&,와과및]?\s*)+$"#,
+        return t.range(of: #"^((유의어|반의어|동의어|반대어|반대말|비슷한\s?말|비슷한\s?뜻|반대\s?뜻|synonyms?|antonyms?|syn|ant)\s*[·/&,와과및]?\s*)+$"#,
                        options: [.regularExpression, .caseInsensitive]) != nil
     }
 
