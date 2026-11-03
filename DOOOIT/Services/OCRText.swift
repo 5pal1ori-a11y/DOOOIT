@@ -76,7 +76,28 @@ extension OCRService {
             let score = readingScore(reading)
             if score > best.score + 3 { best = (reading, score) }
         }
-        return (best.text, best.text != base)
+        let text = geometryLines(best.text, readings: readings)
+        return (text, text != base)
+    }
+
+    /// 도형 문제: 줄마다 다른 읽기의 같은 줄(한글이 같은 줄)이 확실히 나으면 그 줄로
+    /// (본문은 다른 읽기가 낫고 보기 줄은 기본 읽기가 나은 경우: "∠B = 609"를 읽은 줄만 "∠B= 60°"로)
+    static func geometryLines(_ text: String, readings: [String]) -> String {
+        guard text.contains(where: { "∠△".contains($0) }) else { return text }
+        let others = readings.flatMap { $0.components(separatedBy: "\n") }
+        var lines = text.components(separatedBy: "\n")
+        for i in lines.indices {
+            let line = lines[i]
+            let hangul = line.filter(isHangul)
+            guard hangul.count >= 4 else { continue }
+            var best = (text: line, score: readingScore(line))
+            for other in others where other.filter(isHangul) == hangul && other.count >= line.count * 2 / 3 && other.count <= line.count * 3 / 2 + 4 {
+                let score = readingScore(other)
+                if score > best.score + 3 { best = (other, score) }
+            }
+            lines[i] = best.text
+        }
+        return lines.joined(separator: "\n")
     }
 
     static func unsureLines(_ lines: [OCRLine]) -> [String] {
