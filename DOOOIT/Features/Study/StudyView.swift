@@ -73,9 +73,9 @@ struct StudyView: View {
     /// 큰 정사각 타일: 위 아이콘 · 아래 제목과 한 줄 설명
     private func tile(symbol: String, color: Color, title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image(systemName: symbol)
-                .symbolVariant(.fill)
-                .font(.title3.weight(.semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.title3.weight(.regular))
                 .foregroundStyle(color)
                 .frame(width: 44, height: 44)
                 .background(color.pastel, in: .rect(cornerRadius: 15, style: .continuous))

@@ -22,6 +22,11 @@ extension View {
     }
 }
 
+extension String {
+    /// 선 아이콘 이름: 끝의 ".fill"을 뺌 (작은 아이콘은 탭 바처럼 얇은 선 모양으로 통일)
+    var outlineSymbol: String { hasSuffix(".fill") ? String(dropLast(5)) : self }
+}
+
 /// 강조 색 (예전엔 그라데이션 — 깔끔하게 한 색으로 통일. 이름은 그대로 두어 모든 화면에 한 번에 적용)
 enum AccentGradient {
     static var linear: LinearGradient {
@@ -37,9 +42,9 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .symbolVariant(.fill)
-                .font(.caption.weight(.semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.caption.weight(.regular))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 26, height: 26)
                 .background(Theme.accent.pastel, in: .rect(cornerRadius: 8, style: .continuous))
@@ -68,9 +73,9 @@ struct EmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Image(systemName: symbol)
-                .symbolVariant(.fill)
-                .font(.system(size: 28, weight: .semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.system(size: 28, weight: .regular))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 72, height: 72)
                 .background(Theme.accent.pastel, in: .rect(cornerRadius: 24, style: .continuous))
@@ -100,9 +105,9 @@ struct IconBadge: View {
     var size: CGFloat = 40
 
     var body: some View {
-        Image(systemName: symbol)
-            .symbolVariant(.fill)
-            .font(.system(size: size * 0.42, weight: .semibold))
+        Image(systemName: symbol.outlineSymbol)
+            .environment(\.symbolVariants, .none)
+            .font(.system(size: size * 0.42, weight: .regular))
             .foregroundStyle(color)
             .frame(width: size, height: size)
             .background(color.pastel, in: .rect(cornerRadius: size * 0.34, style: .continuous))
@@ -213,8 +218,8 @@ struct ThemePicker: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "paintpalette.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                Image(systemName: "paintpalette")
+                    .font(.system(size: 14, weight: .regular))
                     .foregroundStyle(current.accent)
                     .frame(width: 30, height: 30)
                     .background(current.accent.pastel, in: .rect(cornerRadius: 10, style: .continuous))
@@ -264,9 +269,9 @@ struct RowLabel: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol)
-                .symbolVariant(.fill)
-                .font(.system(size: 17, weight: .semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.system(size: 17, weight: .regular))
                 .foregroundStyle(color)
                 .frame(width: 40, height: 40)
                 .background(color.pastel, in: .rect(cornerRadius: 14, style: .continuous))

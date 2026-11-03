@@ -153,8 +153,8 @@ struct HomeView: View {
                 .buttonStyle(.primaryFill)
 
                 NavigationLink { RankingView() } label: {
-                    Image(systemName: "trophy.fill")
-                        .font(.title3)
+                    Image(systemName: "trophy")
+                        .font(.title3.weight(.regular))
                         .foregroundStyle(Palette.butter)
                         .frame(width: 54, height: 54)
                         .background(Palette.butter.pastel, in: .rect(cornerRadius: 20, style: .continuous))
@@ -189,9 +189,9 @@ struct HomeView: View {
 
     private func tile(symbol: String, color: Color, value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: symbol)
-                .symbolVariant(.fill)
-                .font(.subheadline.weight(.semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.subheadline.weight(.regular))
                 .foregroundStyle(color)
                 .frame(width: 34, height: 34)
                 .background(color.pastel, in: .rect(cornerRadius: 12, style: .continuous))

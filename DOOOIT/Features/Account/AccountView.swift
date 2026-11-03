@@ -259,9 +259,9 @@ struct AccountView: View {
     }
 
     private func icon(_ symbol: String, _ color: Color) -> some View {
-        Image(systemName: symbol)
-            .symbolVariant(.fill)
-            .font(.system(size: 14, weight: .semibold))
+        Image(systemName: symbol.outlineSymbol)
+            .environment(\.symbolVariants, .none)
+            .font(.system(size: 14, weight: .regular))
             .foregroundStyle(color)
             .frame(width: 30, height: 30)
             .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))
