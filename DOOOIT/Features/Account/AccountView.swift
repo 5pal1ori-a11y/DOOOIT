@@ -52,15 +52,7 @@ struct AccountView: View {
                 }
 
                 Section {
-                    NavigationLink { notificationSettings } label: {
-                        HStack(spacing: 12) {
-                            icon("bell.badge.fill", Palette.danger)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("알림 설정").foregroundStyle(Palette.ink)
-                                Text("탭하여 설정").font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
+                    NavigationLink { notificationSettings } label: { item("알림", "bell.badge.fill", Palette.danger) }
                 }
 
                 Section("앱") {
@@ -75,15 +67,7 @@ struct AccountView: View {
                 }
 
                 Section {
-                    NavigationLink { accountSettings } label: {
-                        HStack(spacing: 12) {
-                            icon("person.crop.circle.badge.checkmark", Color.gray)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("계정 설정").foregroundStyle(Palette.ink)
-                                Text("버전 \(appVersion)").font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
+                    NavigationLink { accountSettings } label: { item("계정 설정", "person.crop.circle.badge.checkmark", Color.gray) }
                 }
             }
             .scrollContentBackground(.hidden)

@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 공부 탭: 큰 타일 2×2(영어 단어 · 오답노트 · 메모장 · 공부 랭킹) → AI 학습 목록 → 공부 통계
+/// 공부 탭: 타일 2×2(영어 단어 · 오답노트 · 메모장 · 공부 랭킹) → AI 목록 → 공부 통계
 struct StudyView: View {
     @Query(sort: \Word.createdAt) private var words: [Word]
     @Query(sort: \Memo.updatedAt, order: .reverse) private var memos: [Memo]
@@ -24,10 +24,10 @@ struct StudyView: View {
                             tile(symbol: "pencil.and.list.clipboard", color: Palette.success, title: "오답노트", detail: noteDetail)
                         }
                         NavigationLink { MemoListView() } label: {
-                            tile(symbol: "note.text", color: Palette.warning, title: "메모장", detail: memos.isEmpty ? "메모 쓰기" : "\(memos.count)개")
+                            tile(symbol: "note.text", color: Palette.warning, title: "메모장", detail: memos.isEmpty ? "새 메모" : "\(memos.count)개")
                         }
                         NavigationLink { RankingView() } label: {
-                            tile(symbol: "trophy.fill", color: Color(hex: "#FF7A45"), title: "공부 랭킹", detail: "오늘 순위 보기")
+                            tile(symbol: "trophy.fill", color: Color(hex: "#FF7A45"), title: "공부 랭킹", detail: "오늘 순위")
                         }
                     }
                     .buttonStyle(.pressable)
@@ -37,7 +37,7 @@ struct StudyView: View {
                         .appearAnimation(delay: 0.08)
 
                     NavigationLink { StatsView() } label: {
-                        RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계", subtitle: "과목별 시간과 변화")
+                        RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계")
                             .softCardBackground(cornerRadius: 20)
                     }
                     .buttonStyle(.pressable)
@@ -58,16 +58,16 @@ struct StudyView: View {
     }
 
     private var wordDetail: String {
-        if words.isEmpty { return "단어장 찍어서 시작" }
-        if wordGoalDoneKey == Date().dayKey { return "오늘 목표 완료 ✓" }
+        if words.isEmpty { return "단어 추가" }
+        if wordGoalDoneKey == Date().dayKey { return "오늘 완료" }
         let left = min(wordGoal, words.filter { !$0.isLearned }.count)
-        return "오늘 \(left)개 외울 차례"
+        return left == 0 ? "모두 외움" : "오늘 \(left)개"
     }
 
     private var noteDetail: String {
         let unsolved = mathNotes.filter { $0.status != .correct }.count
-        if mathNotes.isEmpty { return "틀린 문제 찍기" }
-        return unsolved > 0 ? "복습할 문제 \(unsolved)개" : "모두 복습 완료 ✓"
+        if mathNotes.isEmpty { return "문제 찍기" }
+        return unsolved > 0 ? "복습 \(unsolved)개" : "복습 완료"
     }
 
     /// 큰 정사각 타일: 위 아이콘 · 아래 제목과 한 줄 설명
@@ -76,9 +76,9 @@ struct StudyView: View {
             Image(systemName: symbol)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(color)
-                .frame(width: 46, height: 46)
-                .background(color.opacity(0.12), in: .rect(cornerRadius: 14))
-            Spacer(minLength: 16)
+                .frame(width: 42, height: 42)
+                .background(color.opacity(0.12), in: .rect(cornerRadius: 13))
+            Spacer(minLength: 14)
             Text(title)
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
@@ -87,8 +87,9 @@ struct StudyView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
+                .padding(.top, 1)
         }
-        .frame(maxWidth: .infinity, minHeight: 138, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
         .softCard(cornerRadius: 22, padding: 16)
     }
 }

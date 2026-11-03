@@ -77,7 +77,7 @@ struct MathNoteListView: View {
                     if !weakConcepts.isEmpty {
                         NavigationLink { WeakConceptListView() } label: {
                             RowLabel(symbol: "scope", color: Palette.danger, title: "취약 개념",
-                                     subtitle: "\(weakConcepts.count)개 · 약한 개념부터 다시 풀기")
+                                     value: "\(weakConcepts.count)")
                                 .softCardBackground(cornerRadius: 20)
                         }
                         .buttonStyle(.pressable)
@@ -186,9 +186,6 @@ struct MathNoteListView: View {
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(Palette.ink)
                         .contentTransition(.numericText())
-                    Text("오답 \(count(.wrong)) · 미채점 \(count(.unsolved)) · 정답 \(count(.correct))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
                 ZStack {
@@ -388,7 +385,7 @@ struct MathNoteListView: View {
                 Text("틀린 문제를 찍어 보세요")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Palette.ink)
-                Text("채점 → 틀린 이유 → 풀이 → 비슷한 문제까지 이어서 도와줘요.")
+                Text("채점 · 풀이 · 비슷한 문제까지")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

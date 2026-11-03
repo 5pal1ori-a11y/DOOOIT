@@ -51,6 +51,7 @@ struct TimerView: View {
         }
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
+        .statusBarHidden()
         .animation(.smooth(duration: 0.35), value: studyTimer.phase)
         .animation(.smooth(duration: 0.35), value: savedSeconds)
         .confirmationDialog("공부를 마칠까요?", isPresented: $showStopConfirm, titleVisibility: .visible) {
@@ -401,12 +402,14 @@ struct TimerAccessoryView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text("바로 공부 시작")
+                    Text("공부 시작")
                         .font(.subheadline.weight(.semibold))
-                    Text(nextPlanText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                    if let nextPlanText {
+                        Text(nextPlanText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
 
@@ -433,12 +436,11 @@ struct TimerAccessoryView: View {
         .onTapGesture { studyTimer.isPresented = true }
     }
 
-    private var nextPlanText: String {
+    /// 다음 공부 플랜 (없으면 한 줄만)
+    private var nextPlanText: String? {
         let now = Date()
-        if let next = plans.occurrences(on: now).first(where: { $0.plan.isStudy && !$0.plan.isAllDay && $0.start > now }) {
-            return "다음: \(next.plan.title) \(next.start.kr("a h:mm"))"
-        }
-        return "탭해서 시작"
+        guard let next = plans.occurrences(on: now).first(where: { $0.plan.isStudy && !$0.plan.isAllDay && $0.start > now }) else { return nil }
+        return "\(next.start.kr("a h:mm")) · \(next.plan.title)"
     }
 }
 
