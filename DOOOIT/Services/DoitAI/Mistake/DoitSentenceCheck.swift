@@ -152,7 +152,7 @@ enum DoitSentenceCheck {
         guard ws.w.count >= 2 else { return nil }
         let checks: [(Words) -> Issue?] = [wrongWordForms, pronounSubject, doSupport, afterModal, questionOrder, everyEach, thereBe,
                                            tenseCues, sinceCue, tellSay, conditional, verbObjects, causative, comparison, relative,
-                                           passive, quantity, article]
+                                           passive, quantity, article, theAdjective, amountAsOne, numberOf, historicalFact, generalTruth]
         for check in checks { if let issue = check(ws) { return issue } }
         return nil
     }
@@ -559,5 +559,93 @@ enum DoitSentenceCheck {
             if ws.w[i] == "an", !vowel { return Issue(rule: "a/an", why: "\(raw)는 자음 소리로 시작해서 a를 써요.") }
         }
         return nil
+    }
+
+    // MARK: - 시험에 자주 나오는 수일치 · 시제 일치 예외
+
+    /// the + 형용사 = ~한 사람들 (복수): "The young is" → are
+    private static let peopleAdjectives: Set<String> = ["young", "old", "rich", "poor", "elderly", "wounded", "injured", "homeless", "unemployed",
+                                                        "sick", "disabled", "blind", "deaf", "dead", "living", "wealthy", "weak", "strong", "brave", "jobless"]
+    private static func theAdjective(_ ws: Words) -> Issue? {
+        for i in ws.w.indices where ws.w[i] == "the" && (i == 0 || ws.at(i - 1) == "that" || ws.comma[i - 1]) {
+            guard peopleAdjectives.contains(ws.at(i + 1)) else { continue }
+            let verb = ws.at(i + 2)
+            let fix = ["is": "are", "was": "were", "has": "have", "does": "do"]
+            if let right = fix[verb] {
+                return Issue(rule: "the + 형용사 (복수)", why: "the \(ws.at(i + 1)) = \(ws.at(i + 1)) people이라 복수: \(verb) → \(right)")
+            }
+        }
+        return nil
+    }
+
+    /// 거리·시간·금액·무게를 한 덩어리로 볼 때는 단수: "Six kilometers are too long" → is
+    private static let amountUnits: Set<String> = ["kilometers", "kilometres", "miles", "meters", "metres", "years", "hours", "minutes", "seconds", "days",
+                                                   "weeks", "months", "dollars", "won", "pounds", "kilograms", "grams", "liters", "litres", "feet", "yen", "euros"]
+    private static let amountNumbers: Set<String> = ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "fifteen",
+                                                   "twenty", "thirty", "forty", "fifty", "sixty", "hundred", "thousand", "million", "several"]
+    private static func amountAsOne(_ ws: Words) -> Issue? {
+        guard ws.w.count >= 4 else { return nil }
+        // 문장 처음의 "수 + 단위 + are/were + (too/enough/a/not …)"
+        var i = 0
+        if ws.at(0) == "a" || ws.at(0) == "the" { i = 1 }
+        let n = ws.at(i)
+        guard amountNumbers.contains(n) || n.allSatisfy(\.isNumber), amountUnits.contains(ws.at(i + 1)) else { return nil }
+        let verb = ws.at(i + 2)
+        guard verb == "are" || verb == "were" else { return nil }
+        let complements: Set<String> = ["too", "enough", "a", "an", "not", "very", "quite", "so", "long", "far", "short", "much", "expensive", "cheap",
+                                        "heavy", "plenty", "more", "less", "the", "really", "pretty", "fairly"]
+        guard complements.contains(ws.at(i + 3)) else { return nil }
+        return Issue(rule: "거리·시간·금액은 단수", why: "\(ws.raw[i]) \(ws.raw[i + 1])는 한 덩어리로 봐서 단수: \(verb) → \(verb == "are" ? "is" : "was")")
+    }
+
+    /// a number of + 복수 동사 / the number of + 단수 동사
+    private static func numberOf(_ ws: Words) -> Issue? {
+        for i in ws.w.indices where ws.at(i + 1) == "number" && ws.at(i + 2) == "of" && (ws.w[i] == "a" || ws.w[i] == "the") {
+            // of 뒤 명사 다음의 첫 동사 (4낱말 안)
+            for j in (i + 3)..<min(ws.w.count, i + 8) {
+                let v = ws.w[j]
+                guard ["is", "are", "was", "were", "has", "have"].contains(v) else { continue }
+                let singular = ["is", "was", "has"].contains(v)
+                if ws.w[i] == "a", singular {
+                    return Issue(rule: "a number of + 복수", why: "a number of(많은) 뒤는 복수 동사: \(v) → \(["is": "are", "was": "were", "has": "have"][v]!)")
+                }
+                if ws.w[i] == "the", !singular {
+                    return Issue(rule: "the number of + 단수", why: "the number of(~의 수)는 단수 동사: \(v) → \(["are": "is", "were": "was", "have": "has"][v]!)")
+                }
+                break
+            }
+        }
+        return nil
+    }
+
+    /// 역사적 사실은 늘 과거: "I heard that Pompeii had been discovered in 1748" → was discovered
+    private static func historicalFact(_ ws: Words) -> Issue? {
+        guard let that = ws.w.firstIndex(of: "that"), that > 0 else { return nil }
+        let reporting: Set<String> = ["heard", "learned", "learnt", "knew", "read", "said", "told", "taught", "studied", "found", "remembered"]
+        guard ws.w[..<that].contains(where: reporting.contains) else { return nil }
+        let clause = Array(ws.w[(that + 1)...])
+        guard let had = clause.firstIndex(where: { $0 == "had" || $0 == "has" || $0 == "have" }) else { return nil }
+        guard clause.indices.contains(where: { $0 > had && clause[$0] == "in" && $0 + 1 < clause.count
+                                                && clause[$0 + 1].count >= 3 && clause[$0 + 1].count <= 4 && clause[$0 + 1].allSatisfy(\.isNumber) }) else { return nil }
+        // "by 1748"·"before"·"since"처럼 그때까지의 완료를 말하면 맞을 수 있어서 제외
+        if clause.contains(where: { ["by", "before", "since", "until", "already"].contains($0) }) { return nil }
+        return Issue(rule: "역사적 사실은 과거", why: "역사적 사실은 주절 시제와 상관없이 과거: \(clause[had]) … → 과거 시제(was/were …)")
+    }
+
+    /// 변하지 않는 사실·과학적 진리는 늘 현재: "We were taught that Venus was the hottest planet" → is
+    private static let truthSubjects: Set<String> = ["earth", "sun", "moon", "venus", "mars", "jupiter", "saturn", "mercury", "neptune", "uranus",
+                                                     "water", "light", "sound", "ice", "planet", "planets", "stars"]
+    private static func generalTruth(_ ws: Words) -> Issue? {
+        guard let that = ws.w.firstIndex(of: "that"), that > 0 else { return nil }
+        let reporting: Set<String> = ["taught", "learned", "learnt", "knew", "told", "said", "heard", "read", "studied", "explained", "believed"]
+        guard ws.w[..<that].contains(where: reporting.contains) else { return nil }
+        var k = that + 1
+        if ws.at(k) == "the" { k += 1 }
+        guard truthSubjects.contains(ws.at(k)) else { return nil }
+        let verb = ws.at(k + 1)
+        let pastToPresent = ["was": "is", "were": "are", "moved": "moves", "revolved": "revolves", "went": "goes", "boiled": "boils", "froze": "freezes",
+                             "rose": "rises", "set": "sets", "travelled": "travels", "traveled": "travels", "had": "has", "consisted": "consists"]
+        guard let right = pastToPresent[verb] else { return nil }
+        return Issue(rule: "변하지 않는 사실은 현재", why: "과학적 사실·진리는 주절 시제와 상관없이 현재: \(verb) → \(right)")
     }
 }

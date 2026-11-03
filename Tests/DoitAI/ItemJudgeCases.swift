@@ -105,4 +105,18 @@ func runItemJudgeCases() {
     let few = WordParser.keepNumberedHeads([ParsedWord(term: "apple", meaning: "사과"), ParsedWord(term: "pear", meaning: "배"), ParsedWord(term: "plum", meaning: "자두")],
                                            heads: ["apple", "kiwi", "fig"])
     check("단어장 번호가 드문 목록은 그대로", few.count == 3)
+
+    // 시험에 자주 나오는 예외 (보내 준 문제: 정답 ⑤)
+    let wrongs = ["I heard that Pompeii had been discovered in 1748.", "Six kilometers are too long for me to walk.",
+                  "The young is called the hope of the future.", "We were taught that Venus was the hottest planet in the solar system.",
+                  "The number of students are increasing.", "A number of people was waiting outside.", "Ten dollars are enough for lunch."]
+    for s in wrongs { check("문장 검사 틀림 찾기: \(s.prefix(28))", DoitSentenceCheck.error(in: s) != nil, s) }
+    let rights = ["A number of trucks are parked on the street.", "The number of cars is growing.", "The young are the hope of the future.",
+                  "Six kilometers is too long for me to walk.", "I heard that Pompeii was discovered in 1748.", "We learned that the earth moves around the sun.",
+                  "By 1990, they had built the bridge.", "He said that he had lost his key.", "The young man is my brother.", "Ten dollars were stolen from my bag."]
+    for s in rights { check("문장 검사 바른 문장은 그대로: \(s.prefix(28))", DoitSentenceCheck.error(in: s) == nil, "\(DoitSentenceCheck.error(in: s)?.why ?? "")") }
+    let pompeii = "8번) 다음 중 어법상 바른 것은?\n① I heard that Pompeii had been discovered in 1748.\n② Six kilometers are too long for me to walk.\n③ The young is called the hope of the future.\n④ We were taught that Venus was the hottest planet in the solar system.\n⑤ A number of trucks are parked on the street."
+    let pScan = DoitProblemScan.scan(pompeii, math: false)
+    let pSolved = DoitSubjectSolve.solve(text: pompeii, choices: pScan.choices, subjectBroad: "영어", body: pScan.body, boxItems: pScan.boxItems)
+    check("보내 준 어법 문제 → ⑤", pSolved?.finalAnswer == "5", "\(pSolved?.finalAnswer ?? "nil") \(pScan.choices.count)")
 }
