@@ -474,7 +474,7 @@ struct MathNoteListView: View {
             // 기기 안 글자 인식 (검은 인쇄 글자 위주) + 자주 틀리는 수식 글자 교정
             let read = await OCRService.readMathProblemDetailed(pair.problem)
             let text = read.text
-            let title = MathOCRFixer.title(from: text) ?? "오답 \(notes.count + i + 1)"
+            let title = DoitProblemScan.titled(text, base: MathOCRFixer.title(from:)) ?? "오답 \(notes.count + i + 1)"
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
@@ -506,7 +506,7 @@ struct MathNoteListView: View {
         let read: (text: String, unsure: [String])
         if let already { read = already } else { read = await SubjectOCR.read(pair.problem) }
         let note = MathNote(
-            title: DoitSubjectNote.title(from: read.text) ?? "오답 \(notes.count + index + 1)",
+            title: DoitProblemScan.titled(read.text, base: DoitSubjectNote.title(from:)) ?? "오답 \(notes.count + index + 1)",
             imageData: pair.original.jpegForStorage(maxDimension: 2000),
             thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
             recognizedText: read.text,

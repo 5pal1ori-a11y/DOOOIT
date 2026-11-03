@@ -135,7 +135,7 @@ enum DoitAutoSolve {
     /// - glued: 번호 뒤 띄어쓰기가 빠져 소수처럼 읽힌 "3.56÷□=8" → "56÷□=8" (점수로 고름)
     static func stripNumber(_ text: String) -> (spaced: [String], glued: [String]) {
         var spaced: [String] = []
-        let patterns = [#"^\s*\d{1,2}\^?\d?\s*[.)．]\s+"#, #"^\s*0\d\s+"#, #"^\s*\d{1,2}\s*[.)．](?=[가-힣(√\[])"#]
+        let patterns = [#"^\s*\d{1,3}\s*번\s*[).:]?\s*"#, #"^\s*\d{1,2}\^?\d?\s*[.)．]\s+"#, #"^\s*0\d\s+"#, #"^\s*\d{1,2}\s*[.)．](?=[가-힣(√\[])"#]
         for pattern in patterns {
             let s = text.replacingOccurrences(of: pattern, with: "", options: .regularExpression)
             if s != text, !s.isEmpty, !spaced.contains(s) { spaced.append(s) }

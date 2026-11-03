@@ -30,10 +30,12 @@ extension OCRService {
     /// 정밀 인식(PaddleOCR-VL)을 받아 두었으면 그걸로 먼저 (두잇 AI 사진 질문), 안 되면 Vision
     static func readMathProblem(_ image: UIImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
         guard let cgImage = upright(image) else { return ("", false) }
+        // 맨 앞 문제 번호는 "12번) " 모양으로
         if precomputed == nil, let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .chatPhoto) {
-            return (text, false)
+            return (DoitProblemScan.numbered(text), false)
         }
-        return await readMathProblem(cgImage, thorough: thorough, lines: precomputed)
+        let read = await readMathProblem(cgImage, thorough: thorough, lines: precomputed)
+        return (DoitProblemScan.numbered(read.text), read.improved)
     }
 
     /// 문제 읽기 + 자신 없이 읽은 줄 (인식 결과 확인 화면에서 표시)
@@ -41,9 +43,10 @@ extension OCRService {
     static func readMathProblemDetailed(_ image: UIImage) async -> (text: String, improved: Bool, unsure: [String]) {
         guard let cgImage = upright(image) else { return ("", false, []) }
         if let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .mathProblem) {
-            return (text, false, [])
+            return (DoitProblemScan.numbered(text), false, [])
         }
-        return await readMathProblemDetailed(cgImage)
+        let read = await readMathProblemDetailed(cgImage)
+        return (DoitProblemScan.numbered(read.text), read.improved, read.unsure)
     }
 
     /// 손으로 쓴 풀이 읽기: 영어(수식) 위주, 교정 없이, 위에서 아래로 한 줄씩

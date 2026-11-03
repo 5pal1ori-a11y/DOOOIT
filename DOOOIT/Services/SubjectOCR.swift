@@ -8,9 +8,9 @@ enum SubjectOCR {
     static func read(_ image: UIImage) async -> (text: String, unsure: [String]) {
         guard let cgImage = image.resized(maxDimension: 3000).cgImage else { return ("", []) }
         if let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .subjectProblem) {
-            return (text, [])
+            return (DoitProblemScan.numbered(text), [])
         }
         let read = await OCRService.readSubjectProblem(cgImage)
-        return (read.text, read.unsure)
+        return (DoitProblemScan.numbered(read.text), read.unsure)
     }
 }
