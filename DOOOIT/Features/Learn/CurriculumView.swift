@@ -223,7 +223,7 @@ struct CurriculumView: View {
     private var exampleChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(["중2 일차함수", "고1 다항식", "중3 과학 전기", "광합성", "임진왜란"], id: \.self) { example in
+                ForEach(["중2 일차함수", "고1 다항식", "중2 현재완료", "중3 과학 전기", "광합성", "임진왜란"], id: \.self) { example in
                     Button {
                         query = example
                         Haptics.tap()
