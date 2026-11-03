@@ -833,6 +833,7 @@ await runChatContextCases()
 runProblemTypeCases()
 
 await runChatRelevanceCases()
+await runChatNaturalCases()
 
 runGuidedSolveCases()
 runPaddleOCRCases()

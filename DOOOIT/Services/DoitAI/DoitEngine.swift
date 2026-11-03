@@ -190,6 +190,7 @@ enum DoitEngine {
         // 자유 대화
         let talk = DoitConversation.reply(text, previousTopic: conversationTopic)
         if let topic = talk.topic { conversationTopic = topic }
+        DoitTone.remember(talk.text)
         return Reply(text: talk.text, suggestions: talk.suggestions, origin: talk.isTool ? .command : .conversation)
     }
 

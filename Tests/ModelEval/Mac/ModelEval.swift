@@ -10,6 +10,7 @@ import Tokenizers
 //   ModelEval <저장소> <checks.json> <eval.json> <이름표> [문제 수 (0 = 전부)]
 // - 확인: 대화 질문 2개를 생각 끔(600토큰, 0.6)·켬(1400토큰, 0.4)으로 → 불러오기 성공, 메모리, 토큰/초, <think> 처리
 // - 비교: eval.json 문제를 AI 풀이 카드처럼 (생각 끔, 0.2, 600토큰) → 한 줄 JSON "EVAL\t{...}" 로 출력 (채점은 linux.sh score)
+// - 대화 말투 (환경 변수 CHAT_FILE=chat.json): 앞 대화 + 프롬프트를 앱처럼 넣고 답만 만듦 → "CHAT\t{...}" (보기는 linux.sh chatshow)
 
 struct EvalItem: Codable {
     let id: String
@@ -41,11 +42,39 @@ func mb(_ bytes: Int) -> String { String(format: "%.0f MB", Double(bytes) / 1_04
 
 func oneLine(_ s: String) -> String { s.replacingOccurrences(of: "\n", with: "⏎") }
 
+/// 대화 말투 비교용 (Tests/ModelEval/Linux chat 으로 만듦): history는 [역할, 글]
+struct ChatItem: Codable {
+    let id: String
+    let variant: String
+    let question: String
+    let system: String
+    let prompt: String
+    let history: [[String]]
+    let maxTokens: Int
+    let temperature: Double
+}
+
+struct ChatResult: Codable {
+    let model: String
+    let id: String
+    let variant: String
+    let raw: String
+    let seconds: Double
+    let generatedTokens: Int?
+    let stop: String?
+}
+
 /// DoitBrain.stream 과 같은 설정으로 답 만들기 (seed만 더함: 같은 결과가 다시 나오게)
-func generate(_ container: ModelContainer, system: String, prompt: String, maxTokens: Int, temperature: Float, thinking: Bool, seed: UInt64) async throws -> Output {
+func generate(_ container: ModelContainer, system: String, prompt: String, history: [[String]] = [], maxTokens: Int, temperature: Float, thinking: Bool, seed: UInt64) async throws -> Output {
     var parameters = GenerateParameters(maxTokens: maxTokens, temperature: temperature, topP: 0.9, repetitionPenalty: 1.1)
     parameters.seed = seed
-    let session = ChatSession(container, instructions: system, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
+    let session: ChatSession
+    if history.isEmpty {
+        session = ChatSession(container, instructions: system, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
+    } else {
+        let turns = history.map { pair -> Chat.Message in pair.first == "user" ? .user(pair.last ?? "") : .assistant(pair.last ?? "") }
+        session = ChatSession(container, instructions: system, history: turns, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
+    }
     // 앱(DoitBrain.stream)과 같이: 생각 모드면 '<think>'가 미리 들어간 것으로 보고 시작
     var filter = ThinkFilter(startsInThink: thinking)
     var out = Output()
@@ -108,6 +137,24 @@ struct ModelEvalMain {
                     return context.tokenizer.decode(tokenIds: ids, skipSpecialTokens: false)
                 }
                 print("TEMPLATE thinking=\(thinking): \(oneLine(String(tail.suffix(120))))")
+            }
+
+            // 대화 말투 비교만 (앱 대화와 같이 생각 끔)
+            if let chatFile = ProcessInfo.processInfo.environment["CHAT_FILE"], !chatFile.isEmpty {
+                let chats = try JSONDecoder().decode([ChatItem].self, from: Data(contentsOf: URL(fileURLWithPath: chatFile)))
+                print("=== CHAT \(label) \(chats.count)개")
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                for (i, item) in chats.enumerated() {
+                    let out = try await generate(container, system: item.system, prompt: item.prompt, history: item.history,
+                                                 maxTokens: item.maxTokens, temperature: Float(item.temperature), thinking: false, seed: UInt64(item.id.unicodeScalars.reduce(500) { $0 + Int($1.value) }))  // 같은 장면은 같은 seed (전·후 비교)
+                    let result = ChatResult(model: label, id: item.id, variant: item.variant, raw: out.raw, seconds: out.seconds,
+                                            generatedTokens: out.info?.generationTokenCount, stop: stopName(out.info))
+                    print("[\(i + 1)/\(chats.count)] \(item.variant) \(item.id) \(item.question) → \(oneLine(out.visible))")
+                    print("CHAT\t" + String(decoding: try encoder.encode(result), as: UTF8.self))
+                }
+                print("=== CHAT DONE \(label)")
+                return
             }
 
             // 2) 대화 질문: 생각 끔·켬

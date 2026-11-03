@@ -21,11 +21,21 @@ enum DoitChat {
     struct Answer {
         var text: String
         var suggestions: [String] = []
+        /// 답의 종류 ("joke", "greeting" …): 다음 말에서 앞 이야기를 이어 받을 때 씀
+        var kind: String? = nil
+        /// 답에서 제안한 일 ("퀴즈 한 판 할까요?" → "퀴즈 내줘"): 학생이 "응"이라고 하면 그대로 함
+        var offer: String? = nil
     }
 
     // MARK: - 진입점
 
     static func reply(_ raw: String, context: Context) -> Answer? {
+        guard let answer = route(raw, context: context) else { return nil }
+        DoitTone.remember(answer.text, kind: answer.kind, offer: answer.offer)
+        return answer
+    }
+
+    private static func route(_ raw: String, context: Context) -> Answer? {
         let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
         let t = squash(text)
@@ -38,6 +48,12 @@ enum DoitChat {
             return rule.make(text, t, context)
         }
         return nil
+    }
+
+    /// 여러 답 중 하나 (답마다 제안하는 일이 다를 때)
+    private static func pick(_ options: [(String, String?)]) -> (text: String, offer: String?) {
+        let text = DoitTone.pick(options.map(\.0))
+        return (text, options.first { $0.0 == text }?.1 ?? nil)
     }
 
     // MARK: - 규칙
@@ -61,79 +77,90 @@ enum DoitChat {
         Rule(words: ["안녕", "하이", "ㅎㅇ", "반가워", "반갑", "hello", "hi", "hey", "좋은아침", "굿모닝", "goodmorning"], maxLength: 14,
              exclude: ["잘자", "안녕히", "잘있어"]) { _, t, c in
             // "좋은 아침"에는 시간과 상관없이 아침 인사로
-            if ["좋은아침", "굿모닝", "goodmorning"].contains(where: { t.contains($0) }) {
-                var answer = greeting(c)
-                answer.text = "좋은 아침이에요! ☀️ 오늘도 같이 힘내봐요. 무엇을 도와드릴까요?"
-                return answer
-            }
-            return greeting(c)
+            greeting(c, morning: ["좋은아침", "굿모닝", "goodmorning"].contains(where: { t.contains($0) }))
         },
         Rule(words: ["잘자", "굿나잇", "goodnight", "잘게", "자러갈", "자야겠", "이제잘"], maxLength: 20) { _, _, c in goodNight(c) },
         Rule(words: ["안녕히", "잘있어", "바이바이", "bye", "내일봐", "다음에봐", "나갈게", "이만"], maxLength: 16) { _, _, _ in
-            Answer(text: pick(["오늘도 수고 많았어요. 다음에 또 불러주세요!", "좋아요, 다음에 봐요. 계획한 건 제가 잘 챙겨둘게요.", "수고했어요! 쉬는 것도 공부의 일부예요."]))
+            Answer(text: pick(["오늘도 수고 많았어요. 또 봐요!", "좋아요, 다음에 봐요. 계획한 건 제가 잘 챙겨 둘게요.", "수고했어요! 쉬는 것도 공부의 일부예요.", "다음에 또 와요! 기다릴게요 😊"]))
         },
         // 고마움 · 사과 · 칭찬 · 짜증
         Rule(words: ["고마워", "고맙", "감사", "땡큐", "thank", "thx", "ㄱㅅ", "ㄳ"], maxLength: 20) { _, _, _ in
-            Answer(text: pick(["천만에요! 또 필요한 거 있으면 말해주세요.", "도움이 됐다니 다행이에요 😊", "언제든지요. 오늘도 같이 힘내봐요!"]),
-                   suggestions: ["오늘 할 일 알려줘", "퀴즈 내줘"])
+            // 바로 전에 설명·풀이를 했으면 그 이야기를 이어 받음
+            if DoitTone.previousKind == "study" {
+                return Answer(text: pick(["도움이 됐다니 다행이에요! 헷갈리면 또 물어봐요.", "천만에요! 이해됐다니 저도 뿌듯해요 😊", "별말을요. 퀴즈로 한 번 확인해 봐도 좋아요."]),
+                              suggestions: ["이걸로 퀴즈 내줘", "오늘 할 일 알려줘"], kind: "thanks")
+            }
+            return Answer(text: pick(["천만에요! 😊", "별말을요. 또 필요하면 불러 줘요.", "도움이 됐다니 다행이에요.", "언제든요! 오늘도 같이 힘내요."]),
+                          suggestions: ["오늘 할 일 알려줘", "퀴즈 내줘"], kind: "thanks")
         },
         Rule(words: ["미안", "죄송", "sorry"], maxLength: 20) { _, _, _ in
-            Answer(text: pick(["괜찮아요! 신경 쓰지 마세요.", "전혀 괜찮아요. 우리 이어서 해볼까요?"]))
+            Answer(text: pick(["괜찮아요! 신경 쓰지 마요.", "전혀 괜찮아요. 이어서 해 볼까요?", "괜찮아요, 그럴 수도 있죠 😊"]))
         },
         Rule(words: ["잘했어", "똑똑하", "최고야", "최고다", "대박", "천재", "멋지다", "멋져", "짱이"], maxLength: 20,
              exclude: ["기분", "오늘", "하루", "나", "내가", "날씨", "점수", "성적"]) { _, _, _ in
-            Answer(text: pick(["칭찬 고마워요! 더 똑똑해지도록 노력할게요.", "헤헤, 고마워요. 그래도 제일 대단한 건 꾸준히 공부하는 당신이에요!"]))
+            Answer(text: pick(["칭찬 고마워요! 더 잘해 볼게요 😊", "헤헤, 고마워요. 그래도 꾸준히 공부하는 쪽이 진짜 대단한 거예요!", "앗, 칭찬받으니까 기분 좋네요 ㅎㅎ 고마워요!"]))
         },
         Rule(words: ["바보", "멍청", "쓸모없", "짜증나게하", "못알아듣", "이해를못", "답답해너"], maxLength: 30) { _, _, _ in
-            Answer(text: "제가 잘 못 알아들었나 봐요. 미안해요! 조금만 다르게 말해주면 다시 해볼게요.\n예: \"내일 오후 3시 영어 공부 추가해줘\", \"x² − 4 = 0 풀어줘\", \"광합성이 뭐야?\"",
+            Answer(text: pick(["앗, 제가 잘못 알아들었나 봐요. 미안해요! 조금 다르게 말해 주면 다시 해 볼게요.\n예: \"내일 오후 3시 영어 공부 추가해줘\", \"x² − 4 = 0 풀어줘\", \"광합성이 뭐야?\"",
+                               "미안해요, 제가 헛짚었나 봐요. 하고 싶은 걸 한 번만 더 말해 줄래요?"]),
                    suggestions: ["뭐 할 수 있어?"])
         },
         Rule(words: ["사랑해", "좋아해너", "너좋아", "너가좋"], maxLength: 16) { _, _, _ in
-            Answer(text: pick(["저도 당신과 공부하는 시간이 좋아요! 오늘도 같이 힘내요.", "고마워요 😊 그 마음으로 오늘 목표까지 같이 가봐요!"]))
+            Answer(text: pick(["저도요! 같이 공부하는 시간이 좋아요 😊", "고마워요 💛 그 마음으로 오늘 목표까지 같이 가 봐요!", "헤헤, 저도 좋아해요!"]))
         },
         // 모티 AI 자신
         Rule(words: ["너누구", "넌누구", "너는누구", "너이름", "니이름", "네이름", "너의이름", "당신이름", "넌이름", "너는이름", "넌뭐야", "너뭐야", "자기소개", "너누가만", "넌누가만", "모티누가만", "whoareyou"], maxLength: 24,
              exclude: ["내이름", "제이름", "나이름"], prefixes: ["이름이뭐", "이름뭐", "누가만들었", "누가만든", "누가널", "누가너"]) { _, _, _ in
-            Answer(text: "저는 **모티 AI**예요. MOTI 안에서 일정·타이머·단어·메모를 관리하고, 수학 풀이와 영어·과학·사회 개념 설명, 퀴즈를 도와드려요.\n외부 AI 없이 앱 안에서 직접 만든 엔진으로 대화하고, 사진 속 문제·그래프·도형도 읽어요. 대화는 휴대폰 밖으로 나가지 않아요.",
+            Answer(text: "저는 **모티 AI**예요. 일정·타이머·단어·메모를 챙기고, 수학 풀이랑 영어·과학·사회 설명, 퀴즈를 도와줘요. 사진 속 문제·그래프·도형도 읽어요.\n앱 안에서 바로 답해서 대화가 휴대폰 밖으로 나가지 않아요.",
                    suggestions: ["뭐 할 수 있어?", "퀴즈 내줘"])
         },
         Rule(words: ["사람이야", "ai야", "로봇이야", "진짜사람", "gpt야", "챗gpt"], maxLength: 20) { _, _, _ in
-            Answer(text: "저는 사람은 아니고, MOTI에 들어 있는 규칙형 AI 도우미예요. 대신 공부할 땐 누구보다 성실하게 옆에 있을게요!")
+            Answer(text: "저는 사람은 아니고, MOTI에 들어 있는 AI 도우미예요. 대신 공부할 땐 누구보다 성실하게 옆에 있을게요!")
         },
         Rule(words: ["뭐해", "뭐하고있", "모해"], maxLength: 12, exclude: ["뭐해야", "뭐해줄", "뭐해줘", "뭐해도"]) { _, _, c in
-            Answer(text: "당신이 부르기를 기다리고 있었어요! " + (c.remainingPlans > 0 ? "오늘 남은 플랜이 \(c.remainingPlans)개 있어요. 같이 하나씩 해치워볼까요?" : "오늘 할 일을 정리해 드릴까요?"),
-                   suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘"])
+            let opener = pick(["불러 주기만 기다리고 있었어요!", "저야 늘 여기 있죠 ㅎㅎ", "마침 심심하던 참이었어요!"])
+            let rest = c.remainingPlans > 0 ? pick(["오늘 남은 플랜이 \(c.remainingPlans)개 있는데, 하나 같이 해치울까요?", "남은 플랜 \(c.remainingPlans)개, 하나씩 해 볼까요?"])
+                                            : pick(["뭐 하고 있었어요?", "오늘은 뭐 할 거예요?"])
+            return Answer(text: "\(opener) \(rest)", suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘"],
+                          offer: c.remainingPlans > 0 ? "오늘 할 일 알려줘" : nil)
         },
         Rule(words: ["기분어때", "잘지냈", "잘지내", "오늘어때", "컨디션어때"], maxLength: 16) { _, _, _ in
-            Answer(text: "저는 언제나 쌩쌩해요! 당신은 오늘 어때요? 피곤하면 피곤하다고, 힘들면 힘들다고 편하게 말해줘요.")
+            Answer(text: pick(["저는 늘 쌩쌩해요! 오늘은 어때요?", "잘 지냈죠! 요즘 공부는 할 만해요?", "저야 언제나 좋아요 ㅎㅎ 오늘 컨디션은 어때요?"]))
         },
 
         // 감정 · 컨디션
-        Rule(words: ["피곤", "졸려", "졸리", "졸린", "졸음", "잠와", "잠온", "잠이와", "잠이온", "꾸벅", "자고싶", "잠자고싶"]) { _, _, c in tired(c) },
-        Rule(words: ["힘들", "지쳤", "지친다", "지침", "버거", "벅차", "포기하고싶", "그만두고싶", "번아웃"]) { _, _, c in hardTime(c) },
-        Rule(words: ["스트레스", "짜증나", "짜증난", "화나", "열받", "빡쳐", "빡친"]) { _, _, _ in stressed() },
-        Rule(words: ["우울", "슬퍼", "슬프", "외로", "눈물", "울고싶", "울었", "속상"]) { _, _, _ in sad() },
+        Rule(words: ["피곤", "졸려", "졸리", "졸린", "졸음", "잠와", "잠온", "잠이와", "잠이온", "꾸벅", "자고싶", "잠자고싶"]) { _, t, c in tired(t, c) },
+        Rule(words: ["힘들", "지쳤", "지친다", "지침", "버거", "벅차", "포기하고싶", "그만두고싶", "번아웃"]) { _, t, c in hardTime(t, c) },
+        Rule(words: ["스트레스", "짜증나", "짜증난", "화나", "열받", "빡쳐", "빡친"]) { _, t, _ in stressed(t) },
+        Rule(words: ["우울", "슬퍼", "슬프", "외로", "눈물", "울고싶", "울었", "속상"]) { _, t, _ in sad(t) },
         Rule(words: ["불안", "긴장", "떨려", "걱정돼", "걱정된", "무서워"]) { _, t, _ in anxious(t) },
         Rule(words: ["망했", "망쳤", "망함", "떨어졌", "못봤", "성적이안", "점수가안", "등급떨어", "점수떨어"], exclude: ["안망", "잘봤"]) { _, _, _ in exam_bad() },
         Rule(words: ["잘봤", "100점", "만점", "1등급", "올랐어", "성적올", "합격", "붙었"], exclude: ["어떻게", "방법"]) { _, _, _ in
-            Answer(text: pick(["와, 정말 축하해요! 🎉 꾸준히 해온 노력이 결과로 나온 거예요.", "대단해요! 오늘은 스스로를 충분히 칭찬해 주세요. 이 기세 그대로 다음 목표도 잡아볼까요?"]),
+            Answer(text: pick(["와, 정말 축하해요! 🎉 꾸준히 해 온 게 결과로 나온 거예요.", "대단해요! 오늘은 스스로를 마음껏 칭찬해 줘요.", "역시! 노력한 보람이 있네요 👏 이 기세로 다음 목표도 잡아 볼까요?"]),
                    suggestions: ["다음 시험 D-Day 설정해줘", "이번 주 공부 통계"])
         },
         Rule(words: ["기분좋", "행복", "신나", "최고의날", "좋은일"], maxLength: 30) { _, _, _ in
-            Answer(text: pick(["좋은 일이 있었군요! 저까지 기분이 좋아져요 😊", "행복한 기분, 오늘 공부에도 살짝 써볼까요? 기분 좋을 때 집중이 더 잘 돼요."]))
+            Answer(text: pick(["좋은 일이 있었군요! 저까지 기분이 좋아져요 😊", "오, 무슨 좋은 일 있었어요? 궁금해요!", "기분 좋은 날엔 공부도 잘돼요. 이 기세 그대로 가 봐요!"]))
         },
         Rule(words: ["심심", "할거없", "할게없", "지루", "노잼"], maxLength: 24) { _, _, _ in
-            Answer(text: "심심할 땐 가볍게 퀴즈 한 판 어때요? 수학·영어·과학·사회 중에서 골라도 되고, 내 단어장으로 단어 퀴즈도 낼 수 있어요.",
-                   suggestions: ["수학 퀴즈 내줘", "영어 퀴즈 내줘", "과학 퀴즈 내줘", "사회 퀴즈 내줘"])
+            let (text, offer) = pick([("심심할 땐 퀴즈 한 판 어때요? 과목만 골라 줘요.", "퀴즈 내줘"),
+                                      ("그럼 신기한 사실 하나 들려줄까요? 퀴즈도 좋고요.", "신기한 사실 알려줘"),
+                                      ("심심하면 저랑 단어 퀴즈 한 판 해요! 시간 금방 가요.", "내 단어로 퀴즈 내줘")])
+            return Answer(text: text, suggestions: ["수학 퀴즈 내줘", "영어 퀴즈 내줘", "재밌는 사실 알려줘"], offer: offer)
         },
         Rule(words: ["배고파", "배고프", "출출", "뭐먹지", "뭐먹을까"], maxLength: 20) { _, _, _ in
-            Answer(text: pick(["밥은 꼭 챙겨 먹어요! 뇌도 에너지가 있어야 일해요. 너무 배부르게 먹으면 졸릴 수 있으니 적당히가 좋아요.",
-                               "출출할 땐 견과류나 바나나처럼 가벼운 간식이 집중에 도움이 돼요. 먹고 나서 다시 달려볼까요?"]))
+            Answer(text: pick(["밥은 꼭 챙겨 먹어요! 뇌도 에너지가 있어야 일해요.",
+                               "출출하면 바나나나 견과류처럼 가벼운 간식 어때요? 먹고 다시 달려 봐요.",
+                               "배고프면 집중이 안 되죠. 뭐라도 먹고 와요 ㅎㅎ"]))
+        },
+        // "그냥 얘기하고 싶어", "수다 떨자"
+        Rule(words: ["얘기하고싶", "이야기하고싶", "대화하고싶", "수다떨", "얘기하자", "이야기하자", "얘기좀하자", "말동무"], maxLength: 24) { _, _, _ in
+            Answer(text: pick(["좋아요, 얘기해요! 오늘 뭐 했어요?", "그럼요! 요즘 제일 신경 쓰이는 게 뭐예요?", "좋죠 ㅎㅎ 아무 얘기나 해 줘요. 다 들을게요."]))
         },
 
         // 공부 의욕 · 공부법
         Rule(words: ["공부하기싫", "공부싫", "하기싫어", "의욕없", "의욕이없", "동기부여", "귀찮", "공부안돼", "공부가안돼", "놀고싶", "공부할맛", "공부할기분", "공부가손에", "공부가안잡"]) { _, _, c in motivation(c) },
-        Rule(words: ["집중이안", "집중안", "집중이잘안", "집중력", "딴생각", "폰을자꾸", "핸드폰을자꾸", "휴대폰을자꾸", "산만", "자꾸폰", "폰만봐", "폰봐", "폰보게", "핸드폰만", "휴대폰만", "유튜브만"]) { _, _, _ in focusTips() },
+        Rule(words: ["집중이안", "집중안", "집중이잘안", "집중력", "딴생각", "폰을자꾸", "핸드폰을자꾸", "휴대폰을자꾸", "산만", "자꾸폰", "폰만봐", "폰봐", "폰보게", "핸드폰만", "휴대폰만", "유튜브만"]) { _, t, _ in focusTips(t) },
         Rule(words: ["슬럼프"]) { _, _, _ in slump() },
         Rule(words: ["암기법", "외우는법", "외우는방법", "암기잘", "잘외우", "기억이안", "까먹", "외워지지", "안외워", "외워지질", "외워져", "외울게너무", "외울거너무", "외울게많", "외울거많", "암기할게많", "암기할거많"]) { _, _, _ in memorize() },
         Rule(words: ["몇개외워", "몇개씩외", "몇개를외", "하루에몇개", "단어몇개외"], exclude: ["추가", "목표"]) { _, _, _ in
@@ -223,19 +250,25 @@ enum DoitChat {
 
         // 재미
         Rule(words: ["농담", "개그", "웃긴얘기", "웃겨줘", "재밌는얘기", "재미있는얘기", "아재"], maxLength: 20) { _, _, _ in
-            let joke = pick(jokes)
-            return Answer(text: joke, suggestions: ["하나 더", "퀴즈 내줘"])
+            Answer(text: pick(jokes), suggestions: ["하나 더", "퀴즈 내줘"], kind: "joke")
         },
         Rule(words: ["응원해줘", "응원좀", "응원해", "격려해", "힘내라고", "화이팅해줘", "파이팅해줘"], maxLength: 20) { _, _, c in
             let goal = c.goalMinutes > c.todayMinutes ? " 오늘 목표까지 \(duration(c.goalMinutes - c.todayMinutes)) 남았어요." : ""
-            return Answer(text: pick(["항상 응원해요! 지금처럼 한 걸음씩이면 충분해요 💪", "할 수 있어요! 어제보다 조금만 더 하면 그걸로 대단한 거예요. 화이팅!"]) + goal,
+            return Answer(text: pick(["항상 응원해요! 지금처럼 한 걸음씩이면 충분해요 💪", "할 수 있어요! 어제보다 조금만 더 하면 그걸로 대단한 거예요.", "화이팅! 끝까지 옆에서 응원할게요."]) + goal,
                           suggestions: ["25분 타이머 시작해줘", "명언 하나 알려줘"])
         },
         Rule(words: ["명언", "좋은말", "힘이되는말", "격려", "한마디해줘"], maxLength: 20) { _, _, _ in
-            Answer(text: pick(quotes), suggestions: ["하나 더", "오늘 할 일 알려줘"])
+            Answer(text: pick(quotes), suggestions: ["하나 더", "오늘 할 일 알려줘"], kind: "quote")
+        },
+        // 신기한 사실 (지식 사전의 '사실과 의견'으로 가지 않게 여기서)
+        Rule(words: ["재밌는사실", "재미있는사실", "신기한사실", "신기한거알려", "재밌는거알려", "tmi"], maxLength: 20) { _, _, _ in
+            Answer(text: pick(facts), suggestions: ["하나 더", "퀴즈 내줘"], kind: "fact")
         },
         Rule(words: ["하나더", "또해줘", "한개더", "더해줘"], maxLength: 5) { _, _, _ in
-            Answer(text: Bool.random() ? pick(jokes) : pick(quotes), suggestions: ["하나 더"])
+            if DoitTone.previousKind == "fact" { return Answer(text: pick(facts), suggestions: ["하나 더"], kind: "fact") }
+            // 바로 전에 한 것과 같은 걸로 (농담 뒤엔 농담, 명언 뒤엔 명언)
+            let joke = DoitTone.previousKind == "joke" || (DoitTone.previousKind != "quote" && Bool.random())
+            return Answer(text: joke ? pick(jokes) : pick(quotes), suggestions: ["하나 더"], kind: joke ? "joke" : "quote")
         },
         Rule(words: ["노래추천", "공부음악", "공부할때들을", "백색소음", "집중음악"], maxLength: 24) { _, _, _ in
             Answer(text: "가사가 없는 소리가 집중에 좋아요. MOTI 타이머에서 빗소리, 파도, 백색·핑크·브라운 소음을 켤 수 있어요. 타이머 화면의 소리 버튼을 눌러보세요!",
@@ -244,19 +277,33 @@ enum DoitChat {
 
         // 짧은 맞장구
         Rule(words: ["ㅋㅋ", "ㅎㅎ", "하하", "lol"], maxLength: 8) { _, _, _ in
-            Answer(text: pick(["ㅎㅎ 기분 좋아 보여서 다행이에요!", "웃으면서 공부하면 더 잘 외워진대요 😄"]))
+            // 농담 뒤의 웃음은 농담 이야기로
+            if DoitTone.previousKind == "joke" {
+                let (text, offer) = pick([("ㅋㅋ 웃겼다니 다행이에요! 하나 더 해 줄까요?", "농담 하나 더 해줘"), ("ㅎㅎ 제 개그 통했네요!", nil), ("ㅋㅋㅋ 저도 이거 좋아해요.", nil)])
+                return Answer(text: text, suggestions: ["하나 더"], offer: offer)
+            }
+            return Answer(text: pick(["ㅋㅋ 뭐가 그렇게 웃겨요?", "ㅎㅎ 기분 좋아 보여서 다행이에요!", "ㅋㅋㅋ 저도 덩달아 웃게 되네요.", "웃으면서 공부하면 더 잘 외워진대요 😄"]))
         },
         Rule(words: ["ㅠㅠ", "ㅜㅜ", "흑흑"], maxLength: 8) { _, _, _ in
-            Answer(text: "무슨 일 있어요? 편하게 이야기해 줘요. 공부 고민이면 같이 방법을 찾아볼게요.")
+            Answer(text: pick(["무슨 일 있어요? 편하게 말해 줘요.", "왜요, 무슨 일이에요? 들을게요.", "토닥토닥… 무슨 일인지 말해 줄래요?"]))
         },
         Rule(words: ["응", "ㅇㅇ", "ㅇㅋ", "그래", "좋아", "알겠어", "오케이", "ok", "okay", "넵", "네"], maxLength: 5, exclude: ["그래서", "그래도"]) { _, _, _ in
-            Answer(text: "좋아요! 무엇부터 할까요?", suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘", "퀴즈 내줘"])
+            Answer(text: pick(["좋아요! 뭐부터 해 볼까요?", "좋아요 😊 하고 싶은 거 말해 줘요.", "오케이! 뭐 도와줄까요?"]),
+                   suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘", "퀴즈 내줘"])
         },
         Rule(words: ["그만", "됐어", "괜찮아", "멈춰", "취소"], maxLength: 6) { _, _, _ in
-            Answer(text: "알겠어요. 필요할 때 언제든 불러주세요!")
+            Answer(text: pick(["알겠어요. 필요할 때 언제든 불러 줘요!", "알겠어요! 쉬고 싶으면 쉬어요.", "네, 알겠어요. 또 봐요 😊"]))
         },
         Rule(words: ["아니", "ㄴㄴ", "싫어", "별로"], maxLength: 5) { _, _, _ in
-            Answer(text: "알겠어요. 다른 게 필요하면 언제든 말해주세요.")
+            Answer(text: pick(["알겠어요. 다른 게 필요하면 말해 줘요.", "앗, 그럼 다른 거 해 볼까요?", "알겠어요! 그럼 편하게 있어요."]))
+        },
+        // "그래도 해야겠지?", "해 볼게" 같은 다짐
+        Rule(words: ["해야겠지", "해야겠다", "해야겠어", "해야겠네", "해야지", "해볼게", "해볼까", "해야되겠", "해야하겠"], maxLength: 16,
+             exclude: ["추가", "일정", "타이머", "퀴즈", "그만", "안해", "뭐"]) { _, _, c in
+            let (text, offer) = pick([("그 마음이면 충분해요! 25분만 같이 해 볼까요?", "25분 타이머 시작해줘"),
+                                      ("좋아요, 시작이 반이에요. 딱 하나만 정해서 해 봐요.", nil),
+                                      ("멋져요! 부담 갖지 말고 조금만 해 봐요. 옆에서 응원할게요.", nil)])
+            return Answer(text: text, suggestions: ["25분 타이머 시작해줘", "오늘 할 일 알려줘"], offer: offer)
         }
     ]
 
@@ -384,90 +431,148 @@ enum DoitChat {
 
     // MARK: - 답변 만들기
 
-    private static func greeting(_ c: Context) -> Answer {
-        let hour = Calendar.current.component(.hour, from: c.now)
-        let line: String
-        switch hour {
-        case 5..<11: line = pick(["안녕하세요, 좋은 아침이에요! ☀️", "안녕하세요, 상쾌한 아침이에요!"])
-        case 11..<14: line = "안녕하세요! 점심은 챙겨 먹었어요?"
-        case 14..<18: line = pick(["안녕하세요! 오후도 힘내봐요.", "반가워요! 나른한 오후, 같이 집중해봐요."])
-        case 18..<23: line = "안녕하세요! 오늘 하루 어땠어요?"
-        default: line = "안녕하세요! 늦은 시간까지 수고가 많아요. 너무 무리하지 말아요!"
+    private static func greeting(_ c: Context, morning: Bool = false) -> Answer {
+        let chips = ["오늘 할 일 알려줘", "뭐 할 수 있어?", "퀴즈 내줘"]
+        // 방금 인사했는데 또 인사하면 같은 인사를 되풀이하지 않음
+        if DoitTone.previousKind == "greeting" {
+            return Answer(text: pick(["또 만났네요, 반가워요! 😊", "ㅎㅎ 다시 안녕하세요! 뭐 하다 왔어요?", "반가워요, 또 왔네요!"]), suggestions: chips, kind: "greeting")
         }
+        let hour = Calendar.current.component(.hour, from: c.now)
+        let hi = DoitTone.nameToCall().map { "안녕하세요, \($0)님!" } ?? "안녕하세요!"
+        let line: String
+        if morning || (5..<11).contains(hour) {
+            line = pick(["\(hi) 좋은 아침이에요 ☀️", "좋은 아침이에요! 잘 잤어요?", "\(hi) 상쾌한 아침이에요."])
+        } else {
+            switch hour {
+            case 11..<14: line = pick(["\(hi) 점심은 챙겨 먹었어요?", "반가워요! 점심 먹고 나른하죠?"])
+            case 14..<18: line = pick(["\(hi) 오후도 같이 힘내 봐요.", "반가워요! 나른한 오후네요."])
+            case 18..<23: line = pick(["\(hi) 오늘 하루 어땠어요?", "반가워요! 저녁은 먹었어요?"])
+            default: line = pick(["\(hi) 늦은 시간까지 수고가 많아요.", "반가워요! 이 시간까지 깨어 있었네요."])
+            }
+        }
+        // 아침 인사에 "안녕"이 없으면 (좋은 아침 말고 "안녕"이라고 했을 때) 안녕을 붙임
+        let opened = !morning && !line.contains("안녕") && !line.contains("반가") ? "안녕하세요! " + line : line
+        // 오늘 상황은 한 가지만 짧게
         var status = ""
-        if c.todayMinutes > 0 { status = " 오늘 벌써 \(duration(c.todayMinutes)) 공부했어요." }
-        if c.remainingPlans > 0 { status += " 남은 플랜은 \(c.remainingPlans)개예요." }
-        return Answer(text: "\(line)\(status)\n무엇을 도와드릴까요?", suggestions: ["오늘 할 일 알려줘", "뭐 할 수 있어?", "퀴즈 내줘"])
+        if c.todayMinutes > 0 {
+            status = pick([" 오늘 벌써 \(duration(c.todayMinutes)) 공부했네요.", " 오늘 \(duration(c.todayMinutes))이나 했어요, 멋져요."])
+        } else if c.remainingPlans > 0 {
+            status = " 오늘 남은 플랜이 \(c.remainingPlans)개 있어요."
+        }
+        return Answer(text: opened + status, suggestions: chips, kind: "greeting")
     }
 
     private static func goodNight(_ c: Context) -> Answer {
-        var text = "오늘도 정말 수고 많았어요. 푹 자야 오늘 공부한 게 머릿속에 잘 저장돼요. 잘 자요 🌙"
-        if c.todayMinutes > 0 { text = "오늘 \(duration(c.todayMinutes)) 공부했어요. " + text }
+        var text = pick(["오늘도 수고 많았어요. 잘 자요 🌙", "푹 자요! 자는 동안 오늘 공부한 게 머리에 정리돼요 🌙", "굿나잇! 내일 또 봐요."])
+        if c.todayMinutes > 0 { text = "오늘 \(duration(c.todayMinutes))이나 했네요. " + text }
         return Answer(text: text, suggestions: ["내일 일정 알려줘"])
     }
 
-    private static func tired(_ c: Context) -> Answer {
+    private static func tired(_ t: String, _ c: Context) -> Answer {
         let hour = Calendar.current.component(.hour, from: c.now)
         if hour >= 23 || hour < 5 {
-            return Answer(text: "많이 늦었어요. 지금은 억지로 버티기보다 잠을 자는 게 더 남는 장사예요. 자는 동안 뇌가 오늘 공부한 걸 정리해 줘요. 남은 건 내일 아침 플랜으로 옮겨둘까요?",
+            return Answer(text: pick(["많이 늦었어요. 지금은 버티는 것보다 잠을 자는 게 남는 거예요. 남은 건 내일 아침으로 미뤄 둘까요?",
+                                      "이 시간엔 쉬는 게 이기는 거예요. 자는 동안 오늘 공부한 게 정리되니까 푹 자요 🌙"]),
                           suggestions: ["내일 오전 8시 복습 추가해줘", "타이머 종료해줘"])
         }
-        return Answer(text: pick([
-            "졸릴 땐 이렇게 해봐요.\n• 찬물로 세수하거나 물 한 잔 마시기\n• 일어서서 2~3분 스트레칭\n• 15~20분 짧은 낮잠 (그 이상은 더 피곤해져요)\n• 소리 내서 읽거나 손으로 쓰는 공부로 바꾸기",
-            "피곤하면 잠깐 쉬어도 괜찮아요. 10분 쉬고 25분만 집중해 보는 건 어때요? 짧게 끊어 하면 훨씬 덜 지쳐요."
-        ]), suggestions: ["25분 타이머 시작해줘"])
+        let options: [(String, String?)]
+        if has(t, ["졸", "잠", "꾸벅", "자고싶"]) {
+            options = [("졸릴 땐 찬물 세수나 2~3분 스트레칭이 직빵이에요. 그래도 안 깨면 15분만 눈 붙여요.", nil),
+                       ("많이 졸리죠… 일어나서 물 한 잔 마시고 소리 내서 읽어 봐요. 잠이 좀 깨요.", nil),
+                       ("졸음이 오면 15~20분 짧은 낮잠이 오히려 나아요. 20분 타이머 맞춰 줄까요?", "20분 타이머 시작해줘")]
+        } else if c.todayMinutes >= 60 {
+            options = [("오늘 벌써 \(duration(c.todayMinutes))이나 했으니 피곤할 만해요. 10분만 쉬었다 할까요?", "10분 타이머 시작해줘"),
+                       ("\(duration(c.todayMinutes)) 했으면 피곤한 게 당연해요. 잠깐 스트레칭하고 물 한 잔 마셔요.", nil)]
+        } else {
+            options = [("피곤하구나… 10분만 쉬고 25분만 더 해 볼까요?", "25분 타이머 시작해줘"),
+                       ("많이 피곤하죠. 잠깐 스트레칭하고 물 한 잔 마셔요.", nil),
+                       ("피곤할 땐 억지로 하는 것보다 잠깐 쉬는 게 나아요. 10분 뒤에 다시 시작해요.", nil)]
+        }
+        let (text, offer) = pick(options)
+        return Answer(text: text, suggestions: ["25분 타이머 시작해줘"], offer: offer)
     }
 
-    private static func hardTime(_ c: Context) -> Answer {
-        var text = pick([
-            "많이 힘들었겠어요. 여기까지 온 것만으로도 충분히 잘하고 있는 거예요.",
-            "지칠 만큼 열심히 했다는 뜻이에요. 잠깐 숨 돌려도 괜찮아요."
-        ])
-        text += "\n\n지금은 큰 목표 말고 **딱 하나, 10분짜리**만 해봐요. 작은 걸 끝내면 다시 힘이 생겨요."
-        if c.todayMinutes > 0 { text += "\n오늘 이미 \(duration(c.todayMinutes))이나 공부했어요. 대단해요." }
-        text += "\n혼자 감당하기 어려울 만큼 힘들면 믿을 수 있는 어른이나 청소년상담 1388에 이야기해 보세요."
-        return Answer(text: text, suggestions: ["10분 타이머 시작해줘", "명언 하나 알려줘"])
+    private static func hardTime(_ t: String, _ c: Context) -> Answer {
+        var answer = pick(["많이 힘들었겠어요. 여기까지 버틴 것만으로도 잘하고 있는 거예요.",
+                           "지칠 만큼 열심히 했다는 거예요. 잠깐 숨 돌려도 괜찮아요.",
+                           "많이 힘들었죠… 무슨 일 있었는지 말해 줄래요? 들을게요."])
+        // (묻는 말이 아니면 작은 한 걸음을 권함)
+        if !answer.contains("?") { answer += " 오늘은 딱 10분짜리 하나만 해 봐요." }
+        // 크게 지쳤거나 힘들다는 말이 이어지면 도움받을 곳도 알려 줌
+        if has(t, ["포기하고싶", "그만두고싶", "번아웃", "버거", "벅차"]) || DoitTone.previousKind == "hard" {
+            answer += "\n혼자 버티기 힘들면 믿을 수 있는 어른이나 청소년상담 1388에 꼭 이야기해요."
+        }
+        return Answer(text: answer, suggestions: ["10분 타이머 시작해줘", "명언 하나 알려줘"], kind: "hard")
     }
 
-    private static func stressed() -> Answer {
-        Answer(text: "스트레스 받을 땐 몸부터 풀어줘요.\n**4-7-8 호흡**: 4초 들이마시고 → 7초 멈추고 → 8초 내쉬기를 3번 해봐요.\n그다음 지금 머릿속에 있는 걱정을 메모에 적어두면 머리가 한결 가벼워져요. 적어둔 건 제가 보관해 둘게요.",
-               suggestions: ["메모해줘: ", "5분 타이머 시작해줘"])
+    private static func stressed(_ t: String) -> Answer {
+        if has(t, ["짜증", "화나", "열받", "빡"]) {
+            return Answer(text: pick(["짜증 날 만하죠. 일단 숨 한번 크게 쉬고 어깨 좀 풀어요. 뭐 때문에 그래요?",
+                                      "화날 땐 잠깐 자리에서 일어나 숨 크게 쉬어요. 그리고 무슨 일인지 말해 줘요, 들을게요.",
+                                      "으, 짜증 나죠. 물 한 잔 마시고 숨 고르면 한결 나아요."]),
+                          suggestions: ["메모해줘: ", "5분 타이머 시작해줘"])
+        }
+        return Answer(text: pick(["스트레스 받을 땐 숨부터 크게 쉬어요. 4초 들이마시고 8초 내쉬기, 세 번만 해 봐요.",
+                                  "많이 쌓였나 봐요. 머릿속 걱정을 메모로 적어 두면 한결 가벼워져요. 숨도 한번 크게 쉬고요.",
+                                  "스트레스 받을 땐 5분만 걷거나 스트레칭해도 머리가 풀려요. 무슨 일인지 말해 줄래요?"]),
+                      suggestions: ["메모해줘: ", "5분 타이머 시작해줘"])
     }
 
-    private static func sad() -> Answer {
-        Answer(text: "마음이 많이 힘들었군요. 그런 날도 있어요. 억지로 괜찮은 척 안 해도 돼요.\n좋아하는 음악을 듣거나 잠깐 산책하는 것도 도움이 돼요. 그리고 마음을 털어놓을 사람이 있다면 꼭 이야기해 보세요. 친구, 가족, 선생님, 아니면 청소년상담 **1388**(전화·문자·카카오톡)도 언제든 들어줘요.\n저도 여기 있을게요.")
+    private static func sad(_ t: String) -> Answer {
+        if t.contains("외로") {
+            return Answer(text: pick(["외로운 마음이 드는군요. 저라도 이야기 상대가 되어 줄게요. 오늘 무슨 일 있었어요?",
+                                      "외로울 때 말 걸어 줘서 고마워요. 마음이 조금 나아질 때까지 저랑 이야기해요."]))
+        }
+        if has(t, ["속상", "눈물", "울고싶", "울었"]) {
+            return Answer(text: pick(["속상했겠어요. 무슨 일이었는지 이야기해 줄래요? 들을게요.",
+                                      "마음이 많이 상했군요. 울고 싶으면 울어도 괜찮아요. 저 여기 있을게요."]))
+        }
+        var text = pick(["마음이 많이 무거운가 봐요. 억지로 괜찮은 척 안 해도 돼요. 무슨 일인지 말해 주면 들을게요.",
+                         "그런 날도 있어요. 오늘은 스스로에게 조금 다정해져도 괜찮아요. 이야기하고 싶으면 언제든요."])
+        if t.contains("우울") {
+            text += "\n털어놓을 곳이 필요하면 청소년상담 **1388**(전화·문자·카톡)도 늘 열려 있어요."
+        }
+        return Answer(text: text)
     }
 
     private static func anxious(_ t: String) -> Answer {
         if t.contains("시험") || t.contains("발표") || t.contains("면접") {
-            return Answer(text: "긴장되는 건 그만큼 잘하고 싶다는 뜻이에요.\n• 천천히 숨 쉬기: 4초 들이마시고 6초 내쉬기\n• '긴장된다' 대신 '설렌다'라고 말해보기 (실제로 효과가 있어요)\n• 시험 직전엔 새로운 것 말고 오답노트와 핵심 정리만 훑어보기\n준비한 만큼 충분히 해낼 수 있어요!",
+            return Answer(text: pick(["긴장되는 건 그만큼 잘하고 싶다는 뜻이에요. 4초 들이마시고 6초 내쉬기를 몇 번 해 봐요. 준비한 만큼 충분히 할 수 있어요!",
+                                      "떨리죠. 직전엔 새로운 것 말고 오답노트만 훑어봐요. '긴장된다' 대신 '설렌다'고 말해 보는 것도 효과 있어요."]),
                           suggestions: ["오답노트 현황 알려줘", "명언 하나 알려줘"])
         }
-        return Answer(text: "불안할 땐 걱정을 구체적으로 적어보는 게 도움이 돼요. '내가 지금 할 수 있는 것'과 '어쩔 수 없는 것'을 나눠 보고, 할 수 있는 것 하나부터 해봐요. 필요하면 메모로 남겨둘게요.",
-               suggestions: ["메모해줘: "])
+        return Answer(text: pick(["불안할 땐 걱정을 적어 보는 게 도움이 돼요. 그중 지금 할 수 있는 것 하나부터 해 봐요.",
+                                  "걱정되는 마음 이해해요. 숨 한번 크게 쉬고, 뭐가 제일 걱정인지 말해 줄래요?"]),
+                      suggestions: ["메모해줘: "])
     }
 
     private static func exam_bad() -> Answer {
-        Answer(text: "속상하겠어요. 그래도 한 번의 시험이 당신을 다 말해주진 않아요.\n이렇게 다시 시작해 봐요.\n1. 틀린 문제를 오답노트에 저장 (사진 한 장이면 돼요)\n2. 틀린 이유를 '개념 / 실수 / 시간 부족'으로 나누기\n3. 다음 시험 D-Day를 정하고 약한 단원부터 플랜 잡기\n다음엔 분명 더 잘할 거예요.",
+        Answer(text: pick(["속상하겠어요. 그래도 시험 한 번이 전부는 아니에요. 틀린 문제만 오답노트에 모아 두면 다음엔 분명 달라져요.",
+                           "많이 아쉽죠… 오늘은 푹 쉬고, 내일 틀린 문제부터 오답노트로 같이 봐요. 다음 시험은 더 잘할 거예요."]),
                suggestions: ["다음 시험 D-Day 설정해줘", "오답노트 현황 알려줘"])
     }
 
     private static func motivation(_ c: Context) -> Answer {
-        var text = pick([
-            "하기 싫은 날이 있는 게 정상이에요. 그럴 땐 '딱 5분만' 해봐요. 시작하는 게 제일 어렵고, 5분 지나면 생각보다 계속하게 돼요.",
-            "의욕은 하다 보면 생겨요. 지금 책상에 앉아 책을 펴기만 해도 절반은 한 거예요!",
-            "오늘의 작은 공부가 쌓여서 나중의 큰 차이를 만들어요. 1%만 해도 0%보단 훨씬 나아요."
-        ])
-        if c.goalMinutes > 0 {
-            let left = max(0, c.goalMinutes - c.todayMinutes)
-            text += left > 0 ? "\n오늘 목표까지 \(duration(left)) 남았어요." : "\n그리고 오늘 목표는 이미 달성했어요! 🎉"
+        let (base, offer) = pick([("하기 싫은 날도 있죠. 그럴 땐 딱 5분만 해 봐요. 시작만 하면 생각보다 계속하게 돼요.", "5분 타이머 시작해줘"),
+                                  ("의욕은 공부를 시작하면 따라와요. 일단 책상에 앉아 책만 펴 봐도 절반은 한 거예요!", nil),
+                                  ("오늘은 조금만 해도 괜찮아요. 1%라도 0%보단 훨씬 나아요.", nil)])
+        var text = base
+        if c.goalMinutes > 0, c.todayMinutes >= c.goalMinutes {
+            text += " 그리고 오늘 목표는 이미 채웠어요! 🎉"
+        } else if c.todayMinutes > 0, DoitTone.previousKind != "motivation" {
+            text += " 오늘 벌써 \(duration(c.todayMinutes)) 했잖아요."
         }
-        return Answer(text: text, suggestions: ["5분 타이머 시작해줘", "명언 하나 알려줘"])
+        return Answer(text: text, suggestions: ["5분 타이머 시작해줘", "명언 하나 알려줘"], kind: "motivation", offer: offer)
     }
 
-    private static func focusTips() -> Answer {
-        Answer(text: "집중이 안 될 땐 이렇게 해봐요.\n• 휴대폰은 다른 방이나 가방 속에\n• 25분 타이머를 켜고 그동안 한 과목만\n• 시작 전에 '이번 25분 동안 할 일'을 한 줄로 정하기",
-               suggestions: ["25분 타이머 시작해줘", "타이머 화면 열어줘"])
+    private static func focusTips(_ t: String) -> Answer {
+        // 폰 이야기를 했으면 폰 이야기로
+        let phone = has(t, ["폰", "유튜브", "쇼츠", "sns"])
+        let text = phone ? pick(["폰은 다른 방이나 가방 속에 넣어 두는 게 제일 효과 커요. 25분 타이머 켜고 그동안만 참아 봐요.",
+                                 "폰이 자꾸 손에 가죠. 공부 플랜에서 '다른 앱 잠금'을 켜 두면 정한 시간 동안 막아 줘요."])
+                         : pick(["집중이 안 될 땐 폰부터 멀리 두고, 25분 타이머 켜서 한 과목만 해 봐요.",
+                                 "집중 안 되는 날 있죠. 이번 25분 동안 할 일 딱 하나만 정하고 시작해 볼까요?"])
+        return Answer(text: text, suggestions: ["25분 타이머 시작해줘", "타이머 화면 열어줘"], offer: "25분 타이머 시작해줘")
     }
 
     private static func slump() -> Answer {
@@ -476,7 +581,7 @@ enum DoitChat {
     }
 
     private static func memorize() -> Answer {
-        Answer(text: "잘 외우려면 이렇게 해봐요.\n• 간격 반복: 1일 → 3일 → 1주일 뒤에 다시 보기\n• 책을 덮고 백지에 떠올려 쓰기\n• 앞 글자 따기·이야기로 묶기\n단어 학습과 퀴즈로 반복을 도와드릴게요.",
+        Answer(text: "잘 외우려면 간격 반복이 최고예요. 1일 → 3일 → 1주일 뒤에 다시 보고, 책을 덮고 떠올려 써 봐요. 앞 글자 따기나 이야기로 묶어도 잘 외워져요.",
                suggestions: ["영어 퀴즈 내줘", "틀린 단어 알려줘"])
     }
 
@@ -537,7 +642,7 @@ enum DoitChat {
     }
 
     private static func crisis() -> Answer {
-        Answer(text: "그런 생각이 들 만큼 많이 힘들었군요. 이야기해 줘서 고마워요. 지금 그 마음, 혼자 견디지 않았으면 좋겠어요.\n\n지금 바로 이야기할 수 있는 곳이 있어요.\n• **자살예방상담전화 109** (24시간)\n• **청소년상담 1388** (전화·문자·카카오톡, 24시간)\n• 위급하면 **112** 또는 **119**\n\n가까운 가족이나 선생님, 친구에게도 꼭 알려주세요. 당신은 소중한 사람이에요.")
+        Answer(text: "그런 생각이 들 만큼 많이 힘들었군요. 이야기해 줘서 고마워요. 지금 그 마음, 혼자 견디지 않았으면 좋겠어요.\n\n지금 바로 이야기할 수 있는 곳이 있어요.\n• **자살예방상담전화 109** (24시간)\n• **청소년상담 1388** (전화·문자·카카오톡, 24시간)\n• 위급하면 **112** 또는 **119**\n\n가까운 가족이나 선생님, 친구에게도 꼭 알려 주세요. 정말 소중한 사람이니까요.")
     }
 
     // MARK: - 재료
@@ -555,6 +660,14 @@ enum DoitChat {
         "가장 무서운 수학 기호는? 루트... 끝까지 안 풀려서 √",
         "영어 선생님이 좋아하는 음료는? 티(tea)처 ☕",
         "피자가 웃으면? 피자헛 🍕"
+    ]
+
+    static let facts = [
+        "신기한 사실! 문어는 심장이 3개예요 🐙", "꿀은 상하지 않아서 수천 년 된 꿀도 먹을 수 있대요 🍯", "번개는 태양 표면보다 약 5배 뜨거워요 ⚡",
+        "바나나는 식물학적으로 베리(장과)예요. 딸기는 아니고요! 🍌", "사람 몸의 혈관을 한 줄로 이으면 지구를 두 바퀴 넘게 감을 수 있대요 🌍",
+        "0을 숫자로 처음 쓴 건 인도 수학자들이에요. 0 덕분에 지금의 계산법이 생겼어요.", "달은 매년 지구에서 약 3.8cm씩 멀어지고 있어요 🌙",
+        "에펠탑은 여름에 열로 늘어나서 15cm쯤 더 높아져요 🗼", "기린은 하루에 30분 정도밖에 안 잔대요 🦒",
+        "우리 뇌는 몸무게의 2%지만 에너지는 20%를 써요. 그래서 공부하면 배가 고파요! 🧠"
     ]
 
     static let quotes = [
@@ -578,7 +691,8 @@ enum DoitChat {
 
     private static func has(_ t: String, _ words: [String]) -> Bool { words.contains { t.contains($0) } }
 
-    private static func pick(_ list: [String]) -> String { list.randomElement() ?? "" }
+    /// 여러 말 중 하나 (최근에 한 말·바로 전 답과 같은 첫마디는 피함)
+    private static func pick(_ list: [String]) -> String { DoitTone.pick(list) }
 
     private static func duration(_ minutes: Int) -> String {
         let h = minutes / 60, m = minutes % 60

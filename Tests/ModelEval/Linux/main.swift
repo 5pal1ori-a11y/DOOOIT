@@ -152,13 +152,163 @@ func scoreTable(_ evalPath: String, _ resultPaths: [String], lenient: Bool) thro
     if lenient { for line in detail { print(line) } }
 }
 
+// MARK: - 대화 말투 비교 (모티 1·2가 일상 대화·공부 질문에 어떻게 답하는지)
+// chat <chat.json> [이름표]: DoitAssistant.think와 같은 방법으로 요청을 만듦 (엔진 답 → 말투 → 프롬프트·앞 대화·토큰 수)
+// chatshow <chat.json> <로그>...: 맥 로그의 CHAT 줄을 앱처럼 다듬어(DoitMind.chatAnswer) 전·후를 나란히 보여 줌
+
+/// 대화 말투 비교용 장면 (앞 대화 + 이번 말)
+struct ChatScene {
+    let id: String
+    var before: [(String, String)] = []   // (학생 말, 모티 답)
+    let question: String
+    var topic: String? = nil
+}
+
+let chatScenes: [ChatScene] = [
+    ChatScene(id: "c01", question: "안녕"),
+    ChatScene(id: "c02", question: "ㅋㅋ"),
+    ChatScene(id: "c03", question: "심심해"),
+    ChatScene(id: "c04", question: "피곤해"),
+    ChatScene(id: "c05", question: "오늘 공부 하기 싫어"),
+    ChatScene(id: "c06", question: "고마워"),
+    ChatScene(id: "c07", question: "졸려"),
+    ChatScene(id: "c08", question: "배고파"),
+    ChatScene(id: "c09", question: "나 오늘 시험 망했어"),
+    ChatScene(id: "c10", question: "너무 힘들어"),
+    ChatScene(id: "c11", question: "뭐해?"),
+    ChatScene(id: "c12", question: "잘자"),
+    ChatScene(id: "c13", question: "기분 좋아!"),
+    ChatScene(id: "c14", question: "너 누구야?"),
+    ChatScene(id: "c15", question: "짜증나"),
+    ChatScene(id: "c16", before: [("광합성이 뭐야?", "광합성은 식물이 빛 에너지로 물과 이산화 탄소를 이용해 포도당을 만드는 과정이에요. 엽록체에서 일어나요.")], question: "고마워"),
+    ChatScene(id: "c17", before: [("심심해", "심심할 땐 가볍게 퀴즈 한 판 어때요?")], question: "ㅋㅋ"),
+    ChatScene(id: "c18", before: [("안녕", "안녕하세요! 오늘 하루 어땠어요?")], question: "오늘 공부 하기 싫어"),
+    ChatScene(id: "c19", before: [("피곤해", "피곤하면 잠깐 쉬어도 괜찮아요. 10분 쉬고 25분만 집중해 볼까요?")], question: "그래도 해야겠지?"),
+    ChatScene(id: "c20", before: [("안녕", "안녕하세요! 무엇을 도와드릴까요?"), ("심심해", "퀴즈 한 판 어때요?")], question: "아니 그냥 얘기하고 싶어"),
+    ChatScene(id: "s01", question: "광합성이 뭐야?"),
+    ChatScene(id: "s02", question: "임진왜란은 왜 일어났어?"),
+    ChatScene(id: "s03", question: "현재완료 설명해줘"),
+    ChatScene(id: "s04", question: "12와 18의 최소공배수는 어떻게 구해?"),
+    ChatScene(id: "s05", question: "관계대명사 who랑 which 차이가 뭐야?"),
+    ChatScene(id: "s06", question: "삼투 현상이 뭐야"),
+    ChatScene(id: "s07", question: "기회비용 예시 들어줘"),
+    ChatScene(id: "s08", question: "물은 왜 100도에서 끓어?"),
+    ChatScene(id: "s09", question: "영어 단어 잘 외우는 법 알려줘"),
+    ChatScene(id: "s10", before: [("광합성이 뭐야?", "광합성은 식물이 빛 에너지로 포도당을 만드는 과정이에요. 엽록체에서 일어나요.")], question: "그럼 밤에는?", topic: "광합성"),
+    ChatScene(id: "s11", question: "블랙홀은 어떻게 생겨?"),
+    ChatScene(id: "s12", question: "세종대왕이 한 일 알려줘"),
+]
+
+struct ChatItem: Codable {
+    let id: String
+    let variant: String
+    let question: String
+    let style: String
+    let system: String
+    let prompt: String
+    let history: [[String]]
+    let maxTokens: Int
+    let temperature: Double
+    let engine: String
+}
+
+struct ChatResult: Codable {
+    let model: String
+    let id: String
+    let variant: String
+    let raw: String
+    let seconds: Double
+    let generatedTokens: Int?
+    let stop: String?
+}
+
+func styleName(_ style: DoitMind.Style) -> String {
+    switch style {
+    case .casual: return "casual"
+    case .advice: return "advice"
+    case .study: return "study"
+    }
+}
+
+@MainActor
+func dumpChat(_ path: String, variant: String) throws {
+    var items: [ChatItem] = []
+    for scene in chatScenes {
+        DoitAssistant.shared.reset()
+        DoitEngine.conversationTopic = scene.topic
+        let reply = DoitEngine.respond(to: scene.question, photo: nil)
+        var origin = reply.origin
+        var draft: String? = origin == .conversation && !reply.text.hasPrefix("혹시") ? nil : reply.text
+        if scene.topic != nil { origin = .knowledge; draft = nil }
+        let turns = scene.before.flatMap { [DoitMind.Turn(fromUser: true, text: $0.0), DoitMind.Turn(fromUser: false, text: $0.1)] }
+        let history = DoitMind.budgetHistory(turns, maxTokens: 1100)
+        let style = scene.topic == nil ? DoitMind.style(for: scene.question, chat: origin == .chat) : .study
+        var context = DoitMind.Context(draft: draft, app: origin == .chat ? "오늘 공부 95분 (목표 180분)\n남은 일정 2개\nD-Day 기말고사: D-12" : nil)
+        context.knowledge = DoitKnowledge.search(scene.question, limit: 3).filter { $0.score >= 0.42 }.map(\.entry)
+        let prompt = DoitMind.answerPrompt(question: scene.question, context: context, history: [], summary: history.summary, topic: scene.topic, style: style)
+        let temperature = style == .casual ? 0.7 : (origin == .chat || origin == .conversation ? 0.6 : 0.4)
+        items.append(ChatItem(id: scene.id, variant: variant, question: scene.question, style: styleName(style), system: DoitMind.persona, prompt: prompt,
+                              history: history.recent.map { [$0.fromUser ? "user" : "assistant", $0.text] },
+                              maxTokens: DoitMind.maxTokens(for: style), temperature: temperature, engine: reply.text))
+    }
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+    try encoder.encode(items).write(to: URL(fileURLWithPath: path))
+    print("대화 \(items.count)개")
+}
+
+/// 전·후 나란히: 전(before)은 예전처럼 DoitMind.answer, 후(after)는 DoitMind.chatAnswer
+func showChat(_ chatPath: String, _ logPaths: [String]) throws {
+    let items = try JSONDecoder().decode([ChatItem].self, from: Data(contentsOf: URL(fileURLWithPath: chatPath)))
+    var results: [ChatResult] = []
+    for path in logPaths {
+        for line in try String(contentsOfFile: path, encoding: .utf8).components(separatedBy: "\n") {
+            guard let tab = line.range(of: "CHAT\t") else { continue }
+            results.append(try JSONDecoder().decode(ChatResult.self, from: Data(line[tab.upperBound...].utf8)))
+        }
+    }
+    func shown(_ item: ChatItem, _ raw: String) -> String {
+        guard item.variant == "after" else { return DoitMind.answer(raw) }
+        let style: DoitMind.Style = item.style == "casual" ? .casual : (item.style == "advice" ? .advice : .study)
+        let text = DoitMind.chatAnswer(raw, question: item.question, previous: item.history.last(where: { $0.first == "assistant" })?.last, style: style)
+        return DoitMind.isUsable(text, question: item.question) ? text : "(버림 → 엔진 답) " + item.engine
+    }
+    var models: [String] = []
+    for r in results where !models.contains(r.model) { models.append(r.model) }
+    for model in models {
+        print("\n## \(model)")
+        var stats: [String: (count: Int, chars: Int, formal: Int, list: Int, foreign: Int)] = [:]
+        for id in chatScenes.map(\.id) {
+            for variant in ["before", "after"] {
+                guard let item = items.first(where: { $0.id == id && $0.variant == variant }),
+                      let r = results.first(where: { $0.model == model && $0.id == id && $0.variant == variant }) else { continue }
+                let text = shown(item, r.raw)
+                print("\(id) \(variant == "before" ? "전" : "후") [\(item.question)] (\(text.count)자, \(r.generatedTokens ?? -1)토큰, \(String(format: "%.1f", r.seconds))s) \(text.replacingOccurrences(of: "\n", with: "⏎"))")
+                var s = stats[variant] ?? (0, 0, 0, 0, 0)
+                s.count += 1
+                s.chars += text.count
+                if text.contains("습니다") || text.contains("입니다") { s.formal += 1 }
+                if id.hasPrefix("c"), text.contains("•") || text.contains("\n1.") { s.list += 1 }
+                if text.unicodeScalars.contains(where: { (0x4E00...0x9FFF).contains($0.value) }) { s.foreign += 1 }
+                stats[variant] = s
+            }
+        }
+        for variant in ["before", "after"] {
+            guard let s = stats[variant] else { continue }
+            print("\(variant): \(s.count)개, 평균 \(s.chars / max(1, s.count))자, ~습니다 \(s.formal), 잡담 목록 \(s.list), 한자 \(s.foreign)")
+        }
+    }
+}
+
 let args = CommandLine.arguments
 do {
     switch args.count > 1 ? args[1] : "" {
     case "dump" where args.count == 3: try dump(args[2])
     case "score" where args.count >= 4: try score(args[2], Array(args[3...]))
+    case "chat" where args.count >= 3: try MainActor.assumeIsolated { try dumpChat(args[2], variant: args.count > 3 ? args[3] : "after") }
+    case "chatshow" where args.count >= 4: try showChat(args[2], Array(args[3...]))
     default:
-        print("사용법: model-eval dump <eval.json> | score <eval.json> <results.jsonl>...")
+        print("사용법: model-eval dump <eval.json> | score <eval.json> <results.jsonl>... | chat <chat.json> | chatshow <chat.json> <로그>...")
         exit(2)
     }
 } catch {
