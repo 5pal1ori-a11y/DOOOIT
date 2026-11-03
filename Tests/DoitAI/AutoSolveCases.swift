@@ -41,8 +41,9 @@ func runAutoSolveCases() {
     check("AI 풀이: 번호 10을 곱하지 않음", DoitAutoSolve.engine(text: "10. (2x+ 1)(x- 3)을 전개하시오", choices: [], isChoice: false)?.finalAnswer == "2x² − 5x − 3")
     check("AI 풀이: 뒤 한글 속 숫자를 식에 붙이지 않음", DoitAutoSolve.engine(text: "9. 2^5 × 2^3을 2의 거듭제곱으로 나타내시오.", choices: [], isChoice: false)?.finalAnswer.contains("256") == true)
     check("AI 풀이: 0.3 × 0.4는 소수 그대로", DoitAutoSolve.engine(text: "3. 0.3 × 0.4의 값은?\n① 0.012 ② 0.12 ③ 1.2 ④ 12 ⑤ 0.7", choices: ["0.012", "0.12", "1.2", "12", "0.7"], isChoice: true, body: "0.3 × 0.4의 값은?")?.finalAnswer == "2")
-    let grid = ["2+3", "4×2", "10-4", "3× 3", "15÷ 3"]
-    check("AI 풀이: x = 2일 때 식의 값 → 선지", DoitAutoSolve.engine(text: "1^1. x= 2일 때, 식 3x- 1의 값과 같은 것은?\n① 2+3 ② 4×2 ③ 10-4 ④ 3× 3 ⑤ 15÷ 3", choices: grid, isChoice: true, body: "1^1. x= 2일 때, 식 3x- 1의 값과 같은 것은?")?.finalAnswer == "5")
+    // ①과 ⑤가 둘 다 5면 고를 수 없어서 ①을 2+2로 (값 5를 ⑤번으로 읽던 버릇 없이도 ⑤를 골라야 함)
+    let grid = ["2+2", "4×2", "10-4", "3× 3", "15÷ 3"]
+    check("AI 풀이: x = 2일 때 식의 값 → 선지", DoitAutoSolve.engine(text: "1^1. x= 2일 때, 식 3x- 1의 값과 같은 것은?\n① 2+2 ② 4×2 ③ 10-4 ④ 3× 3 ⑤ 15÷ 3", choices: grid, isChoice: true, body: "1^1. x= 2일 때, 식 3x- 1의 값과 같은 것은?")?.finalAnswer == "5")
     let odd = DoitAutoSolve.engine(text: "2x + 3 = 11의 해는?\n① 1 ② 2 ③ 3", choices: ["1", "2", "3"], isChoice: true, body: "2x + 3 = 11의 해는?")
     check("AI 풀이: 선지에 없는 값은 번호로 안 씀", odd.map { DoitGrader.choiceNumber($0.finalAnswer, choices: ["1", "2", "3"]) == nil && $0.finalAnswer.contains("4") } ?? false, odd?.finalAnswer ?? "nil")
     check("AI 풀이: 넣어서 계산할 식", DoitAutoSolve.substitute("x = 2일 때, 식 3x − 1의 값과 같은 것은?") == "3×(2) − 1의 값은?")

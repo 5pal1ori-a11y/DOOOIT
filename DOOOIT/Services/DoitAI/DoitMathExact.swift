@@ -987,6 +987,11 @@ enum DoitMathExact {
         var forms = [a]
         if let m = match(a, #"^[^=]{1,10}=\s*([^=]+)$"#), !m[1].contains("또는") { forms.append(m[1].trimmingCharacters(in: .whitespaces)) }
         if let m = match(a, #"^(?=[^\s]*[가-힣])[가-힣0-9()a-zA-Z]+\s+([^가-힣]+)$"#) { forms.append(m[1].trimmingCharacters(in: .whitespaces)) }
+        // "x = 1에서 극댓값 5", "첫째항부터 제10항까지의 합 100" → 5, 100 (이름표에 쉼표가 없을 때만: 여러 값을 붙인 답은 아님)
+        if let m = match(a, #"^[^,]*[가-힣]\s+([^가-힣,]+)$"#), !m[0].contains("→") {
+            let value = m[1].trimmingCharacters(in: .whitespaces)
+            if !forms.contains(value) { forms.append(value) }
+        }
         return forms
     }
 
@@ -1519,7 +1524,7 @@ enum DoitMathExact {
         guard let m = match(t, #"(?:일\s*때|일때|할\s*때|할때)\s*,?\s*([0-9a-z+\-*/^() ]+?)\s*의\s*값"#) else { return nil }
         var target = m[1].trimmingCharacters(in: .whitespaces)
         // "해를 x = p, y = q 라 할 때 p + q" → x + y
-        if let alias = match(t, #"x\s*=\s*([a-wA-W])\s*,\s*y\s*=\s*([a-wA-W])\s*(?:이라|라)"#) {
+        if let alias = match(t, #"x\s*=\s*([a-wA-W])\s*,\s*y\s*=\s*([a-wA-W])\s*(?:이라|라|일\s*때|일때)"#) {
             target = String(target.map { String($0) == alias[1] ? "x" : String($0) == alias[2] ? "y" : $0 })
         }
         guard target.contains(where: { "xyz".contains($0) }), let p = DoitAlgebra.parse(target) else { return nil }

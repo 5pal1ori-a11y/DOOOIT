@@ -30,20 +30,37 @@ enum DoitAutoSolve {
             guard let solved = MathSolver.solve(candidate) else { continue }
             var key = solved.answer
             var matched = false
-            if isChoice {
-                if let n = DoitGrader.choiceNumber(key, choices: choices), (1...choices.count).contains(n) {
-                    key = "\(n)"; matched = true
-                } else if let index = choices.firstIndex(where: { DoitGrader.equivalentMath($0, key) == true }) {
-                    key = "\(index + 1)"; matched = true
-                } else if let value = answerValue(of: key),
-                          let index = choices.firstIndex(where: { answerValue(of: $0).map { abs($0 - value) < 1e-9 } ?? false }) {
-                    key = "\(index + 1)"; matched = true
-                }
+            if isChoice, let n = choiceIndex(for: key, choices: choices) {
+                key = "\(n)"; matched = true
             }
             let score = niceness(key, matched: matched, isChoice: isChoice)
             if best == nil || score > best!.score { best = (solved, key, matched, score) }
         }
         return best.map { ($0.solved, $0.key, $0.matched) }
+    }
+
+    /// 엔진 답이 몇 번 선지인지
+    /// 1) 엔진이 번호를 직접 고른 답 ("③ 5", "3번")만 번호로 읽음: 값 "5"를 ⑤번으로 읽으면 안 돼요
+    /// 2) 선지 내용과 같은 값·식 ("x = 1에서 극댓값 5"의 5, "x = 3"의 3도)
+    static func choiceIndex(for key: String, choices: [String]) -> Int? {
+        let t = key.trimmingCharacters(in: .whitespaces)
+        let circled: [Character: Int] = ["①": 1, "②": 2, "③": 3, "④": 4, "⑤": 5]
+        if let first = t.first, let n = circled[first], t.count == 1 || t.dropFirst().first?.isWhitespace == true {
+            return (1...choices.count).contains(n) ? n : nil
+        }
+        if let m = t.firstMatch(of: #/^([1-9])\s*번$/#), let n = Int(String(m.1)) { return (1...choices.count).contains(n) ? n : nil }
+        func unique(_ test: (String) -> Bool) -> Int? {
+            let hits = choices.indices.filter { test(choices[$0]) }
+            return hits.count == 1 ? hits[0] + 1 : nil
+        }
+        for form in DoitMathExact.answerForms(t) {
+            if let n = unique({ DoitGrader.normalizeText($0) == DoitGrader.normalizeText(form) }) { return n }
+            if let n = unique({ DoitGrader.equivalentMath($0, form) == true }) { return n }
+            if let n = unique({ DoitMathExact.sameValue($0, form) == true }) { return n }
+            if let value = answerValue(of: form),
+               let n = unique({ answerValue(of: $0).map { abs($0 - value) < 1e-9 } ?? false }) { return n }
+        }
+        return nil
     }
 
     /// 풀어 볼 글들 (앞에 있을수록 먼저: 점수가 같으면 앞의 것)
@@ -74,14 +91,29 @@ enum DoitAutoSolve {
 
     /// "x = 2일 때, (식) 3x − 1의 값" → "3×(2) − 1의 값은?"
     static func substitute(_ text: String) -> String? {
-        let pattern = #"([a-z])\s*=\s*(−?-?[0-9]+(?:[./][0-9]+)?)\s*일\s*때\s*,?\s*(?:식\s*)?(.+?)\s*의\s*값"#
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-              let vr = Range(m.range(at: 1), in: text), let nr = Range(m.range(at: 2), in: text), let er = Range(m.range(at: 3), in: text) else { return nil }
-        let variable = Character(String(text[vr]))
-        let value = String(text[nr]).replacingOccurrences(of: "−", with: "-")
-        let expression = String(text[er])
-        guard expression.contains(variable), !expression.contains(where: { DoitSubjectNote.isHangul($0) }) else { return nil }
+        // 값: 수 · 분수 · 1 + √2 · 2 − √3 · √5
+        let number = #"−?-?[0-9]+(?:[./][0-9]+)?"#
+        let surd = #"[0-9]*\s*√\s*[0-9]+"#
+        let valuePattern = #"(?:\#(number)(?:\s*[+\-−]\s*\#(surd))?|−?-?\#(surd)(?:\s*[+\-−]\s*[0-9]+)?)"#
+        let pattern = "([a-z])\\s*=\\s*(\(valuePattern))\\s*일\\s*때\\s*,?\\s*(?:식\\s*)?(.+?)\\s*의\\s*값"
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+        for m in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let vr = Range(m.range(at: 1), in: text), let nr = Range(m.range(at: 2), in: text), let er = Range(m.range(at: 3), in: text) else { continue }
+            // "x + 1/x = 4일 때", "3^x = 81일 때", "log₂ x = 3일 때"의 x = 4는 x의 값이 아님: 문자 앞이 글 처음·한글·쉼표일 때만
+            let before = text[..<vr.lowerBound].trimmingCharacters(in: .whitespaces)
+            if let last = before.last, !(DoitSubjectNote.isHangul(last) || ",，:".contains(last)) { continue }
+            let variable = Character(String(text[vr]))
+            let value = String(text[nr]).replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: " ", with: "")
+            let expression = String(text[er])
+            // 묻는 식이 그 문자 하나뿐이면 ("x의 값") 넣어서 계산할 게 없어요
+            guard expression.contains(variable), expression.trimmingCharacters(in: .whitespaces) != String(variable),
+                  !expression.contains(where: { DoitSubjectNote.isHangul($0) }) else { continue }
+            return substituted(expression, variable: variable, value: value)
+        }
+        return nil
+    }
+
+    private static func substituted(_ expression: String, variable: Character, value: String) -> String {
         var out = ""
         var previous: Character?
         for c in expression {
@@ -144,7 +176,12 @@ enum DoitAutoSolve {
         var t = answer
         if let eq = t.lastIndex(of: "=") { t = String(t[t.index(after: eq)...]) }
         t = t.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: " ", with: "")
-        if let paren = t.firstIndex(of: "(") { t = String(t[..<paren]) }
+        // 끝에 붙은 어림값·설명 ("257/16 (≈ 16.06)")만 떼요: "2(5x² + 4x + 8)"의 2를 값으로 읽으면 안 돼요
+        if let r = answer.range(of: #"\s+\([^()]*\)\s*$"#, options: .regularExpression) {
+            t = String(answer[..<r.lowerBound])
+            if let eq = t.lastIndex(of: "=") { t = String(t[t.index(after: eq)...]) }
+            t = t.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: " ", with: "")
+        }
         if let v = Double(t) { return v }
         let parts = t.split(separator: "/")
         if parts.count == 2, let a = Double(parts[0]), let b = Double(parts[1]), b != 0 { return a / b }
