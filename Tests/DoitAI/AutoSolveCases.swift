@@ -78,6 +78,14 @@ func runAutoSolveCases() {
         let got = MathSolver.solve(text)?.answer
         check("복소수 조건: \(text.prefix(30))", got == expected, got ?? "nil")
     }
+    let variants: [String] = [
+        "복소수 z = (2+4i)(x-8i)에 대하여 z²이 양의 실수가 되도록 하는 실수 x의 값을 a, z2이 음의 실수가 되도록 하는 실수 x의 값을 b라 할 때, a+b의 값은?",
+        "복소수 z=(2+4i)(x-8i)에 대하여 z^{2}이 양의 실수가 되도록 하는 실수 x의 값을 a, z^{2}이 음의 실수가 되도록 하는 실수 x의 값을 b라 할 때, a+b의 값은?",
+        "복소수 z = (2+4i)(x-8i) 에 대하여 z²이 양수가 되도록 하는 실수 x의 값을 a, z²이 음수가 되도록 하는 실수 x의 값을 b라 할 때, a+b의 값은?",
+    ]
+    for text in variants { check("복소수 조건 (사진 글 모양): \(text.suffix(40))", MathSolver.solve(text)?.answer == "-12", MathSolver.solve(text)?.answer ?? "nil") }
+    let half = MathSolver.solve("복소수 z=(2+4i)(x-8i)에 대하여 z²이 양의 실수가 되도록 하는 실수 x의 값을 a, z 이 음의 실수가 되도록 하는 실수 x의 값을 b라 할 때, a+b의 값은?")?.answer
+    check("복소수 조건: 조건 하나를 못 읽으면 반쪽 답(a = 4)을 내지 않음", half == nil || half == "-12", half ?? "nil")
     check("복소수 계산은 그대로", MathSolver.solve("(2+4i)(3-8i)")?.answer == "38 − 4i")
     check("문자가 붙은 복소수는 계산으로 풀지 않음", MathSolver.solve("z = (1+i)x + 2 - 3i가 실수가 되도록 하는 실수 x의 값은?")?.answer != "2 − 3i")
 }

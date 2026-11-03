@@ -785,6 +785,12 @@ enum DoitMathConstants {
 
     // MARK: - 실수 x가 들어간 복소수의 조건 (실수 · 순허수 · 양/음의 실수, z와 z²)
 
+    /// "양의 실수" · "양수" → "양의실수"
+    private static func kindName(_ raw: String) -> String {
+        let k = raw.replacingOccurrences(of: " ", with: "")
+        return k == "양수" ? "양의실수" : k == "음수" ? "음의실수" : k
+    }
+
     private static func complexParameter(_ t: String) -> Solved? {
         guard t.range(of: #"(?<![a-z])i(?![a-z])"#, options: .regularExpression) != nil,
               let def = match(t, #"(?<![a-z])([a-hj-z])\s*=\s*([0-9a-z+\-*/^()\s.]+?)\s*(?=[가-힣,]|$)"#),
@@ -796,19 +802,20 @@ enum DoitMathConstants {
         let R = Z.coefficient("i", 0), I = Z.coefficient("i", 1)
         guard R.letters.isSubset(of: [u]), I.letters.isSubset(of: [u]), !(R.letters.isEmpty && I.letters.isEmpty) else { return nil }
         let n = String(name)
-        let target = "(\(n)\\s*\\^\\s*2|\(n)²|\(n))"
-        let kind = #"(양의\s*실수|음의\s*실수|순허수|실수)"#
+        // z² · z^2 · z^{2} · (위 첨자를 놓쳐) z2
+        let target = "(\(n)\\s*\\^\\s*\\{?\\s*2\\s*\\}?|\(n)²|\(n)2(?![0-9])|\(n))"
+        let kind = #"(양의\s*실수|음의\s*실수|순허수|실수|양수|음수)"#
         // 조건 하나: (z 또는 z², 무엇이 되는지, 값을 담을 문자)
         var clauses: [(squared: Bool, kind: String, letter: Character?)] = []
         for m in matches(t, target + #"\s*(?:의\s*값)?\s*(?:이|가)\s*"# + kind + #"[^,.]*?값을\s*([a-z])(?![a-z])"#) {
-            clauses.append((m[1] != n, m[2].replacingOccurrences(of: " ", with: ""), m[3].first))
+            clauses.append((m[1] != n, kindName(m[2]), m[3].first))
         }
         if clauses.isEmpty, let m = match(t, target + #"\s*(?:의\s*값)?\s*(?:이|가)\s*"# + kind) {
-            clauses.append((m[1] != n, m[2].replacingOccurrences(of: " ", with: ""), nil))
+            clauses.append((m[1] != n, kindName(m[2]), nil))
         }
         // 식 바로 뒤에 조건: "z = (1 + i)x + 2 − 3i가 실수가 되도록"
         if clauses.isEmpty, let m = match(t, #"[0-9i)]\s*(?:이|가|은|는)\s*"# + kind) {
-            clauses.append((false, m[1].replacingOccurrences(of: " ", with: ""), nil))
+            clauses.append((false, kindName(m[1]), nil))
         }
         guard !clauses.isEmpty else { return nil }
 
@@ -860,6 +867,11 @@ enum DoitMathConstants {
             _ = what
         }
         var answer: String
+        // 묻는 식의 문자를 다 구하지 못했으면 (조건 하나를 못 읽음) 반쪽 답을 내지 않음
+        if let asked = askedExpression(t), !values.isEmpty {
+            let needed = Set(asked.filter { $0.isLetter })
+            guard needed.isSubset(of: Set(values.keys)) else { return nil }
+        }
         if let asked = askedExpression(t), !values.isEmpty, let p = parse(asked, variables: Set(values.keys)), let v = p.evaluate(values) {
             steps.append(SolutionStep(hint: "\(pretty(asked))의 값은", work: "\(pretty(asked)) = \(f(clean(v)))"))
             answer = f(clean(v))
