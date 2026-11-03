@@ -85,6 +85,8 @@ func runFigureCases() {
     check("두잇 2 읽기: 이름, 값 줄", rows?.lines == ["[표] 1월 30, 2월 45, 3월 25"], "\(rows?.lines ?? [])")
     let unnamed = DoitFigureFacts.parseVision("평행: l, m\n각: ∠x = x, ∠65° = 65°")
     check("두잇 2 읽기: 이름 없는 각", unnamed?.lines == ["l ∥ m", "그림에 적힌 각 65°"], "\(unnamed?.lines ?? [])")
+    check("두잇 2 읽기: 되풀이한 답은 버림", DoitFigureFacts.parseVision("도형, 도형, 도형, 도형, 도형, 도형, 도형, 도형, 없음, A, B, C, AB = 1, AC = 1, ∠A = 40°") == nil)
+    check("두잇 2 읽기: 도형 답의 '이름 = 숫자'는 자료가 아님", DoitFigureFacts.parseVision("종류: 도형\nAB = 1, AC = 1") == nil)
     check("두잇 2 읽기: 아무 글은 값이 아님", DoitFigureFacts.parseVision("그림에는 삼각형이 있고, 길이는 5이다") == nil)
     check("그래프 식: 문제 글이 포물선이면 점 셋으로", DoitFigureFacts.graphEquation(["지나는 점 (-1, 0), (3, 0), (0, -3)"], hint: "그림과 같은 포물선") == "y = x² - 2x - 3")
     let circle = DoitFigureFacts.parseVision("원: O, 반지름 = 5\n중심각: AOB = 80")

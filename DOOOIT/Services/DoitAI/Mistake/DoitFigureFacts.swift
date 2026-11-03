@@ -506,12 +506,11 @@ enum DoitFigureFacts {
     직각: <직각 표시가 있는 각 이름>
     평행: <선분>, <선분>
     원: <중심 이름>, 반지름 = <숫자>
-    중심각: <각 이름> = <그림에 적힌 도>
     지나는 점: (<x>, <y>), (<x>, <y>)
     꼭짓점: (<x>, <y>)
     x절편: <숫자>
     y절편: <숫자>
-    값: <항목 이름> = <숫자>, <항목 이름> = <숫자> (그래프·표의 모든 항목)
+    값: <항목 이름> = <숫자>
     """
 
     /// "1월 = 30, 2월 = 45" / "A=20, B=35" / "가 1,200, 나 950" → 이름-값 쌍 (천 단위 쉼표는 나누지 않음)
@@ -542,6 +541,8 @@ enum DoitFigureFacts {
             values.append(pair)
         }
         let seg = #"(?<![A-Za-z])([A-Z])\x{0305}?\s*([A-Z])\x{0305}?(?![A-Za-z])"#
+        // 같은 말을 되풀이한 답("도형, 도형, 도형, …")은 버림
+        if raw.range(of: #"([^\s,]{1,6})(?:\s*,\s*\1){5,}"#, options: .regularExpression) != nil, !raw.contains(":") { return nil }
         for rawLine in raw.replacingOccurrences(of: "\r", with: "").components(separatedBy: "\n") {
             var line = rawLine.trimmingCharacters(in: .whitespaces)
             line = line.replacingOccurrences(of: #"^[-*•·]\s*|^\d+[.)]\s+"#, with: "", options: .regularExpression)
@@ -549,7 +550,9 @@ enum DoitFigureFacts {
                 .replacingOccurrences(of: "−", with: "-")
             guard let colon = line.firstIndex(of: ":") else {
                 // "막대그래프, A=20, B=35"처럼 머리말 없이 값만 쓴 줄, "1월, 30"처럼 이름-값 한 쌍인 줄
-                let pairs = valuePairs(line, needsSign: true)
+                // 차트·표라고 밝힌 답에서만 (도형 답이 되풀이되며 "AB = 1, AC = 1"처럼 낸 것을 값으로 읽지 않게)
+                let chartWords = ["그래프", "표", "자료"]
+                let pairs = kind == .chart || kind == .table || chartWords.contains(where: { line.contains($0) }) ? valuePairs(line, needsSign: true) : []
                 if pairs.count >= 2 { pairs.forEach(addValue) }
                 else if let m = matchAll(line, #"^([^,=:]{1,12}?)\s*[,=]\s*(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)\s*(%?)$"#).first {
                     addValue((m[1].trimmingCharacters(in: .whitespaces), m[2].replacingOccurrences(of: ",", with: "") + m[3]))
