@@ -198,10 +198,15 @@ struct MockExamView: View {
     private var clock: some View {
         TimelineView(.periodic(from: startedAt, by: 1)) { timeline in
             let left = DoitMockExam.minutes * 60 - Int(timeline.date.timeIntervalSince(startedAt))
-            Label(Self.mmss(abs(left)), systemImage: left >= 0 ? "timer" : "exclamationmark.circle")
-                .font(.subheadline.weight(.semibold).monospacedDigit())
-                .foregroundStyle(left >= 0 ? Palette.ink : Palette.warning)
-                .contentTransition(.numericText())
+            // 툴바의 Label은 아이콘만 보여서 직접 나란히
+            HStack(spacing: 5) {
+                Image(systemName: left >= 0 ? "timer" : "exclamationmark.circle")
+                Text((left >= 0 ? "" : "+") + Self.mmss(abs(left)))
+                    .contentTransition(.numericText())
+            }
+            .font(.subheadline.weight(.semibold).monospacedDigit())
+            .foregroundStyle(left >= 0 ? Palette.ink : Palette.warning)
+            .accessibilityLabel(left >= 0 ? "남은 시간 \(Self.mmss(left))" : "시간 지남")
         }
     }
 

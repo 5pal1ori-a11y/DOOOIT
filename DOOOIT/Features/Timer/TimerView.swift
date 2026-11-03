@@ -116,6 +116,7 @@ struct TimerView: View {
         .sheet(isPresented: $showSounds) {
             AmbientSoundSheet()
                 .presentationDetents([.medium, .large])
+                .presentationBackground(Palette.card)
         }
     }
 
