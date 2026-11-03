@@ -56,25 +56,41 @@ struct MainTabView: View {
     @State private var plannerRouter = PlannerRouter()
     @State private var router = AppRouter.shared
 
+    /// 탭 바는 아이콘만 (이름은 VoiceOver로 읽어 줌)
+    private func tabIcon(_ title: String, _ symbol: String) -> some View {
+        Image(systemName: symbol)
+            .accessibilityLabel(title)
+    }
+
     var body: some View {
         @Bindable var studyTimer = studyTimer
         @Bindable var router = router
 
         TabView(selection: $tab) {
-            Tab("홈", systemImage: "house.fill", value: AppTab.home) {
+            Tab(value: AppTab.home) {
                 HomeView(selectedTab: $tab)
+            } label: {
+                tabIcon("홈", "house.fill")
             }
-            Tab("학습", systemImage: "graduationcap.fill", value: AppTab.study) {
+            Tab(value: AppTab.study) {
                 StudyView()
+            } label: {
+                tabIcon("학습", "graduationcap.fill")
             }
-            Tab("두잇 AI", systemImage: "wand.and.stars", value: AppTab.ai) {
+            Tab(value: AppTab.ai) {
                 DoitAIView()
+            } label: {
+                tabIcon("두잇 AI", "wand.and.stars")
             }
-            Tab("플래너", systemImage: "calendar.badge.checkmark", value: AppTab.planner) {
+            Tab(value: AppTab.planner) {
                 PlannerView()
+            } label: {
+                tabIcon("플래너", "calendar.badge.checkmark")
             }
-            Tab("계정", systemImage: "person.crop.circle.fill", value: AppTab.account) {
+            Tab(value: AppTab.account) {
                 AccountView()
+            } label: {
+                tabIcon("계정", "person.crop.circle.fill")
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)
