@@ -167,6 +167,12 @@ final class DoitAssistant {
             return
         }
 
+        // 4-3) 사진 속 문제 풀기: 사진만 보냈는데 문제처럼 보이거나, "풀어줘"·"답 알려줘" (바로 전 사진도)
+        if let reply = await solvePhotoProblem(routed, photo: photo, fresh: image != nil) {
+            messages.append(reply)
+            return
+        }
+
         // 5) 사진: 그래프·도형·일반 사진·QR·문서는 그림 분석으로 답함 (문제 사진·단어장·저장 부탁은 아래 엔진이 처리)
         if let image, let analyzed = await analyzePhoto(image, question: question, photo: photo) {
             messages.append(analyzed)
@@ -583,6 +589,56 @@ final class DoitAssistant {
             let pool: [DoitEngine.QuizSource] = [.math(nil), .english(nil), .science(nil), .social(nil)]
             return await makeQuestion(pool.randomElement() ?? .math(nil))
         }
+    }
+
+    /// 사진 속 문제를 읽고 풀기: 수학은 풀이 엔진(계산으로 확인), 못 풀면 · 다른 과목은 두잇 1·2 모델 (추측 표시)
+    private func solvePhotoProblem(_ question: String, photo: DoitEngine.PhotoContext?, fresh: Bool) async -> Message? {
+        guard let photo, !photo.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let asked = DoitAutoSolve.asksToSolve(question)
+        // 사진만 보냈으면 문제처럼 보일 때만 (단어장 사진은 단어 처리로)
+        guard asked || (fresh && question.isEmpty && photo.words.count < 3) else { return nil }
+        let text = photo.text
+        let subject = DoitSubjectDetector.detect(text)
+        let isMath = subject?.broad == "수학" || (subject == nil && (DoitMath.looksLikeMath(text) || DoitSubjectDetector.looksMath(text)))
+        let scan = DoitProblemScan.scan(text, math: isMath)
+        guard asked || DoitAutoSolve.looksLikeProblem(text, scan: scan) else { return nil }
+        let choices = scan.choices
+        let isChoice = choices.count >= 2
+        let type = scan.problemType ?? DoitProblemTypes.classify(text, subjectHint: subject?.broad, limit: 1).first?.type
+        status = "문제를 푸는 중…"
+        turn.kind = .chat
+
+        var solution: WrittenSolution?
+        if isMath || DoitMath.looksLikeMath(text) {
+            solution = DoitAutoSolve.engine(text: text, choices: choices, isChoice: isChoice, body: scan.body)
+        }
+        if solution == nil || solution?.finalAnswer.hasPrefix("계산한 값") == true, DoitMind.isAvailable {
+            status = "두잇 AI가 문제를 푸는 중…"
+            let body = scan.body.isEmpty ? text : scan.body
+            let prompt = DoitAutoSolve.modelPrompt(problem: body, choices: isChoice ? choices : [],
+                                                   subjectName: subject?.noteLabel ?? (isMath ? "수학" : "모름"), problemType: type)
+            if let raw = try? await DoitBrain.shared.complete(system: DoitMind.persona, prompt: prompt, maxTokens: 600, temperature: 0.2),
+               let guess = DoitAutoSolve.parseModel(DoitMind.answer(raw), problem: text, choices: isChoice ? choices : []),
+               solution == nil {
+                solution = guess
+            }
+        }
+        var suggestions = ["오답노트에 저장해줘"]
+        if let solution {
+            if isMath, solution.source == DoitAutoSolve.engineSource { lastMath = scan.body.isEmpty ? text : scan.body; suggestions.append("비슷한 문제 내줘") }
+            suggestions.append("이 문제 무슨 유형이야?")
+            return Message(role: .assistant, text: DoitAutoSolve.chatText(solution, choices: choices, typeName: type?.name), suggestions: suggestions)
+        }
+        // 못 풀었으면: 읽은 문제 + 푸는 법 (정답을 지어내지 않음)
+        var lines = ["이 문제는 제가 확실하게 풀지 못했어요."]
+        if let type {
+            lines.append("📌 \(type.name) 문제예요. \(type.asks)")
+            if !type.steps.isEmpty { lines.append("푸는 법 · " + type.steps.prefix(3).joined(separator: " → ")) }
+        }
+        lines.append("\n읽은 문제\n" + MathSymbolBar.pretty(String(text.prefix(400))))
+        if !DoitMind.isAvailable { lines.append("\n위쪽 메뉴에서 두잇 모델을 받으면 다른 과목 문제도 풀어 봐요.") }
+        else { lines.append("\n글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
+        return Message(role: .assistant, text: lines.joined(separator: "\n"), suggestions: suggestions)
     }
 
     /// 사진 분석 (그래프 식, 도형 계산, 사진 속 사물, QR, 문서)

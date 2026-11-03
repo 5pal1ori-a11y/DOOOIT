@@ -52,4 +52,18 @@ func runAutoSolveCases() {
     // 프롬프트에 문제·선지·형식
     let prompt = DoitAutoSolve.modelPrompt(problem: "빈칸에 알맞은 말은?", choices: opts, subjectName: "영어", problemType: nil)
     check("AI 풀이 프롬프트", prompt.contains("[과목] 영어") && prompt.contains("1) went") && prompt.contains("정답: "))
+
+    // 대화: 사진 속 문제 풀기
+    check("대화 사진 풀기: 풀어줘", DoitAutoSolve.asksToSolve("이거 풀어줘") && DoitAutoSolve.asksToSolve("답 알려줘") && DoitAutoSolve.asksToSolve("몇 번이야?"))
+    check("대화 사진 풀기: 저장·유형은 아님", !DoitAutoSolve.asksToSolve("오답노트에 저장해줘") && !DoitAutoSolve.asksToSolve("이 문제 무슨 유형이야?") && !DoitAutoSolve.asksToSolve("단어 추가해줘"))
+    let choiceScan = DoitProblemScan.scan("다음 빈칸에 알맞은 것은?\n① went ② go ③ goes", math: false)
+    check("대화 사진 풀기: 선지 있는 글은 문제", DoitAutoSolve.looksLikeProblem("다음 빈칸에 알맞은 것은?\n① went ② go ③ goes", scan: choiceScan))
+    check("대화 사진 풀기: 그냥 글은 문제 아님", !DoitAutoSolve.looksLikeProblem("오늘 점심은 김밥", scan: DoitProblemScan.scan("오늘 점심은 김밥", math: false)))
+    if let solved = DoitAutoSolve.engine(text: "x^2 - 5x + 6 = 0", choices: [], isChoice: false) {
+        let text = DoitAutoSolve.chatText(solved, choices: [])
+        check("대화 사진 풀기: 정답 먼저", text.hasPrefix("**정답: ") && text.contains("1. "), text)
+    } else { check("대화 사진 풀기: 엔진", false) }
+    let guess = WrittenSolution(concept: "", steps: [SolutionStep(hint: "", work: "어제라서 과거형")], finalAnswer: "1", source: DoitAutoSolve.modelSource)
+    let guessText = DoitAutoSolve.chatText(guess, choices: opts)
+    check("대화 사진 풀기: 모델 답은 추측 표시", guessText.contains("AI 추측") && guessText.contains("1번 (went)") && guessText.contains("확인해"), guessText)
 }

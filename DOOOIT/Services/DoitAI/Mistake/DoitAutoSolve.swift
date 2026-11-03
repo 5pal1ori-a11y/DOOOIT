@@ -236,4 +236,43 @@ enum DoitAutoSolve {
         guard let solution, solution.source != nil, let saved = solution.problem else { return false }
         return saved == problem.trimmingCharacters(in: .whitespacesAndNewlines)
     }
+
+    // MARK: - 두잇 AI 대화: 사진 속 문제 풀기
+
+    /// 풀어 달라는 말인지 ("풀어줘", "답 알려줘", "이거 몇 번이야?", "어떻게 풀어?")
+    /// 저장·단어·메모·유형·과목을 묻는 말은 아님
+    static func asksToSolve(_ question: String) -> Bool {
+        let q = question.replacingOccurrences(of: " ", with: "")
+        if ["저장", "노트에", "단어", "메모", "유형", "과목", "읽어", "분석"].contains(where: { q.contains($0) }) { return false }
+        return ["풀어", "풀이", "풀자", "푸는", "정답", "답알려", "답이뭐", "답뭐", "답은", "몇번", "계산", "어떻게풀", "구해", "해설", "알려줘", "모르겠"].contains { q.contains($0) }
+            || q == "답" || q == "답?" || q == "이거" || q == "이거?"
+    }
+
+    /// 사진 글이 문제처럼 보이는지 (선지 · 물음표 · "구하시오"·"고르시오" 같은 지시 · 빈칸)
+    static func looksLikeProblem(_ text: String, scan: ProblemScan) -> Bool {
+        if scan.choices.count >= 2 { return true }
+        let t = text.replacingOccurrences(of: " ", with: "")
+        if t.contains("□") || t.contains("?") || t.contains("？") { return true }
+        return ["구하시오", "고르시오", "쓰시오", "나타내시오", "계산하시오", "전개하시오", "인수분해하시오", "간단히하시오",
+                "것은", "무엇인가", "얼마인가", "설명하시오", "서술하시오"].contains { t.contains($0) }
+    }
+
+    /// 대화에 보여 줄 풀이: 정답 → 핵심 개념 → 단계 (모델이 푼 답은 확인 안내)
+    static func chatText(_ solution: WrittenSolution, choices: [String], typeName: String? = nil) -> String {
+        let fromModel = solution.source == modelSource
+        var lines: [String] = []
+        if let typeName { lines.append("📌 \(typeName) 문제예요") }
+        let answer = DoitSubjectNote.describe(solution.finalAnswer, choices: choices)
+        lines.append("**정답\(fromModel ? " (AI 추측)" : ""): \(answer)**")
+        if !solution.concept.isEmpty { lines.append("💡 " + solution.concept) }
+        for (i, step) in solution.steps.prefix(8).enumerated() {
+            let hint = step.hint.trimmingCharacters(in: .whitespaces)
+            let work = step.work.trimmingCharacters(in: .whitespaces)
+            if hint.isEmpty { lines.append("\(i + 1). \(work)") }
+            else { lines.append("\(i + 1). \(hint)" + (work.isEmpty ? "" : " → \(work)")) }
+        }
+        if fromModel { lines.append("AI가 추측한 답이에요. 꼭 확인해 보세요.") }
+        else if solution.finalAnswer.hasPrefix("계산한 값") { lines.append("선지에서 같은 답을 못 찾았어요. 사진 글이 맞게 읽혔는지 확인해 보세요.") }
+        return lines.joined(separator: "\n")
+    }
 }
