@@ -23,6 +23,42 @@ enum AccountStore {
         SettingsKey.dDayTitle, SettingsKey.dDayDate, "selectedTab", "doitUserName", "dooit.autoStartedPlanKeys"
     ]
 
+    // MARK: iCloud 동기화 (같은 Apple ID 기기끼리 이어짐)
+
+    /// iCloud 컨테이너 (CloudKit 개인 데이터베이스: 사용자 본인 iCloud에 저장)
+    static let cloudContainer = "iCloud.com.bravekoon.dooit"
+    /// 이 기기에서 iCloud로 이어 쓰는 계정 (한 기기에 한 계정만: 여러 계정이 한 iCloud 공간을 쓰면 섞여서)
+    private static let syncOwnerKey = "accounts.iCloudSyncOwner"
+    /// 동기화를 켜고 끄면 저장소를 다시 엶
+    static let storeChanged = Notification.Name("AccountStore.storeChanged")
+
+    /// iPhone에 iCloud 로그인이 되어 있는지
+    static var iCloudAvailable: Bool { FileManager.default.ubiquityIdentityToken != nil }
+
+    static func isSyncEnabled(for userID: String?) -> Bool {
+        guard let userID else { return false }
+        return UserDefaults.standard.string(forKey: syncOwnerKey) == userID
+    }
+
+    /// 다른 계정이 이미 이 기기에서 iCloud를 쓰는지
+    static func syncOwnedByOther(than userID: String?) -> Bool {
+        guard let owner = UserDefaults.standard.string(forKey: syncOwnerKey) else { return false }
+        return owner != userID
+    }
+
+    /// 동기화 켜기·끄기 → 저장소를 다시 엶 (기기 안 자료는 그대로, 켜면 iCloud와 합쳐짐)
+    static func setSync(_ on: Bool, for userID: String) {
+        let defaults = UserDefaults.standard
+        if on { defaults.set(userID, forKey: syncOwnerKey) }
+        else if defaults.string(forKey: syncOwnerKey) == userID { defaults.removeObject(forKey: syncOwnerKey) }
+        NotificationCenter.default.post(name: storeChanged, object: nil)
+    }
+
+    /// 계정을 지울 때: 저장소를 다시 열지 않고 동기화 표시만 지움
+    static func clearSync(for userID: String) {
+        if UserDefaults.standard.string(forKey: syncOwnerKey) == userID { UserDefaults.standard.removeObject(forKey: syncOwnerKey) }
+    }
+
     private static let legacyClaimedKey = "accounts.legacyStoreClaimed"
     private static let activeKey = "accounts.activeSettingsOwner"
     private static let pendingRemovalKey = "accounts.pendingRemoval"
@@ -36,8 +72,14 @@ enum AccountStore {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         claimLegacyStoreIfNeeded(into: folder)
         let url = folder.appending(path: "DOOOIT.store")
+        // iCloud 권한이 있으면 SwiftData가 저절로 동기화하므로, 켜지 않은 저장소는 꼭 .none으로 (계정끼리 섞이지 않게)
+        // iCloud 동기화를 켠 계정: 같은 파일을 iCloud와 이어서 엶 (열 수 없으면 아래처럼 기기 안에만 — 자료는 그대로)
+        if isSyncEnabled(for: userID), iCloudAvailable,
+           let synced = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer))) {
+            return synced
+        }
         do {
-            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url))
+            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
         } catch {
             // 열 수 없으면 (예: 형식이 맞지 않음) 앱이 매번 꺼지지 않도록 기존 파일을 백업해 두고 새로 시작
             let stamp = Int(Date().timeIntervalSince1970)
@@ -47,14 +89,14 @@ enum AccountStore {
                     try? FileManager.default.moveItem(at: file, to: folder.appending(path: "DOOOIT.store\(suffix).backup-\(stamp)"))
                 }
             }
-            if let fresh = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url)) { return fresh }
+            if let fresh = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)) { return fresh }
             return memoryContainer()
         }
     }
 
     private static func memoryContainer() -> ModelContainer {
         do {
-            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true))
+            return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         } catch {
             fatalError("메모리 저장소를 만들 수 없어요: \(error)")
         }

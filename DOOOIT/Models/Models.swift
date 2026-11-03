@@ -397,6 +397,24 @@ enum SeedData {
         }
         UserDefaults.standard.set(true, forKey: key)
     }
+
+    /// 이름이 같은 카테고리 합치기 (두 기기에서 각각 만든 기본 카테고리가 iCloud로 합쳐졌을 때): 먼저 만든 것만 남기고 플랜을 옮김
+    static func mergeDuplicateCategories(_ context: ModelContext) {
+        guard let all = try? context.fetch(FetchDescriptor<PlanCategory>()), all.count > 1 else { return }
+        var keep: [String: PlanCategory] = [:]
+        var changed = false
+        for category in all.sorted(by: { ($0.sortIndex, $0.id.uuidString) < ($1.sortIndex, $1.id.uuidString) }) {
+            let key = "\(category.isStudy)|\(category.name.trimmingCharacters(in: .whitespaces))"
+            if let first = keep[key] {
+                for plan in category.plans ?? [] { plan.category = first }
+                context.delete(category)
+                changed = true
+            } else {
+                keep[key] = category
+            }
+        }
+        if changed { try? context.save() }
+    }
 }
 
 // MARK: - AI 오답노트 도우미 (JSON 필드 읽기·쓰기)
