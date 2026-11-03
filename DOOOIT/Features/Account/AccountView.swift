@@ -127,7 +127,7 @@ struct AccountView: View {
         List {
             Section {
                 Toggle(isOn: Binding(get: { syncOn }, set: { changeSync($0) })) {
-                    item("iCloud 동기화", "icloud", Color(hex: "#3B82F6"))
+                    item("iCloud 동기화", "icloud", Palette.sky)
                 }
                 .disabled(!AccountStore.iCloudAvailable && !syncOn)
             } footer: {

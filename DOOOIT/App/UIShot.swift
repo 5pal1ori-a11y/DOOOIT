@@ -60,7 +60,7 @@ enum UIShot {
     static func makeContainer() -> ModelContainer {
         let schema = AccountStore.schema
         // swiftlint:disable:next force_try
-        let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true))
+        let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         seed(container.mainContext)
         return container
     }

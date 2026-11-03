@@ -88,6 +88,9 @@ struct DOOOITApp: App {
                 .onOpenURL { url in _ = AuthManager.handleGoogleURL(url) }
                 // iCloud 동기화를 켜거나 끄면 저장소를 다시 엶
                 .onReceive(NotificationCenter.default.publisher(for: AccountStore.storeChanged)) { _ in
+                    #if DEBUG
+                    if UIShot.isActive { return }
+                    #endif
                     container = AccountStore.container(for: auth.currentUser?.id)
                     attachServices()
                 }
