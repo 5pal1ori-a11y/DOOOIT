@@ -63,11 +63,12 @@ struct MainTabView: View {
     @State private var plannerRouter = PlannerRouter()
     @State private var router = AppRouter.shared
 
-    /// 탭 바는 아이콘만 (이름은 VoiceOver로 읽어 줌): 단순한 채운 모양, 고른 탭은 진한 색 · 나머지는 회색
+    /// 탭 바는 아이콘만 (이름은 VoiceOver로 읽어 줌): 얇고 둥근 선 모양 (탭 바가 저절로 채운 모양으로 바꾸지 않게 막음),
+    /// 고른 탭은 진한 색 · 나머지는 회색
     private func tabIcon(_ title: String, _ symbol: String) -> some View {
         Image(systemName: symbol)
-            .symbolVariant(.fill)
-            .fontWeight(.semibold)
+            .environment(\.symbolVariants, .none)
+            .fontWeight(.regular)
             .accessibilityLabel(title)
     }
 
