@@ -55,28 +55,30 @@ struct MathNoteEditorView: View {
                     case .note:
                         page(width: pageWidth)
                     case .grade where !subject.isMath:
-                        // 수학이 아닌 과목: AI 풀이 → 채점 → 틀린 이유 → 해설 → 다시 풀기 → 취약 개념
+                        // 수학이 아닌 과목: AI 풀이 → 함께 풀기 → 내 답 채점 → (채점 뒤) 틀린 이유 · 해설 · 다시 풀기 → 취약 개념
                         VStack(spacing: 14) {
                             AISolutionCard(note: note) { withAnimation(.snappy) { tab = .text; isEditingText = true } }
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
-                            if note.isRecognitionConfirmed {
+                            if note.isRecognitionConfirmed, note.grade != nil {
                                 SubjectCauseCard(note: note)
                                 SubjectExplainCard(note: note)
                                 SubjectRetryCard(note: note)
-                                WeakConceptBadge(note: note)
                             }
+                            if note.isRecognitionConfirmed { WeakConceptBadge(note: note) }
                         }
                     case .grade:
-                        // AI 풀이 → 채점 → 오답 원인 → 과정 채점 → 재도전 → 취약 개념
+                        // AI 풀이 → 함께 풀기 → 내 답 채점 → (채점 뒤) 오답 원인 · 다시 풀기 → 과정 채점(접힘) → 취약 개념
                         VStack(spacing: 14) {
                             AISolutionCard(note: note) { withAnimation(.snappy) { tab = .text; isEditingText = true } }
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             if note.isRecognitionConfirmed {
-                                MistakeAnalysisCard(note: note)
+                                if note.grade != nil {
+                                    MistakeAnalysisCard(note: note)
+                                    SimilarProblemsCard(note: note, retryOnly: true)
+                                }
                                 WorkCheckCard(note: note)
-                                SimilarProblemsCard(note: note, retryOnly: true)
                                 WeakConceptBadge(note: note)
                             }
                         }

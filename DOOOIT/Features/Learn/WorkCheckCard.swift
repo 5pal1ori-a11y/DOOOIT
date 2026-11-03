@@ -16,6 +16,8 @@ struct WorkCheckCard: View {
     @State private var isEditing = false
     @State private var explanation: String?
     @State private var message: String?
+    /// 처음에는 접어 둠 (풀이를 이미 넣었거나 채점했으면 펼침)
+    @State private var expanded = false
 
     private var report: DoitWorkChecker.Report? {
         note.workCheckData.flatMap { try? JSONDecoder().decode(DoitWorkChecker.Report.self, from: $0) }
@@ -27,7 +29,35 @@ struct WorkCheckCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            header
+            Button {
+                withAnimation(Motion.spring) { expanded.toggle() }
+            } label: {
+                HStack {
+                    header
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            if isOpen { content }
+        }
+        .padding(18)
+        .background(Palette.card, in: .rect(cornerRadius: 26))
+        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .animation(Motion.spring, value: note.workCheckData)
+        .animation(Motion.spring, value: reading)
+        .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 1) { images in
+            guard let image = images.first else { return }
+            Task { await read(image) }
+        }
+    }
+
+    private var isOpen: Bool { expanded || report != nil || !note.workText.isEmpty || isEditing || reading }
+
+    @ViewBuilder private var content: some View {
             sourceButtons
 
             if reading {
@@ -52,16 +82,6 @@ struct WorkCheckCard: View {
                 ReportView(report: report, explanation: explanation)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-        }
-        .padding(18)
-        .background(Palette.card, in: .rect(cornerRadius: 26))
-        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
-        .animation(Motion.spring, value: note.workCheckData)
-        .animation(Motion.spring, value: reading)
-        .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 1) { images in
-            guard let image = images.first else { return }
-            Task { await read(image) }
-        }
     }
 
     // MARK: Pieces
@@ -75,7 +95,7 @@ struct WorkCheckCard: View {
                 .background(Palette.success.gradient, in: .rect(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 1) {
                 Text("풀이 과정 채점").font(.headline).foregroundStyle(Palette.ink)
-                Text("내 풀이를 한 줄씩 확인해서 어디서 틀렸는지 알려줘요")
+                Text("내 풀이에서 틀린 줄을 찾아요")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

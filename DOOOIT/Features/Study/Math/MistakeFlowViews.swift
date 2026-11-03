@@ -12,14 +12,13 @@ struct FlowHeader: View {
     var trailingColor: Color = Theme.accent
 
     var body: some View {
-        // 번호 + 제목만 (아이콘은 빼서 깔끔하게)
+        // 아이콘 + 제목 (카드마다 번호가 달라 헷갈려서 번호는 쓰지 않음)
         HStack(spacing: 10) {
-            Text("\(number)")
-                .font(.caption.weight(.bold))
-                .monospacedDigit()
+            Image(systemName: symbol)
+                .font(.footnote.weight(.bold))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 24, height: 24)
-                .background(Theme.accent.opacity(0.12), in: .circle)
+                .frame(width: 28, height: 28)
+                .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 8))
             Text(title)
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
@@ -200,12 +199,12 @@ struct MistakeGradingCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            FlowHeader(number: 2, title: "채점", symbol: "checkmark.seal", trailing: note.grade?.verdict.title,
+            FlowHeader(number: 2, title: "내 답 채점", symbol: "checkmark.seal", trailing: note.grade?.verdict.title,
                        trailingColor: color(note.grade?.verdict))
             if !note.isRecognitionConfirmed {
                 lockedView
             } else {
-                Text(subject.isMath ? "\(kind.title) 문제예요. " + hint : hint).font(.caption).foregroundStyle(.secondary)
+                Text(hint).font(.caption).foregroundStyle(.secondary)
                 answerInputs
                 Button(action: grade) {
                     Label(note.grade == nil ? "채점하기" : "다시 채점하기", systemImage: "checkmark").frame(maxWidth: .infinity).frame(height: 38)
@@ -227,18 +226,17 @@ struct MistakeGradingCard: View {
             }
         }
         switch kind {
-        case .multipleChoice: return "고른 번호를 누르면 선택지로 자동 채점해요."
-        case .shortAnswer: return "띄어쓰기·기호는 무시하고, 정답이 여러 개면 | 로 나눠 적어요."
-        case .math: return "0.5 = 1/2, 해의 순서, 같은 식의 다른 모양도 같은 답으로 봐요. 정답을 비우면 직접 풀어서 확인해요."
-        case .essay: return "모범 답안의 핵심 내용이 들어 있는지로 부분 점수를 매기고, 최종 결과는 직접 확인해요."
+        case .multipleChoice: return "고른 번호로 채점해요"
+        case .shortAnswer: return "띄어쓰기·기호는 무시해요"
+        case .math: return "0.5 = 1/2처럼 같은 값이면 정답이에요"
+        case .essay: return "핵심 내용으로 부분 점수를 매겨요"
         }
     }
 
     private var lockedView: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("먼저 인식한 문제를 확인해 주세요", systemImage: "lock.fill").font(.subheadline.weight(.semibold))
-            Text("잘못 읽은 문제로 채점·풀이하지 않도록, 문제 탭에서 인식 결과를 확인한 뒤에 채점해요.").font(.caption).foregroundStyle(.secondary)
-            Button("문제 확인하러 가기", action: onNeedConfirm).font(.subheadline.weight(.bold))
+            Label("문제 탭에서 읽은 문제를 먼저 확인해 주세요", systemImage: "lock.fill").font(.subheadline.weight(.semibold))
+            Button("문제 확인하기", action: onNeedConfirm).font(.subheadline.weight(.bold))
         }
     }
 
@@ -410,17 +408,23 @@ struct MistakeAnalysisCard: View {
                     if analysis.certainty == .estimated { Text("(추정)").font(.caption).foregroundStyle(.secondary) }
                 }
                 Text(analysis.explanation).font(.subheadline).fixedSize(horizontal: false, vertical: true)
-                if !analysis.evidence.isEmpty {
-                    section("근거", items: analysis.evidence, symbol: "doc.text.magnifyingglass")
-                }
                 if !analysis.missedConcepts.isEmpty {
-                    section("놓친 핵심 개념", items: analysis.missedConcepts, symbol: "lightbulb")
+                    section("놓친 개념", items: analysis.missedConcepts, symbol: "lightbulb")
                 }
-                if !analysis.direction.isEmpty {
-                    section("올바른 풀이 방향", items: [analysis.direction], symbol: "arrow.triangle.turn.up.right.diamond")
+                // 근거·풀이 방향·복습은 펼쳐서
+                if !analysis.evidence.isEmpty || !analysis.direction.isEmpty || !analysis.review.isEmpty || !analysis.next.isEmpty {
+                    DisclosureGroup("자세히") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            if !analysis.evidence.isEmpty { section("근거", items: analysis.evidence, symbol: "doc.text.magnifyingglass") }
+                            if !analysis.direction.isEmpty { section("풀이 방향", items: [analysis.direction], symbol: "arrow.triangle.turn.up.right.diamond") }
+                            if !analysis.review.isEmpty { section("복습", items: analysis.review, symbol: "book") }
+                            if !analysis.next.isEmpty { section("다음 학습", items: analysis.next, symbol: "flag.checkered") }
+                        }
+                        .padding(.top, 6)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .tint(Theme.accent)
                 }
-                if !analysis.review.isEmpty { section("추천 복습", items: analysis.review, symbol: "book") }
-                if !analysis.next.isEmpty { section("다음 학습", items: analysis.next, symbol: "flag.checkered") }
             }
             .softCard()
         }
@@ -457,8 +461,6 @@ struct WeakConceptBadge: View {
                     Text("오답 \(concept.wrongCount)회 · 풀이 \(concept.attemptCount)회 · 최근 \(concept.lastStudiedAt.kr("M월 d일"))"
                          + (concept.mainCause.map { " · 주된 원인 \($0)" } ?? ""))
                         .font(.caption).foregroundStyle(.secondary)
-                    Text(concept.state == .mastered ? "여러 날에 걸쳐 연속으로 맞혀서 익힌 개념이에요." : "한 번 맞혔다고 끝이 아니에요. 다른 날 다시 풀어서 확인해요.")
-                        .font(.caption2).foregroundStyle(.secondary)
                 }
                 .softCard()
             }

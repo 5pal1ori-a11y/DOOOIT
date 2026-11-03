@@ -16,31 +16,31 @@ struct GuidedSolveEntryCard: View {
         note.isRecognitionConfirmed && !note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    // 한 줄 버튼: 누르면 같이 풀기 화면 (문제를 아직 확인하지 않았으면 문제 탭으로)
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        Button {
+            Haptics.tap()
+            if ready { open = true } else { onNeedConfirm() }
+        } label: {
             HStack(spacing: 12) {
                 Image(systemName: "bubble.left.and.text.bubble.right.fill")
-                    .font(.headline)
+                    .font(.subheadline)
                     .foregroundStyle(.white)
-                    .frame(width: 38, height: 38)
-                    .background(Theme.accent, in: .rect(cornerRadius: 12))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AI와 함께 풀기").font(.headline).foregroundStyle(Palette.ink)
-                    Text(note.guidedSolve?.summary ?? "답은 숨기고 힌트로 같이 풀어요")
+                    .frame(width: 34, height: 34)
+                    .background(Theme.accent, in: .rect(cornerRadius: 10))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("AI와 함께 풀기").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                    Text(ready ? (note.guidedSolve?.summary ?? "힌트를 보며 직접 풀어요") : "문제를 먼저 확인해 주세요")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
             }
-            Button {
-                Haptics.tap()
-                if ready { open = true } else { onNeedConfirm() }
-            } label: {
-                Label(ready ? "같이 풀기 시작" : "문제 먼저 확인하기", systemImage: ready ? "sparkles" : "text.viewfinder")
-            }
-            .buttonStyle(.primaryFill)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .softCard()
         .sheet(isPresented: $open) {
             GuidedSolveView(note: note)

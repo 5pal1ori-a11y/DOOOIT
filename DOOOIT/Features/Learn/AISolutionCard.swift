@@ -44,7 +44,7 @@ struct AISolutionCard: View {
             } else if failed {
                 failedState
             } else if problemText.isEmpty {
-                Text("문제 탭에서 문제 글이 읽히면 AI가 풀어 줘요").font(.subheadline).foregroundStyle(.secondary)
+                Text("문제 글이 있으면 AI가 풀어 줘요").font(.subheadline).foregroundStyle(.secondary)
             }
         }
         .padding(18)
@@ -91,12 +91,12 @@ struct AISolutionCard: View {
         .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 16))
 
         if isChoice, !matchesChoice(solution.finalAnswer) {
-            Label("선지에서 같은 답을 못 찾았어요. 문제 글이 맞게 읽혔는지 확인해 보세요.", systemImage: "exclamationmark.triangle.fill")
+            Label("선지에 같은 답이 없어요. 문제 글을 확인해 주세요.", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Palette.warning)
                 .fixedSize(horizontal: false, vertical: true)
         } else if !agrees {
-            Label("적어 둔 정답과 달라요. 문제 글이 맞게 읽혔는지 확인해 보세요.", systemImage: "exclamationmark.triangle.fill")
+            Label("적어 둔 정답과 달라요. 문제 글을 확인해 주세요.", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Palette.warning)
                 .fixedSize(horizontal: false, vertical: true)
@@ -136,7 +136,7 @@ struct AISolutionCard: View {
 
         if fromModel {
             HStack {
-                Label("AI가 추측한 답이에요. 꼭 확인해 보세요.", systemImage: "info.circle")
+                Label("AI 추측이에요. 확인해 주세요.", systemImage: "info.circle")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
@@ -155,8 +155,8 @@ struct AISolutionCard: View {
 
     private var failedState: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(note.subjectKind.isMath ? "AI가 이 문제를 확실하게 풀지 못했어요. 틀린 답을 보여 주지 않으려고 계산으로 확인한 답만 보여 줘요. 문제 글이 맞게 읽혔는지 확인하거나 'AI와 함께 풀기'로 풀어 봐요."
-                 : DoitMind.isAvailable ? "AI가 이 문제를 풀지 못했어요" : "AI가 이 문제를 풀지 못했어요. 두잇 AI 탭에서 모델을 받으면 더 많은 문제를 풀어요.")
+            Text(note.subjectKind.isMath ? "확실한 답을 찾지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요."
+                 : DoitMind.isAvailable ? "풀지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요." : "풀지 못했어요. 두잇 AI 탭에서 모델을 받으면 더 많이 풀어요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
