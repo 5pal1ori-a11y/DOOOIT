@@ -39,15 +39,19 @@ enum FigureReader {
                 let lines = DoitFigureFacts.tableLines(table, kind: kind)
                 if !lines.isEmpty { return .init(kind: .table, lines: lines, source: "기본 판독") }
             }
-            if route == .chart, let analysis {
-                let lines = FigureVision.chartLines(analysis.textLabels, image: analysis.pixels, kind: kind)
+            if route == .chart {
+                let seen: ImageAnalysis
+                if let analysis { seen = analysis } else { seen = await VisionAnalyzer.analyze(image) }
+                let lines = FigureVision.chartLines(seen.textLabels, image: seen.pixels, kind: kind)
                 if !lines.isEmpty { return .init(kind: .chart, lines: lines, source: "기본 판독") }
             }
             return nil
         case .graph, .geometry:
             if let seen = await vision(cgImage) { return seen }
-            if let graph = analysis?.graph {
-                let lines = FigureVision.graphLines(graph)
+            if route == .graph {
+                // 그래프 판독 식 + 그림에 적힌 좌표
+                var lines = analysis?.graph.map(FigureVision.graphLines) ?? []
+                lines += FigureVision.pointLines(analysis?.text ?? problemText)
                 if !lines.isEmpty { return .init(kind: .graph, lines: lines, source: "기본 판독") }
             }
             let lines = FigureVision.shapeLines(analysis?.shapes ?? [])

@@ -50,6 +50,17 @@ enum FigureVision {
         return lines
     }
 
+    /// 그림에 적힌 좌표 "(0, 1)", "(2, 5)" → "지나는 점 …" 한 줄 (식은 확인한 뒤 풀이가 이 점들로 구함)
+    static func pointLines(_ text: String) -> [String] {
+        let normalized = text.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: "，", with: ",")
+        var points: [String] = []
+        for m in normalized.matches(of: #/\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/#) {
+            let p = "(\(m.1), \(m.2))"
+            if !points.contains(p) { points.append(p) }
+        }
+        return points.count >= 1 ? ["지나는 점 " + points.joined(separator: ", ")] : []
+    }
+
     /// 도형 판독 → 줄 (꼭짓점 이름이 붙은 삼각형의 변 길이, 원의 반지름)
     static func shapeLines(_ shapes: [ShapeAnalysis]) -> [String] {
         var lines: [String] = []

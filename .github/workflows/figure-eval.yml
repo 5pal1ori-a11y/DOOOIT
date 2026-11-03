@@ -46,6 +46,17 @@ jobs:
           XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
           if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
           xcodebuild -version; sw_vers; sysctl -n hw.memsize; sysctl -n machdep.cpu.brand_string
+      # 앱의 그림 읽기 연결 코드(FigureReader · VisionAnalyzer · FigureVision)를 iOS로 형 검사 (MLX·모델 쪽은 가짜로)
+      - name: Type-check figure files for iOS
+        if: matrix.which == 'vision'
+        continue-on-error: true
+        run: |
+          SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+          xcrun --sdk iphonesimulator swiftc -typecheck -swift-version 5 -sdk "$SDK" -target arm64-apple-ios26.0-simulator \
+            DOOOIT/Services/FigureReader.swift DOOOIT/Services/FigureVision.swift DOOOIT/Services/VisionAnalyzer.swift \
+            DOOOIT/Services/VisionCore/*.swift DOOOIT/Services/DoitAI/Mistake/DoitFigureFacts.swift DOOOIT/Services/GeometryText.swift \
+            Tests/FigureEval/iOSStubs.swift
+          echo "iOS 형 검사 통과"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

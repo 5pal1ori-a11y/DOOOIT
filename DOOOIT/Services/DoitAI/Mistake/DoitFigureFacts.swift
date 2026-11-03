@@ -249,9 +249,17 @@ enum DoitFigureFacts {
             guard line.hasPrefix("["), let close = line.firstIndex(of: "]") else { continue }
             var rest = line[line.index(after: close)...].trimmingCharacters(in: .whitespaces)
             var name = String(line[line.index(after: line.startIndex)..<close])
-            if rest.hasPrefix("("), let end = rest.firstIndex(of: ")") {
-                name = String(rest[rest.index(after: rest.startIndex)..<end])
-                rest = rest[rest.index(after: end)...].trimmingCharacters(in: .whitespaces)
+            // "(인구(만 명))"처럼 괄호 안에 괄호가 있어도 짝이 맞는 데까지가 자료 이름
+            if rest.hasPrefix("(") {
+                var depth = 0
+                var end: String.Index?
+                for i in rest.indices {
+                    if rest[i] == "(" { depth += 1 } else if rest[i] == ")" { depth -= 1; if depth == 0 { end = i; break } }
+                }
+                if let end {
+                    name = String(rest[rest.index(after: rest.startIndex)..<end])
+                    rest = rest[rest.index(after: end)...].trimmingCharacters(in: .whitespaces)
+                }
             }
             var labels: [String] = [], values: [Double] = []
             for item in rest.components(separatedBy: ",") {
@@ -284,7 +292,12 @@ enum DoitFigureFacts {
                 }
             }
         }
-        return found
+        // 합계 줄은 자료가 아님 (가장 큰 값·합·평균에 섞이지 않게)
+        let totals: Set<String> = ["합계", "계", "총계", "합", "전체", "총합"]
+        return found.map { s in
+            let keep = s.labels.indices.filter { !totals.contains(s.labels[$0].replacingOccurrences(of: " ", with: "")) }
+            return Series(name: s.name, labels: keep.map { s.labels[$0] }, values: keep.map { s.values[$0] })
+        }.filter { $0.labels.count >= 2 }
     }
 
     struct ChartAnswer {

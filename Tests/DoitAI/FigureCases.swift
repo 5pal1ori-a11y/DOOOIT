@@ -39,6 +39,9 @@ func runFigureCases() {
     let longLabels = ["[꺾은선그래프] 1월 3, 10월 9, 11월 4"]
     check("자료: 10월이 1월로 잡히지 않음", chart("10월의 값은 얼마인가?", longLabels) == "9", chart("10월의 값은 얼마인가?", longLabels) ?? "nil")
     check("자료: 같은 최댓값 둘이면 안 풂", chart("가장 많은 것은?", ["[막대그래프] A 5, B 5, C 2"]) == nil)
+    check("자료: 합계 줄은 자료가 아님", chart("가장 많은 반은?", ["[표] 1반 20, 2반 25, 합계 45"]) == "2반", chart("가장 많은 반은?", ["[표] 1반 20, 2반 25, 합계 45"]) ?? "nil")
+    let nested = DoitFigureFacts.series(in: ["[표] (인구(만 명)) 2010 120, 2015 135, 2020 150"])
+    check("자료: 괄호 속 괄호 이름", nested.first?.name == "인구(만 명)" && nested.first?.labels == ["2010", "2015", "2020"], "\(nested)")
     let gridSeries = DoitFigureFacts.series(in: grid)
     check("자료: 칸 표의 열마다 자료", gridSeries.contains { $0.name == "B" && $0.values == [4, 9] }, "\(gridSeries)")
     check("자료: 열 이름으로 고름", chart("B의 2010과 2020의 차는?", grid) == "5", chart("B의 2010과 2020의 차는?", grid) ?? "nil")

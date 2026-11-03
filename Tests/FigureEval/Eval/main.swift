@@ -131,8 +131,10 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         guard route == .chart else { return [] }
         return FigureVision.chartLines(visionLabels(image), image: pixels(image), kind: .bar)
     case .graph:
-        guard let px = pixels(image), GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: visionLabels(image)) else { return [] }
-        return FigureVision.graphLines(g)
+        let labels = visionLabels(image)
+        var lines: [String] = []
+        if let px = pixels(image), GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: labels) { lines = FigureVision.graphLines(g) }
+        return lines + FigureVision.pointLines(labels.map(\.text).joined(separator: " "))
     case .geometry, .none:
         guard let px = pixels(image) else { return [] }
         let minArea = Double(px.width * px.height) * 0.03
