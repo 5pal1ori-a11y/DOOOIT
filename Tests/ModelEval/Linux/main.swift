@@ -85,8 +85,11 @@ func dump(_ path: String) throws {
 }
 
 /// 모델 답 채점: 앱이 읽는 그대로 (parseModel이 nil이면 '답 없음')
-func grade(_ item: EvalItem, raw: String) -> (answer: String?, right: Bool) {
-    guard let solved = DoitAutoSolve.parseModel(DoitMind.answer(raw), problem: item.text, choices: item.choices) else { return (nil, false) }
+/// lenient: 문장 끝에 붙은 "… 정답: 3"을 줄을 바꿔 읽음 (Qwen3.5는 근거와 정답을 한 줄에 이어 쓰는 일이 많음)
+func grade(_ item: EvalItem, raw: String, lenient: Bool = false) -> (answer: String?, right: Bool) {
+    var text = DoitMind.answer(raw)
+    if lenient { text = text.replacingOccurrences(of: #"([^\n])[ \t]*(정답\s*[:：])"#, with: "$1\n$2", options: .regularExpression) }
+    guard let solved = DoitAutoSolve.parseModel(text, problem: item.text, choices: item.choices) else { return (nil, false) }
     let answer = solved.finalAnswer
     if !item.choices.isEmpty { return (answer, answer == item.expected) }
     if item.subject == "수학" { return (answer, batteryMatches(answer, expected: item.expected)) }
@@ -94,6 +97,13 @@ func grade(_ item: EvalItem, raw: String) -> (answer: String?, right: Bool) {
 }
 
 func score(_ evalPath: String, _ resultPaths: [String]) throws {
+    for lenient in [false, true] {
+        print(lenient ? "\n## 정답 줄을 나눠 읽었을 때 (문장 끝 '… 정답: x'도 읽음)" : "## 앱 그대로 (DoitMind.answer → DoitAutoSolve.parseModel)")
+        try scoreTable(evalPath, resultPaths, lenient: lenient)
+    }
+}
+
+func scoreTable(_ evalPath: String, _ resultPaths: [String], lenient: Bool) throws {
     let items = try JSONDecoder().decode([EvalItem].self, from: Data(contentsOf: URL(fileURLWithPath: evalPath)))
     let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
     var results: [EvalResult] = []
@@ -106,21 +116,26 @@ func score(_ evalPath: String, _ resultPaths: [String]) throws {
     var models: [String] = []
     for r in results where !models.contains(r.model) { models.append(r.model) }
     let subjects = ["수학", "과학", "영어", "사회", "국어"]
-    print("| 모델 | " + subjects.joined(separator: " | ") + " | 전체 | 평균 초/문제 | 평균 토큰 | 600토큰에서 잘림 |")
-    print("|---|" + subjects.map { _ in "---" }.joined(separator: "|") + "|---|---|---|---|")
+    print("| 모델 | " + subjects.joined(separator: " | ") + " | 전체 | 자료·힌트 없는 문제 | 평균 초/문제 | 평균 토큰 | 600토큰에서 잘림 |")
+    print("|---|" + subjects.map { _ in "---" }.joined(separator: "|") + "|---|---|---|---|---|")
     var detail: [String] = []
     for model in models {
         let mine = results.filter { $0.model == model }
         var cells: [String] = []
-        var allC = 0, allA = 0, allT = 0
+        var allC = 0, allA = 0, allT = 0, bareC = 0, bareA = 0, bareT = 0
         for subject in subjects {
             let rs = mine.filter { byID[$0.id]?.subject == subject }
             var c = 0, a = 0
             for r in rs {
                 guard let item = byID[r.id] else { continue }
-                let g = grade(item, raw: r.raw)
+                let g = grade(item, raw: r.raw, lenient: lenient)
                 if g.answer != nil { a += 1 }
                 if g.right { c += 1 }
+                if !item.hasMaterial {
+                    bareT += 1
+                    if g.answer != nil { bareA += 1 }
+                    if g.right { bareC += 1 }
+                }
                 let mark = g.right ? "O" : (g.answer == nil ? "-" : "X")
                 detail.append("\(model)\t\(r.id)\t\(mark)\t답 \(g.answer ?? "없음")\t정답 \(item.expected)")
             }
@@ -130,11 +145,11 @@ func score(_ evalPath: String, _ resultPaths: [String]) throws {
         let secs = mine.map(\.seconds).reduce(0, +) / Double(max(1, mine.count))
         let toks = Double(mine.compactMap(\.generatedTokens).reduce(0, +)) / Double(max(1, mine.count))
         let cut = mine.filter { $0.stop == "length" }.count
-        print("| \(model) | " + cells.joined(separator: " | ") + " | \(allC) / \(allA) / \(allT) | \(String(format: "%.1f", secs)) | \(String(format: "%.0f", toks)) | \(cut) |")
+        print("| \(model) | " + cells.joined(separator: " | ") + " | \(allC) / \(allA) / \(allT) | \(bareC) / \(bareA) / \(bareT) | \(String(format: "%.1f", secs)) | \(String(format: "%.0f", toks)) | \(cut) |")
     }
     print("(칸: 맞음 / 답함 / 전체 — '답함'은 앱의 parseModel이 정답을 읽어 낸 수)")
     print("")
-    for line in detail { print(line) }
+    if lenient { for line in detail { print(line) } }
 }
 
 let args = CommandLine.arguments
