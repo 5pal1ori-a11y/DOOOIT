@@ -110,6 +110,85 @@ func runEnglishBatteryCases() {
 
 let englishBatteryTypes = ["문장고르기", "밑줄", "네모", "개수", "고치기", "빈칸", "전환", "보기"]
 
-let englishBattery: [EnglishBatteryCase] = []
-let englishBatteryTraps: [EnglishBatteryCase] = []
-let englishBatteryFresh: [EnglishBatteryCase] = []
+/// 재료 문장으로 만든 시험 문제 (문장 고르기 · 보기 · 고치기 · 개수)
+func composedEnglishBattery() -> [EnglishBatteryCase] {
+    var out: [EnglishBatteryCase] = []
+    let circles = ["①", "②", "③", "④", "⑤"]
+    func listing(_ items: [String], inline: Bool) -> String {
+        items.indices.map { "\(circles[$0]) \(items[$0])" }.joined(separator: inline ? " " : "\n")
+    }
+    // 어색한 문장 고르기: 틀린 문장 하나 + 같은 학년 바른 문장 넷
+    let wrongPrompts = ["다음 중 어법상 어색한 문장은?", "다음 중 어법상 틀린 것은?", "어법상 바르지 않은 문장을 고르시오.", "다음 중 어법상 적절하지 않은 문장은?"]
+    for (k, w) in poolWrong.enumerated() {
+        let rights = poolRight.filter { $0.level == w.level && $0.sentence.split(separator: " ").prefix(3) != w.sentence.split(separator: " ").prefix(3) }
+        guard rights.count >= 4 else { continue }
+        var items = (0..<4).map { rights[(k * 3 + $0 * 7) % rights.count].sentence }
+        if Set(items).count < 4 { items = Array(rights.prefix(4).map(\.sentence)) }
+        let pos = k % 5
+        items.insert(w.sentence, at: pos)
+        let style = k % 4
+        let text = style == 1 ? "\(k % 30 + 1)번) \(wrongPrompts[style]) " + listing(items, inline: true) : wrongPrompts[style] + "\n" + listing(items, inline: false)
+        out.append(EnglishBatteryCase("문장고르기", w.level, text, "\(pos + 1)"))
+    }
+    // 옳은 문장 고르기: 바른 문장 하나 + 같은 학년 틀린 문장 넷
+    for k in stride(from: 0, to: poolRight.count, by: 3) {
+        let r = poolRight[k]
+        let wrongs = poolWrong.filter { $0.level == r.level }
+        guard wrongs.count >= 4 else { continue }
+        var items = (0..<4).map { wrongs[(k * 5 + $0 * 11) % wrongs.count].sentence }
+        if Set(items).count < 4 { items = Array(wrongs.prefix(4).map(\.sentence)) }
+        let pos = (k / 3) % 5
+        items.insert(r.sentence, at: pos)
+        let prompt = k % 2 == 0 ? "다음 중 어법상 옳은 문장은?" : "어법상 바른 문장을 고르면?"
+        out.append(EnglishBatteryCase("문장고르기", r.level, prompt + "\n" + listing(items, inline: k % 6 == 3), "\(pos + 1)"))
+    }
+    // <보기> 옳은 것끼리 · 틀린 것끼리
+    let pairs = [(0, 1), (0, 2), (1, 3), (2, 4), (3, 4)]
+    let letters = ["a", "b", "c", "d", "e"]
+    for k in 0..<16 {
+        let level = DoitEnglishGrammar.levels[k % 3]
+        let rights = poolRight.filter { $0.level == level }.map(\.sentence), wrongs = poolWrong.filter { $0.level == level }.map(\.sentence)
+        let answer = k % 5
+        let wantRight = k % 2 == 0
+        var items: [String] = []
+        var ri = k * 2, wi = k * 3
+        for slot in 0..<5 {
+            let inPair = slot == pairs[answer].0 || slot == pairs[answer].1
+            if inPair == wantRight { items.append(rights[ri % rights.count]); ri += 1 } else { items.append(wrongs[wi % wrongs.count]); wi += 1 }
+        }
+        let body = items.indices.map { "\(letters[$0])) \(items[$0])" }.joined(separator: "\n")
+        let choices = pairs.indices.map { "\(circles[$0]) \(letters[pairs[$0].0]), \(letters[pairs[$0].1])" }.joined(separator: " ")
+        let prompt = wantRight ? "다음 중 어법상 옳은 것끼리 짝지어진 것은?" : "다음 중 어법상 틀린 것끼리 묶인 것은?"
+        out.append(EnglishBatteryCase("보기", level, prompt + "\n" + body + "\n" + choices, "\(answer + 1)"))
+    }
+    // 틀린 부분 고치기 (서술형)
+    let fixPrompts = ["다음 문장에서 어법상 틀린 부분을 찾아 바르게 고치시오.\n", "위 문장에서 어법상 어색한 부분을 찾아 고쳐 쓰시오.\n", "8번) 다음 문장의 틀린 곳을 고쳐 쓰시오. "]
+    var f = 0
+    for w in poolWrong where !w.fix.isEmpty {
+        let style = f % 3
+        let text = style == 1 ? w.sentence + "\n" + fixPrompts[1] : fixPrompts[style] + w.sentence
+        out.append(EnglishBatteryCase("고치기", w.level, text, "~→ \(w.fix)"))
+        f += 1
+    }
+    // 틀린(옳은) 문장의 개수: 모두 틀린 문장
+    for k in 0..<10 {
+        let level = DoitEnglishGrammar.levels[k % 3]
+        let wrongs = poolWrong.filter { $0.level == level }.map(\.sentence)
+        let items = (0..<4).map { wrongs[(k * 4 + $0) % wrongs.count] }
+        let body = items.indices.map { "(\(letters[$0])) \(items[$0])" }.joined(separator: "\n")
+        let wantWrong = k % 2 == 0
+        let prompt = wantWrong ? "다음 중 어법상 틀린 문장의 개수는?" : "다음 중 어법상 옳은 문장의 개수는?"
+        out.append(EnglishBatteryCase("개수", level, prompt + "\n" + body + "\n① 0개 ② 1개 ③ 2개 ④ 3개 ⑤ 4개", wantWrong ? "5" : "1"))
+    }
+    // 섞인 개수 문제 (맞는 문장이 있으면 규칙으로는 개수를 확정 못 해요 → 못 풂으로 남음)
+    for k in 0..<4 {
+        let level = DoitEnglishGrammar.levels[k % 3]
+        let wrongs = poolWrong.filter { $0.level == level }.map(\.sentence), rights = poolRight.filter { $0.level == level }.map(\.sentence)
+        let items = [wrongs[k], rights[k + 3], wrongs[k + 5], rights[k + 8]]
+        let body = items.indices.map { "\(letters[$0])) \(items[$0])" }.joined(separator: "\n")
+        out.append(EnglishBatteryCase("개수", level, "어법상 틀린 문장은 모두 몇 개인가?\n" + body + "\n① 1개 ② 2개 ③ 3개 ④ 4개 ⑤ 없음", "2"))
+    }
+    return out
+}
+
+let englishBattery: [EnglishBatteryCase] = composedEnglishBattery() + englishHandBattery

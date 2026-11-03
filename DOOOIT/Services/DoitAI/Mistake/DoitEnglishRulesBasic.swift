@@ -20,6 +20,8 @@ extension DoitSentenceCheck {
     static func nounSubjectAgreement(_ ws: Words) -> Issue? {
         let subjunctive = ws.w.contains(where: { ["if", "wish", "suggest", "suggested", "insist", "insisted", "demand", "demanded", "recommend", "though"].contains($0) })
         var slots = clauseStarts(ws)
+        // that 뒤 (명사절 · 관계절의 주어): "Experts say that this habit make …"
+        for i in ws.w.indices where i > 0 && ws.w[i - 1] == "that" && !slots.contains(i) { slots.append(i) }
         for i in ws.w.indices where i > 0 && ws.comma[i - 1] && !slots.contains(i) { slots.append(i) }
         for s in slots {
             guard let np = nounPhrase(ws, at: s, bare: true), let plural = np.plural else { continue }
@@ -28,14 +30,19 @@ extension DoitSentenceCheck {
             var throughPhrase = false
             // 수식어구 (전치사 + 명사구, of + 명사구 한 번 더)
             if prepositionWords.contains(ws.at(v)), !ws.comma[np.head] {
-                guard let inner = nounPhrase(ws, at: v + 1, bare: true) else { continue }
-                v = inner.end
-                if ws.at(v) == "of", let more = nounPhrase(ws, at: v + 1, bare: true) { v = more.end }
+                guard let inner = looseNounPhrase(ws, at: v + 1) else { continue }
+                v = inner
+                if ws.at(v) == "of", let more = looseNounPhrase(ws, at: v + 1) { v = more }
                 throughPhrase = true
             }
             while ["always", "usually", "often", "sometimes", "never", "also", "really", "still", "even", "only"].contains(ws.at(v)) { v += 1 }
             let verb = ws.at(v)
             guard !verb.isEmpty, v == 0 || !ws.comma[v - 1] else { continue }
+            // 동사 자리에 원형 be · being (정형 동사가 없음)
+            if ["be", "being"].contains(verb), !subjunctive, !ws.w[..<v].contains(where: { modals.contains($0) }),
+               verb == "be" || !ws.comma[v..<min(ws.comma.count, v + 4)].contains(true) {   // The weather being fine, … (분사구문)
+                return Issue(rule: "동사가 없는 문장", why: "주어 뒤 동사 자리에 \(verb)만 올 수 없어요 (is/are/was/were …)", at: v, fix: plural ? "are" : "is")
+            }
             if subjunctive, verb == "were" { continue }
             let headRaw = ws.raw[np.head]
             if throughPhrase {
@@ -110,6 +117,9 @@ extension DoitSentenceCheck {
     static func thereQuantity(_ ws: Words) -> Issue? {
         for i in ws.w.indices where ws.w[i] == "there" && (i == 0 || ws.comma[i - 1]) {
             let be = ws.at(i + 1)
+            if ["be", "been", "being"].contains(be) {
+                return Issue(rule: "there is/are", why: "there 뒤 동사 자리에 \(be)만 올 수 없어요 (is/are/was/were)", at: i + 1)
+            }
             guard let bn = verbNumber(be), beForms.contains(be) else { continue }
             var j = i + 2
             if ["a lot of", "lots of", "plenty of"].contains(ws.w[j..<min(j + 3, ws.w.count)].joined(separator: " ")) { j += 3 }
@@ -156,7 +166,7 @@ extension DoitSentenceCheck {
             var guardCount = 0
             while guardCount < 3, ["most", "more"].contains(ws.at(j)) || isAdjectiveLike(ws.at(j)) && !isNoun(ws.at(j)) { j += 1; guardCount += 1 }
             let n = ws.at(j)
-            guard isCountableSingular(n), !isNoun(ws.at(j + 1)), ws.at(j + 1) != "'s" else { continue }
+            guard isCountableSingular(n), !isNoun(ws.at(j + 1)) || isFiniteVerb(ws.at(j + 1)), ws.at(j + 1) != "'s" else { continue }
             return Issue(rule: "one of + 복수 명사", why: "\(ws.w[i]) of the … 뒤에는 복수 명사: \(n) → \(pluralOf[n] ?? n)", at: j, fix: pluralOf[n])
         }
         return nil
@@ -169,6 +179,14 @@ extension DoitSentenceCheck {
                                        "luggages": "luggage", "baggages": "baggage", "equipments": "equipment", "knowledges": "knowledge"]
         let strict: Set<String> = ["information", "advice", "furniture", "homework", "luggage", "baggage", "equipment", "news"]
         let after: Set<String> = ["", "of", "for", "about", "on", "from", "to", "is", "was", "and", "in", "at", "with", "that", "which", "today", "yesterday"]
+        // a/an: 철자와 소리가 다른 말 (an useful ✗, a hour ✗)
+        let consonantSound: Set<String> = ["useful", "university", "uniform", "unique", "unicorn", "union", "unit", "united", "universe", "usual",
+                                           "european", "one", "once", "user", "utensil", "unicycle", "uniformed", "usage"]
+        let vowelSoundWords: Set<String> = ["hour", "hours", "honest", "honor", "honour", "heir", "honorable", "hourly"]
+        for i in ws.w.indices.dropLast() {
+            if ws.w[i] == "an", consonantSound.contains(ws.w[i + 1]) { return Issue(rule: "a/an", why: "\(ws.w[i + 1])는 자음 소리(j/w)로 시작해서 a를 써요.", at: i, fix: ws.raw[i] == "An" ? "A" : "a") }
+            if ws.w[i] == "a", vowelSoundWords.contains(ws.w[i + 1]) { return Issue(rule: "a/an", why: "\(ws.w[i + 1])의 h는 소리가 나지 않아 an을 써요.", at: i, fix: ws.raw[i] == "A" ? "An" : "an") }
+        }
         for i in ws.w.indices {
             if let right = never[ws.w[i]] { return Issue(rule: "셀 수 없는 명사", why: "\(right)는 셀 수 없어서 -s를 붙이지 않아요.", at: i, fix: right) }
             if ["a", "an"].contains(ws.w[i]), strict.contains(ws.at(i + 1)), after.contains(ws.at(i + 2)) {
@@ -201,7 +219,7 @@ extension DoitSentenceCheck {
             if preps.contains(t), !clauseFollows, !(t == "for" && isFiniteVerb(ws.at(i + 3))) {
                 return Issue(rule: "인칭대명사의 격", why: "전치사 \(t) 뒤에는 목적격: \(ws.raw[i + 1]) → \(obj)", at: i + 1, fix: obj)
             }
-            if objectVerbs.contains(t), !clauseFollows {
+            if objectVerbs.contains(t) || t.hasSuffix("ing") && base(t).map({ objectVerbs.contains($0) }) == true, !clauseFollows {
                 return Issue(rule: "인칭대명사의 격", why: "동사 \(t)의 목적어 자리에는 목적격: \(ws.raw[i + 1]) → \(obj)", at: i + 1, fix: obj)
             }
         }
@@ -237,7 +255,9 @@ extension DoitSentenceCheck {
                 return Issue(rule: "소유격", why: "명사 앞에는 소유격: \(t) \(ws.at(i + 1)) → \(right) \(ws.at(i + 1))", at: i, fix: right)
             }
             if t == "it's", ws.at(i + 1) == "own" { return Issue(rule: "소유격 its", why: "'그것의'는 its (it's = it is): it's own → its own", at: i, fix: "its") }
-            if t == "it's", i > 0, prepositionWords.contains(ws.w[i - 1]), isNoun(ws.at(i + 1)) {
+            if t == "it's", i > 0, prepositionWords.contains(ws.w[i - 1]) && isNoun(ws.at(i + 1))
+                || (isFiniteVerb(ws.w[i - 1]) || ws.w[i - 1].hasSuffix("ed")) && !["said", "says", "thought", "knew", "believed", "hoped", "guessed", "felt", "found", "is", "was"].contains(ws.w[i - 1])
+                    && isCountableSingular(ws.at(i + 1)) && !personNouns.contains(ws.at(i + 1)) {
                 return Issue(rule: "소유격 its", why: "'그것의'는 its (it's = it is)", at: i, fix: "its")
             }
             if t == "its", i == 0 || ws.comma[i - 1], ["a", "an", "the", "very", "so", "not", "too", "raining", "snowing"].contains(ws.at(i + 1)) {
@@ -257,9 +277,15 @@ extension DoitSentenceCheck {
         guard ["is", "are", "was", "does", "do", "has"].contains(aux), let an = verbNumber(aux),
               let np = nounPhrase(ws, at: i + 1), let plural = np.plural, np.hasDeterminer, ws.at(np.end) != "and", ws.at(np.end) != "or" else { return nil }
         if amountUnits.contains(ws.w[np.head]) { return nil }
-        guard an != plural else { return nil }
         // what is + 명사구: "What are your plans?" · "What is the boys' names?"처럼 뒤에 또 명사가 오면 모름
         if isNoun(ws.at(np.end)) { return nil }
+        guard an != plural else {
+            // Does your father works …? (do/does/did + 주어 + 동사원형)
+            if ["does", "do", "did"].contains(aux), isNonBaseVerb(ws.at(np.end)), !isNoun(ws.at(np.end)), let b = base(ws.at(np.end)), ws.at(np.end) != "being" {
+                return Issue(rule: "의문문의 동사원형", why: "\(ws.raw[i]) + 주어 뒤에는 동사원형: \(ws.raw[np.end]) → \(b)", at: np.end, fix: b)
+            }
+            return nil
+        }
         let fixed = flipNumber(aux).map { i == 0 ? $0.capitalized : $0 }
         return Issue(rule: "의문문의 수일치", why: "주어 '\(ws.raw[np.start..<np.end].joined(separator: " "))'는 \(plural ? "복수" : "단수"): \(ws.raw[i]) → \(fixed ?? "")", at: i, fix: fixed)
     }

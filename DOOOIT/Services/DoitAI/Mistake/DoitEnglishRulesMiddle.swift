@@ -159,6 +159,9 @@ extension DoitSentenceCheck {
             if t == "enough", enoughAdjectives.contains(n), ["to", "for"].contains(ws.at(i + 2)), i > 0, beForms.contains(ws.w[i - 1]) || ["not", "be", "become", "became", "feel", "felt", "get", "got", "grow", "grew"].contains(ws.w[i - 1]) {
                 return Issue(rule: "형용사 + enough to", why: "enough는 형용사 뒤에: enough \(n) → \(n) enough", at: i, length: 2, fix: "\(ws.raw[i + 1]) enough")
             }
+            if t == "enough", i > 0, isAdjectiveLike(ws.w[i - 1]), isPlainBase(n) || n == "go", actionVerbs.contains(n), !isNoun(n) {
+                return Issue(rule: "형용사 + enough to", why: "'~할 만큼 충분히'는 형용사 + enough + to부정사: enough \(n) → enough to \(n)", at: i + 1, fix: "to " + ws.raw[i + 1])
+            }
             // too ~ that + 주어 + can't ("too tired that he can't" ✗ → so ~ that)
             if t == "too", isAdjectiveLike(n) || adjectiveOfAdverb(n) != nil, ws.at(i + 2) == "that", subjectPronouns.contains(ws.at(i + 3)),
                ["can't", "cannot", "couldn't", "could", "can"].contains(ws.at(i + 4)) {
@@ -168,7 +171,7 @@ extension DoitSentenceCheck {
             if t == "too", isAdjectiveLike(n), ws.at(i + 2) == "to" || ws.at(i + 2) == "for" {
                 var k = i + 2
                 if ws.at(k) == "for" { k += 2 }
-                guard ws.at(k) == "to", isBaseForm(ws.at(k + 1)), ["it", "them"].contains(ws.at(k + 2)), endsPhrase(ws, k + 3),
+                guard ws.at(k) == "to", isBaseForm(ws.at(k + 1)) || base(ws.at(k + 1)) == nil && !isNoun(ws.at(k + 1)) && !isAdjectiveLike(ws.at(k + 1)), ["it", "them"].contains(ws.at(k + 2)), endsPhrase(ws, k + 3),
                       let np = nounPhrase(ws, at: 0), thingNouns.contains(ws.w[np.head]) || massNouns.contains(ws.w[np.head]) || ["soup", "box", "problem", "question", "water", "coffee", "tea", "food", "bag", "book", "story", "door"].contains(ws.w[np.head]),
                       np.plural == (ws.at(k + 2) == "them"), beForms.contains(ws.at(np.end)) else { continue }
                 return Issue(rule: "too ~ to의 목적어", why: "문장의 주어가 to부정사의 목적어라서 \(ws.at(k + 2))를 또 쓰지 않아요.", at: k + 2, fix: "")
@@ -198,12 +201,13 @@ extension DoitSentenceCheck {
         }
         // 목적어를 to부정사로만 받는 동사 + to + 원형이 아닌 것 ("want to goes")
         let toVerbs: Set<String> = ["want", "wants", "wanted", "hope", "hopes", "hoped", "decide", "decided", "plan", "plans", "planned", "need",
-                                    "needs", "needed", "able", "have", "has", "had", "ought", "like", "promise", "promised", "refuse", "refused", "try", "tried"]
+                                    "needs", "needed", "able", "have", "has", "had", "ought", "like", "promise", "promised", "refuse", "refused", "try", "tried", "used"]
         for i in ws.w.indices.dropFirst() where ws.w[i] == "to" && toVerbs.contains(ws.w[i - 1]) {
             if ws.w[i - 1] == "like", !["would", "'d"].contains(ws.at(i - 2)) && !ws.at(i - 2).hasSuffix("'d") { continue }
+            if ws.w[i - 1] == "used", beForms.contains(ws.at(i - 2)) || ["get", "got", "gets", "getting", "be", "been"].contains(ws.at(i - 2)) { continue }
             let v = ws.at(i + 1)
             guard !v.isEmpty, !isNoun(v), !ingNouns.contains(v) else { continue }
-            if isPastOnly(v) || isThirdForm(v) && actionVerbs.contains(base(v) ?? "") && !nounishVerbs.contains(base(v) ?? "")
+            if isPastOnly(v) || isThirdForm(v) && actionVerbs.contains(base(v) ?? "") || v.hasSuffix("ed") && (base(v).map { $0 != v && actionVerbs.contains($0) } ?? false)
                 || v.hasSuffix("ing") && base(v).map({ DoitEnglish.ingForm($0) == v && actionVerbs.contains($0) }) == true && !["have", "has", "had"].contains(ws.w[i - 1]) {
                 guard let b = base(v) else { continue }
                 return Issue(rule: "to부정사 (to + 동사원형)", why: "to부정사는 to + 동사원형: to \(v) → to \(b)", at: i + 1, fix: b)
@@ -230,6 +234,17 @@ extension DoitSentenceCheck {
             if ws.w[i] == "for", v == "help", !objectFollows { continue }
             return Issue(rule: "전치사 + 동명사", why: "전치사(\(ws.w[i])) 뒤에 동사가 오면 동명사(-ing): \(v) → \(DoitEnglish.ingForm(v))", at: i + 1, fix: DoitEnglish.ingForm(v))
         }
+        for i in ws.w.indices.dropLast(2) where ["for", "of", "about", "without", "by", "in", "on", "at"].contains(ws.w[i]) {
+            let v = ws.w[i + 1], o = ws.w[i + 2]
+            if i > 0, ["kind", "sort", "in"].contains(ws.w[i - 1]) { continue }
+            if v == "to", isBaseForm(o), ["me", "him", "her", "us", "them", "the", "a", "my", "his", "your"].contains(ws.at(i + 3)) {
+                return Issue(rule: "전치사 + 동명사", why: "전치사(\(ws.w[i])) 뒤에는 to부정사가 아니라 동명사(-ing): to \(o) → \(DoitEnglish.ingForm(o))", at: i + 1, length: 2, fix: DoitEnglish.ingForm(o))
+            }
+            if isPastOnly(v) || isThirdForm(v) && !isNoun(v) || (base(v).map { $0 != v && DoitEnglish.pastForms($0).contains(v) && v.hasSuffix("ed") } ?? false),
+               ["me", "him", "her", "us", "them"].contains(o), let b = base(v) {
+                return Issue(rule: "전치사 + 동명사", why: "전치사(\(ws.w[i])) 뒤에 동사가 오면 동명사: \(v) → \(DoitEnglish.ingForm(b))", at: i + 1, fix: DoitEnglish.ingForm(b))
+            }
+        }
         let line = " " + ws.w.joined(separator: " ") + " "
         // be used to + -ing (사람 주어, 현재) · when it comes to · object to · be opposed to · contribute to · devoted to
         let toPhrases = [#"(\s|')(am|is|are|m|re|get|gets|got) used to "#, #" when it comes to "#, #" (i|you|he|she|we|they) object(s|ed)? to "#, #" (be|is|are|am|was|were) opposed to "#,
@@ -242,6 +257,25 @@ extension DoitSentenceCheck {
             guard isPlainBase(after) || after == "go" || after == "do", actionVerbs.contains(after) || after == "do" else { continue }
             let at = ws.w.firstIndex(of: after)
             return Issue(rule: "to(전치사) + 동명사", why: "이 표현의 to는 전치사라 뒤에 동명사(-ing): to \(after) → to \(DoitEnglish.ingForm(after))", at: at, fix: DoitEnglish.ingForm(after))
+        }
+        let needsForm: Set<String> = ["forget", "forgot", "remember", "remembered", "stop", "stopped", "try", "tried", "like", "likes", "liked", "love",
+                                      "loves", "loved", "hate", "hates", "hated", "begin", "began", "start", "started", "enjoy", "enjoys", "enjoyed",
+                                      "finish", "finished", "want", "wants", "wanted", "need", "needs", "needed", "decide", "decided", "hope", "hoped",
+                                      "plan", "planned", "mind", "avoid", "avoided", "keep", "kept"]
+        for i in ws.w.indices.dropLast() where needsForm.contains(ws.w[i]) && i > 0 {
+            let v = ws.w[i + 1], after = ws.at(i + 2)
+            guard isPlainBase(v) || ["go", "do"].contains(v), actionVerbs.contains(v), !isNoun(v) else { continue }
+            if !personSubjects.contains(ws.w[i - 1]) && !["never", "always", "will", "to", "don't", "didn't", "not", "also", "often"].contains(ws.w[i - 1]) && !thirdSingular.contains(ws.w[i - 1]) { continue }
+            let objectNext = ["it", "them", "him", "her", "me", "us", "the", "a", "an", "my", "his", "their", "our", "your", "to", "home", "there"].contains(after)
+            guard !nounishVerbs.contains(v) || objectNext, objectNext || endsPhrase(ws, i + 2) else { continue }
+            if ["like", "likes", "liked"].contains(ws.w[i]), ws.w[i - 1] == "would" || ws.w[i - 1].hasSuffix("'d") { continue }
+            return Issue(rule: "동명사·to부정사 목적어", why: "\(ws.w[i]) 뒤 동사는 to부정사나 동명사로: \(v) → to \(v) / \(DoitEnglish.ingForm(v))", at: i + 1)
+        }
+        for i in ws.w.indices.dropLast() where ["seem", "seems", "seemed", "appear", "appears", "appeared"].contains(ws.w[i]) {
+            let v = ws.w[i + 1]
+            if v.hasSuffix("ing"), let b = base(v), DoitEnglish.ingForm(b) == v, actionVerbs.contains(b), emotionVerbs[b] == nil, !ingNouns.contains(v) {
+                return Issue(rule: "seem + to부정사", why: "seem 뒤에는 to부정사: \(v) → to \(b)", at: i + 1, fix: "to " + b)
+            }
         }
         for i in ws.w.indices {
             let t = ws.w[i], n = ws.at(i + 1)
@@ -388,7 +422,7 @@ extension DoitSentenceCheck {
             // 계속적 용법의 that ✗ ("my brother, that lives …")
             if t == "that", ws.comma[i - 1], personNouns.contains(prev) || thingNouns.contains(prev) || looksLikeName(ws, i - 1) {
                 let n = ws.at(i + 1)
-                if (isThirdForm(n) || isPastOnly(n) || ["has", "have", "lives", "works"].contains(n)) && !isNoun(n) || personSubjects.contains(n) && isFiniteVerb(ws.at(i + 2)) {
+                if ["has", "have", "lives", "works"].contains(n) || (isThirdForm(n) || isPastOnly(n)) && !isNoun(n) || personSubjects.contains(n) && isFiniteVerb(ws.at(i + 2)) {
                     return Issue(rule: "계속적 용법", why: "쉼표 뒤(계속적 용법)에는 that을 쓰지 않아요 (→ who/which).", at: i, fix: personNouns.contains(prev) || looksLikeName(ws, i - 1) ? "who" : "which")
                 }
             }
@@ -439,7 +473,8 @@ extension DoitSentenceCheck {
             guard i >= 2, ["the", "a", "this", "that", "my", "his", "her", "our", "their"].contains(ws.w[i - 2]) || isAdjectiveLike(ws.w[i - 2]) else { continue }
             let s = ws.at(i + 1)
             guard personSubjects.contains(s) || nounPhrase(ws, at: i + 1) != nil else { continue }
-            let vAt = personSubjects.contains(s) ? i + 2 : (nounPhrase(ws, at: i + 1)?.end ?? i + 2)
+            var vAt = personSubjects.contains(s) ? i + 2 : (nounPhrase(ws, at: i + 1)?.end ?? i + 2)
+            while ["first", "often", "ever", "never", "always", "finally", "once", "usually", "all"].contains(ws.at(vAt)) { vAt += 1 }
             var v = ws.at(vAt)
             var after = vAt + 1
             if ["was", "were"].contains(v), ws.at(vAt + 1) == "born" { v = "born"; after = vAt + 2 }
@@ -455,6 +490,15 @@ extension DoitSentenceCheck {
             if t == "where", placeNouns.contains(prev), placeTransitive.contains(v), endsPhrase(ws, after) || ["yesterday", "last", "ago", "before", "twice", "once", "often"].contains(ws.at(after)) {
                 return Issue(rule: "관계대명사 which", why: "\(v)의 목적어가 빠진 절이라 관계대명사 which/that (where ✗)", at: i, fix: "which")
             }
+            let ditransitive: Set<String> = ["give", "gave", "show", "showed", "send", "sent", "tell", "told", "buy", "bought", "make", "made", "teach",
+                                             "taught", "lend", "lent", "bring", "brought", "offer", "offered", "pass", "passed", "hand", "handed", "cook", "cooked"]
+            if t == "which", placeNouns.contains(prev) || timeNouns.contains(prev) || prev == "reason", personSubjects.contains(s), !ditransitive.contains(v),
+               base(v) != nil, !beForms.contains(v), let obj = nounPhrase(ws, at: after) ?? (["him", "her", "them", "me", "us", "it"].contains(ws.at(after)) ? NounPhrase(start: after, head: after, end: after + 1, plural: nil, hasDeterminer: false) : nil),
+               endsPhrase(ws, obj.end) || clauseEndsPlainly(ws, from: obj.end) {
+                let right = placeNouns.contains(prev) ? "where" : timeNouns.contains(prev) ? "when" : "why"
+                return Issue(rule: right == "where" ? "관계부사 where" : right == "when" ? "관계부사 when" : "관계부사 why",
+                             why: "which 뒤 절(\(ws.at(i + 1)) \(v) …)이 완전해서 관계부사 \(right) (which ✗)", at: i, fix: right)
+            }
             if t == "which", prev == "reason", ["left", "came", "cried", "was", "were", "is", "are", "went", "failed", "quit", "laughed", "lied", "got"].contains(v) {
                 if beForms.contains(v), !(isAdjectiveLike(ws.at(after)) || ["so", "very", "late", "absent", "angry", "upset", "sad"].contains(ws.at(after))) { continue }
                 return Issue(rule: "관계부사 why", why: "이유(reason) 뒤 완전한 절은 why 또는 for which (which ✗)", at: i, fix: "why")
@@ -466,7 +510,7 @@ extension DoitSentenceCheck {
     // MARK: 주격 관계대명사 뒤 동사의 수 ("the boys who plays")
 
     static func relativeAgreement(_ ws: Words) -> Issue? {
-        for i in ws.w.indices where ["who", "which", "that"].contains(ws.w[i]) && i >= 2 && !ws.comma[i - 1] {
+        for i in ws.w.indices where ["who", "which", "that"].contains(ws.w[i]) && i >= 1 && !ws.comma[i - 1] {
             // 명사구 찾기: 바로 앞 명사
             let headIdx = i - 1
             let head = ws.w[headIdx]
@@ -479,7 +523,8 @@ extension DoitSentenceCheck {
             if ws.w[i] == "which", personNouns.contains(head) { continue }
             // 바로 앞 낱말이 한정사 또는 형용사여야 (명사구의 끝)
             let before = ws.at(headIdx - 1)
-            guard neutralDeterminers.contains(before) || singularDeterminers.contains(before) || pluralDeterminers.contains(before) || isAdjectiveLike(before) else { continue }
+            let bareStart = headIdx == 0 || (plural && (isFiniteVerb(before) || isPlainBase(before)))
+            guard bareStart || neutralDeterminers.contains(before) || singularDeterminers.contains(before) || pluralDeterminers.contains(before) || isAdjectiveLike(before) else { continue }
             var v = i + 1
             while ["always", "often", "usually", "never", "also", "really", "sometimes"].contains(ws.at(v)) { v += 1 }
             let verb = ws.at(v)
@@ -775,6 +820,9 @@ extension DoitSentenceCheck {
                 if let b = base(v) { return Issue(rule: "I wish 가정법", why: "I wish 뒤에는 가정법(과거형): \(v) → \(DoitEnglish.pastForms(b).first ?? v)", at: k + 1, fix: DoitEnglish.pastForms(b).first) }
             }
         }
+        if ws.at(0) == "if", ws.at(1) == "i", ws.at(2) == "am", ws.at(3) == "you" {
+            return Issue(rule: "가정법 과거", why: "'내가 너라면'은 사실과 반대라 가정법: If I were you (am ✗)", at: 2, fix: "were")
+        }
         // If + had p.p. …, 주어 + will/would + 원형 (지금을 말하는 말이 없을 때)
         if ws.at(0) == "if", let cut = ws.comma.firstIndex(of: true), cut >= 3 {
             let clause = Array(ws.w[1...cut]), main = Array(ws.w[(cut + 1)...])
@@ -785,7 +833,7 @@ extension DoitSentenceCheck {
                 }
                 if let m = main.firstIndex(where: { ["would", "could", "might"].contains($0) }), m <= 2, m + 1 < main.count,
                    case let nxt = main[m + 1] == "not" && m + 2 < main.count ? main[m + 2] : main[m + 1],
-                   nxt != "have", actionVerbs.contains(nxt), !["have", "know", "live", "like", "love", "want", "need", "feel"].contains(nxt),
+                   nxt != "have", actionVerbs.contains(nxt) || isBaseForm(nxt) && !isNoun(nxt), !["have", "know", "live", "like", "love", "want", "need", "feel", "be", "stay", "remain", "seem"].contains(nxt),
                    !main.contains(where: { ["now", "today", "still", "anymore", "these", "tonight"].contains($0) }) {
                     return Issue(rule: "가정법 과거완료", why: "If + had p.p. …(과거 사실의 반대)이면 주절은 \(main[m]) + have p.p. (지금을 말하는 now 같은 말이 없으면)", at: cut + 2 + m)
                 }
@@ -834,7 +882,7 @@ extension DoitSentenceCheck {
             }
             // 사역동사 make/let + 목적어 + -ing ✗, help + 목적어 + -ing ✗
             if ["make", "makes", "made", "let", "lets", "help", "helps", "helped"].contains(t), objects.contains(o), v.hasSuffix("ing"), let b = base(v),
-               DoitEnglish.ingForm(b) == v, actionVerbs.contains(b), emotionVerbs[b] == nil, !ingNouns.contains(v) {
+               DoitEnglish.ingForm(b) == v, emotionVerbs[b] == nil, !ingNouns.contains(v) || ["cleaning", "reading", "writing", "drawing", "shopping"].contains(v) {
                 return Issue(rule: "사역동사 + 동사원형", why: "\(t) + 목적어 + 동사원형: \(v) → \(b)", at: i + 2, fix: b)
             }
             // have + 목적어(사람) + to ✗
@@ -842,10 +890,20 @@ extension DoitSentenceCheck {
                 return Issue(rule: "사역동사 + 동사원형", why: "사역동사 have + 목적어 + 동사원형 (to ✗)", at: i + 2, fix: "")
             }
             // 지각동사 + 목적어 + to부정사 ✗
-            if perception.contains(t), objects.contains(o) || looksLikeName(ws, i + 1), v == "to", perceivedActs.contains(ws.at(i + 3)) {
+            if perception.contains(t), ["me", "him", "her", "us", "them"].contains(o), isThirdForm(v) && !isNoun(v) || isPastOnly(v) || v.hasSuffix("ed") && base(v).map({ $0 != v && perceivedActs.contains($0) }) == true,
+               ["the", "a", "an", "my", "his", "her", "their", "our", "into", "out", "across", "in", "on", "down"].contains(ws.at(i + 3)) {
+                return Issue(rule: "지각동사 + 동사원형/-ing", why: "지각동사 \(t) + 목적어 + 동사원형/-ing (\(v) ✗)", at: i + 2, fix: base(v))
+            }
+            if perception.contains(t), objects.contains(o) || looksLikeName(ws, i + 1), v == "to", perceivedActs.contains(ws.at(i + 3)) || ws.at(i + 3).hasSuffix("ing") && base(ws.at(i + 3)).map({ perceivedActs.contains($0) }) == true {
                 return Issue(rule: "지각동사 + 동사원형/-ing", why: "지각동사 \(t) + 목적어 + 동사원형/-ing (to ✗)", at: i + 2, fix: "")
             }
             // have/get + 사물 + 원형 ✗ → 과거분사 ("had my car wash")
+            if ["have", "has", "had", "get", "got", "gets"].contains(t), ["it", "them"].contains(o), i > 0, personSubjects.contains(ws.w[i - 1]) {
+                let fixable: Set<String> = ["fix", "repair", "wash", "paint", "check", "dye", "deliver", "print", "test", "examine", "replace", "cook", "clean", "cut"]
+                if fixable.contains(v), let pp = DoitEnglish.ppForms(v).first, pp != v, endsPhrase(ws, i + 3) || ["for", "by", "at", "yesterday", "today", "tomorrow"].contains(ws.at(i + 3)) {
+                    return Issue(rule: "사역동사 + 목적어 + p.p.", why: "목적어(\(o))가 '되는' 것이라 과거분사: \(v) → \(pp)", at: i + 2, fix: pp)
+                }
+            }
             if ["have", "has", "had", "get", "got", "gets"].contains(t), ["my", "his", "her", "the", "their", "our", "your"].contains(o), thingNouns2.contains(v) {
                 let w = ws.at(i + 3)
                 let fixable: Set<String> = ["fix", "repair", "wash", "paint", "check", "dye", "deliver", "print", "test", "examine", "replace", "take", "steal"]
@@ -881,14 +939,15 @@ extension DoitSentenceCheck {
             let n = ws.at(1)
             let objects: Set<String> = ["games", "movies", "books", "friends", "pictures", "photos", "vegetables", "sports", "soccer", "baseball",
                                         "basketball", "tennis", "languages", "bikes", "instruments", "novels", "comics", "cartoons", "songs", "letters",
-                                        "computer", "video", "tv", "fruits", "comic", "online", "mobile"]
+                                        "computer", "video", "tv", "fruits", "comic", "online", "mobile", "things", "money", "food", "presents", "gifts"]
             let gerundVerbs2: Set<String> = ["play", "watch", "make", "take", "learn", "visit", "read", "eat", "ride", "use", "write", "sing", "draw"]
             if neutralDeterminers.contains(n) || singularDeterminers.contains(n) || pluralDeterminers.contains(n) || prepositionWords.contains(n) || ["too", "a"].contains(n)
-                || gerundVerbs2.contains(b) && objects.contains(n) {
+                || gerundVerbs2.contains(b) && objects.contains(n) || adjectiveOfAdverb(n) != nil || ["hard", "well", "every", "regularly", "too"].contains(n) {
                 for j in 2..<min(ws.w.count, 9) {
                     let v = ws.w[j]
                     if ws.comma[j - 1] || ["and", "or", "who", "which", "that"].contains(v) { break }
-                    if ["are", "were", "have"].contains(v) {
+                    if ["are", "were", "have"].contains(v) || isPlainBase(v) && actionVerbs.contains(v) && !nounishVerbs.contains(v) && j > 1 && !ws.w[1..<j].contains(where: { isPlainBase($0) && actionVerbs.contains($0) && !isNoun($0) && $0 != v }) {
+                        if isPlainBase(v) { return Issue(rule: "동명사 주어는 단수", why: "동명사(\(w0) …) 주어는 단수: \(v) → \(DoitEnglish.thirdPerson(v))", at: j, fix: DoitEnglish.thirdPerson(v)) }
                         return Issue(rule: "동명사 주어는 단수", why: "동명사(\(w0) …) 주어는 단수: \(v) → \(flipNumber(v) ?? "")", at: j, fix: flipNumber(v))
                     }
                     if isFiniteVerb(v) { break }

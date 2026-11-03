@@ -256,6 +256,8 @@ extension DoitSubjectSolve {
         var found: [(String, DoitSentenceCheck.Issue)] = []
         for s in sentences { for issue in DoitSentenceCheck.errors(in: s) { found.append((s, issue)) } }
         guard found.count == 1, let (sentence, issue) = found.first, let at = issue.at, let fix = issue.fix else { return nil }
+        // 고친 문장을 다시 검사해서 또 틀린 곳이 나오면 (같은 규칙에 걸린 곳이 둘) 풀지 않음
+        guard let corrected = DoitEnglishGrammar.apply(fix, at: at, length: issue.length, to: sentence), DoitSentenceCheck.errors(in: corrected).isEmpty else { return nil }
         let ws = DoitSentenceCheck.words(sentence)
         let wrong = ws.raw[at..<min(ws.raw.count, at + issue.length)].joined(separator: " ")
         let answer = fix.isEmpty ? "\(wrong) → 삭제" : "\(wrong) → \(fix)"
@@ -388,7 +390,7 @@ enum DoitEnglishTransform {
         let subjRaw: String
         if SC.subjectPronouns.contains(ws.w[0]) { subjRaw = ws.w[0] == "i" ? "I" : ws.w[0]; i = 1 }
         else if SC.looksLikeName(ws, 0) { subjRaw = ws.raw[0]; i = 1 }
-        else if let np = SC.nounPhrase(ws, at: 0) { subjRaw = ws.raw[0..<np.end].joined(separator: " ").lowercased(); i = np.end }
+        else if let end = SC.looseNounPhrase(ws, at: 0) { subjRaw = ws.raw[0..<end].joined(separator: " ").lowercased(); i = end }
         else { return nil }
         // 동사
         var tense = ""
@@ -407,7 +409,8 @@ enum DoitEnglishTransform {
                                        "grow", "see", "choose", "drive", "throw", "sell", "buy", "send", "bring", "find", "invent", "discover",
                                        "paint", "design", "invite", "visit", "wash", "fix", "plant", "use", "clean", "love", "respect", "create",
                                        "cook", "bake", "read", "play", "watch", "open", "close", "solve", "answer", "help", "call", "kick", "hit",
-                                       "carry", "deliver", "repair", "destroy", "plan", "write", "hold", "keep", "like", "visit", "translate"]
+                                       "carry", "deliver", "repair", "destroy", "plan", "write", "hold", "keep", "like", "visit", "translate", "bite", "feed",
+                                       "chase", "kill", "teach", "speak", "sing", "wear", "lose", "win", "build", "grow", "drink", "borrow", "lend", "produce", "publish"]
         guard transitive.contains(base) else { return nil }
         // 목적어
         let objRaw: String
@@ -416,8 +419,13 @@ enum DoitEnglishTransform {
         if let s = SC.subjectCase[ws.at(j)] { objRaw = s; objPlural = ["we", "they"].contains(s); j += 1 }
         else if ws.at(j) == "it" { objRaw = "it"; objPlural = false; j += 1 }
         else if ws.at(j) == "you" { objRaw = "you"; objPlural = true; j += 1 }
-        else if SC.looksLikeName(ws, j) { objRaw = ws.raw[j]; objPlural = false; j += 1 }
+        else if SC.looksLikeName(ws, j) || j < ws.raw.count && ws.raw[j].first?.isUppercase == true && ws.raw[j].allSatisfy(\.isLetter) && !ws.w[j].hasSuffix("s") { objRaw = ws.raw[j]; objPlural = false; j += 1 }
         else if let np = SC.nounPhrase(ws, at: j), let pl = np.plural { objRaw = ws.raw[j..<np.end].joined(separator: " "); objPlural = pl; j = np.end }
+        else if let end = SC.looseNounPhrase(ws, at: j), !ws.w[end - 1].hasSuffix("s") || ws.w[end - 1].hasSuffix("ss") {
+            // 목록에 없는 명사: -s로 끝나지 않으면 단수로 (복수일 수 있으면 다루지 않음)
+            if SC.pluralDeterminers.contains(ws.w[j]) { return nil }
+            objRaw = ws.raw[j..<end].joined(separator: " "); objPlural = false; j = end
+        }
         else { return nil }
         // 4형식(목적어 둘)은 다루지 않음
         if j < ws.w.count, SC.nounPhrase(ws, at: j) != nil { return nil }

@@ -30,7 +30,9 @@ enum DoitSentenceCheck {
     static let determiners: Set<String> = ["a", "an", "the", "this", "that", "my", "your", "his", "her", "our", "their", "its", "of", "free", "good"]
     /// 원형과 과거형이 같은 동사 (He put …은 과거일 수 있어요)
     static let sameBasePast: Set<String> = ["put", "cut", "hit", "read", "let", "set", "hurt", "cost", "quit", "shut", "spread", "bet", "burst",
-                                                    "cast", "fit", "rid", "split", "upset", "beat", "bid", "broadcast", "forecast", "thrust", "wed"]
+                                                    "cast", "fit", "rid", "split", "upset", "beat", "bid", "broadcast", "forecast", "thrust", "wed",
+                                                    // 다른 동사의 과거형이기도 한 원형 (lay = lie의 과거, found = find의 과거 …)
+                                                    "lay", "found", "saw", "wound", "fell", "ground", "bore"]
     /// 조동사처럼도 쓰는 말 (He need not go)
     static let semiModals: Set<String> = ["need", "dare"]
 
@@ -190,7 +192,12 @@ enum DoitSentenceCheck {
     static func subjectSlots(_ ws: Words) -> [Int] {
         let openers: Set<String> = ["if", "when", "because", "before", "after", "so", "but", "while", "though", "although", "until"]
         return ws.w.indices.filter { i in
-            subjectPronouns.contains(ws.w[i]) && (i == 0 || ws.comma[i - 1] || openers.contains(ws.w[i - 1]) && (i == 1 || ws.comma[i - 2]))
+            guard subjectPronouns.contains(ws.w[i]) else { return false }
+            if i == 0 || ws.comma[i - 1] || openers.contains(ws.w[i - 1]) && (i == 1 || ws.comma[i - 2]) { return true }
+            // "He plays soccer and they …": and 앞에 동사가 있고 바로 앞이 대명사가 아니면 새 절
+            if ws.w[i - 1] == "and", i >= 3, !subjectPronouns.contains(ws.w[i - 2]), !objectPronouns.contains(ws.w[i - 2]),
+               ws.w[0..<(i - 1)].contains(where: { isPlainBase($0) || isThirdForm($0) || isPastOnly($0) || beForms.contains($0) }) { return true }
+            return false
         }
     }
 
@@ -346,7 +353,7 @@ enum DoitSentenceCheck {
         guard line.range(of: pastCue, options: .regularExpression) != nil, singleClause(ws) else { return nil }
         // 동사 뒤에 또 주어·동사가 오면 (관계사를 뺀 "He is the man I met yesterday") 과거 단서가 어느 동사 것인지 몰라요
         func anotherClause(after j: Int) -> Bool {
-            ws.w.indices.contains { k in k > j && (subjectPronouns.contains(ws.w[k]) || isPastOnly(ws.w[k]) || isThirdForm(ws.w[k])
+            ws.w.indices.contains { k in k > j && (subjectPronouns.contains(ws.w[k]) && !(["it", "you"].contains(ws.w[k]) && k == j + 1) || isPastOnly(ws.w[k]) || isThirdForm(ws.w[k])
                 || (base(ws.w[k]).map { DoitEnglish.pastForms($0).contains(ws.w[k]) && $0 != ws.w[k] } ?? false)) }
         }
         for i in ws.w.indices where isPresentPerfect(ws, at: i) {
@@ -513,6 +520,7 @@ enum DoitSentenceCheck {
             // 관계절이어야: 바로 뒤에 동사나 주어
             let next = ws.at(i + 1)
             let clause = subjectPronouns.contains(next) || isThirdForm(next) || beForms.contains(next) || isPastOnly(next) || ["the", "my", "his", "her"].contains(next)
+                || isPlainBase(next) && (antecedent.hasSuffix("s") || ["people", "children", "men", "women"].contains(antecedent))
             guard clause else { continue }
             if r == "which", personNouns.contains(antecedent) { return Issue(rule: "관계대명사", why: "선행사 \(antecedent)는 사람이라 who(m)/that을 써요 (which ✗).", at: i, fix: "who") }
             if r == "who" || r == "whom", thingNouns.contains(antecedent) { return Issue(rule: "관계대명사", why: "선행사 \(antecedent)는 사물이라 which/that을 써요 (\(r) ✗).", at: i, fix: "which") }

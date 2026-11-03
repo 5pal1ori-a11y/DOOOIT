@@ -1296,6 +1296,12 @@ enum DoitSubjectSolve {
         } else if ["have", "has", "had", "'ve"].contains(last)
                     || (["already", "just", "never", "ever", "not", "recently", "once"].contains(last) && ["have", "has", "had"].contains(previous)) {
             guard base != "have" || last != "have" else { return nil }
+            // been(경험 · 다녀옴)과 gone(가 버림)은 뜻으로 갈려요: 횟수·경험 단서가 있을 때만 been
+            if options.contains("been"), options.contains("gone") {
+                let cue = matches(" " + b.whole + " ", #" (twice|once|before|ever|never|\d+ times|many times|several times|three times) "#)
+                guard cue, b.right.first == "to" else { return nil }
+                return choose(p, options, allowed: ["been"], concept: "have been to (경험)", why: ["횟수·경험(twice, ever …)을 말하면 have been to (have gone to는 '가 버리고 없다')"])
+            }
             allowed = ppForms; why = ["have/has + 과거분사: 현재완료", "\(base) → \(ppForms.sorted().joined(separator: "/"))"]; concept = "현재완료"
         } else if ["am", "is", "are", "was", "were", "be", "been"].contains(last) {
             let rightWindow = b.right.prefix(6)

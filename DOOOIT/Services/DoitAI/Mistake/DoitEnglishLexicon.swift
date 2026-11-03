@@ -52,7 +52,7 @@ extension DoitSentenceCheck {
         "mind", "life", "wife", "knife", "shelf", "thief", "hero", "piano", "radio", "video", "child", "goose", "ox", "crisis",
         "phenomenon", "criterion", "medium", "datum", "analysis", "hypothesis", "thesis", "basis", "oasis", "cactus", "fungus",
         "stimulus", "nucleus", "bacterium", "teenager", "adult", "citizen", "expert", "professor", "employee", "manager", "owner",
-        "passenger", "hobby", "name", "address", "color", "friendship", "uniform", "dream", "audience", "crowd", "police", "people", "family", "group", "staff", "committee", "government", "jury", "band", "club"
+        "passenger", "mom", "dad", "mistake", "error", "elephant", "trunk", "grade", "castle", "statue", "temple", "palace", "vase", "mailman", "fence", "gate", "pool", "beach", "desert", "jungle", "pyramid", "clothes", "jacket", "hill", "corner", "sun", "moon", "tail", "wing", "nest", "cave", "valley", "field", "pond", "hobby", "name", "address", "color", "friendship", "uniform", "dream", "audience", "crowd", "police", "people", "family", "group", "staff", "committee", "government", "jury", "band", "club"
     ]
     /// 집합명사 · 수가 정해지지 않는 명사 (규칙에서 빼요)
     static let unsureNouns: Set<String> = ["team", "class", "family", "group", "staff", "audience", "crowd", "committee", "government", "jury",
@@ -70,7 +70,7 @@ extension DoitSentenceCheck {
                                                                           "weather", "traffic", "pollution", "electricity", "energy", "gold",
                                                                           "silver", "wood", "glass", "air", "soil", "sand", "snow", "rain",
                                                                           "love", "peace", "health", "happiness", "success", "education",
-                                                                          "technology", "science", "history", "nature", "space", "evidence"])
+                                                                          "technology", "science", "history", "nature", "space", "evidence", "hair"])
         .subtracting(["glass", "paper", "time", "work", "fun", "rain", "snow"])
 
     /// 단수 → 복수 (불규칙 포함)
@@ -212,6 +212,19 @@ extension DoitSentenceCheck {
         return NounPhrase(start: i, head: head, end: head + 1, plural: plural, hasDeterminer: hasDet)
     }
 
+    /// 느슨한 명사구 (한정사 + 꾸밈말 + 아무 명사): 수식어구처럼 수를 따지지 않는 곳에서만
+    static func looseNounPhrase(_ ws: Words, at i: Int) -> Int? {
+        if let np = nounPhrase(ws, at: i, bare: true) { return np.end }
+        let d = ws.at(i)
+        guard singularDeterminers.contains(d) || pluralDeterminers.contains(d) || neutralDeterminers.contains(d) else { return nil }
+        var j = i + 1
+        while isAdjectiveLike(ws.at(j)) && !isNoun(ws.at(j)) { j += 1 }
+        let h = ws.at(j)
+        guard h.count >= 2, h.allSatisfy(\.isLetter), !isFiniteVerb(h), !prepositionWords.contains(h), base(h) == nil || isNoun(h),
+              !["and", "or", "but", "who", "which", "that", "to", "not"].contains(h), j > i, !ws.comma[j - 1] else { return nil }
+        return j + 1
+    }
+
     /// 사람 이름처럼 보이는 대문자 낱말 (단어장에 없고 -s로 끝나지 않음)
     static func looksLikeName(_ ws: Words, _ i: Int) -> Bool {
         guard i < ws.raw.count else { return false }
@@ -226,7 +239,7 @@ extension DoitSentenceCheck {
                                    "nothing", "something", "everything", "none", "no", "yes", "not", "maybe", "perhaps", "however",
                                    "japanese", "chinese", "english", "french", "korean", "spanish", "german", "british", "dutch", "swiss",
                                    "vietnamese", "portuguese", "american", "italian", "russian", "indian", "thai", "people", "children"]
-        if common.contains(w) || whWords.contains(w) || subjectPronouns.contains(w) || objectPronouns.contains(w) { return false }
+        if common.contains(w) || prepositionWords.contains(w) || ["to", "a", "an", "the", "not", "very", "too", "than", "like", "please", "thank", "hello", "hi", "dear", "oh", "wow", "well"].contains(w) || whWords.contains(w) || subjectPronouns.contains(w) || objectPronouns.contains(w) { return false }
         if w.hasSuffix("ese") || w.hasSuffix("ish") || w.hasSuffix("ch") || w.hasSuffix("ly") { return false }
         if DoitEnglish.vocabulary[w] != nil || isNoun(w) || base(w) != nil || adjectiveWords.contains(w) { return false }
         if singularDeterminers.contains(w) || pluralDeterminers.contains(w) || neutralDeterminers.contains(w) { return false }
