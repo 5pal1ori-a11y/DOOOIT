@@ -87,7 +87,7 @@ extension Color {
     /// 아이콘 바탕용 옅은 파스텔 (어두운 화면에서는 조금 더 옅게)
     var pastel: Color {
         let base = UIColor(self)
-        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? base.withAlphaComponent(0.2) : base.withAlphaComponent(0.14) })
+        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? base.withAlphaComponent(0.16) : base.withAlphaComponent(0.14) })
     }
 }
 
