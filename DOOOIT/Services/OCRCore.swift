@@ -583,6 +583,42 @@ enum OCRService {
                 }
             }
 
+            // 1-1c) 선분 윗줄: 따로 선 대문자 두 글자(AB) 위의 짧은 가로줄 → 글자마다 윗줄 (A̅B̅, 앱 표기는 GeometryText)
+            //       글자 인식은 윗줄을 버리고 "AB"만 읽어서, 사진 픽셀에서 직접 확인
+            if let ink {
+                let pairs = chars.indices.dropLast().filter { i in
+                    chars[i].isASCII && chars[i].isUppercase && chars[i + 1].isASCII && chars[i + 1].isUppercase && chars[i] != chars[i + 1]
+                        && (i == 0 || !(chars[i - 1].isLetter || chars[i - 1].isNumber)) && (i + 2 >= chars.count || !(chars[i + 2].isLetter || chars[i + 2].isNumber))
+                }
+                if !pairs.isEmpty {
+                    let paired = Set(pairs.flatMap { [$0, $0 + 1] })
+                    func extent(_ box: CGRect) -> (top: Int, bottom: Int)? {
+                        let shrink = box.width * 0.2
+                        let x0 = Int((box.minX + shrink) * CGFloat(ink.width)), x1 = Int((box.maxX - shrink) * CGFloat(ink.width))
+                        let y0 = Int((1 - line.maxY - line.height * 0.1) * CGFloat(ink.height)), y1 = Int((1 - line.minY + line.height * 0.1) * CGFloat(ink.height))
+                        return ink.extent(x0: x0, x1: x1, y0: y0, y1: y1)
+                    }
+                    // 같은 줄 대문자·숫자(없으면 한글)의 보통 윗끝과 높이
+                    func typical(_ keep: (Character) -> Bool) -> (top: Int, height: Int)? {
+                        let found = chars.indices.filter { !paired.contains($0) && keep(chars[$0]) }.compactMap { charBox($0).flatMap(extent) }
+                        guard found.count >= 2 else { return nil }
+                        let tops = found.map(\.top).sorted(), heights = found.map { $0.bottom - $0.top + 1 }.sorted()
+                        return (tops[tops.count / 2], heights[heights.count / 2])
+                    }
+                    if let cap = typical({ $0.isASCII && ($0.isUppercase || $0.isNumber) }) ?? typical({ isHangul($0) }) {
+                        for i in pairs {
+                            guard let a = charBox(i), let b = charBox(i + 1), !isFractionBox(a.union(b)) else { continue }
+                            let box = a.union(b)
+                            let x0 = Int(box.minX * CGFloat(ink.width)), x1 = Int(box.maxX * CGFloat(ink.width))
+                            if FractionFinder.hasOverline(ink, x0: x0, x1: x1, capTop: cap.top, letterHeight: cap.height) {
+                                insertions.append((i + 1, GeometryText.overlineMark))
+                                insertions.append((i + 2, GeometryText.overlineMark))
+                            }
+                        }
+                    }
+                }
+            }
+
             // 1-2b) 사진에서 찾은 분수: 그 자리에 잘못 읽힌 글자("늘", "÷", "⅔")를 지우고 분수로
             var barEdits: [(range: Range<Int>, text: String)] = []
             let circleRanges = (circleEdits[lineIndex] ?? []).map(\.remove)
