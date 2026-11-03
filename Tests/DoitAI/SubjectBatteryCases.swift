@@ -386,7 +386,9 @@ let subjectBattery: [SubjectBatteryCase] = [
     SubjectBatteryCase("사회", "다음 중 2차 산업은?\n① 어업 ② 제조업 ③ 상업 ④ 관광업 ⑤ 임업", "2"),
     SubjectBatteryCase("사회", "누구나 일정한 나이가 되면 선거권을 갖는 선거의 원칙은?\n① 보통 선거 ② 평등 선거 ③ 직접 선거 ④ 비밀 선거", "1"),
     SubjectBatteryCase("국어", "다음 중 맞춤법에 맞는 것은?\n① 할께요 ② 할게요 ③ 할깨요 ④ 할개요", "2"),
-    SubjectBatteryCase("국어", "밑줄 친 말의 표기가 바른 것은?\n① 오늘 몇일이야? ② 금새 끝났다. ③ 웬일로 왔니? ④ 됬어, 그만해.", "3")
+    SubjectBatteryCase("국어", "밑줄 친 말의 표기가 바른 것은?\n① 오늘 몇일이야? ② 금새 끝났다. ③ 웬일로 왔니? ④ 됬어, 그만해.", "3"),
+    // 예전에는 함정(자료 없음)이었지만 이제 설명 문장 사실표(광합성)로 확인해서 풀어요
+    SubjectBatteryCase("과학", "다음 중 광합성에 대한 설명으로 옳은 것은?\n① 밤에만 일어난다. ② 산소를 흡수한다. ③ 엽록체에서 일어난다. ④ 이산화 탄소를 방출한다. ⑤ 뿌리에서 일어난다.", "3")
 ]
 
 /// 풀면 안 되는 문제: 단서가 없거나 둘 이상이 맞거나 자료에 없는 것 (규칙 풀이가 nil이어야 함)
@@ -398,7 +400,6 @@ let subjectTraps: [SubjectBatteryCase] = [
     SubjectBatteryCase("영어", "Yesterday I ______ a movie, and tomorrow I will see another.\n① see ② saw ③ will see ④ seeing ⑤ seen", ""),
     SubjectBatteryCase("영어", "I like ______ books.\n① read ② reads ③ reading ④ to read ⑤ readed", ""),
     SubjectBatteryCase("과학", "질량이 2 kg인 물체의 운동 에너지는 몇 J인가?\n① 2 J ② 4 J ③ 9.8 J ④ 19.6 J ⑤ 40 J", ""),
-    SubjectBatteryCase("과학", "다음 중 광합성에 대한 설명으로 옳은 것은?\n① 밤에만 일어난다. ② 산소를 흡수한다. ③ 엽록체에서 일어난다. ④ 이산화 탄소를 방출한다. ⑤ 뿌리에서 일어난다.", ""),
     SubjectBatteryCase("과학", "다음 중 퇴적암인 것은?\n① 현무암 ② 사암 ③ 석회암 ④ 화강암 ⑤ 편마암", ""),
     SubjectBatteryCase("과학", "다음 중 포유류가 아닌 것은?\n① 고래 ② 박쥐 ③ 오리너구리 ④ 개 ⑤ 소", ""),
     SubjectBatteryCase("과학", "속력이 2 m/s인 물체의 질량은 몇 kg인가?\n① 1 ② 2 ③ 3 ④ 4 ⑤ 5", ""),

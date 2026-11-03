@@ -55,7 +55,9 @@ enum DoitItemJudge {
     static func extractItems(_ text: String) -> [Item] {
         var out: [Item] = []
         for line in text.components(separatedBy: .newlines) {
-            let t = line.trimmingCharacters(in: .whitespaces)
+            var t = line.trimmingCharacters(in: .whitespaces)
+            // 선지 부분 ("① (A), (B) ② …")은 항목이 아님
+            if let mark = t.firstIndex(where: { "①②③④⑤".contains($0) }) { t = String(t[..<mark]).trimmingCharacters(in: .whitespaces) }
             guard !t.isEmpty else { continue }
             // "a) … b) …"처럼 한 줄에 여러 개
             let parts = splitInline(t)
@@ -111,9 +113,22 @@ enum DoitItemJudge {
 
     // MARK: - 모델에게 묻기
 
-    static func prompt(_ s: Setup, subjectName: String) -> String {
+    /// 규칙·자료로 확실히 판단한 항목 (영어 어법 규칙, 맞춤법 표, 개념 사실표). 모델에게 고정 판단으로 알려 주고, 모델 답보다 앞서요
+    static func ruleVerdicts(_ s: Setup) -> [String: (verdict: Bool, why: String)] {
+        var out: [String: (verdict: Bool, why: String)] = [:]
+        for item in s.items {
+            if let r = DoitSubjectSolve.ruleVerdict(item, stem: s.stem) { out[item.label] = r }
+        }
+        return out
+    }
+
+    static func prompt(_ s: Setup, subjectName: String, fixed: [String: (verdict: Bool, why: String)] = [:]) -> String {
         var parts = ["[과목] \(subjectName)", "[문제] \(s.stem)"]
         parts.append("[항목]\n" + s.items.map { "\($0.label)) \($0.text)" }.joined(separator: "\n"))
+        if !fixed.isEmpty {
+            let lines = s.items.compactMap { it in fixed[it.label].map { "\(it.label)) \($0.verdict ? "O" : "X") - \($0.why)" } }
+            parts.append("[규칙으로 확인한 판단] (이 항목은 이 판단을 그대로 쓰세요)\n" + lines.joined(separator: "\n"))
+        }
         parts.append("각 항목을 하나씩 따져서, 문제의 기준에 맞으면 O, 맞지 않으면 X로 판단하세요. "
                      + "한 줄에 하나씩 'a) O - 짧은 이유' 모양으로만 쓰고, 선택지 번호나 정답은 쓰지 마세요. 확실하지 않으면 ?를 쓰세요.")
         return parts.joined(separator: "\n\n")
@@ -171,11 +186,14 @@ enum DoitItemJudge {
     @MainActor
     static func run(_ s: Setup, subjectName: String, problem: String) async -> WrittenSolution? {
         let labels = s.items.map(\.label)
-        let text = prompt(s, subjectName: subjectName)
+        let fixed = ruleVerdicts(s)
+        let text = prompt(s, subjectName: subjectName, fixed: fixed)
         var first: (verdicts: [String: Bool], reasons: [String: String])?
         for temperature: Float in [0.1, 0.6] {
             guard let raw = try? await DoitBrain.shared.complete(system: DoitMind.persona, prompt: text, maxTokens: 500, temperature: temperature),
-                  let parsed = parseVerdicts(DoitMind.answer(raw), labels: labels) else { return nil }
+                  var parsed = parseVerdicts(DoitMind.answer(raw), labels: labels) else { return nil }
+            // 규칙으로 확실한 항목은 규칙 판단으로 (모델이 다르게 써도)
+            for (label, rule) in fixed { parsed.verdicts[label] = rule.verdict; parsed.reasons[label] = rule.why }
             if let first {
                 guard agree(first.verdicts, parsed.verdicts) else { return nil }
             } else {

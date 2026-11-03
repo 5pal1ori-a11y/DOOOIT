@@ -217,6 +217,13 @@ enum DoitProblemScan {
         guard let first = line.firstIndex(where: { circled.contains($0) }) else { return false }
         let prefix = line[..<first].filter { !$0.isWhitespace }
         let average = parts.isEmpty ? 0 : parts.map(\.count).reduce(0, +) / parts.count
+        // 물음("…틀린 문장은?") 뒤에 완전한 문장 선지가 한 줄로 이어진 것은 지문이 아님 (지문 속 밑줄 번호는 문장 가운데에 붙어요)
+        let question = line[..<first].trimmingCharacters(in: .whitespaces)
+        if question.hasSuffix("?") || question.hasSuffix("？"), question.contains(where: { DoitSubjectNote.isHangul($0) }), parts.count >= 3,
+           parts.allSatisfy({ part in
+               guard let head = part.first, let tail = part.last else { return false }
+               return (head.isUppercase || DoitSubjectNote.isHangul(head)) && ".?!".contains(tail)
+           }) { return false }
         return prefix.count >= 6 && average >= 12
     }
 
