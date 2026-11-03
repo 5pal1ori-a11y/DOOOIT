@@ -213,7 +213,8 @@ extension DoitSentenceCheck {
                                         "hated", "miss", "missed", "hug", "hugged", "trust", "trusted", "teach", "taught", "tell", "told"]
         for i in ws.w.indices.dropLast() {
             let t = ws.w[i], p = ws.at(i + 1)
-            guard let obj = objectCase[p], p != "i" || ws.raw[i + 1] == "I" else { continue }
+            // "Without your help, I …": 쉼표 뒤는 새 절의 주어
+            guard let obj = objectCase[p], p != "i" || ws.raw[i + 1] == "I", !ws.comma[i] else { continue }
             let next = ws.at(i + 2)
             let clauseFollows = isFiniteVerb(next) || isBaseForm(next) || modals.contains(next) || ["not", "always", "never", "often", "also", "usually"].contains(next)
             if preps.contains(t), !clauseFollows, !(t == "for" && isFiniteVerb(ws.at(i + 3))) {

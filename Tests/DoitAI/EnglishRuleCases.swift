@@ -69,7 +69,7 @@ let englishRuleCases: [EnglishRuleCase] = [
         ("Let's going to the park.", "go"), ("Let's to play outside.", ""), ("Please opens the door.", "open"), ("I am agree with you.", "")
     ], right: [
         "I am playing soccer now.", "Don't be late for school.", "Let's go to the park.", "Let's not go there.", "Please open the door.", "I agree with you.",
-        "I am free today.", "He is clean and tidy.", "We are ready.", "She is like her mother.", "Don't worry about it.", "I am like you."
+        "I am free today.", "Without your help, I couldn't have finished it.", "He is clean and tidy.", "We are ready.", "She is like her mother.", "Don't worry about it.", "I am like you."
     ]),
     EnglishRuleCase(level: "초등~중1", topic: "비교 기본", wrong: [
         ("He is very taller than me.", "much"), ("She is tallest girl in my class.", "the tallest"), ("He is as tall than his father.", "as"),
