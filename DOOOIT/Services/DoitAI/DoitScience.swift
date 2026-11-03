@@ -313,13 +313,32 @@ enum DoitScience {
         let text: String
         let chars: [Character]
         let quantities: [SciQ]
+        /// 중력 가속도: 문제가 "(단, 중력 가속도는 10 m/s²)", "질량 1 kg인 물체의 무게는 10 N"처럼 정해 주면 그 값, 아니면 9.8
+        let g: Double
 
         init(_ raw: String) {
             original = raw
             let cleaned = SciContext.prepare(raw)
             text = cleaned
             chars = Array(cleaned)
-            quantities = SciContext.scan(chars)
+            let gravity = SciContext.gravity(cleaned)
+            g = gravity.value
+            // 중력 가속도를 정해 준 글 속의 값(1 kg, 10 N, 10 m/s²)은 문제의 값이 아님
+            quantities = SciContext.scan(chars).filter { q in gravity.span.map { !$0.contains(q.start) } ?? true }
+        }
+
+        private static func gravity(_ text: String) -> (value: Double, span: Range<Int>?) {
+            let patterns = [#"중력\s*가속도[^0-9\n]{0,8}?([0-9]+(?:\.[0-9]+)?)\s*m/s"#,
+                            #"1\s*kg[^0-9\n]{0,16}?무게[^0-9\n]{0,6}?([0-9]+(?:\.[0-9]+)?)\s*N"#]
+            for pattern in patterns {
+                guard let regex = try? NSRegularExpression(pattern: pattern),
+                      let m = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                      let r = Range(m.range(at: 1), in: text), let whole = Range(m.range, in: text),
+                      let value = Double(text[r]), value == 10 || value == 9.8 else { continue }
+                let lower = text.distance(from: text.startIndex, to: whole.lowerBound)
+                return (value, lower..<(lower + text[whole].count))
+            }
+            return (9.8, nil)
         }
 
         func first(_ dim: SciDim) -> SciQ? { quantities.first { $0.dim == dim } }
@@ -453,14 +472,15 @@ enum DoitScience {
 
     // MARK: - 공식 계산
 
-    private static func formula(_ c: SciContext) -> String? {
+    /// guess: 무엇을 구하는지 말하지 않았을 때 주어진 값의 짝으로 짐작할지 (확인한 답만 낼 때는 짐작하지 않음)
+    private static func formula(_ c: SciContext, guess: Bool = true) -> String? {
         guard !c.quantities.isEmpty else { return nil }
         let solvers: [(SciContext) -> String?] = [wave, electricity, heat, density, pressure, kinetic, potential,
                                                   mechanicalPower, work, weight, force, speed, concentration, mole]
         for solver in solvers {
             if let reply = solver(c) { return reply }
         }
-        return generic(c)
+        return guess ? generic(c) : nil
     }
 
     private static let speedWords = ["속력", "속도", "빠르기"]
@@ -536,13 +556,13 @@ enum DoitScience {
 
     private static func weight(_ c: SciContext) -> String? {
         if c.askedAny(["무게", "중력의 크기", "중력은", "중력이"]), let m = c.first(.mass) {
-            return out("무게 구하기", formula: "무게 = 9.8 × 질량 (W = mg)", given: [m],
-                       sub: "W = \(fmt(m.si)) kg × 9.8 m/s²", answer: "\(fmt(m.si * 9.8)) N",
+            return out("무게 구하기", formula: "무게 = \(fmt(c.g)) × 질량 (W = mg)", given: [m],
+                       sub: "W = \(fmt(m.si)) kg × \(fmt(c.g)) m/s²", answer: "\(fmt(m.si * c.g)) N",
                        note: "질량은 어디서나 같지만, 무게는 중력에 따라 달라져요. 달에서는 지구의 약 1/6이에요.")
         }
         if c.has(["무게"]), c.asked("질량"), let w = c.first(.force) {
-            return out("질량 구하기", formula: "질량 = 무게 ÷ 9.8", given: [w],
-                       sub: "m = \(fmt(w.si)) N ÷ 9.8 m/s²", answer: "\(fmt(w.si / 9.8)) kg")
+            return out("질량 구하기", formula: "질량 = 무게 ÷ \(fmt(c.g))", given: [w],
+                       sub: "m = \(fmt(w.si)) N ÷ \(fmt(c.g)) m/s²", answer: "\(fmt(w.si / c.g)) kg")
         }
         return nil
     }
@@ -551,7 +571,7 @@ enum DoitScience {
     private static func forceOrWeight(_ c: SciContext) -> (value: Double, text: String, note: String?)? {
         if let f = c.first(.force) { return (f.si, "\(fmt(f.si)) N", lineFor(f)) }
         if let m = c.first(.mass) {
-            return (m.si * 9.8, "(\(fmt(m.si)) kg × 9.8) N", "물체의 무게 = 9.8 × \(fmt(m.si)) kg = \(fmt(m.si * 9.8)) N")
+            return (m.si * c.g, "(\(fmt(m.si)) kg × \(fmt(c.g))) N", "물체의 무게 = \(fmt(c.g)) × \(fmt(m.si)) kg = \(fmt(m.si * c.g)) N")
         }
         return nil
     }
@@ -588,8 +608,8 @@ enum DoitScience {
 
     private static func potential(_ c: SciContext) -> String? {
         guard c.askedAny(["위치 에너지", "위치에너지"]), let m = c.first(.mass), let h = c.first(.length) else { return nil }
-        return out("중력에 의한 위치 에너지 구하기", formula: "Eₚ = 9.8 × m × h", given: [m, h],
-                   sub: "Eₚ = 9.8 × \(fmt(m.si)) kg × \(fmt(h.si)) m", answer: "\(fmt(9.8 * m.si * h.si)) J")
+        return out("중력에 의한 위치 에너지 구하기", formula: "Eₚ = \(fmt(c.g)) × m × h", given: [m, h],
+                   sub: "Eₚ = \(fmt(c.g)) × \(fmt(m.si)) kg × \(fmt(h.si)) m", answer: "\(fmt(c.g * m.si * h.si)) J")
     }
 
     private static func pressure(_ c: SciContext) -> String? {
@@ -1425,4 +1445,52 @@ enum DoitScience {
 extension DoitScience {
     /// 개념 사전 전체 (이름들, 설명)
     static var knowledgeEntries: [(names: [String], body: String)] { concepts.map { ($0.names, $0.body) } }
+}
+
+// MARK: - 과목 풀이(DoitSubjectSolve)용
+
+extension DoitScience {
+    /// 계산 문제 풀이 글 (공식 계산 · 몰 질량 · 단위 바꾸기). 개념 설명이나 짐작은 빼고 무엇을 구하는지 알 때만
+    static func calculation(_ question: String) -> String? {
+        let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.count >= 2 else { return nil }
+        let c = SciContext(text)
+        return molarMass(c) ?? formula(c, guess: false) ?? conversion(c)
+    }
+
+    /// 글 속 값 하나 (수 + 단위)
+    struct Quantity {
+        /// 물리량 종류 (mass, length, speed …)
+        let dimension: String
+        /// 기본 단위로 바꾼 값 (kg, m, s, J …)
+        let si: Double
+        /// 글에 적힌 수
+        let raw: Double
+        /// 글에 적힌 단위 (보여 주기용)
+        let unit: String
+    }
+
+    /// 글 속 값들 ("2 m/s", "10 cm²", "시속 60 km")
+    static func quantities(in text: String) -> [Quantity] {
+        SciContext(text).quantities.map { Quantity(dimension: "\($0.dim)", si: $0.si, raw: $0.raw, unit: $0.unit.show) }
+    }
+
+    /// 중력 가속도 (문제가 정해 준 값, 없으면 9.8)
+    static func gravity(in text: String) -> Double { SciContext(text).g }
+
+    /// 주기율표 원소
+    struct ElementInfo {
+        let number: Int
+        let symbol: String
+        let name: String
+        let aliases: [String]
+        /// "금속 (알칼리 금속)", "비금속", "비활성 기체" …
+        let kind: String
+        let group: Int
+        let period: Int
+    }
+
+    static var elementList: [ElementInfo] {
+        elements.map { ElementInfo(number: $0.z, symbol: $0.symbol, name: $0.name, aliases: $0.aliases, kind: $0.kind, group: $0.group, period: $0.period) }
+    }
 }

@@ -615,3 +615,18 @@ extension DoitSocial {
     /// 개념 사전 전체 (이름들, 설명)
     static var knowledgeEntries: [(names: [String], body: String)] { concepts.map { ($0.names, $0.body) } }
 }
+
+
+// MARK: - 과목 풀이(DoitSubjectSolve)용: 나라·수도, 연표
+
+extension DoitSocial {
+    /// 나라 이름들, 수도, 수도의 다른 이름, 대륙
+    static var countryList: [(names: [String], capital: String, capitalAliases: [String], continent: String)] {
+        countries.map { ($0.names, $0.capital, $0.capitalAliases, $0.continent) }
+    }
+
+    /// 연표 사건 (해, 이름들, 관련 인물, 어림 연도인지)
+    static var eventList: [(year: Int, names: [String], who: String?, approx: Bool)] {
+        events.map { ($0.year, $0.names, $0.who, $0.approx) }
+    }
+}
