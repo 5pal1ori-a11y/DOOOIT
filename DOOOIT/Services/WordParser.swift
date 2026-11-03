@@ -107,6 +107,8 @@ enum WordParser {
         for line in raw {
             if isSynonymHeading(line) { inSynonymBlock = true; continue }
             if isSynonymLine(line) { continue }
+            // 시중 단어장의 덧붙인 줄: 파생어·관련 표현(+), 예시 구(•), 영영풀이, 복수형(복), 동사 변화형(oversaw-overseen)
+            if isExtraLine(line) { continue }
             if inSynonymBlock, line.range(of: "[가-힣]", options: .regularExpression) == nil, line.contains(where: \.isLetter) { continue }
             inSynonymBlock = false
             kept.append(line)
@@ -118,7 +120,49 @@ enum WordParser {
             if !isHeader(text, next: i + 1 < joined.count ? joined[i + 1] : nil) { texts.append(text) }
         }
         // 시중 단어장(표제어 + [발음] + 품사 + 뜻 + 예시 구·예문)은 품사 표시를 기준으로 읽음
-        return isBookPage(texts) ? parseBook(texts) : parseList(texts)
+        return cleanEntries(isBookPage(texts) ? parseBook(texts) : parseList(texts))
+    }
+
+    // MARK: - 단어장의 덧붙인 줄 (표제어가 아닌 것)
+
+    /// 파생어·관련 표현(+ ultimate 형 최종의), 예시 구(• a compact camera 소형 카메라), 영영풀이, 복수형(복 phenomena),
+    /// 동사 변화형(oversaw-overseen) 줄은 단어로 넣지 않음
+    static func isExtraLine(_ raw: String) -> Bool {
+        let t = raw.trimmingCharacters(in: .whitespaces)
+        guard !t.isEmpty else { return false }
+        if t.range(of: #"^[+＋✚➕]"#, options: .regularExpression) != nil { return true }
+        if t.range(of: #"영\s?영\s?풀\s?이|영풀이|영영 ?뜻"#, options: .regularExpression) != nil { return true }
+        // 점 뒤에 영어 두 낱말 이상 (예시 구) — "· apple 사과"처럼 한 낱말은 목록이라 그대로
+        if t.range(of: #"^[•·∙●◦▪]\s*[A-Za-z][A-Za-z'’\-]*\s+[A-Za-z]"#, options: .regularExpression) != nil { return true }
+        if t.range(of: #"^(복|복수|pl\.)\s*[:)]?\s*[A-Za-z]"#, options: [.regularExpression, .caseInsensitive]) != nil { return true }
+        // 영어만 있는 "oversaw-overseen" · "ran - run" (과거형-과거분사)
+        if t.range(of: "[가-힣]", options: .regularExpression) == nil,
+           t.range(of: #"^[A-Za-z]{2,}\s*[-–/]\s*[A-Za-z]{2,}(\s*[-–/]\s*[A-Za-z]{2,})?$"#, options: .regularExpression) != nil { return true }
+        return false
+    }
+
+    /// 다 읽은 뒤 정리: 표제어가 아닌 것 빼기 · 체크 칸이 글자로 붙은 것 떼기
+    static func cleanEntries(_ words: [ParsedWord]) -> [ParsedWord] {
+        var out: [ParsedWord] = []
+        for var word in words {
+            // "brief d": 체크 칸(□□)이 한 글자로 읽힌 것
+            var term = word.term.replacingOccurrences(of: #"(\s+[a-zA-Z]){1,2}$"#, with: "", options: .regularExpression)
+            if term.split(separator: " ").count == 1 || term == word.term { word.term = term } else { term = word.term }
+            let lower = word.term.lowercased()
+            let tokens = lower.split(separator: " ").map(String.init)
+            let meaning = word.meaning.trimmingCharacters(in: .whitespaces)
+            // 뜻이 영영풀이 표시뿐
+            if meaning.range(of: #"^(영\s?영\s?풀\s?이|영풀이)$"#, options: .regularExpression) != nil { continue }
+            // 관사로 시작하고 바로 앞 표제어가 든 예시 구 ("compact" 다음의 "a compact camera") — "a lot of" 같은 숙어는 그대로
+            if tokens.count >= 2, ["a", "an", "the"].contains(tokens[0]), let last = out.last, !last.term.contains(" "),
+               tokens.contains(last.term.lowercased()) { continue }
+            // 바로 앞 표제어가 든 세 낱말 이상 (예시 구: crisis 다음의 "go through a crisis") — "look after" 같은 숙어는 그대로
+            if tokens.count >= 3, let last = out.last, !last.term.contains(" "), tokens.contains(last.term.lowercased()) { continue }
+            // 바로 앞 단어와 뜻이 같고 낱말 모양이 변화형 ("oversaw-overseen" 감독하다)
+            if let last = out.last, last.meaning == word.meaning, lower.contains("-"), !last.term.contains("-") { continue }
+            out.append(word)
+        }
+        return out
     }
 
     // MARK: - 유의어 · 반의어

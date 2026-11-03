@@ -56,4 +56,20 @@ func runItemJudgeCases() {
     check("단어장 유의어 제목 줄", WordParser.isSynonymHeading("비슷한 뜻 · 반대 뜻"))
     check("단어장 뜻 속 유의어 지움", !WordParser.normalizeRow("happy 행복한 ⓢ glad ⓐ sad").contains("glad"), WordParser.normalizeRow("happy 행복한 ⓢ glad ⓐ sad"))
     check("단어장 보통 줄은 그대로", !WordParser.isSynonymLine("happy 행복한") && !WordParser.isSynonymLine("run 동 달리다"))
+
+    // 시중 단어장(풀어서 외우는 영단어 같은 쪽): 파생어 +, 예시 구 •, 영영풀이, 복수형, 동사 변화형은 단어가 아님
+    for line in ["+ ultimate 형 최종의, 궁극적인 / 유 in the end", "+ impression 명 인상 / 유 remarkable", "• a compact camera 소형 카메라",
+                 "영영풀이 small but complete", "복 phenomena", "oversaw-overseen", "· go through a crisis 위기를 겪다"] {
+        check("단어장 덧붙인 줄 버림: \(line.prefix(18))", WordParser.isExtraLine(line))
+    }
+    for line in ["ultimately 부 결국, 궁극적으로", "· apple 사과", "- apple 사과", "well-known 형 잘 알려진", "look after 돌보다"] {
+        check("단어장 보통 줄은 그대로: \(line)", !WordParser.isExtraLine(line))
+    }
+    let cleaned = WordParser.cleanEntries([
+        ParsedWord(term: "oversee", meaning: "감독하다"), ParsedWord(term: "oversaw-overseen", meaning: "감독하다"),
+        ParsedWord(term: "phenomena", meaning: "영풀이"), ParsedWord(term: "brief d", meaning: "짧은, 간단한"),
+        ParsedWord(term: "compact", meaning: "간결한, 소형의"), ParsedWord(term: "a compact camera", meaning: "소형 카메라"), ParsedWord(term: "crisis", meaning: "위기"),
+        ParsedWord(term: "go through a crisis", meaning: "위기를 겪다"), ParsedWord(term: "look after", meaning: "돌보다"),
+    ])
+    check("단어장 정리: 표제어만", cleaned.map(\.term) == ["oversee", "brief", "compact", "crisis", "look after"], "\(cleaned.map(\.term))")
 }
