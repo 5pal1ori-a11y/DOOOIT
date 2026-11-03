@@ -62,9 +62,18 @@ struct MainTabView: View {
     @AppStorage("selectedTab") private var tab: AppTab = .home
     @State private var plannerRouter = PlannerRouter()
     @State private var router = AppRouter.shared
+    @Environment(\.scenePhase) private var scenePhase
+    /// 달력 아이콘에 적는 오늘 날짜 (앱을 다시 열 때 바뀌었으면 새로 그림)
+    @State private var today = Calendar.current.component(.day, from: Date())
 
     /// 탭 바는 아이콘만 (이름은 VoiceOver로 읽어 줌): 얇고 둥근 선 모양 (탭 바가 저절로 채운 모양으로 바꾸지 않게 막음),
     /// 고른 탭은 진한 색 · 나머지는 회색
+    /// 직접 그린 아이콘 (집 · 기울어진 책 · 오늘 날짜 달력)
+    private func drawnIcon(_ title: String, _ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .accessibilityLabel(title)
+    }
+
     private func tabIcon(_ title: String, _ symbol: String) -> some View {
         Image(systemName: symbol)
             .environment(\.symbolVariants, .none)
@@ -80,12 +89,12 @@ struct MainTabView: View {
             Tab(value: AppTab.home) {
                 HomeView(selectedTab: $tab).tint(Theme.accent)
             } label: {
-                tabIcon("홈", "house")
+                drawnIcon("홈", TabIcons.home())
             }
             Tab(value: AppTab.study) {
                 StudyView().tint(Theme.accent)
             } label: {
-                tabIcon("학습", "book")
+                drawnIcon("학습", TabIcons.book())
             }
             Tab(value: AppTab.ai) {
                 DoitAIView().tint(Theme.accent)
@@ -95,7 +104,7 @@ struct MainTabView: View {
             Tab(value: AppTab.planner) {
                 PlannerView().tint(Theme.accent)
             } label: {
-                tabIcon("플래너", "calendar")
+                drawnIcon("플래너", TabIcons.calendar(day: today))
             }
             Tab(value: AppTab.account) {
                 AccountView().tint(Theme.accent)
@@ -106,6 +115,9 @@ struct MainTabView: View {
         // 탭 바의 고른 아이콘은 진한 글자색 (화면 안 버튼들은 각 탭에서 다시 보라색으로)
         .tint(Palette.ink)
         .tabBarMinimizeBehavior(.onScrollDown)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { today = Calendar.current.component(.day, from: Date()) }
+        }
         .tabViewBottomAccessory {
             TimerAccessoryView().tint(Theme.accent)
         }
