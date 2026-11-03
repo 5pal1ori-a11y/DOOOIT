@@ -26,6 +26,15 @@ enum FigureVision {
         return out
     }
 
+    /// 차트 판독 (글자 위치 + 막대 높이) → "[막대그래프] 1월 30, 2월 45" 한 줄
+    static func chartLines(_ labels: [TextLabel], image: PixelImage?, kind: DoitFigureFacts.ChartKind) -> [String] {
+        let items = ChartReader.read(labels, image: image)
+        guard items.count >= 2 else { return [] }
+        let isPie = labels.filter { $0.text.hasSuffix("%") }.count >= 2
+        let shown = isPie ? DoitFigureFacts.ChartKind.pie : (kind == .table ? .bar : kind)
+        return ["[\(shown.rawValue)] " + items.map { "\($0.label) \(VisionMath.format($0.value))\(isPie ? "%" : "")" }.joined(separator: ", ")]
+    }
+
     /// 그래프 판독 → 줄 (눈금이나 적힌 숫자로 좌표를 맞춘 직선·포물선만)
     static func graphLines(_ graph: GraphAnalysis) -> [String] {
         guard graph.calibrated, graph.kind == .linear || graph.kind == .quadratic, let equation = graph.equation else { return [] }

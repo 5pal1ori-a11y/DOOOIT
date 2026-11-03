@@ -55,6 +55,21 @@ enum DoitFigureFacts {
         return replacing(text, with: reading.lines)
     }
 
+    /// 문제 글에 그림·그래프·표가 있다고 적혀 있는지 (대화 사진: 이때만 그림을 읽음)
+    static func mentionsFigure(_ text: String) -> Bool {
+        let t = text.replacingOccurrences(of: " ", with: "")
+        if ["그림", "그래프", "도표", "자료", "좌표평면"].contains(where: { t.contains($0) }) { return true }
+        return route(text) == .table
+    }
+
+    /// 대화에 먼저 보여 줄 짧은 블록 ("그림에서 읽은 것" + 줄들 + 확인 부탁). 블록이 없으면 nil
+    static func chatBlock(_ text: String) -> String? {
+        let facts = split(text).facts
+        guard !facts.isEmpty else { return nil }
+        let shown = facts.prefix(8).map { "· " + $0 }.joined(separator: "\n")
+        return "🔎 \(title(facts))에서 읽은 것\n\(shown)\n(사진에서 기계가 읽은 값이에요. 다르면 고쳐서 보내 주세요)"
+    }
+
     /// 화면에 보일 짧은 이름
     static func title(_ facts: [String]) -> String {
         if facts.contains(where: { $0.hasPrefix("[") && $0.contains("그래프]") || $0.hasPrefix("[표]") || $0.contains(" | ") }) { return "자료" }

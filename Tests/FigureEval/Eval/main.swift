@@ -124,7 +124,12 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
     switch route {
     case .table, .chart:
         let tables = await FigureVision.tables(image)
-        return tables.first.map { DoitFigureFacts.tableLines($0, kind: route == .table ? .table : .bar) } ?? []
+        if let table = tables.first {
+            let lines = DoitFigureFacts.tableLines(table, kind: route == .table ? .table : .bar)
+            if !lines.isEmpty { return lines }
+        }
+        guard route == .chart else { return [] }
+        return FigureVision.chartLines(visionLabels(image), image: pixels(image), kind: .bar)
     case .graph:
         guard let px = pixels(image), GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: visionLabels(image)) else { return [] }
         return FigureVision.graphLines(g)

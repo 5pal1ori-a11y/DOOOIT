@@ -8,6 +8,6 @@ docker run --rm -v "$ROOT":/src mirror.gcr.io/library/swift:6.1 bash -c '
   mkdir -p /tmp/vc
   cd /src
   swiftc -O -swift-version 5 DOOOIT/Services/VisionCore/PixelImage.swift DOOOIT/Services/VisionCore/GraphReader.swift \
-    DOOOIT/Services/VisionCore/ShapeReader.swift Tests/VisionCore/main.swift -o /tmp/vc/tests
+    DOOOIT/Services/VisionCore/ShapeReader.swift DOOOIT/Services/VisionCore/ChartReader.swift Tests/VisionCore/main.swift -o /tmp/vc/tests
   /tmp/vc/tests
 '

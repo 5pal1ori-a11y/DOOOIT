@@ -16,6 +16,9 @@ enum PaddleOCRConfig {
     static let minimumMemory: UInt64 = 5_500_000_000
     /// 실험과 같은 지시: 글자 그대로 읽기
     static let instruction = "OCR:"
+    /// 표 읽기 · 차트를 표로 읽기 지시 (PaddleOCR-VL 작업 지시)
+    static let tableInstruction = "Table Recognition:"
+    static let chartInstruction = "Chart Recognition:"
     /// 한 문제에 쓰는 최대 토큰 (실험의 문제 사진은 많아야 150개, 한 번 1024개까지 되풀이가 있었음)
     static let maxTokens = 640
     /// 읽기 제한 시간 (넘으면 그만두고 Vision으로)

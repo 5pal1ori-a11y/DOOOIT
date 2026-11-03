@@ -637,7 +637,10 @@ final class DoitAssistant {
         if let solution {
             if isMath, mathSolved { lastMath = scan.body.isEmpty ? text : scan.body; suggestions.append("비슷한 문제 내줘") }
             suggestions.append("이 문제 무슨 유형이야?")
-            return Message(role: .assistant, text: DoitAutoSolve.chatText(solution, choices: choices, typeName: type?.name), suggestions: suggestions)
+            let answer = DoitAutoSolve.chatText(solution, choices: choices, typeName: type?.name)
+            // 그림에서 읽은 것을 먼저 보여 줌 (기계가 읽은 값이라 틀렸으면 고쳐서 다시 보내게)
+            let seen = DoitFigureFacts.chatBlock(text).map { $0 + "\n\n" } ?? ""
+            return Message(role: .assistant, text: seen + answer, suggestions: suggestions)
         }
         // 못 풀었으면: 읽은 문제 + 푸는 법 (정답을 지어내지 않음)
         var lines = ["이 문제는 제가 확실하게 풀지 못했어요."]
@@ -645,7 +648,8 @@ final class DoitAssistant {
             lines.append("📌 \(type.name) 문제예요. \(type.asks)")
             if !type.steps.isEmpty { lines.append("푸는 법 · " + type.steps.prefix(3).joined(separator: " → ")) }
         }
-        lines.append("\n읽은 문제\n" + MathSymbolBar.pretty(String(text.prefix(400))))
+        if let seen = DoitFigureFacts.chatBlock(text) { lines.append("\n" + seen) }
+        lines.append("\n읽은 문제\n" + MathSymbolBar.pretty(String(DoitFigureFacts.split(text).problem.prefix(400))))
         if isMath { lines.append("\n틀린 답을 보여 주지 않으려고 계산으로 확인한 답만 알려 줘요. 글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
         else if !DoitMind.isAvailable { lines.append("\n위쪽 메뉴에서 두잇 모델을 받으면 다른 과목 문제도 풀어 봐요.") }
         else { lines.append("\n글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
@@ -734,9 +738,14 @@ final class DoitAssistant {
     }
 
     private func read(_ image: UIImage) async -> DoitEngine.PhotoContext {
-        let text = await OCRService.readMathProblem(image).text
+        var text = await OCRService.readMathProblem(image).text
         let wordLines = (try? await OCRService.recognize(image)) ?? []
         let words = WordParser.parse(wordLines)
+        // 그림·그래프·표가 있는 문제: 그림에서 읽은 사실을 블록으로 붙임 (풀기 전에 학생에게 보여 줌)
+        if words.count < 3, DoitFigureFacts.mentionsFigure(text) {
+            status = "그림을 읽는 중…"
+            if let figure = await FigureReader.read(image, problemText: text) { text = DoitFigureFacts.attach(figure, to: text) }
+        }
         return DoitEngine.PhotoContext(image: image, text: text, words: words)
     }
 }

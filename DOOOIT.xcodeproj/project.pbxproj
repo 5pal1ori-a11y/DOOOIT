@@ -12,6 +12,7 @@
 		510E91898D6FA081F718C29F /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = 3451F82CED41194CC9660F8D /* MLXLLM */; };
 		5638191513E0A7D8F9F318C3 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 605A77B2116E6EA401D596AD /* MLXLMCommon */; };
 		9ABB2322DDB59478087A9330 /* MLXHuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 17CDF1D9611EC6081BC45D2F /* MLXHuggingFace */; };
+		7D3E5A1C9B2F4E6A8C0D1F23 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = 4B8C2E7F1A3D5C9E6F0A2B14 /* MLXVLM */; };
 		6D2115EF4C8205D08CFC1D56 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 0FFDE4F4C255073B3D4B501D /* HuggingFace */; };
 		3E2C2AE51BE1945BCE6A78C4 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 7A516AE5F6D539004B9279D5 /* Tokenizers */; };
 		A1C0DE0000000000000000B1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE0000000000000000B2 /* GoogleSignIn */; };
@@ -94,6 +95,7 @@
 				510E91898D6FA081F718C29F /* MLXLLM in Frameworks */,
 				5638191513E0A7D8F9F318C3 /* MLXLMCommon in Frameworks */,
 				9ABB2322DDB59478087A9330 /* MLXHuggingFace in Frameworks */,
+				7D3E5A1C9B2F4E6A8C0D1F23 /* MLXVLM in Frameworks */,
 				6D2115EF4C8205D08CFC1D56 /* HuggingFace in Frameworks */,
 				3E2C2AE51BE1945BCE6A78C4 /* Tokenizers in Frameworks */,
 				A1C0DE0000000000000000B1 /* GoogleSignIn in Frameworks */,
@@ -181,6 +183,7 @@
 				3451F82CED41194CC9660F8D /* MLXLLM */,
 				605A77B2116E6EA401D596AD /* MLXLMCommon */,
 				17CDF1D9611EC6081BC45D2F /* MLXHuggingFace */,
+				4B8C2E7F1A3D5C9E6F0A2B14 /* MLXVLM */,
 				0FFDE4F4C255073B3D4B501D /* HuggingFace */,
 				7A516AE5F6D539004B9279D5 /* Tokenizers */,
 				A1C0DE0000000000000000B2 /* GoogleSignIn */,
@@ -690,6 +693,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C9079742855C28FF3BCF09F6 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
 			productName = MLXHuggingFace;
+		};
+		4B8C2E7F1A3D5C9E6F0A2B14 /* MLXVLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C9079742855C28FF3BCF09F6 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */;
+			productName = MLXVLM;
 		};
 		0FFDE4F4C255073B3D4B501D /* HuggingFace */ = {
 			isa = XCSwiftPackageProductDependency;

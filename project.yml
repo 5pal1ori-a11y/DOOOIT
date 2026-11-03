@@ -62,6 +62,9 @@ targets:
         product: MLXLMCommon
       - package: mlx-swift-lm
         product: MLXHuggingFace
+      # 두잇 2(Qwen3.5 4B)로 문제 그림 읽기 (DoitVision)
+      - package: mlx-swift-lm
+        product: MLXVLM
       - package: swift-huggingface
         product: HuggingFace
       - package: swift-transformers

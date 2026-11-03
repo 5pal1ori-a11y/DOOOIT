@@ -77,6 +77,35 @@ func runFigureCases() {
     check("두잇 2 읽기: 줄 모양이 아니면 없음", DoitFigureFacts.parseVision("이 문제의 답은 8입니다. 피타고라스 정리를 쓰면 돼요.") == nil)
     check("두잇 2 읽기: 자리표시만 따라 쓴 답", DoitFigureFacts.parseVision(DoitFigureFacts.visionPrompt) == nil)
 
+    let lm = DoitFigureFacts.parseVision("평행: l, m\n각: 65")
+    check("두잇 2 읽기: 직선 이름 평행", lm?.lines.first == "l ∥ m", "\(lm?.lines ?? [])")
+
+    // 어떤 그림인지 (문제 글로)
+    let routes: [(String, DoitFigureFacts.Route)] = [
+        ("다음 막대그래프는 월별 판매량이다. 가장 많은 달은?", .chart),
+        ("다음은 지역별 인구를 나타낸 그래프이다. 인구가 가장 많은 지역은?", .chart),
+        ("다음 표는 월별 판매량이다. 평균을 구하시오.", .table),
+        ("다음 도수분포표에서 A의 값은?", .table),
+        ("그림은 일차함수의 그래프이다. 이 그래프의 식을 구하시오.", .graph),
+        ("이차함수 y = x² - 2x의 그래프의 꼭짓점은?", .graph),
+        ("그림의 직각삼각형 ABC에서 BC의 길이를 구하시오.", .geometry),
+        ("그림에서 l ∥ m일 때, ∠x의 크기는?", .geometry),
+        ("자료 3, 5, 7의 표준편차를 구하시오.", .none),
+        ("2x + 3 = 7을 푸시오.", .none),
+    ]
+    for (text, expected) in routes {
+        check("그림 종류: \(text)", DoitFigureFacts.route(text) == expected, DoitFigureFacts.route(text).rawValue)
+    }
+    check("그림 있음: 그래프", DoitFigureFacts.mentionsFigure("다음 그래프에서 x절편은?"))
+    check("그림 없음: 식만", !DoitFigureFacts.mentionsFigure("x² - 5x + 6 = 0을 푸시오."))
+    let chatShown = DoitFigureFacts.chatBlock("문제\n" + DoitFigureFacts.block(["\(ab) = 10", "∠C = 90°"]))
+    check("대화: 그림에서 읽은 것 먼저", chatShown?.contains("그림에서 읽은 것") == true && chatShown?.contains("· ∠C = 90°") == true, chatShown ?? "nil")
+    check("대화: 블록 없으면 없음", DoitFigureFacts.chatBlock("문제만") == nil)
+    let stated = DoitFigureFacts.solverText("식은?\n" + DoitFigureFacts.block(["그래프의 식은 y = 2x + 1", "y절편 1", "x절편 -0.5"]))
+    check("풀이 글: 이미 식이 있으면 또 붙이지 않음", stated.components(separatedBy: "그래프의 식").count == 2, stated)
+    let ordered = DoitFigureFacts.solverText("값은?\n① 1 ② 2 ③ 3 ④ 4 ⑤ 5\n" + DoitFigureFacts.block(["∠A = 50°"]))
+    check("풀이 글: 그림 사실은 선택지 앞에", ordered == "값은?\n∠A = 50°\n① 1 ② 2 ③ 3 ④ 4 ⑤ 5", ordered)
+
     // 6) 블록
     let problem = "그림의 직각삼각형 ABC에서 BC의 길이를 구하시오."
     let withBlock = DoitFigureFacts.attach(geo, to: problem)

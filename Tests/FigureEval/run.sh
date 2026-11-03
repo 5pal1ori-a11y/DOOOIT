@@ -22,7 +22,7 @@ cp "$ROOT/Tests/FigureEval/Package.swift" "$PKG/"
 cp "$ROOT/Tests/FigureEval/Eval/main.swift" "$SRC/"
 cp "$ROOT/DOOOIT/Services/DoitAI/Mistake/DoitFigureFacts.swift" "$ROOT/DOOOIT/Services/GeometryText.swift" "$ROOT/DOOOIT/Services/MathOCRFixer.swift" \
    "$ROOT/DOOOIT/Services/FigureVision.swift" "$ROOT/DOOOIT/Services/DoitBrain/DoitVisionEngine.swift" "$SRC/"
-for f in PixelImage GraphReader ShapeReader; do cp "$ROOT/DOOOIT/Services/VisionCore/$f.swift" "$SRC/"; done
+for f in PixelImage GraphReader ShapeReader ChartReader; do cp "$ROOT/DOOOIT/Services/VisionCore/$f.swift" "$SRC/"; done
 for f in PaddleOCRSupport PaddleOCRText PaddleOCRModel PaddleOCREngine; do cp "$ROOT/DOOOIT/Services/PaddleOCR/$f.swift" "$SRC/"; done
 { echo "import Foundation"; echo; sed -n '/^struct ThinkFilter/,$p' "$ROOT/DOOOIT/Services/DoitBrain/DoitBrain.swift"; } > "$SRC/ThinkFilter.swift"
 (cd "$PKG" && xcodebuild -scheme FigureEval -destination 'platform=macOS' -configuration Release \
