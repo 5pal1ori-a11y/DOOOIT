@@ -4,7 +4,7 @@ import WatchKit
 /// 단어 카드: 오늘 복습할 단어. 눌러서 뜻 보기 → 알아요 / 몰라요 (아이폰 복습 일정에 반영)
 struct WordsScreen: View {
     @Environment(WatchStore.self) private var store
-    @State private var flipped = false
+    @State private var flipped = WatchDemo.screen == "wordsBack"
     @State private var doneCount = 0
 
     private var words: [WatchWordItem] { store.snapshot.words }

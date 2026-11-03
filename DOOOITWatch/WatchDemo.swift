@@ -15,7 +15,7 @@ enum WatchDemo {
     static var tab: WatchTab {
         switch screen {
         case "today": return .today
-        case "words": return .words
+        case "words", "wordsBack": return .words
         default: return .timer
         }
     }

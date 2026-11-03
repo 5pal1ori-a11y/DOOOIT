@@ -140,7 +140,7 @@ jobs:
           xcrun simctl status_bar "$WATCH_UDID" override --time "9:41" || true
           codesign --force --deep --sign - "$WAPP" || true
           xcrun simctl install "$WATCH_UDID" "$WAPP"
-          for screen in timer today words; do
+          for screen in timer today words wordsBack; do
             xcrun simctl terminate "$WATCH_UDID" com.bravekoon.dooit.watchkitapp 2>/dev/null || true
             xcrun simctl launch "$WATCH_UDID" com.bravekoon.dooit.watchkitapp -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || echo "::warning::$screen 실행 실패"
             sleep 8
