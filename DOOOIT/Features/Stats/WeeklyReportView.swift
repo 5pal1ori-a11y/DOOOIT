@@ -13,16 +13,15 @@ struct WeeklyReportView: View {
     var body: some View {
         ScrollView {
             if let report {
+                // 한눈에: 공부 시간 → 숫자 넷 → 날마다 → 한마디(잘한 점 포함) → 과목 → 다음 주(조언 + 추천 플랜) → 단원 실력
                 VStack(spacing: 16) {
                     hero(report).appearAnimation(delay: 0)
-                    dailyChart(report).appearAnimation(delay: 0.05)
-                    if !report.highlights.isEmpty { highlights(report).appearAnimation(delay: 0.1) }
-                    aiCard.appearAnimation(delay: 0.12)
-                    numbers(report).appearAnimation(delay: 0.15)
-                    if !report.subjects.isEmpty { subjects(report).appearAnimation(delay: 0.2) }
+                    numbers(report).appearAnimation(delay: 0.05)
+                    dailyChart(report).appearAnimation(delay: 0.1)
+                    summaryCard(report).appearAnimation(delay: 0.12)
+                    if !report.subjects.isEmpty { subjects(report).appearAnimation(delay: 0.15) }
+                    if !report.advice.isEmpty || !report.nextWeek.isEmpty { nextWeekCard(report).appearAnimation(delay: 0.2) }
                     if !report.weakUnits.isEmpty || !report.strongUnits.isEmpty { units(report).appearAnimation(delay: 0.25) }
-                    if !report.advice.isEmpty { advice(report).appearAnimation(delay: 0.3) }
-                    if !report.nextWeek.isEmpty { nextWeek(report).appearAnimation(delay: 0.35) }
                 }
                 .padding(16)
                 .padding(.bottom, 30)
@@ -80,7 +79,7 @@ struct WeeklyReportView: View {
                     .padding(.vertical, 5)
                     .background(.white.opacity(0.2), in: .capsule)
             } else {
-                Text("지난주 기록과 비교할 수 있도록 꾸준히 기록해 봐요")
+                Text("다음 주부터 지난주와 비교해 줘요")
                     .font(.caption)
                     .foregroundStyle(.white.opacity(0.85))
             }
@@ -119,6 +118,80 @@ struct WeeklyReportView: View {
         .softCard()
     }
 
+    // MARK: 한마디 (잘한 점 포함)
+
+    private func summaryCard(_ r: WeeklyReport) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(title: "이번 주 한마디", symbol: "sparkles") { EmptyView() }
+            if let aiComment { Text(aiComment).font(.subheadline).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true) }
+            ForEach(r.highlights.prefix(2), id: \.self) { line in
+                Label(line, systemImage: "star.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.ink)
+                    .symbolRenderingMode(.multicolor)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .softCard()
+    }
+
+    // MARK: 다음 주 (조언 두 개 + 추천 플랜)
+
+    private func nextWeekCard(_ r: WeeklyReport) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "다음 주에는", symbol: "lightbulb") { EmptyView() }
+            ForEach(Array(r.advice.prefix(2).enumerated()), id: \.offset) { index, line in
+                HStack(alignment: .top, spacing: 10) {
+                    Text("\(index + 1)")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 22, height: 22)
+                        .background(AccentGradient.linear, in: .circle)
+                    Text(line).font(.subheadline).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            if !r.nextWeek.isEmpty {
+                ForEach(r.nextWeek) { item in
+                    HStack(spacing: 12) {
+                        VStack(spacing: 2) {
+                            Text(item.dayText.replacingOccurrences(of: "다음 주 ", with: "").replacingOccurrences(of: "요일", with: ""))
+                                .font(.headline.weight(.bold))
+                                .foregroundStyle(Theme.accent)
+                            Text(item.timeText).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        .frame(width: 58)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+                            Text("\(item.minutes)분").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                    }
+                    .padding(10)
+                    .background(Theme.accent.opacity(0.06), in: .rect(cornerRadius: 14))
+                }
+                Button {
+                    for item in r.nextWeek {
+                        _ = DoitActions.shared.addPlan(title: item.title, dateText: item.dayText, timeText: item.timeText,
+                                                       minutes: item.minutes, isStudy: true, allDay: false, repeatText: nil)
+                    }
+                    _ = DoitActions.shared.drainLog()
+                    Haptics.success()
+                    withAnimation(Motion.bouncy) { addedPlans = true }
+                } label: {
+                    Label(addedPlans ? "플래너에 넣었어요" : "플래너에 넣기", systemImage: addedPlans ? "checkmark.circle.fill" : "plus.circle.fill")
+                        .font(.body.weight(.bold))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 42)
+                        .contentTransition(.symbolEffect(.replace))
+                }
+                .buttonStyle(.glassProminent)
+                .disabled(addedPlans)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .softCard()
+    }
+
     // MARK: 잘한 점
 
     private func highlights(_ r: WeeklyReport) -> some View {
@@ -152,18 +225,19 @@ struct WeeklyReportView: View {
     private func loadComment(_ r: WeeklyReport) async {
         var parts: [String] = []
         if let highlight = r.highlights.first {
-            parts.append("\(highlight). 정말 잘했어요!")
+            parts.append("잘했어요!")
+            _ = highlight
         } else {
-            parts.append("이번 주는 조금 쉬어 갔네요. 괜찮아요, 다시 시작하면 돼요.")
+            parts.append("조금 쉬어 간 한 주였어요.")
         }
         if let weak = r.weakUnits.first {
-            parts.append("다음 주에는 '\(weak.unit)'을(를) 집중해서 보완해 봐요. 개념을 다시 보고 문제를 5개만 풀어도 확 달라져요.")
+            parts.append("다음 주엔 '\(weak.unit)'을(를) 채워 봐요.")
         } else if r.studyDays < 5 {
-            parts.append("다음 주 목표는 '매일 조금씩'이에요. 하루 30분이라도 빠지지 않고 해봐요.")
+            parts.append("다음 주엔 매일 조금씩 해 봐요.")
         } else if r.goalDays < r.studyDays {
-            parts.append("공부 습관이 잘 잡혔어요. 이제 하루 목표 시간을 채우는 날을 하나씩 늘려봐요.")
+            parts.append("이제 목표 시간을 채우는 날을 늘려 봐요.")
         } else {
-            parts.append("지금 페이스 그대로 가면 돼요. 다음 주엔 오답노트를 한 번 정리해 봐요.")
+            parts.append("지금처럼만 하면 돼요.")
         }
         withAnimation(Motion.spring) { aiComment = parts.joined(separator: " ") }
     }
@@ -354,7 +428,7 @@ struct WeeklyReportLink: View {
                     .background(AccentGradient.linear, in: .rect(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("주간 AI 리포트").font(.headline).foregroundStyle(Palette.ink)
-                    Text("한 주 공부를 정리하고 다음 주 계획을 추천해요").font(.caption).foregroundStyle(.secondary)
+                    Text("한 주 정리 · 다음 주 추천").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary)

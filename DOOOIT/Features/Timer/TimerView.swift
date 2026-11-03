@@ -4,26 +4,26 @@ import SwiftUI
 /// 전체 화면 공부 타이머 (검은 화면 · 큰 숫자 · 아래 두 버튼)
 struct TimerView: View {
     @Environment(StudyTimer.self) private var studyTimer
-    @Query(sort: \PlanCategory.sortIndex) private var categories: [PlanCategory]
     @Query private var sessions: [StudySession]
 
     @State private var freeTitle = ""
-    @State private var selectedCategoryID: UUID?
+    /// 고른 오늘 할 일 (없어도 됨)
+    @State private var selectedTaskID: String?
+    @Query(sort: \Plan.startDate) private var plans: [Plan]
     @State private var targetMinutes: Int? = TimerView.savedTarget
-    @State private var showTargetPicker = false
     @State private var showStopConfirm = false
     @State private var savedSeconds: Int?
     @State private var sound = AmbientSoundPlayer.shared
     @State private var showSounds = false
 
-    private let targets: [Int?] = [25, 50, 90, nil]
     /// 마지막으로 고른 목표 시간 (0 = 무제한)
     private static let targetKey = "timer.targetMinutes"
     private static var savedTarget: Int? {
         guard let value = UserDefaults.standard.object(forKey: targetKey) as? Int else { return 50 }
-        return value > 0 ? value : nil
+        guard value > 0 else { return nil }
+        // 스크롤 칸에 있는 값으로 (예전에 직접 고른 값이 칸 사이면 가까운 칸으로)
+        return targetOptions.filter { $0 > 0 }.min(by: { abs($0 - value) < abs($1 - value) })
     }
-    private var isCustomTarget: Bool { !targets.contains(targetMinutes) }
     /// 어두운 화면의 버튼 바탕
     private let panel = Color(white: 0.11)
     private let line = Color(white: 0.22)
@@ -115,119 +115,76 @@ struct TimerView: View {
 
     // MARK: Setup (idle)
 
-    private var studyCategories: [PlanCategory] {
-        let study = categories.filter(\.isStudy)
-        return study.isEmpty ? categories : study
+    /// 스크롤해서 고르는 목표 시간 (0 = 무제한): 5분 단위, 3시간까지는 촘촘히, 그 뒤는 30분 단위
+    static let targetOptions: [Int] = [0] + Array(stride(from: 5, through: 180, by: 5)) + [210, 240, 300]
+
+    /// 오늘 아직 안 끝낸 할 일 (골라도 되고 안 골라도 됨)
+    private var todayTasks: [PlanOccurrence] {
+        plans.occurrences(on: Date()).filter { !$0.isCompleted }
     }
 
-    private var selectedCategory: PlanCategory? {
-        studyCategories.first { $0.id == selectedCategoryID } ?? studyCategories.first
-    }
-
-    /// 가운데 큰 목표 시간 → 목표 칩 → 과목 칩 → 할 일(선택) → 공부 시작
+    /// 가운데 큰 목표 시간(위아래로 스크롤) → 할 일(선택) → 공부 시작
     private var setup: some View {
         VStack(spacing: 0) {
             Spacer(minLength: 16)
 
-            // 고른 목표 시간을 크게
-            VStack(spacing: 10) {
-                Text(selectedCategory.map { "\($0.name) · 목표" } ?? "목표 시간")
+            VStack(spacing: 6) {
+                Text("목표 시간")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color(white: 0.55))
-                Button { showTargetPicker = true } label: {
-                    Text(targetMinutes.map(Self.clockText) ?? "∞")
-                        .font(.system(size: 76, weight: .light, design: .rounded))
-                        .monospacedDigit()
-                        .contentTransition(.numericText())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .foregroundStyle(.white)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("눌러서 시간 정하기")
+                targetWheel
             }
             .frame(maxWidth: .infinity)
-            .animation(.snappy, value: targetMinutes)
-
-            HStack(spacing: 8) {
-                ForEach(targets, id: \.self) { minutes in
-                    let isOn = targetMinutes == minutes
-                    Button {
-                        targetMinutes = minutes
-                        Haptics.tap()
-                    } label: {
-                        Text(minutes.map { "\($0)분" } ?? "무제한")
-                            .font(.subheadline.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                            .foregroundStyle(isOn ? Color.black : Color.white)
-                            .background(isOn ? Color.white : panel, in: .capsule)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Button {
-                    showTargetPicker = true
-                    Haptics.tap()
-                } label: {
-                    Text(isCustomTarget ? targetMinutes.map(Self.shortText) ?? "직접" : "직접")
-                        .font(.subheadline.weight(.semibold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .foregroundStyle(isCustomTarget ? Color.black : Color.white)
-                        .background(isCustomTarget ? Color.white : panel, in: .capsule)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.top, 28)
             .onChange(of: targetMinutes) { _, minutes in
                 UserDefaults.standard.set(minutes ?? 0, forKey: Self.targetKey)
-            }
-            .sheet(isPresented: $showTargetPicker) {
-                TargetTimePicker(minutes: targetMinutes ?? 50) { targetMinutes = $0 }
-                    .presentationDetents([.height(340)])
             }
 
             Spacer(minLength: 24)
 
             VStack(spacing: 12) {
-                ScrollView(.horizontal) {
-                    HStack(spacing: 8) {
-                        ForEach(studyCategories) { category in
-                            let isOn = selectedCategory?.id == category.id
-                            Button {
-                                selectedCategoryID = category.id
-                                Haptics.tap()
-                            } label: {
-                                Label(category.name, systemImage: category.symbol)
-                                    .font(.subheadline.weight(.semibold))
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 9)
-                                    .foregroundStyle(isOn ? Color.black : Color.white)
-                                    .background(isOn ? Color.white : panel, in: .capsule)
+                if !todayTasks.isEmpty {
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(todayTasks.prefix(8)) { task in
+                                let isOn = selectedTaskID == task.id
+                                Button {
+                                    if isOn { selectedTaskID = nil; freeTitle = "" }
+                                    else { selectedTaskID = task.id; freeTitle = task.plan.title }
+                                    Haptics.tap()
+                                } label: {
+                                    Text(task.plan.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(1)
+                                        .padding(.horizontal, 14)
+                                        .padding(.vertical, 9)
+                                        .foregroundStyle(isOn ? Color.black : Color.white)
+                                        .background(isOn ? Color.white : panel, in: .capsule)
+                                }
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
                     }
+                    .scrollIndicators(.hidden)
                 }
-                .scrollIndicators(.hidden)
 
                 HStack(spacing: 10) {
                     Image(systemName: "pencil")
                         .foregroundStyle(Color(white: 0.5))
                     TextField("할 일 (선택)", text: $freeTitle)
+                        .onChange(of: freeTitle) { _, title in
+                            if let id = selectedTaskID, todayTasks.first(where: { $0.id == id })?.plan.title != title { selectedTaskID = nil }
+                        }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
                 .background(panel, in: .rect(cornerRadius: 16))
 
                 Button {
-                    let category = selectedCategory
+                    let task = todayTasks.first { $0.id == selectedTaskID }
                     studyTimer.start(
                         title: freeTitle.trimmingCharacters(in: .whitespaces),
-                        categoryName: category?.name ?? "공부",
-                        symbol: category?.symbol ?? "book.fill",
+                        categoryName: task?.plan.category?.name ?? "공부",
+                        symbol: task?.plan.symbol ?? "book.fill",
                         targetMinutes: targetMinutes
                     )
                     Haptics.success()
@@ -243,6 +200,47 @@ struct TimerView: View {
                 .padding(.top, 4)
             }
         }
+    }
+
+    /// 큰 숫자를 위아래로 스크롤해서 목표 시간 고르기 (가운데가 고른 시간, 위아래는 흐리게)
+    private var targetWheel: some View {
+        let rowHeight: CGFloat = 84
+        return ScrollView(.vertical) {
+            LazyVStack(spacing: 0) {
+                ForEach(Self.targetOptions, id: \.self) { minutes in
+                    Text(minutes == 0 ? "∞" : Self.clockText(minutes))
+                        .font(.system(size: 72, weight: .light, design: .rounded))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: rowHeight)
+                        .scrollTransition(axis: .vertical) { content, phase in
+                            content
+                                .opacity(phase.isIdentity ? 1 : 0.22)
+                                .scaleEffect(phase.isIdentity ? 1 : 0.62)
+                        }
+                        .id(minutes)
+                        .accessibilityLabel(minutes == 0 ? "무제한" : Self.shortText(minutes))
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollIndicators(.hidden)
+        .scrollTargetBehavior(.viewAligned)
+        .scrollPosition(id: Binding(get: { targetMinutes ?? 0 }, set: { targetMinutes = ($0 ?? 0) == 0 ? nil : $0 }), anchor: .center)
+        .contentMargins(.vertical, rowHeight, for: .scrollContent)
+        .frame(height: rowHeight * 3)
+        .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
+        .sensoryFeedback(.selection, trigger: targetMinutes)
+        .overlay(alignment: .bottom) {
+            Text(targetMinutes.map(Self.shortText) ?? "무제한")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color(white: 0.55))
+                .offset(y: 18)
+        }
+        .padding(.bottom, 18)
     }
 
     /// 25 → "25:00", 90 → "1:30:00"

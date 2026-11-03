@@ -1,45 +1,34 @@
 import SwiftUI
 
-/// 두잇 AI 화면 위쪽의 모델 고르기 (ChatGPT·Gemini처럼): 두잇 1 / 두잇 2 다운로드·전환·삭제
+/// 두잇 AI 화면 위쪽의 모델 고르기 (ChatGPT·Gemini처럼): 두잇 ZERO(모델 없이) / 두잇 1 / 두잇 2
 /// (사진 인식 설정은 오답노트에서)
 struct ModelMenu: View {
     @State private var brain = DoitBrain.shared
     @State private var confirmDownload: DoitBrain.Model?
-    @State private var confirmDelete: DoitBrain.Model?
 
     var body: some View {
         Menu {
             Section("모델") {
+                // 두잇 ZERO: 모델 없이 규칙형 엔진만 (간단한 명령)
+                Button {
+                    brain.select(nil)
+                } label: {
+                    row(title: "두잇 ZERO", detail: "간단한 명령이 필요할 때", selected: brain.selected == nil)
+                }
                 ForEach(DoitBrain.Model.allCases) { model in
                     Button {
                         if brain.isInstalled(model) { brain.select(model); Task { await brain.prepare() } }
                         else { confirmDownload = model }
                     } label: {
-                        if brain.selected == model {
-                            Label("\(model.title) · \(model.detail)", systemImage: "checkmark")
+                        if !model.fitsDevice {
+                            row(title: model.title, detail: "이 기기에서는 못 써요", selected: false)
                         } else if brain.isInstalled(model) {
-                            Text("\(model.title) · \(model.detail)")
-                        } else if !model.fitsDevice {
-                            Text("\(model.title) · 이 기기에서는 못 써요")
+                            row(title: model.title, detail: model.detail, selected: brain.selected == model)
                         } else {
-                            Label("\(model.title) 다운로드", systemImage: "arrow.down.circle")
+                            row(title: model.title, detail: model.detail + " · 다운로드", selected: false, symbol: "arrow.down.circle")
                         }
                     }
                     .disabled(!DoitBrain.isSupported || !model.fitsDevice || (brain.downloading != nil && brain.downloading != model && !brain.isInstalled(model)))
-                }
-                Button {
-                    brain.select(nil)
-                } label: {
-                    if brain.selected == nil { Label("기본 (모델 없이)", systemImage: "checkmark") } else { Text("기본 (모델 없이)") }
-                }
-            }
-            if !brain.installed.isEmpty {
-                Section("다운로드한 모델 삭제") {
-                    ForEach(DoitBrain.Model.allCases.filter { brain.isInstalled($0) }) { model in
-                        Button(role: .destructive) { confirmDelete = model } label: {
-                            Label("\(model.title) 삭제", systemImage: "trash")
-                        }
-                    }
                 }
             }
         } label: {
@@ -64,20 +53,24 @@ struct ModelMenu: View {
         } message: {
             Text("한 번 받으면 인터넷 없이도 써요. 와이파이에서 받아 주세요.")
         }
-        .alert(confirmDelete.map { "\($0.title)을(를) 삭제할까요?" } ?? "", isPresented: Binding(get: { confirmDelete != nil }, set: { if !$0 { confirmDelete = nil } })) {
-            Button("삭제", role: .destructive) {
-                if let model = confirmDelete { brain.delete(model) }
-                confirmDelete = nil
-            }
-            Button("취소", role: .cancel) { confirmDelete = nil }
-        } message: {
-            Text("다시 쓰려면 새로 다운로드해야 해요. 배운 내용은 남아 있어요.")
+    }
+
+    /// 메뉴 한 줄: 이름 + 아래 작은 설명 (고른 것은 체크)
+    @ViewBuilder
+    private func row(title: String, detail: String, selected: Bool, symbol: String? = nil) -> some View {
+        if selected {
+            Label { Text(title); Text(detail) } icon: { Image(systemName: "checkmark") }
+        } else if let symbol {
+            Label { Text(title); Text(detail) } icon: { Image(systemName: symbol) }
+        } else {
+            Text(title)
+            Text(detail)
         }
     }
 
     private var title: String {
         if let downloading = brain.downloading { return downloading.title }
-        return brain.selected?.title ?? "DOOOIT"
+        return brain.selected?.title ?? "두잇 ZERO"
     }
 }
 

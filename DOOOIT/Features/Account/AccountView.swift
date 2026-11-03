@@ -58,15 +58,8 @@ struct AccountView: View {
                     NavigationLink { notificationSettings } label: { item("알림", "bell.fill", Palette.pink) }
                 }
 
-                Section("앱") {
-                    Picker(selection: $appearanceRaw) {
-                        ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
-                    } label: { item("화면 모드", "circle.lefthalf.filled", Color.indigo) }
-                    .pickerStyle(.menu)
-                    ThemePicker()
-                    NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Palette.pink) }
-                    NavigationLink { StatsView() } label: { item("공부 통계", "chart.bar.fill", Theme.accent) }
-                    NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Palette.peach) }
+                Section {
+                    NavigationLink { appSettings } label: { item("앱", "square.grid.2x2", Color.indigo) }
                 }
 
                 Section {
@@ -119,6 +112,29 @@ struct AccountView: View {
         .background { AppBackground() }
         .tint(Theme.accent)
         .navigationTitle("알림 설정")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// 앱: 화면 모드 · 테마 · 과목·카테고리 · 공부 통계 · 공부 랭킹 (한 줄로 묶고 눌러서 들어감)
+    private var appSettings: some View {
+        List {
+            Section {
+                Picker(selection: $appearanceRaw) {
+                    ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
+                } label: { item("화면 모드", "circle.lefthalf.filled", Color.indigo) }
+                .pickerStyle(.menu)
+                ThemePicker()
+            }
+            Section {
+                NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Palette.pink) }
+                NavigationLink { StatsView() } label: { item("공부 통계", "chart.bar.fill", Theme.accent) }
+                NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Palette.peach) }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background { AppBackground() }
+        .tint(Theme.accent)
+        .navigationTitle("앱")
         .navigationBarTitleDisplayMode(.inline)
     }
 

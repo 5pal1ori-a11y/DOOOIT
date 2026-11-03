@@ -32,7 +32,7 @@ final class DoitBrain {
 
         var id: String { rawValue }
         var title: String { self == .dooit1 ? "두잇 1" : "두잇 2" }
-        var detail: String { self == .dooit1 ? "빠르고 가벼워요" : "더 똑똑하고 자세해요" }
+        var detail: String { self == .dooit1 ? "빠르고 가볍게" : "더 똑똑하고 자세하게" }
         var sizeText: String { self == .dooit1 ? "약 0.9GB" : "약 2.9GB" }
         var repository: String { self == .dooit1 ? "mlx-community/Qwen3-1.7B-4bit" : "mlx-community/Qwen3.5-4B-MLX-4bit" }
 
