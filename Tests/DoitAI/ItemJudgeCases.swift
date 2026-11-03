@@ -35,6 +35,18 @@ func runItemJudgeCases() {
         check("항목 판단: 두 번 판단이 다르면 안 씀", !DoitItemJudge.agree(["a": true], ["a": false]))
         let prompt = DoitItemJudge.prompt(setup, subjectName: "영어")
         check("항목 판단: 선지 번호를 쓰지 말라고", prompt.contains("선택지 번호") && prompt.contains("a) Two dollars"))
+        // 규칙으로 확실한 항목: c(told that)만 틀림 → 모델에게 고정 판단으로 알려 줌
+        // c가 든 선지를 지워도 ①(a, b)와 ⑤(d, e)가 남아서 규칙만으로는 답하지 않음
+        let fixed = DoitItemJudge.ruleVerdicts(setup)
+        check("항목 판단 규칙: 틀린 항목 c", fixed.mapValues(\.verdict) == ["c": false], "\(fixed.mapValues(\.verdict))")
+        let fixedPrompt = DoitItemJudge.prompt(setup, subjectName: "영어", fixed: fixed)
+        check("항목 판단 규칙: 프롬프트에 확인한 판단", fixedPrompt.contains("[규칙으로 확인한 판단]") && fixedPrompt.contains("c) X"), fixedPrompt)
+        check("항목 판단 규칙: 남은 선지가 둘이면 답 없음", DoitSubjectSolve.eliminate(setup, known: fixed.mapValues(\.verdict)) == nil)
+        check("항목 판단 규칙: 규칙만으로 풀지 않음", DoitSubjectSolve.solve(text: text, choices: choices, subjectBroad: "영어") == nil)
+        // e를 가정법 + will(틀림)로 바꾸면 c, e가 든 선지를 지우고 ①만 남음 → 확인한 답
+        let text2 = text.replacingOccurrences(of: "I would go there", with: "I will go there")
+        let solved = DoitSubjectSolve.solve(text: text2, choices: choices, subjectBroad: "영어")
+        check("항목 판단 규칙: 확인한 답으로 풂 (①)", solved?.finalAnswer == "1" && solved?.source == DoitAutoSolve.engineSource, solved?.finalAnswer ?? "nil")
     }
 
     // ㄱ·ㄴ·ㄷ, 틀린 것, 있는 대로
@@ -45,6 +57,11 @@ func runItemJudgeCases() {
         let p = DoitItemJudge.parseVerdicts("ㄱ. O\nㄴ. X\nㄷ. O", labels: ["ㄱ", "ㄴ", "ㄷ"])
         check("항목 판단: 틀린 것 ㄴ → ②", p.flatMap { DoitItemJudge.pickChoice(s2, verdicts: $0.verdicts) } == 1)
     }
+    // 규칙으로 일부만 알 때: 지워도 선지가 둘 이상 남으면 규칙만으로는 답하지 않음
+    let partial = "다음 중 어법상 바른 것끼리 묶인 것은?\na) I am interested in music.\nb) She is good at tennis.\nc) They was late.\nd) He likes apples.\n① a, b ② a, c ③ b, d ④ c, d ⑤ a, d"
+    check("항목 판단 규칙: 일부만 알면 규칙 답 없음", DoitSubjectSolve.solve(text: partial, choices: ["a, b", "a, c", "b, d", "c, d", "a, d"], subjectBroad: "영어") == nil)
+    // 한 줄에 선지가 붙어도 항목에 선지가 섞이지 않음
+    check("항목 판단: 선지 줄의 (B)는 항목이 아님", DoitItemJudge.extractItems("(A) I am happy.\n(B) She are tall.\n① (A), (B) ② (B) ③ (A)").count == 2)
     // 항목이 아닌 보통 객관식은 해당 없음
     check("항목 판단: 보통 객관식은 아님", DoitItemJudge.setup(text: "다음 중 과거형은?\n① went ② go ③ goes", body: nil, choices: ["went", "go", "goes"], boxItems: nil) == nil)
     check("항목 판단: 한 줄에 붙은 항목", DoitItemJudge.extractItems("a) I am happy. b) She are tall.").count == 2)

@@ -401,6 +401,41 @@ let subjectBattery2Fresh: [SubjectBatteryCase] = [
     SubjectBatteryCase("과학", "다음 중 목성형 행성에 대한 설명으로 옳은 것은?\n① 표면이 단단한 암석으로 되어 있다.\n② 위성이 없거나 적다.\n③ 고리가 있다.\n④ 평균 밀도가 크다.\n⑤ 반지름이 작다.", "3"),
 ]
 
+// 새 변형 2: 규칙을 다 만든 뒤에 다른 말투로 새로 쓴 문제 (이 문제에 맞춰 규칙을 고치지 않음, 오답 0만 확인)
+let subjectBattery2Fresh2: [SubjectBatteryCase] = [
+    SubjectBatteryCase("과학", "질량 5 kg인 물체를 20 m 높이에서 가만히 놓았다. 바닥에 닿기 직전 이 물체가 가진 운동 에너지는? (단, 중력 가속도 10 m/s², 공기 저항 무시)\n① 100 J ② 250 J ③ 500 J ④ 1000 J ⑤ 2000 J", "4"),
+    SubjectBatteryCase("과학", "공을 위로 똑바로 던졌더니 처음 속력이 10 m/s였다. 공이 올라가는 최고 높이는 몇 m인가? (단, 중력 가속도는 10 m/s², 공기 저항 무시)", "5 m"),
+    SubjectBatteryCase("과학", "같은 저항 3개(각 6 Ω)를 병렬로 연결했을 때 합성 저항은 몇 Ω인가?", "2 Ω"),
+    SubjectBatteryCase("과학", "8 Ω과 8 Ω의 저항을 병렬로 연결한 뒤 4 V의 전압을 걸었다. 전체 전류는 몇 A인가?", "1 A"),
+    SubjectBatteryCase("과학", "황 32 g과 철 56 g이 완전히 반응하였다. 생성된 황화 철은 몇 g인가?", "88 g"),
+    SubjectBatteryCase("과학", "다음 중 적혈구의 특징으로 옳은 것은?\n① 식균 작용을 한다.\n② 핵이 없다.\n③ 혈액 응고를 돕는다.\n④ 크기가 가장 크다.\n⑤ 세균을 잡아먹는다.", "2"),
+    SubjectBatteryCase("과학", "다음 중 액화의 예로 알맞은 것은?\n① 얼음이 녹는다.\n② 차가운 컵 표면에 물방울이 맺힌다.\n③ 물이 언다.\n④ 빨래가 마른다.\n⑤ 나프탈렌이 작아진다.", "2"),
+    SubjectBatteryCase("과학", "다음 중 쌍떡잎식물은?\n① 벼 ② 보리 ③ 옥수수 ④ 해바라기 ⑤ 백합", "4"),
+    SubjectBatteryCase("과학", "다음 중 분해자가 아닌 것은?\n① 곰팡이 ② 세균 ③ 버섯 ④ 토끼", "4"),
+    SubjectBatteryCase("영어", "다음 중 어법상 어색한 문장은?\n① He doesn't play baseball.\n② She have three sisters.\n③ We like music.\n④ I am a student.\n⑤ They live in Busan.", "2"),
+    SubjectBatteryCase("영어", "다음 중 어법상 바른 문장은?\n① He cans swim.\n② She will be fine.\n③ They was happy.\n④ I has a pen.\n⑤ We goes home.", "2"),
+    SubjectBatteryCase("영어", "어법상 틀린 문장은?\n① I didn't saw him.\n② She didn't come.\n③ We don't know.\n④ He doesn't eat meat.\n⑤ They didn't go.", "1"),
+    SubjectBatteryCase("영어", "다음 중 어법상 어색한 것은?\n① There is a pen on the desk.\n② There are many students in the room.\n③ There is two cats under the chair.\n④ There was a big tree.\n⑤ There were three boys.", "3"),
+    SubjectBatteryCase("영어", "다음 빈칸에 알맞은 것은?\nShe ______ in Seoul since 2015.\n① live ② lives ③ has lived ④ lived ⑤ is living", "3"),
+    SubjectBatteryCase("영어", "Three hours ______ a long time to wait.\n① is ② are ③ were ④ be", "1"),
+    SubjectBatteryCase("영어", "My brother and my sister ______ students.\n① is ② are ③ am ④ be", "2"),
+    SubjectBatteryCase("영어", "We are looking forward to ______ from you.\n① hear ② hearing ③ heard ④ hears", "2"),
+    SubjectBatteryCase("영어", "(A), (B)에 알맞은 것은?\nHe avoided (A) the question.\nThey hope (B) the game.\n① answer - win ② answering - to win ③ to answer - winning ④ answering - winning ⑤ to answer - to win", "2"),
+    SubjectBatteryCase("영어", "다음 중 어법상 바른 것끼리 묶인 것은?\na) He is taller than me.\nb) She is more prettier than her sister.\nc) This is the best book.\nd) I am as tall as him.\n① a, b ② b, c ③ a, c ④ b, d ⑤ a, b, d", "3"),
+    SubjectBatteryCase("사회", "서울(동경 135°)이 오전 8시일 때, 동경 105°인 방콕은 몇 시인가?\n① 오전 4시 ② 오전 5시 ③ 오전 6시 ④ 오전 10시 ⑤ 오전 11시", "3"),
+    SubjectBatteryCase("사회", "다음 중 헌법 재판소가 하는 일은?\n① 법률을 만든다 ② 위헌 법률 심판 ③ 예산안 심의 ④ 국군 통수 ⑤ 국정 감사", "2"),
+    SubjectBatteryCase("사회", "다음 중 조선 시대에 있었던 사건으로 옳은 것은?\n① 귀주 대첩 ② 행주 대첩 ③ 살수 대첩 ④ 3·1 운동 ⑤ 무신 정변", "2"),
+    SubjectBatteryCase("사회", "다음 중 대체재 관계로 짝지어진 것은?\n① 바늘 - 실 ② 펜 - 잉크 ③ 버스 - 지하철 ④ 커피 - 설탕 ⑤ 자동차 - 휘발유", "3"),
+    SubjectBatteryCase("사회", "다음 중 보완재가 아닌 것은?\n① 바늘 - 실 ② 커피 - 설탕 ③ 자동차 - 휘발유 ④ 콜라 - 사이다 ⑤ 컴퓨터 - 마우스", "4"),
+    SubjectBatteryCase("사회", "다음 중 남반구에 위치한 나라는?\n① 칠레 ② 캐나다 ③ 몽골 ④ 영국 ⑤ 일본", "1"),
+    SubjectBatteryCase("국어", "다음 중 비음화가 일어나는 단어는?\n① 접시 ② 닫는다 ③ 놓고 ④ 굳이 ⑤ 신라", "2"),
+    SubjectBatteryCase("국어", "다음 중 구개음화가 일어나는 것은?\n① 밭이 ② 밥물 ③ 신라 ④ 국밥 ⑤ 좋다", "1"),
+    SubjectBatteryCase("국어", "다음 중 맞춤법이 바른 것은?\n① 웬지 ② 왠일 ③ 금새 ④ 며칠 ⑤ 몇일", "4"),
+    SubjectBatteryCase("국어", "다음 중 객체 높임법이 쓰인 문장은?\n① 할아버지께서 신문을 보신다.\n② 나는 할머니를 모시고 시장에 갔다.\n③ 동생이 학교에 간다.\n④ 선생님께서 웃으신다.\n⑤ 친구가 노래를 부른다.", "2"),
+    SubjectBatteryCase("국어", "다음 중 품사가 다른 하나는?\n① 새 ② 헌 ③ 옛 ④ 아주 ⑤ 모든", "4"),
+    SubjectBatteryCase("국어", "다음 중 감탄사가 아닌 것은?\n① 아이고 ② 어머 ③ 여보세요 ④ 빨리", "4"),
+]
+
 func runSubjectBattery2Cases() {
     func runList(_ list: [SubjectBatteryCase], tag: String, hard: Bool) -> (stats: [String: (correct: Int, unsolved: Int, wrong: Int, total: Int)], wrongs: [String], unsolved: [String]) {
         var stats: [String: (correct: Int, unsolved: Int, wrong: Int, total: Int)] = [:]
@@ -455,4 +490,9 @@ func runSubjectBattery2Cases() {
     print("과목 배터리2 새 변형: 정답 \(ft.0) / 전체 \(ft.3), 못 풂 \(ft.1), 오답 \(ft.2)")
     for w in fresh.wrongs { print("  ✗ 새 변형 오답: " + w) }
     for u in fresh.unsolved { print("  · 새 변형 못 풂: " + u) }
+    let fresh2 = runList(subjectBattery2Fresh2, tag: "과목 배터리2 새 변형 2", hard: true)
+    let f2 = fresh2.stats.values.reduce((0, 0, 0, 0)) { ($0.0 + $1.correct, $0.1 + $1.unsolved, $0.2 + $1.wrong, $0.3 + $1.total) }
+    print("과목 배터리2 새 변형 2: 정답 \(f2.0) / 전체 \(f2.3), 못 풂 \(f2.1), 오답 \(f2.2)")
+    for w in fresh2.wrongs { print("  ✗ 새 변형 2 오답: " + w) }
+    for u in fresh2.unsolved { print("  · 새 변형 2 못 풂: " + u) }
 }

@@ -563,7 +563,13 @@ enum DoitSubjectSolve {
         if Set(hits.map { key($0.answers[0]) }).count > 1, p.isChoice {
             hits = hits.filter { fact in p.choices.contains { choice in fact.answers.contains { key($0) == key(choice) } } }
         }
-        guard let first = hits.first, Set(hits.map { key($0.answers[0]) }).count == 1, !p.negated else { return nil }
+        // 사실 꼴 안의 '않는·아닌'("분해되지 않는", "사람이 아닌")은 틀린 것을 묻는 말이 아님
+        //   (꼴에 그 말이 글자 그대로 들어 있을 때만 빼요: ".{0,30}" 같은 틈에 들어간 '않는'은 묻는 말일 수 있어서)
+        let outside = hits.reduce(c) { text, fact in
+            fact.patterns.filter { $0.contains("않") || $0.contains("아닌") }.reduce(text) { $0.replacingOccurrences(of: $1, with: "", options: .regularExpression) }
+        }
+        let negated = ["아닌", "않은", "않는", "틀린", "잘못", "옳지않", "알맞지않", "바르지않", "적절하지않", "해당하지않"].contains { outside.contains($0) }
+        guard let first = hits.first, Set(hits.map { key($0.answers[0]) }).count == 1, !negated else { return nil }
         let steps = [SolutionStep(hint: "개념", work: first.why)]
         if p.isChoice {
             guard let index = uniqueChoice(p, matching: first.answers) else { return nil }
@@ -839,7 +845,7 @@ enum DoitSubjectSolve {
     static func rightSpelling(in text: String) -> String? {
         if let hit = correctSpellings.first(where: { text.contains($0) }) { return hit }
         if matches(text, #"[가-힣] 수 (있|없)"#) { return "-ㄹ 수 있다" }
-        if matches(text, #"[가-힣](을|는|은|할|갈|볼|올|쓸|될|살|알|잘) (것|데|줄|바|뿐|만큼)"#) { return "띄어 쓴 의존 명사" }
+        if matches(text, #"(을|는|은|할|갈|볼|올|쓸|될|살|알|잘) (것|데|줄|바|뿐|만큼)"#) { return "띄어 쓴 의존 명사" }
         return nil
     }
 
@@ -1385,6 +1391,12 @@ enum DoitSubjectSolve {
             let others = known.filter { !members.contains($0) }
             if !members.isEmpty { hints.append("자료: " + members.map { "\(circled($0 + 1)) \(p.choices[$0])" }.joined(separator: ", ") + "은(는) \(cat.names[0])이에요.") }
             if !others.isEmpty { hints.append("자료: " + others.map { "\(circled($0 + 1)) \(p.choices[$0])" }.joined(separator: ", ") + "은(는) \(cat.names[0])이 아니에요.") }
+        }
+        // 영어 문장 선지: 규칙으로 확실히 틀린 곳을 찾은 선지
+        if p.choices.allSatisfy(DoitSentenceCheck.isEnglishSentence) {
+            for (i, choice) in p.choices.enumerated() {
+                if let issue = DoitSentenceCheck.error(in: choice) { hints.append("어법 규칙: \(circled(i + 1)) \(choice) → \(issue.why)") }
+            }
         }
         let englishInStem = englishRuns(p.stem)
         if Set(englishInStem.map { $0.lowercased() }).count == 1, let word = englishInStem.first, let list = meanings(of: word) {

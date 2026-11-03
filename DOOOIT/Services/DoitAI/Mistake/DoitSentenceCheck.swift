@@ -65,7 +65,6 @@ enum DoitSentenceCheck {
     }()
     private static let numberWords: Set<String> = ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "twenty", "several", "many", "both", "these", "those"]
     private static let wrongPlurals: Set<String> = ["childs", "mans", "womans", "foots", "tooths", "mouses", "gooses", "sheeps", "deers", "childrens", "mens", "teeths", "feets"]
-    private static let collectiveNouns: Set<String> = ["team", "family", "class", "group", "staff", "audience", "crowd", "committee", "police", "government", "jury", "band", "club"]
 
     // MARK: - 낱말 나누기
 
@@ -502,7 +501,8 @@ enum DoitSentenceCheck {
                                        "bring", "find", "tell", "invent", "discover", "paint", "design", "invite", "visit", "wash", "fix", "plant"]
         for i in ws.w.indices where ["was", "were", "been", "being", "is", "are", "am", "be"].contains(ws.w[i]) {
             let v = ws.at(i + 1)
-            if isPastOnly(v), v != "broke", let b = base(v), b != "be" {
+            // broke는 "돈이 없는"이라는 형용사도 있어서 by가 바로 뒤에 올 때만
+            if isPastOnly(v), v != "broke" || ws.at(i + 2) == "by", let b = base(v), b != "be" {
                 return Issue(rule: "수동태의 과거분사", why: "be동사 + 과거분사: \(v) ✗ → \(DoitEnglish.ppForms(b).joined(separator: "/"))")
             }
             if transitive.contains(v), DoitEnglish.ppForms(v).first != v,

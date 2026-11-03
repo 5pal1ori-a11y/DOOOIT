@@ -841,6 +841,7 @@ runItemJudgeCases()
 runSolverBatteryCases()
 runSubjectBatteryCases()
 runSubjectBattery2Cases()
+runSentenceCheckCases()
 runGeometryCases()
 runFigureCases()
 
