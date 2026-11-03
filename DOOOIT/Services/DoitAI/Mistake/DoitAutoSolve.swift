@@ -226,6 +226,8 @@ enum DoitAutoSolve {
     /// 모델 답 읽기: "정답: 3" / "**정답:** ③" / "답은 광합성이에요" → 풀이. 정답이 없거나 선지 번호가 이상하면 nil
     static func parseModel(_ raw: String, problem: String, choices: [String]) -> WrittenSolution? {
         let lines = raw.replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "__", with: "")
+            // "… 5 m/s 입니다. 정답: 3"처럼 근거 끝에 정답을 이어 쓴 답 (Qwen3.5): 정답 앞에서 줄을 나눔
+            .replacingOccurrences(of: #"([^\n])[ \t]*((?:따라서\s*)?정답\s*[:：])"#, with: "$1\n$2", options: .regularExpression)
             .components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "*#>")).trimmingCharacters(in: .whitespaces) }
             .filter { !$0.isEmpty }

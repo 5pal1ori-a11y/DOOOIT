@@ -383,6 +383,10 @@ func runBrain() {
     let pieces = ["<thi", "nk>속으로 생각</th", "ink>\n\n광합성은 ", "빛으로 양분을 만드는 <", "일이에요."]
     let streamed = pieces.map { filter.feed($0) }.joined()
     check("생각 과정 거르기", streamed.trimmingCharacters(in: .whitespacesAndNewlines) == "광합성은 빛으로 양분을 만드는 <일이에요.", streamed)
+    // Qwen3.5 생각 모드: 대화 형식이 '<think>'를 미리 넣어서 모델 글은 생각부터 나오고 '</think>'로 끝남
+    var prefilled = ThinkFilter(startsInThink: true)
+    let prefilledOut = ["Thinking Process:\n1. 분석", "…</thi", "nk>\n\n빛 에너지로 ", "양분을 만들어요."].map { prefilled.feed($0) }.joined()
+    check("생각 과정 거르기: <think>가 미리 들어간 경우", prefilledOut.trimmingCharacters(in: .whitespacesAndNewlines) == "빛 에너지로 양분을 만들어요.", prefilledOut)
     var plain = ThinkFilter()
     check("생각 태그 없을 때 그대로", plain.feed("a < b 이고 ") + plain.feed("b > c") == "a < b 이고 b > c")
 

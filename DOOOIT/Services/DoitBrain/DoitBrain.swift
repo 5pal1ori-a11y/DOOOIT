@@ -267,7 +267,8 @@ final class DoitBrain {
                     let turns = history.map { turn -> MLXLMCommon.Chat.Message in turn.fromUser ? .user(turn.text) : .assistant(turn.text) }
                     session = ChatSession(container, instructions: system, history: turns, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
                 }
-                var filter = ThinkFilter()
+                // Qwen3.5는 생각 모드에서 대화 형식이 '<think>'를 미리 넣어 줘서, 모델 글은 '<think>' 없이 생각부터 나옴
+                var filter = ThinkFilter(startsInThink: thinking)
                 do {
                     for try await chunk in session.streamResponse(to: prompt) {
                         if Task.isCancelled { break }
@@ -301,6 +302,9 @@ final class DoitBrain {
 struct ThinkFilter {
     private var buffer = ""
     private var inThink = false
+
+    /// startsInThink: 생각 과정 안에서 시작 (대화 형식이 '<think>'를 미리 넣은 경우) → '</think>'까지 버림
+    init(startsInThink: Bool = false) { inThink = startsInThink }
 
     mutating func feed(_ chunk: String) -> String {
         buffer += chunk

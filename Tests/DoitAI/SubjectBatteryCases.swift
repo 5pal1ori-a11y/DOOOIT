@@ -497,6 +497,8 @@ func runSubjectBatteryCases() {
           && prompt.contains("근거") && prompt.contains("정답: ") && prompt.contains("1) 현무암"), prompt)
     check("모델 답: '정답: 모름'은 버림", DoitAutoSolve.parseModel("자료가 부족해요.\n정답: 모름", problem: "q", choices: []) == nil)
     check("모델 답: 근거 뒤 정답 줄", DoitAutoSolve.parseModel("사암은 퇴적암이에요.\n정답: 2", problem: "q", choices: rockScan.choices)?.finalAnswer == "2")
+    check("모델 답: 근거 끝에 이어 쓴 정답", DoitAutoSolve.parseModel("100m 를 20 초로 나눈 값은 5 m/s 입니다. 정답: 3", problem: "q", choices: ["2", "4", "5", "10", "20"])?.finalAnswer == "3")
+    check("모델 답: 이어 쓴 '따라서 정답은'은 그대로", DoitAutoSolve.parseModel("6 + 4 - 1 = 9개입니다. 따라서 정답: 9", problem: "q", choices: [])?.finalAnswer == "9")
     // 풀이 글: 확인한 답은 추측 표시 없이, 단계와 개념
     if let solved = DoitSubjectSolve.solve(text: rockText.replacingOccurrences(of: "③ 석회암", with: "③ 안산암"), choices: ["현무암", "사암", "안산암", "화강암", "편마암"], subjectBroad: "과학") {
         let chat = DoitAutoSolve.chatText(solved, choices: ["현무암", "사암", "안산암", "화강암", "편마암"])

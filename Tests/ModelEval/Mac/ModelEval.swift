@@ -33,6 +33,8 @@ struct Output {
     var visible = ""
     var info: GenerateCompletionInfo?
     var seconds = 0.0
+    /// 보이는 글이 처음 나온 때 (생각 모드면 생각을 마친 때)
+    var firstVisible: Double?
 }
 
 func mb(_ bytes: Int) -> String { String(format: "%.0f MB", Double(bytes) / 1_048_576) }
@@ -44,14 +46,17 @@ func generate(_ container: ModelContainer, system: String, prompt: String, maxTo
     var parameters = GenerateParameters(maxTokens: maxTokens, temperature: temperature, topP: 0.9, repetitionPenalty: 1.1)
     parameters.seed = seed
     let session = ChatSession(container, instructions: system, generateParameters: parameters, additionalContext: ["enable_thinking": thinking])
-    var filter = ThinkFilter()
+    // 앱(DoitBrain.stream)과 같이: 생각 모드면 '<think>'가 미리 들어간 것으로 보고 시작
+    var filter = ThinkFilter(startsInThink: thinking)
     var out = Output()
     let start = Date()
     for try await event in session.streamDetails(to: prompt) {
         switch event {
         case .chunk(let chunk):
             out.raw += chunk
-            out.visible += filter.feed(chunk)
+            let visible = filter.feed(chunk)
+            if out.firstVisible == nil, !visible.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { out.firstVisible = Date().timeIntervalSince(start) }
+            out.visible += visible
         case .info(let info):
             out.info = info
         default:
@@ -107,12 +112,15 @@ struct ModelEvalMain {
 
             // 2) 대화 질문: 생각 끔·켬
             for check in checks {
-                for thinking in [false, true] {
+                // (생각 끔 600) · (생각 켬 1400 = 앱) · 마지막 질문만 (생각 켬 4000: 생각을 언제 마치는지)
+                var runs: [(Bool, Int)] = [(false, 600), (true, 1400)]
+                if check.id == checks.last?.id { runs.append((true, 4000)) }
+                for (thinking, budget) in runs {
                     Memory.peakMemory = 0
                     let out = try await generate(container, system: check.system, prompt: check.prompt,
-                                                 maxTokens: thinking ? 1400 : 600, temperature: thinking ? 0.4 : 0.6, thinking: thinking, seed: 7)
+                                                 maxTokens: budget, temperature: thinking ? 0.4 : 0.6, thinking: thinking, seed: 7)
                     let info = out.info
-                    print("=== CHECK \(label) \(check.id) thinking=\(thinking)")
+                    print("=== CHECK \(label) \(check.id) thinking=\(thinking) maxTokens=\(budget) 첫 글자 \(out.firstVisible.map { String(format: "%.1fs", $0) } ?? "없음")")
                     print("질문: \(oneLine(check.prompt))")
                     print("속도: 프롬프트 \(info?.promptTokenCount ?? -1)토큰 \(String(format: "%.1f", info?.promptTokensPerSecond ?? 0)) tok/s · 생성 \(info?.generationTokenCount ?? -1)토큰 \(String(format: "%.1f", info?.tokensPerSecond ?? 0)) tok/s · \(String(format: "%.1f", out.seconds))s · 멈춤 \(stopName(info) ?? "-") · 최고 메모리 \(mb(Memory.peakMemory))")
                     print("원문에 <think> \(out.raw.contains("<think>")) · </think> \(out.raw.contains("</think>")) | 걸러낸 글에 <think> \(out.visible.contains("<think>")) · </think> \(out.visible.contains("</think>"))")
