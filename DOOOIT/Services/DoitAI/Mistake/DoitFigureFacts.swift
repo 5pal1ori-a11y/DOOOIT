@@ -393,8 +393,9 @@ enum DoitFigureFacts {
 
     /// "지나는 점: (0, 1), (2, 5)", "꼭짓점 (1, -2)", "x절편 3", "y절편 1"에서 식을 구함 (정확히 맞는 식만)
     /// 직선: 점 두 개(절편 포함), 포물선: 꼭짓점 + 점 하나 또는 점 세 개
-    static func graphEquation(_ facts: [String]) -> String? {
-        let text = facts.joined(separator: "\n")
+    /// hint: 문제 글 ("이차함수", "포물선"이 있으면 점 셋으로 포물선)
+    static func graphEquation(_ facts: [String], hint: String = "") -> String? {
+        let text = facts.joined(separator: "\n") + "\n" + hint
         var points: [(Double, Double)] = []
         func add(_ p: (Double, Double)) { if !points.contains(where: { abs($0.0 - p.0) < 1e-9 && abs($0.1 - p.1) < 1e-9 }) { points.append(p) } }
         var vertex: (Double, Double)?
@@ -476,7 +477,7 @@ enum DoitFigureFacts {
         let (problem, facts) = split(text)
         guard !facts.isEmpty else { return text }
         var lines = facts.filter { !($0.hasPrefix("[") && $0.contains("]")) && !$0.contains(" | ") }
-        if !lines.contains(where: { $0.hasPrefix("그래프의 식") }), let eq = graphEquation(facts) { lines.append("그래프의 식은 \(eq)") }
+        if !lines.contains(where: { $0.hasPrefix("그래프의 식") }), let eq = graphEquation(facts, hint: problem) { lines.append("그래프의 식은 \(eq)") }
         let parts = stemAndChoices(problem)
         return ([parts.stem] + lines + (parts.choices.isEmpty ? [] : [parts.choices])).joined(separator: "\n")
     }
@@ -512,6 +513,21 @@ enum DoitFigureFacts {
     값: <항목 이름> = <숫자>
     """
 
+    /// "1월 = 30, 2월 = 45" / "A=20, B=35" / "가 1,200, 나 950" → 이름-값 쌍 (천 단위 쉼표는 나누지 않음)
+    /// needsSign: 항목마다 "="가 있어야 함 (머리말 없는 줄에서 아무 글이나 값으로 읽지 않게)
+    static func valuePairs(_ text: String, needsSign: Bool) -> [(String, String)] {
+        let items = text.replacingOccurrences(of: #",(?!\d)"#, with: "\u{1F}", options: .regularExpression).components(separatedBy: "\u{1F}")
+        var out: [(String, String)] = []
+        for item in items.map({ $0.trimmingCharacters(in: .whitespaces) }) {
+            if needsSign, !item.contains("=") { continue }
+            guard let m = matchAll(item, #"^(.+?)\s*[=:]?\s*(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)\s*(%?)$"#).first else { continue }
+            let label = m[1].trimmingCharacters(in: .whitespaces)
+            guard !label.isEmpty, label.count <= 12 else { continue }
+            out.append((label, m[2].replacingOccurrences(of: ",", with: "") + m[3]))
+        }
+        return out
+    }
+
     /// 두잇 2가 낸 글 → 앱 표기 줄 (모양이 맞는 줄만 씀: 모르는 줄·답 같은 줄은 버림)
     static func parseVision(_ raw: String) -> Reading? {
         var kind: Reading.Kind = .geometry
@@ -520,13 +536,27 @@ enum DoitFigureFacts {
         var values: [(String, String)] = []
         var graphPoints: [String] = []
         func add(_ s: String) { if !s.isEmpty, !lines.contains(s) { lines.append(s) } }
+        func addValue(_ pair: (String, String)) {
+            guard !pair.0.isEmpty, !values.contains(where: { $0.0 == pair.0 }) else { return }
+            values.append(pair)
+        }
         let seg = #"(?<![A-Za-z])([A-Z])\x{0305}?\s*([A-Z])\x{0305}?(?![A-Za-z])"#
         for rawLine in raw.replacingOccurrences(of: "\r", with: "").components(separatedBy: "\n") {
             var line = rawLine.trimmingCharacters(in: .whitespaces)
             line = line.replacingOccurrences(of: #"^[-*•·]\s*|^\d+[.)]\s+"#, with: "", options: .regularExpression)
                 .replacingOccurrences(of: "**", with: "").replacingOccurrences(of: "：", with: ":")
                 .replacingOccurrences(of: "−", with: "-")
-            guard let colon = line.firstIndex(of: ":") else { continue }
+            guard let colon = line.firstIndex(of: ":") else {
+                // "막대그래프, A=20, B=35"처럼 머리말 없이 값만 쓴 줄, "1월, 30"처럼 이름-값 한 쌍인 줄
+                let pairs = valuePairs(line, needsSign: true)
+                if pairs.count >= 2 { pairs.forEach(addValue) }
+                else if let m = matchAll(line, #"^([^,=:]{1,12}?)\s*[,=]\s*(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)\s*(%?)$"#).first {
+                    addValue((m[1].trimmingCharacters(in: .whitespaces), m[2].replacingOccurrences(of: ",", with: "") + m[3]))
+                } else if ["표", "막대그래프", "꺾은선그래프", "원그래프"].contains(line) {
+                    if line == "표" { kind = .table; chart = .table } else { kind = .chart; chart = line == "막대그래프" ? .bar : line == "꺾은선그래프" ? .line : .pie }
+                }
+                continue
+            }
             let key = line[..<colon].trimmingCharacters(in: .whitespaces).lowercased()
             let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
             guard !value.isEmpty, !["없음", "없다", "none", "-", "?", "모름"].contains(value) else { continue }
@@ -548,8 +578,13 @@ enum DoitFigureFacts {
                     add(GeometryText.segment(m[1] + m[2]) + " = " + m[3].replacingOccurrences(of: " ", with: ""))
                 }
             case "각", "angle":
-                for m in matchAll(value, #"∠?\s*([A-Z]{1,3}|[a-z])\s*=\s*(\d+(?:\.\d+)?)\s*(?:°|도)?"#) {
-                    add("∠\(m[1]) = \(m[2])°")
+                let named = matchAll(value, #"∠?\s*([A-Z]{1,3}|[a-z])\s*=\s*(\d+(?:\.\d+)?)\s*(?:°|도)?"#)
+                for m in named { add("∠\(m[1]) = \(m[2])°") }
+                // 이름 없이 그림에 적힌 각도 ("65°"): 어느 각인지는 학생이 확인
+                if named.isEmpty {
+                    for m in matchAll(value, #"(?<![\d.])(\d+(?:\.\d+)?)\s*°"#) where Double(m[1]).map({ $0 > 0 && $0 < 360 }) == true {
+                        add("그림에 적힌 각 \(m[1])°")
+                    }
                 }
             case "직각", "right angle":
                 for m in matchAll(value, #"∠?\s*([A-Z]{3}|[A-Z])(?![A-Za-z])"#) {
@@ -583,14 +618,7 @@ enum DoitFigureFacts {
                 if let n = matchAll(value, #"-?\d+(?:\.\d+)?"#).first?[0] { add("y절편 \(n)"); kind = .graph }
             case "값", "value", "자료":
                 // "1월 = 30" 한 줄에 하나, 또는 "1월 30, 2월 45"처럼 쉼표로 여러 개
-                // 천 단위 쉼표("1,200")는 나누지 않음: 쉼표 바로 뒤가 숫자가 아닐 때만 다음 항목
-                let items = value.replacingOccurrences(of: #",(?!\d)"#, with: "\u{1F}", options: .regularExpression).components(separatedBy: "\u{1F}")
-                for item in items.map({ $0.trimmingCharacters(in: .whitespaces) }) {
-                    guard let m = matchAll(item, #"^(.+?)\s*[=:]?\s*(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)\s*(%?)$"#).first else { continue }
-                    let label = m[1].trimmingCharacters(in: .whitespaces)
-                    guard !label.isEmpty, !values.contains(where: { $0.0 == label }) else { continue }
-                    values.append((label, m[2].replacingOccurrences(of: ",", with: "") + m[3]))
-                }
+                valuePairs(value, needsSign: false).forEach(addValue)
             default:
                 continue
             }

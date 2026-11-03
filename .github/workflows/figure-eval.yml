@@ -37,8 +37,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        which: [vision, paddle, vlm]
-    name: eval ${{ matrix.which }}
+        include:
+          - which: vision
+            side: ""
+          - which: paddle
+            side: ""
+          - which: vlm
+            side: "1024"
+          - which: vlm
+            side: "768"
+    name: eval ${{ matrix.which }} ${{ matrix.side }}
     steps:
       - uses: actions/checkout@v4
       - name: Select Xcode
@@ -68,4 +76,5 @@ jobs:
       - name: 읽기 · 채점
         env:
           HF_HUB_DISABLE_PROGRESS_BARS: "1"
+          FIG_SIDE: ${{ matrix.side }}
         run: bash Tests/FigureEval/run.sh "$RUNNER_TEMP/fig" "${{ matrix.which }}"

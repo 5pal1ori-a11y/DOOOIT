@@ -62,7 +62,7 @@ func score(_ c: Case, lines: [String]) -> (hit: Int, total: Int, missed: [String
     }
     if let eq = c.equation {
         total += 1
-        let fitted = DoitFigureFacts.graphEquation(lines).map(norm)
+        let fitted = DoitFigureFacts.graphEquation(lines, hint: c.problem).map(norm)
         let stated = lines.first { $0.hasPrefix("그래프의 식") }.map { norm($0.replacingOccurrences(of: "그래프의 식은", with: "")) }
         if fitted == norm(eq) || stated == norm(eq) { hit += 1 } else { missed.append(eq) }
     }
@@ -209,10 +209,12 @@ case "vlm":
     let loaded = footprint()
     print("VLM 올림: \(String(format: "%.1f", Date().timeIntervalSince(t1)))s, 메모리 \(Int(before)) → \(Int(loaded.now)) MB (최대 \(Int(loaded.peak)) MB)")
     MLX.Memory.cacheLimit = 64 * 1024 * 1024
+    print("사진 크기(긴 변): \(ProcessInfo.processInfo.environment["FIG_SIDE"] ?? String(Int(DoitVisionEngine.imageSide)))")
     for c in cases {
         guard let image = loadImage(dir.appendingPathComponent("images/\(c.id).png")) else { continue }
         do {
-            let reading = try await DoitVisionEngine.read(container, image: image)
+            let side = CGFloat(Double(ProcessInfo.processInfo.environment["FIG_SIDE"] ?? "") ?? Double(DoitVisionEngine.imageSide))
+            let reading = try await DoitVisionEngine.read(container, image: image, side: side)
             let parsed = DoitFigureFacts.parseVision(reading.text)
             record(c, parsed?.lines ?? [], reading.seconds, raw: reading.text)
             print("   토큰: 프롬프트 \(reading.promptTokens), 생성 \(reading.generatedTokens), 메모리 \(Int(footprint().now)) MB")

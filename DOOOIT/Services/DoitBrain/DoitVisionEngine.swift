@@ -35,10 +35,10 @@ enum DoitVisionEngine {
     }
 
     /// 사진 한 장 → 모델이 낸 글 그대로 (사실 줄 읽기는 DoitFigureFacts.parseVision)
-    static func read(_ container: ModelContainer, image: CGImage, prompt: String = DoitFigureFacts.visionPrompt) async throws -> Reading {
+    static func read(_ container: ModelContainer, image: CGImage, prompt: String = DoitFigureFacts.visionPrompt, side: CGFloat = imageSide) async throws -> Reading {
         let started = Date()
         let parameters = GenerateParameters(maxTokens: maxTokens, temperature: 0)
-        let processing = UserInput.Processing(resize: CGSize(width: imageSide, height: imageSide))
+        let processing = UserInput.Processing(resize: CGSize(width: side, height: side), maxPixels: Int(side * side))
         let session = ChatSession(container, generateParameters: parameters, processing: processing,
                                   additionalContext: ["enable_thinking": false])
         var text = ""
