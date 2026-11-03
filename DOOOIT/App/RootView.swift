@@ -56,9 +56,11 @@ struct MainTabView: View {
     @State private var plannerRouter = PlannerRouter()
     @State private var router = AppRouter.shared
 
-    /// 탭 바는 아이콘만 (이름은 VoiceOver로 읽어 줌)
+    /// 탭 바는 아이콘만 (이름은 VoiceOver로 읽어 줌): 단순한 채운 모양, 고른 탭은 진한 색 · 나머지는 회색
     private func tabIcon(_ title: String, _ symbol: String) -> some View {
         Image(systemName: symbol)
+            .symbolVariant(.fill)
+            .fontWeight(.semibold)
             .accessibilityLabel(title)
     }
 
@@ -68,38 +70,40 @@ struct MainTabView: View {
 
         TabView(selection: $tab) {
             Tab(value: AppTab.home) {
-                HomeView(selectedTab: $tab)
+                HomeView(selectedTab: $tab).tint(Theme.accent)
             } label: {
-                tabIcon("홈", "house.fill")
+                tabIcon("홈", "house")
             }
             Tab(value: AppTab.study) {
-                StudyView()
+                StudyView().tint(Theme.accent)
             } label: {
-                tabIcon("학습", "graduationcap.fill")
+                tabIcon("학습", "book")
             }
             Tab(value: AppTab.ai) {
-                DoitAIView()
+                DoitAIView().tint(Theme.accent)
             } label: {
-                tabIcon("두잇 AI", "wand.and.stars")
+                tabIcon("두잇 AI", "sparkles")
             }
             Tab(value: AppTab.planner) {
-                PlannerView()
+                PlannerView().tint(Theme.accent)
             } label: {
-                tabIcon("플래너", "calendar.badge.checkmark")
+                tabIcon("플래너", "calendar")
             }
             Tab(value: AppTab.account) {
-                AccountView()
+                AccountView().tint(Theme.accent)
             } label: {
-                tabIcon("계정", "person.crop.circle.fill")
+                tabIcon("계정", "person")
             }
         }
+        // 탭 바의 고른 아이콘은 진한 글자색 (화면 안 버튼들은 각 탭에서 다시 보라색으로)
+        .tint(Palette.ink)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewBottomAccessory {
-            TimerAccessoryView()
+            TimerAccessoryView().tint(Theme.accent)
         }
         .environment(plannerRouter)
         .fullScreenCover(isPresented: $studyTimer.isPresented) {
-            TimerView()
+            TimerView().tint(Theme.accent)
         }
         // 주간 리포트 알림을 누르면 어느 화면에서든 리포트를 바로 보여줌
         .sheet(isPresented: $router.showWeeklyReport) {
@@ -112,6 +116,7 @@ struct MainTabView: View {
                         }
                     }
             }
+            .tint(Theme.accent)
         }
         // 홈 화면 위젯을 누르면 해당 탭으로
         .onOpenURL { url in
