@@ -59,7 +59,7 @@ struct WordsScreen: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(8)
                 .background(accent.opacity(flipped ? 0.32 : 0.2), in: .rect(cornerRadius: 18))
-                .overlay(alignment: .topTrailing) {
+                .overlay(alignment: .bottomTrailing) {
                     Text("\(words.count)")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.secondary)
