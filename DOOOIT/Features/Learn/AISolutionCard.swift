@@ -86,7 +86,12 @@ struct AISolutionCard: View {
         .padding(14)
         .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 16))
 
-        if !agrees {
+        if isChoice, !matchesChoice(solution.finalAnswer) {
+            Label("선지에서 같은 답을 못 찾았어요. 문제 글이 맞게 읽혔는지 확인해 보세요.", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Palette.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if !agrees {
             Label("적어 둔 정답과 달라요. 문제 글이 맞게 읽혔는지 확인해 보세요.", systemImage: "exclamationmark.triangle.fill")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Palette.warning)
@@ -178,10 +183,10 @@ struct AISolutionCard: View {
         defer { working = false }
 
         // 1) 수학: 풀이 엔진 (계산으로 확인한 답)
-        if note.subjectKind.isMath, let solved = DoitAutoSolve.engine(text: text, choices: choices, isChoice: isChoice) {
+        if note.subjectKind.isMath, let solved = DoitAutoSolve.engine(text: text, choices: choices, isChoice: isChoice, body: note.scan?.body) {
             store(solved)
-            // 정답을 아직 안 적었으면 엔진 답을 정답으로 (채점·다시 풀기에 씀)
-            if noteKey.isEmpty { note.correctAnswer = solved.finalAnswer; save() }
+            // 정답을 아직 안 적었으면 엔진 답을 정답으로 (채점·다시 풀기에 씀, 객관식은 선지와 맞을 때만)
+            if noteKey.isEmpty, !isChoice || matchesChoice(solved.finalAnswer) { note.correctAnswer = solved.finalAnswer; save() }
             return
         }
         // 2) 두잇 1·2 모델
@@ -189,17 +194,24 @@ struct AISolutionCard: View {
             let body = note.scan.map { $0.body.isEmpty ? text : $0.body } ?? text
             let prompt = DoitAutoSolve.modelPrompt(problem: body, choices: isChoice ? choices : [],
                                                    subjectName: note.subjectLabel, problemType: note.scan?.problemType)
-            let thinking = DoitBrain.shared.selected == .dooit2
-            if let raw = try? await DoitBrain.shared.complete(system: DoitMind.persona, prompt: prompt, maxTokens: thinking ? 1200 : 500,
-                                                              temperature: 0.2, thinking: thinking),
-               let solved = DoitAutoSolve.parseModel(DoitMind.answer(raw), problem: text, choices: isChoice ? choices : []) {
-                guard problemText == text else { return }
-                store(solved)
-                return
+            // 생각 모드는 쓰지 않음 (생각만 길게 하다 답을 못 쓰는 일이 있어서) → 풀이를 쓰고 마지막 줄에 정답
+            for attempt in 0..<2 {
+                if attempt > 0 { try? await Task.sleep(for: .seconds(2)) }   // 대화 답을 쓰는 중이면 잠깐 기다렸다 다시
+                guard let raw = try? await DoitBrain.shared.complete(system: DoitMind.persona, prompt: prompt, maxTokens: 600, temperature: 0.2) else { continue }
+                if let solved = DoitAutoSolve.parseModel(DoitMind.answer(raw), problem: text, choices: isChoice ? choices : []) {
+                    guard problemText == text else { return }
+                    store(solved)
+                    return
+                }
             }
         }
         guard problemText == text else { return }
         withAnimation(.snappy) { failed = true }
+    }
+
+    private func matchesChoice(_ answer: String) -> Bool {
+        guard let n = DoitGrader.choiceNumber(answer, choices: choices) else { return false }
+        return (1...choices.count).contains(n)
     }
 
     private func store(_ solution: WrittenSolution) {

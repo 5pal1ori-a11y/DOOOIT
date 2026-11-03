@@ -136,7 +136,7 @@ enum DoitMathChoice {
 
     private static func integer(_ c: String) -> Int? {
         guard let v = numeric(c), abs(v - v.rounded()) < 1e-9, abs(v) < 1e12 else { return nil }
-        return Int(v.rounded())
+        return DoitMath.safeInt(v)
     }
 
     private static func isPrime(_ n: Int) -> Bool {

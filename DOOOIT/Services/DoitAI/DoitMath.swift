@@ -118,7 +118,7 @@ enum DoitMath {
     /// (−b ± √D) / 2a 를 p ± q√m 꼴로 (a, b, D가 정수일 때). 예: (−4 ± √12)/2 → −2 ± √3
     private static func simplifiedRoots(_ a: Double, _ b: Double, _ d: Double) -> String? {
         guard [a, b, d].allSatisfy({ abs($0 - $0.rounded()) < 1e-9 && abs($0) < 1e9 }), d > 0 else { return nil }
-        let root = DoitAlgebra.simplifyRoot(Int(d.rounded()))
+        let root = DoitAlgebra.simplifyRoot(DoitMath.safeInt(d))
         guard root.inside > 1 else { return nil }
         var p = Int((-b).rounded()), q = root.outside, r = Int((2 * a).rounded())
         if r < 0 { p = -p; r = -r }
@@ -288,18 +288,30 @@ enum DoitMath {
         return String(String(n).compactMap { map[$0] })
     }
 
+    /// 반올림해서 Int로 (숫자가 아니거나 너무 크면 앱이 멈추지 않게 끝값으로)
+    static func safeInt(_ value: Double) -> Int {
+        guard value.isFinite else { return 0 }
+        let r = value.rounded()
+        if r >= 9e18 { return Int.max }
+        if r <= -9e18 { return Int.min }
+        return Int(r)
+    }
+
     static func format(_ value: Double, digits: Int = 6) -> String {
-        if abs(value - value.rounded()) < 1e-9 { return String(Int(value.rounded())) }
+        guard value.isFinite else { return "?" }
+        if abs(value) < 1e15, abs(value - value.rounded()) < 1e-9 { return String(DoitMath.safeInt(value)) }
         return String(format: "%.\(digits)g", value)
     }
 
     /// 0.5 → 1/2 처럼 간단한 분수로 (분모 100 이하일 때)
     static func fraction(_ value: Double) -> String {
-        if abs(value - value.rounded()) < 1e-9 { return String(Int(value.rounded())) }
+        // 너무 크거나 숫자가 아니면 Int로 바꾸다 앱이 멈춤 (잘못 읽은 사진 글에서 생김)
+        guard value.isFinite, abs(value) < 1e15 else { return value.isFinite ? format(value, digits: 6) : "?" }
+        if abs(value - value.rounded()) < 1e-9 { return String(DoitMath.safeInt(value)) }
         for denominator in 2...100 {
             let numerator = value * Double(denominator)
             if abs(numerator - numerator.rounded()) < 1e-7 {
-                let n = Int(numerator.rounded())
+                let n = DoitMath.safeInt(numerator)
                 return n < 0 ? "−\(-n)/\(denominator)" : "\(n)/\(denominator)"
             }
         }

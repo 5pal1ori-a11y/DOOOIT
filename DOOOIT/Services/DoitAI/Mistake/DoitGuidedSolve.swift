@@ -466,12 +466,12 @@ enum DoitGuidedSolve {
             p.answerKey = printed
             p.answerSource = .printed
         }
-        if subject.isMath, let solved = MathSolver.solve(full) {
-            var engineKey = solved.answer
-            if p.kind == .multipleChoice, DoitGrader.choiceNumber(engineKey, choices: choices) == nil,
-               let index = choices.firstIndex(where: { DoitGrader.equivalentMath($0, engineKey) == true }) {
-                engineKey = "\(index + 1)"
-            }
+        // 사진 글을 여러 모양으로 풀어 봄 (문제 번호가 식에 붙거나 "x = 2일 때 식의 값" 같은 것: DoitAutoSolve)
+        let isChoice = p.kind == .multipleChoice
+        if subject.isMath, let best = DoitAutoSolve.bestSolved(text: full, choices: choices, isChoice: isChoice, body: body),
+           !isChoice || best.matched || MathSolver.solve(full) != nil {
+            let solved = best.solved
+            let engineKey = best.key
             if p.answerKey.isEmpty {
                 p.answerKey = engineKey
                 p.answerSource = .engine

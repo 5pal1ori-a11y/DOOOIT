@@ -77,7 +77,7 @@ enum DoitMathTopics {
             // √50 → 5√2 (≈ 7.0711)
             answer = "\(DoitAlgebra.sqrtText(Double(n))) (≈ \(DoitMath.format(value, digits: 6)))"
         } else if abs(value - value.rounded()) < 1e-9 && abs(value) < 1e15 {
-            answer = String(Int(value.rounded()))
+            answer = String(DoitMath.safeInt(value))
         } else {
             let frac = f(value)
             answer = frac.contains("/") ? "\(frac) (≈ \(DoitMath.format(value, digits: 8)))" : DoitMath.format(value, digits: 10)
@@ -360,7 +360,7 @@ enum DoitMathTopics {
         let k = min(r, n - r)
         return (0..<k).reduce(1.0) { $0 * Double(n - $1) / Double($1 + 1) }.rounded()
     }
-    private static func int(_ v: Double) -> String { abs(v) < 1e15 ? String(Int(v.rounded())) : DoitMath.format(v) }
+    private static func int(_ v: Double) -> String { abs(v) < 1e15 ? String(DoitMath.safeInt(v)) : DoitMath.format(v) }
 
     static func counting(_ text: String) -> Solved? {
         let t = DoitAlgebra.normalize(text)
@@ -976,8 +976,8 @@ enum DoitMathTopics {
                 let k = (target - a) / d + 1
                 guard k >= 1, abs(k - k.rounded()) < 1e-9 else { return nil }
                 return Solved(kind: .sequence, topic: "등차수열", concept: "aₙ = a + (n − 1)d 에 값을 넣어 n을 구해요.",
-                              steps: [SolutionStep(hint: "aₙ = \(f(a)) + (n − 1) × \(f(d)) = \(f(target))", work: "n − 1 = \(f(k - 1))"), SolutionStep(hint: "n을 구하면", work: "n = \(Int(k.rounded()))")],
-                              answer: "제\(Int(k.rounded()))항")
+                              steps: [SolutionStep(hint: "aₙ = \(f(a)) + (n − 1) × \(f(d)) = \(f(target))", work: "n − 1 = \(f(k - 1))"), SolutionStep(hint: "n을 구하면", work: "n = \(DoitMath.safeInt(k))")],
+                              answer: "제\(DoitMath.safeInt(k))항")
             }
             if let r, abs(r) > 1, a != 0 {
                 var value = a, k = 1

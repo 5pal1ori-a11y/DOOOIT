@@ -207,7 +207,7 @@ enum DoitScience {
     }
 
     private static func durationText(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
+        let total = DoitMath.safeInt(seconds)
         if total >= 3600 {
             let h = total / 3600, m = (total % 3600) / 60
             return m == 0 ? "\(h)시간" : "\(h)시간 \(m)분"

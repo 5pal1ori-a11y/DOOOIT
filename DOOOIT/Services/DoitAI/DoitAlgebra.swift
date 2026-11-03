@@ -235,6 +235,8 @@ enum DoitAlgebra {
     /// √n 간단히: 12 → (2, 3) 즉 2√3
     static func simplifyRoot(_ n: Int) -> (outside: Int, inside: Int) {
         guard n > 0 else { return (0, 0) }
+        // 너무 큰 수는 나누어 보지 않음 (오래 걸리거나 곱셈이 넘침)
+        guard n < 1_000_000_000_000 else { return (1, n) }
         var outside = 1, inside = n, k = 2
         while k * k <= inside {
             while inside % (k * k) == 0 { inside /= k * k; outside *= k }
@@ -253,20 +255,20 @@ enum DoitAlgebra {
     static func sqrtText(_ value: Double) -> String {
         guard value >= 0 else { return "√(\(f(value)))" }
         if abs(value - value.rounded()) < 1e-9 {
-            let s = simplifyRoot(Int(value.rounded()))
+            let s = simplifyRoot(DoitMath.safeInt(value))
             return rootText(s.outside, s.inside)
         }
         // 분수: √(n/d) = √(n·d)/d
         for d in 2...100 {
             let n = value * Double(d)
             guard abs(n - n.rounded()) < 1e-7 else { continue }
-            let s = simplifyRoot(Int(n.rounded()) * d)
+            let s = simplifyRoot(DoitMath.safeInt(n) * d)
             let g = gcd(s.outside, d)
             let top = rootText(s.outside / g, s.inside), bottom = d / g
             return bottom == 1 ? top : "\(top)/\(bottom)"
         }
         let r = value.squareRoot()
-        if abs(r - r.rounded()) < 1e-9 { return String(Int(r.rounded())) }
+        if abs(r - r.rounded()) < 1e-9 { return String(DoitMath.safeInt(r)) }
         return "√\(f(value)) ≈ \(DoitMath.format(r, digits: 5))"
     }
 
@@ -288,7 +290,7 @@ enum DoitAlgebra {
             for i in 0...degree {
                 let v = p[i] * Double(scale)
                 guard abs(v - v.rounded()) < 1e-7, abs(v) < 1e9 else { ok = false; break }
-                out.append(Int(v.rounded()))
+                out.append(DoitMath.safeInt(v))
             }
             if ok { return (out, scale) }
         }
@@ -495,7 +497,7 @@ enum DoitAlgebra {
         let low = min(r1, r2), high = max(r1, r2)
         let isInt = [a, b, c].allSatisfy { abs($0 - $0.rounded()) < 1e-9 }
         if isInt, abs(d - d.rounded()) < 1e-9 {
-            let s = simplifyRoot(Int(d.rounded()))
+            let s = simplifyRoot(DoitMath.safeInt(d))
             if s.inside == 1 { return [Root(value: low, label: f(low)), Root(value: high, label: f(high))] }
             var p = Int((-b).rounded()), k = s.outside, den = Int((2 * a).rounded())
             if den < 0 { den = -den; p = -p }

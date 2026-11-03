@@ -237,7 +237,7 @@ enum DoitMathWord2 {
             let whole = Int(hours + 1e-9)
             let minutes = (hours - Double(whole)) * 60
             if abs(minutes) < 1e-6 { return "\(whole)시간 후" }
-            if abs(minutes - minutes.rounded()) < 1e-6 { return "\(d(hours))시간 후 (\(whole)시간 \(Int(minutes.rounded()))분)" }
+            if abs(minutes - minutes.rounded()) < 1e-6 { return "\(d(hours))시간 후 (\(whole)시간 \(DoitMath.safeInt(minutes))분)" }
             return "\(f(hours))시간 후"
         }
         if has(t, ["몇 초", "몇초"]) { return "\(d(seconds))초 후" }
@@ -400,7 +400,7 @@ enum DoitMathWord2 {
             guard v > 0 else { return nil }
             let hours = dist / v
             let whole = Int(hours + 1e-9), minutes = (hours - Double(whole)) * 60
-            let text = abs(minutes) < 1e-6 ? "\(whole)시간" : abs(minutes - minutes.rounded()) < 1e-6 ? "\(whole)시간 \(Int(minutes.rounded()))분" : "\(f(hours))시간"
+            let text = abs(minutes) < 1e-6 ? "\(whole)시간" : abs(minutes - minutes.rounded()) < 1e-6 ? "\(whole)시간 \(DoitMath.safeInt(minutes))분" : "\(f(hours))시간"
             return Solved(kind: .linear, topic: "강물의 흐름과 배의 속력", concept: concept,
                           steps: [SolutionStep(hint: up ? "거슬러 올라갈 때의 속력" : "내려갈 때의 속력", work: "\(d(boat)) \(up ? "−" : "+") \(d(current)) = 시속 \(d(v)) km"),
                                   SolutionStep(hint: "시간 = 거리 ÷ 속력", work: "\(d(dist)) ÷ \(d(v)) = \(f(hours))시간 = \(text)")],

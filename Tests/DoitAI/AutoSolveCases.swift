@@ -29,7 +29,25 @@ func runAutoSolveCases() {
     check("AI 풀이 모델: 선지 글로 답해도 번호", DoitAutoSolve.parseModel("답: went", problem: "p", choices: opts)?.finalAnswer == "1")
     check("AI 풀이 모델: 없는 번호는 버림", DoitAutoSolve.parseModel("정답: 7", problem: "p", choices: opts) == nil)
     check("AI 풀이 모델: 정답 줄 없으면 버림", DoitAutoSolve.parseModel("잘 모르겠어요.", problem: "p", choices: []) == nil)
-    check("AI 풀이 모델: 문단 앞 설명 뒤 정답", DoitAutoSolve.parseModel("생각해 보면\n정답: 세종대왕\n- 훈민정음을 만들었어요.", problem: "p", choices: [])?.steps.first?.work == "훈민정음을 만들었어요.")
+    let m2 = DoitAutoSolve.parseModel("생각해 보면\n정답: 세종대왕\n- 훈민정음을 만들었어요.", problem: "p", choices: [])
+    check("AI 풀이 모델: 문단 중간 정답", m2?.finalAnswer == "세종대왕" && m2?.steps.contains { $0.work == "훈민정음을 만들었어요." } == true)
+    let m3 = DoitAutoSolve.parseModel("1. 어제(yesterday)라서 과거형을 써요.\n2. go의 과거형은 went예요.\n**정답:** ①", problem: "p", choices: opts)
+    check("AI 풀이 모델: 풀이 뒤 마지막 줄 정답", m3?.finalAnswer == "1" && m3?.steps.count == 2, m3?.finalAnswer ?? "nil")
+    check("AI 풀이 모델: 정답 줄 없이 '3번'", DoitAutoSolve.parseModel("보기를 따져 보면\n그래서 3번이 맞아요.", problem: "p", choices: opts)?.finalAnswer == "3")
+    check("AI 풀이 모델: 빈 답", DoitAutoSolve.parseModel("", problem: "p", choices: []) == nil)
+
+    // 사진 글 고치기: 문제 번호 · 식만 · 넣어서 계산
+    check("AI 풀이: '3. 56÷□=8'이 붙어 읽혀도 □ = 7", DoitAutoSolve.engine(text: "3.56÷ □ =8\n위 식에서 에 들어갈 수를 구하시오.", choices: [], isChoice: false)?.finalAnswer.contains("7") == true)
+    check("AI 풀이: 번호 10을 곱하지 않음", DoitAutoSolve.engine(text: "10. (2x+ 1)(x- 3)을 전개하시오", choices: [], isChoice: false)?.finalAnswer == "2x² − 5x − 3")
+    check("AI 풀이: 뒤 한글 속 숫자를 식에 붙이지 않음", DoitAutoSolve.engine(text: "9. 2^5 × 2^3을 2의 거듭제곱으로 나타내시오.", choices: [], isChoice: false)?.finalAnswer.contains("256") == true)
+    check("AI 풀이: 0.3 × 0.4는 소수 그대로", DoitAutoSolve.engine(text: "3. 0.3 × 0.4의 값은?\n① 0.012 ② 0.12 ③ 1.2 ④ 12 ⑤ 0.7", choices: ["0.012", "0.12", "1.2", "12", "0.7"], isChoice: true, body: "0.3 × 0.4의 값은?")?.finalAnswer == "2")
+    let grid = ["2+3", "4×2", "10-4", "3× 3", "15÷ 3"]
+    check("AI 풀이: x = 2일 때 식의 값 → 선지", DoitAutoSolve.engine(text: "1^1. x= 2일 때, 식 3x- 1의 값과 같은 것은?\n① 2+3 ② 4×2 ③ 10-4 ④ 3× 3 ⑤ 15÷ 3", choices: grid, isChoice: true, body: "1^1. x= 2일 때, 식 3x- 1의 값과 같은 것은?")?.finalAnswer == "5")
+    let odd = DoitAutoSolve.engine(text: "2x + 3 = 11의 해는?\n① 1 ② 2 ③ 3", choices: ["1", "2", "3"], isChoice: true, body: "2x + 3 = 11의 해는?")
+    check("AI 풀이: 선지에 없는 값은 번호로 안 씀", odd.map { DoitGrader.choiceNumber($0.finalAnswer, choices: ["1", "2", "3"]) == nil && $0.finalAnswer.contains("4") } ?? false, odd?.finalAnswer ?? "nil")
+    check("AI 풀이: 넣어서 계산할 식", DoitAutoSolve.substitute("x = 2일 때, 식 3x − 1의 값과 같은 것은?") == "3×(2) − 1의 값은?")
+    check("AI 풀이: 이상하게 큰 수에도 멈추지 않음", DoitMath.fraction(1e30) != "" && DoitMath.format(.infinity) == "?" && DoitMath.safeInt(1e300) == Int.max)
+    check("AI 풀이: 큰 수 근호 간단히 (오래 안 걸림)", DoitAlgebra.simplifyRoot(Int.max).outside == 1)
 
     // 프롬프트에 문제·선지·형식
     let prompt = DoitAutoSolve.modelPrompt(problem: "빈칸에 알맞은 말은?", choices: opts, subjectName: "영어", problemType: nil)
