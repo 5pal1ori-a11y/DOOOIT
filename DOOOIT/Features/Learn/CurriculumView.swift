@@ -116,17 +116,16 @@ struct CurriculumView: View {
             VStack(alignment: .leading, spacing: 24) {
                 searchField
 
+                // 과목·단원 목록은 보여 주지 않고 검색으로만 찾음 (자료는 그대로, 검색하면 나옴)
                 if !trimmed.isEmpty {
                     searchResults
                 } else {
+                    exampleChips
+                        .appearAnimation()
                     if let resume = progresses.first(where: { !$0.isComplete }) {
                         resumeCard(resume)
-                            .appearAnimation()
+                            .appearAnimation(delay: 0.05)
                     }
-                    subjectSection
-                        .appearAnimation(delay: 0.05)
-                    weakSection
-                        .appearAnimation(delay: 0.1)
                 }
             }
             .padding(.horizontal, 20)
@@ -158,7 +157,7 @@ struct CurriculumView: View {
         HStack(spacing: 10) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
-            TextField("단원 검색 또는 직접 입력 (예: 중2 일차함수)", text: $query)
+            TextField("배우고 싶은 단원이나 주제 검색", text: $query)
                 .focused($searching)
                 .submitLabel(.go)
                 .onSubmit(startTyped)
@@ -185,9 +184,9 @@ struct CurriculumView: View {
             for unit in subject.units {
                 let haystack = (subject.name + " " + unit.chapter + " " + unit.title).lowercased()
                 if words.allSatisfy({ haystack.contains($0) }) { matches.append((subject, unit)) }
-                if matches.count >= 12 { break }
+                if matches.count >= 20 { break }
             }
-            if matches.count >= 12 { break }
+            if matches.count >= 20 { break }
         }
         return VStack(alignment: .leading, spacing: 12) {
             Button(action: startTyped) {
@@ -218,6 +217,29 @@ struct CurriculumView: View {
                 .softCardBackground(cornerRadius: 20)
             }
         }
+    }
+
+    /// 검색 예시 (누르면 바로 검색)
+    private var exampleChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(["중2 일차함수", "고1 다항식", "중3 과학 전기", "광합성", "임진왜란"], id: \.self) { example in
+                    Button {
+                        query = example
+                        Haptics.tap()
+                    } label: {
+                        Text(example)
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Theme.accent.opacity(0.1), in: .capsule)
+                    }
+                    .buttonStyle(.pressable)
+                }
+            }
+        }
+        .scrollClipDisabled()
     }
 
     /// 단원을 못 찾았을 때: 이유 대신 할 수 있는 것 (비슷한 단원 · 이렇게 적어 보기)

@@ -26,6 +26,14 @@ struct AuthView: View {
     /// Apple 로그인 실패
     @State private var appleErrorMessage: String?
     @State private var shakeTrigger = 0
+    /// 이용약관·개인정보 처리방침에 동의한 버전 (바뀌면 다시 동의)
+    @AppStorage("legal.agreedVersion") private var agreedVersion = 0
+    @State private var agreed = false
+    /// 동의하지 않고 가입·소셜 로그인을 누름
+    @State private var consentNudge = 0
+
+    /// 가입(이메일)과 Apple·Google 로그인(처음이면 가입)에는 동의가 필요
+    private var needsConsent: Bool { !agreed }
     @FocusState private var focus: Field?
 
     var body: some View {
@@ -93,12 +101,20 @@ struct AuthView: View {
                 .padding(.top, 10)
                 .appearAnimation(delay: 0.2)
 
-            Text("계속하면 이용약관 및 개인정보 처리방침에 동의하게 돼요.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 14)
+            LegalConsentRow(agreed: $agreed)
+                .padding(.top, 18)
+                .shake(trigger: consentNudge)
         }
+        .onAppear { agreed = agreedVersion >= LegalText.version }
+        .onChange(of: agreed) { _, value in agreedVersion = value ? LegalText.version : 0 }
+    }
+
+    /// 동의 전이면 흔들어서 알려 주고 false
+    private func checkConsent() -> Bool {
+        guard needsConsent else { return true }
+        consentNudge += 1
+        Haptics.error()
+        return false
     }
 
     private var hero: some View {
@@ -242,6 +258,8 @@ struct AuthView: View {
         SignInWithAppleButton(.continue) { request in
             request.requestedScopes = [.fullName, .email]
         } onCompletion: { result in
+            // 동의 전에는 로그인하지 않음 (버튼은 눌리지만 결과를 쓰지 않음)
+            guard checkConsent() else { return }
             do {
                 try auth.handleAppleSignIn(result)
             } catch {
@@ -253,10 +271,19 @@ struct AuthView: View {
         .clipShape(.rect(cornerRadius: 16, style: .continuous))
         .id(scheme) // 다크모드 전환 시 버튼 스타일 갱신
         .disabled(isSubmitting)
+        // 동의 전에는 Apple 창을 띄우지 않고 동의 칸을 알려 줌
+        .overlay {
+            if needsConsent {
+                Color.white.opacity(0.001)
+                    .contentShape(Rectangle())
+                    .onTapGesture { _ = checkConsent() }
+            }
+        }
     }
 
     private var googleButton: some View {
         Button {
+            guard checkConsent() else { return }
             Task {
                 isSubmitting = true
                 defer { isSubmitting = false }
@@ -309,6 +336,7 @@ struct AuthView: View {
 
     private func submit() {
         guard !isSubmitting else { return }
+        if mode == .signUp, !checkConsent() { return }
         isSubmitting = true
         let mode = self.mode
         Task { @MainActor in
