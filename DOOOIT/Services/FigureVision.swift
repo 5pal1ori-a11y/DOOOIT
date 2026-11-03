@@ -39,11 +39,13 @@ enum FigureVision {
     static func graphLines(_ graph: GraphAnalysis) -> [String] {
         guard graph.calibrated, graph.kind == .linear || graph.kind == .quadratic, let equation = graph.equation else { return [] }
         var lines = ["그래프의 식은 " + equation.replacingOccurrences(of: "−", with: "-")]
+        // 픽셀에서 잰 값이라 정수·0.5 단위로 맞춰 보여 줌 (식과 같은 다듬기)
+        func shown(_ v: Double) -> String { VisionMath.format(VisionMath.nice(v)).replacingOccurrences(of: "−", with: "-") }
         for point in graph.keyPoints {
             switch point.name {
-            case "y절편": lines.append("y절편 \(VisionMath.format(point.y))")
-            case "x절편": lines.append("x절편 \(VisionMath.format(point.x))")
-            case "꼭짓점": lines.append("꼭짓점 (\(VisionMath.format(point.x)), \(VisionMath.format(point.y)))")
+            case "y절편": lines.append("y절편 \(shown(point.y))")
+            case "x절편": lines.append("x절편 \(shown(point.x))")
+            case "꼭짓점": lines.append("꼭짓점 (\(shown(point.x)), \(shown(point.y)))")
             default: continue
             }
         }
