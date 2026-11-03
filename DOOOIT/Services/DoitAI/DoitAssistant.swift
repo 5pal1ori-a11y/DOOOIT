@@ -619,7 +619,15 @@ final class DoitAssistant {
             solution = DoitSubjectSolve.solve(text: text, choices: isChoice ? choices : [], subjectBroad: subject?.broad, body: scan.body, boxItems: scan.boxItems)
         }
         // 모델은 수학이 아닌 과목만 (작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만)
-        if !isMath, solution == nil, DoitMind.isAvailable {
+        // 보기 항목을 하나씩 따지는 문제: 항목마다 O·X, 선지는 앱이 (두 번 물어 같을 때만)
+        var judged = false
+        if !isMath, solution == nil, DoitMind.isAvailable, isChoice,
+           let setup = DoitItemJudge.setup(text: text, body: scan.body, choices: choices, boxItems: scan.boxItems) {
+            status = "두잇 AI가 항목을 하나씩 따지는 중…"
+            solution = await DoitItemJudge.run(setup, subjectName: subject?.noteLabel ?? "모름", problem: text)
+            judged = true
+        }
+        if !isMath, !judged, solution == nil, DoitMind.isAvailable {
             status = "두잇 AI가 문제를 푸는 중…"
             let body = scan.body.isEmpty ? text : scan.body
             let material = DoitAutoSolve.modelMaterial(text: text, body: scan.body, choices: isChoice ? choices : [], boxItems: scan.boxItems,

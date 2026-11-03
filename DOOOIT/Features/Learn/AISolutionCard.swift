@@ -26,6 +26,9 @@ struct AISolutionCard: View {
         guard DoitAutoSolve.isCurrent(solution, problem: problemText) else { return nil }
         // 예전에 모델이 추측한 수학 답은 버리고 계산으로 다시 풂
         if note.subjectKind.isMath, solution?.source == DoitAutoSolve.modelSource { return nil }
+        // 항목 O·X 문제인데 예전 방식(모델이 선지를 바로 고름)으로 저장된 추측은 새 방식으로 다시 풂
+        if solution?.source == DoitAutoSolve.modelSource, !(solution?.concept.hasPrefix("항목을 하나씩") ?? false), isChoice,
+           DoitItemJudge.setup(text: problemText, body: note.scan?.body, choices: choices, boxItems: note.scan?.boxItems) != nil { return nil }
         return solution
     }
     private var noteKey: String { note.correctAnswer.trimmingCharacters(in: .whitespaces) }
@@ -214,6 +217,16 @@ struct AISolutionCard: View {
         }
         // 3) 두잇 1·2 모델 (수학이 아닌 과목만: 작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만 보여 줌)
         if !note.subjectKind.isMath, DoitMind.isAvailable {
+            // 보기 항목을 하나씩 따지는 문제 ("어법상 바른 것끼리"): 항목마다 O·X만 묻고 선지는 앱이 고름, 두 번 물어 같을 때만
+            if isChoice, let setup = DoitItemJudge.setup(text: text, body: note.scan?.body, choices: choices, boxItems: note.scan?.boxItems) {
+                if let solved = await DoitItemJudge.run(setup, subjectName: note.subjectLabel, problem: text), problemText == text {
+                    store(solved)
+                    return
+                }
+                guard problemText == text else { return }
+                withAnimation(.snappy) { failed = true }
+                return
+            }
             let body = note.scan.map { $0.body.isEmpty ? text : $0.body } ?? text
             let material = DoitAutoSolve.modelMaterial(text: text, body: note.scan?.body, choices: isChoice ? choices : [],
                                                        boxItems: note.scan?.boxItems, subject: note.subjectKind)
