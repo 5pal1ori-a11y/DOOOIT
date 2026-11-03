@@ -72,7 +72,7 @@ enum FigureVision {
             }
             guard n >= 3, n <= 4 else { continue }
             let names = (0..<n).compactMap { shape.vertexNames[$0] }
-            if names.count == n, n == 3 { lines.append("△" + names.joined()) }
+            if names.count == n, n == 3 { lines.append("△" + names.sorted().joined()) }
             if names.count == n, n == 4 { lines.append("사각형 " + names.joined()) }
             for i in 0..<n {
                 guard let value = shape.sideLabels[i], let a = shape.vertexNames[i], let b = shape.vertexNames[(i + 1) % n] else { continue }
