@@ -99,6 +99,21 @@ func runGeometryCases() {
         check("도형 아닌 글 그대로: \(input)", out == expected, out)
     }
 
+    // 사진에서 선분 윗줄 찾기 (FractionFinder.hasOverline): 가짜 잉크 그림으로
+    func ink(bar: ClosedRange<Int>?, barX: ClosedRange<Int> = 10...34) -> FractionFinder.Ink {
+        var mask = [Bool](repeating: false, count: 60 * 40)
+        func fill(_ xs: ClosedRange<Int>, _ ys: ClosedRange<Int>) { for y in ys { for x in xs { mask[y * 60 + x] = true } } }
+        // 글자 두 개 (A, B 자리): 테두리만
+        for xs in [10...20, 24...34] { fill(xs, 15...16); fill(xs, 34...35); fill(xs.lowerBound...(xs.lowerBound + 1), 15...35); fill((xs.upperBound - 1)...xs.upperBound, 15...35) }
+        if let bar { fill(barX, bar) }
+        return FractionFinder.Ink(mask: mask, width: 60, height: 40)
+    }
+    check("선분 윗줄 찾기: 글자 위 짧은 가로줄", FractionFinder.hasOverline(ink(bar: 10...11), x0: 10, x1: 34, capTop: 15, letterHeight: 21))
+    check("선분 윗줄 찾기: 줄 없음", !FractionFinder.hasOverline(ink(bar: nil), x0: 10, x1: 34, capTop: 15, letterHeight: 21))
+    check("선분 윗줄 찾기: 양옆으로 길게 이어진 선은 아님 (표 선·분수 막대)", !FractionFinder.hasOverline(ink(bar: 10...11, barX: 0...59), x0: 10, x1: 34, capTop: 15, letterHeight: 21))
+    check("선분 윗줄 찾기: 글자에 붙은 획은 아님", !FractionFinder.hasOverline(ink(bar: 13...14), x0: 10, x1: 34, capTop: 15, letterHeight: 21))
+    check("선분 윗줄 찾기: 한 글자만 덮는 획은 아님", !FractionFinder.hasOverline(ink(bar: 10...11, barX: 24...34), x0: 10, x1: 34, capTop: 15, letterHeight: 21))
+
     // 도형 문제 풀이 (앱 표기 그대로 넣음) — 틀린 답은 안 되고, 모르면 nil
     let solve: [(String, String)] = [
         ("△ABC에서 ∠A = 50°, ∠B = 60°일 때 ∠C의 크기를 구하시오.", "70°"),

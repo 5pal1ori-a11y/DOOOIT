@@ -14,6 +14,8 @@ import Foundation
 ///   원주율 π
 enum GeometryText {
     static let bar: Character = "\u{305}"
+    /// 직접 고치기 바에서 넣는 윗줄 (앞 글자에 붙는 결합 문자)
+    static let overlineMark = "\u{305}"
 
     /// "AB" → "A̅B̅"
     static func segment(_ letters: String) -> String {

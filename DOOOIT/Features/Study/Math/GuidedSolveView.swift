@@ -308,7 +308,7 @@ struct GuidedSolveView: View {
                 chips
                 inputRow(plan)
                 if focused && plan.isMath {
-                    MathSymbolBar { symbol in input += symbol.insert }
+                    MathSymbolBar { symbol in input = MathSymbolBar.tidy(input + symbol.insert, after: symbol) }
                 }
             }
         }

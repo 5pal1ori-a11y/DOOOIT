@@ -80,6 +80,47 @@ enum FractionFinder {
         return smallAndHigh || above
     }
 
+    /// 선분 윗줄(AB̅)이 있는지 (픽셀, 위가 0). 두 글자 x0...x1 위에서:
+    /// - 같은 줄 글자의 보통 윗끝(capTop)보다 위에 두 글자를 거의 다 덮는 얇은 가로줄이 있고
+    /// - 줄과 글자 사이, 줄 바로 위가 비어 있으며
+    /// - 줄이 두 글자 밖으로 길게 이어지지 않음 (분수 막대·표 선·밑줄을 거름)
+    static func hasOverline(_ ink: Ink, x0: Int, x1: Int, capTop: Int, letterHeight: Int) -> Bool {
+        let w = x1 - x0 + 1
+        guard w >= 6, letterHeight >= 6, x0 >= 0, x1 < ink.width else { return false }
+        func coverage(_ y: Int, _ a: Int, _ b: Int) -> Double {
+            guard y >= 0, y < ink.height else { return 0 }
+            let xs = max(0, a), xe = min(ink.width - 1, b)
+            guard xs <= xe else { return 0 }
+            var hit = 0
+            for x in xs...xe where ink.mask[y * ink.width + x] { hit += 1 }
+            return Double(hit) / Double(xe - xs + 1)
+        }
+        let searchTop = max(0, capTop - letterHeight * 7 / 10), searchBottom = capTop - 2
+        guard searchTop < searchBottom else { return false }
+        let inner0 = x0 + w / 8, inner1 = x1 - w / 8
+        // 위에서 아래로 처음 나오는 "거의 다 덮는" 줄 묶음
+        var barTop: Int?, barBottom: Int?
+        for y in searchTop...searchBottom {
+            if coverage(y, inner0, inner1) >= 0.8 {
+                if barTop == nil { barTop = y }
+                barBottom = y
+            } else if barTop != nil {
+                break
+            }
+        }
+        guard let top = barTop, let bottom = barBottom, bottom - top + 1 <= max(2, letterHeight / 6) else { return false }
+        // 줄 바로 위는 비어 있음
+        guard (1...2).allSatisfy({ coverage(top - $0, inner0, inner1) < 0.2 }) else { return false }
+        // 줄과 글자 사이에 빈 줄
+        guard bottom + 1 < capTop, ((bottom + 1)..<capTop).contains(where: { coverage($0, inner0, inner1) < 0.15 }) else { return false }
+        // 두 글자 밖으로 길게 이어지지 않음 (양옆 글자 반 개 폭)
+        let side = max(3, w / 4)
+        for y in top...bottom {
+            if coverage(y, x1 + 2, x1 + side) > 0.6 && coverage(y, x0 - side, x0 - 2) > 0.6 { return false }
+        }
+        return true
+    }
+
     /// 글자(잉크) 픽셀: 주변 종이 밝기보다 확실히 어두운 픽셀.
     /// 한쪽이 어두운 조명·책상 배경에서도 맞도록 16픽셀 칸마다 가장 밝은 값(종이)을 재고 그와 비교함
     static func inkMask(gray: [UInt8], width: Int, height: Int) -> [Bool] {

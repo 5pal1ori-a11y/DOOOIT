@@ -22,8 +22,8 @@ extension OCRService {
             if "xyabcknmt".contains(c) { score += 2 }
             else if "+-=×÷^()√<>≤≥/²³".contains(c) { score += 1 }
             else if c.isUppercase && c.isASCII { score -= 1 }
-            // 보기 번호·근호는 낯선 기호가 아님 (보기 번호를 더 읽은 쪽이 오히려 깎이지 않게)
-            else if !c.isASCII && !"−·αβγθπ①②③④⑤√".contains(c) { score -= 2 }
+            // 보기 번호·근호·도형 기호(∠ △ ° ⊥ ∥ ≡ ∽, 선분 윗줄 A̅)는 낯선 기호가 아님 (더 읽은 쪽이 오히려 깎이지 않게)
+            else if !c.isASCII && !"−·αβγθπ①②③④⑤√∠△°⊥∥≡∽".contains(c) && c.unicodeScalars.last?.value != 0x305 { score -= 2 }
         }
         return score - 3 * mathPenalty(text)
     }

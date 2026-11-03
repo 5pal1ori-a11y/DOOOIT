@@ -510,6 +510,7 @@ struct MathNoteEditorView: View {
         }
         let offset = text.distance(from: text.startIndex, to: insertAt)
         text.replaceSubrange(replaceRange, with: symbol.insert)
+        text = MathSymbolBar.tidy(text, after: symbol)
         note.recognizedText = text
         let caret = text.index(text.startIndex, offsetBy: min(offset + symbol.caretOffset, text.count))
         textSelection = TextSelection(insertionPoint: caret)
