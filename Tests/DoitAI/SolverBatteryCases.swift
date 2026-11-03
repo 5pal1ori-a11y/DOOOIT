@@ -385,6 +385,8 @@ private func batterySameFunction(_ a: String, _ b: String) -> Bool {
     func rhs(_ s: String) -> String? {
         let t = DoitGrader.cleanMath(s)
         for prefix in ["y=", "f^-1(x)=", "f⁻¹(x)=", "(f∘g)(x)=", "f'(x)=", "g(x)=", "f(x)="] where t.hasPrefix(prefix) { return String(t.dropFirst(prefix.count)) }
+        // "f∘g(x) = 2x + 1", "(g∘f)(x) = …"
+        if let m = t.firstMatch(of: #/^\(?[a-z](?:∘[a-z])*\)?\(x\)=(.+)$/#) { return String(m.1) }
         return nil
     }
     let x = rhs(a) ?? DoitGrader.cleanMath(a), y = rhs(b) ?? DoitGrader.cleanMath(b)
@@ -398,17 +400,88 @@ private func batterySameFunction(_ a: String, _ b: String) -> Bool {
     return compared >= 3
 }
 
+/// 위첨자·아래첨자를 보통 글자로 ("x¹⁰" → "x^10", "a₁₀" → "a10")
+private func batteryScripts(_ s: String) -> String {
+    let sup: [Character: Character] = ["⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9", "⁻": "-"]
+    let sub: [Character: Character] = ["₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9"]
+    var out = "", inSup = false
+    for c in s {
+        if let d = sup[c] {
+            if !inSup { out += "^"; inSup = true }
+            out.append(d)
+        } else {
+            inSup = false
+            out.append(sub[c] ?? c)
+        }
+    }
+    return out
+}
+
+/// 엔진 답에서 비교할 모양들: 그대로 · 어림값 뺀 것 · "x² + y² = 19"의 19 · "평균 7"의 7 · "x = 3, y = 5"의 (3, 5)
+/// 여러 값을 붙인 답("기울기 2, y절편 -6, x절편 3")에서 하나만 골라 내지는 않음 (물은 값을 엔진이 골라야 해요)
+private func batteryForms(_ answer: String) -> [String] {
+    var a = batteryTidy(answer.components(separatedBy: "\n").first ?? answer)
+    a = a.replacingOccurrences(of: #"\s*\((?:≈|=)[^)]*\)"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
+    a = batteryScripts(a)
+    var forms = [a]
+    // 이름표 + 값 하나 ("평균 7", "제10항 39", "x = -1에서 극댓값 3", "점근선 x = 1, y = 3"): 이름표에 쉼표가 없을 때만
+    if let r = a.range(of: #"^[^,]*[가-힣]\s*(?=[^가-힣]+$)"#, options: .regularExpression), !a[r].contains("→") {
+        let rest = String(a[r.upperBound...]).trimmingCharacters(in: .whitespaces)
+        if !rest.isEmpty { forms.append(rest) }
+    }
+    for f in forms where f.filter({ $0 == "=" }).count == 1 && !f.contains(",") || f.filter({ $0 == "=" }).count == 1 && f.contains("{") {
+        // "x² + y² = 19", "n(A ∪ B) = 6", "A ∩ B = {2, 4}", "360 = 2^3 × 3^2 × 5"
+        if let eq = f.firstIndex(of: "=") {
+            let rhs = f[f.index(after: eq)...].trimmingCharacters(in: .whitespaces)
+            if !rhs.isEmpty { forms.append(rhs) }
+        }
+    }
+    // "x = 3, y = 5" → "(3, 5)"
+    if let m = a.firstMatch(of: #/^x\s*=\s*([^,=]+),\s*y\s*=\s*([^,=]+)$/#) {
+        forms.append("(\(m.1.trimmingCharacters(in: .whitespaces)), \(m.2.trimmingCharacters(in: .whitespaces)))")
+    }
+    // "3 ± √5" → "3 + √5, 3 - √5"
+    for f in forms where f.contains("±") {
+        let body = f.replacingOccurrences(of: #"^[a-z]\s*=\s*"#, with: "", options: .regularExpression)
+        let sides = body.components(separatedBy: "±")
+        if sides.count == 2 { forms.append("\(sides[0])+\(sides[1]), \(sides[0])-\(sides[1])") }
+    }
+    return forms
+}
+
+/// 값 모음이 같은지 ("√2 + √3, 1" 처럼 근호가 든 값도 계산해서, 순서 무시)
+private func batterySameList(_ a: String, _ b: String) -> Bool {
+    func values(_ s: String) -> [Double]? {
+        let parts = s.split(separator: ",").map { DoitGrader.cleanMath(String($0)).replacingOccurrences(of: "√", with: "sqrt") }
+        guard parts.count >= 1 else { return nil }
+        var out: [Double] = []
+        for p in parts {
+            let q = p.replacingOccurrences(of: #"sqrt(\d+(?:\.\d+)?)"#, with: "sqrt($1)", options: .regularExpression)
+            guard !q.contains("x"), !q.contains("y"), let v = Expression.evaluate(q) else { return nil }
+            out.append(v)
+        }
+        return out
+    }
+    guard let x = values(a), let y = values(b), x.count == y.count else { return false }
+    return x.sorted().elementsEqual(y.sorted()) { abs($0 - $1) < 1e-6 * max(1, abs($0)) }
+}
+
 /// 엔진 답이 정답과 같은지
 func batteryMatches(_ answer: String, expected: String) -> Bool {
-    let mine = batteryTidy(answer)
+    let forms = batteryForms(answer)
     for key in DoitGrader.alternatives(expected, splitOr: false) {
         if key.hasPrefix("~") {
-            if DoitGrader.normalizeText(mine).contains(DoitGrader.normalizeText(String(key.dropFirst()))) { return true }
+            if DoitGrader.normalizeText(answer).contains(DoitGrader.normalizeText(String(key.dropFirst()))) { return true }
             continue
         }
-        if DoitGrader.normalizeText(mine) == DoitGrader.normalizeText(key) { return true }
-        if DoitGrader.equivalentMath(mine, key) == true { return true }
-        if batterySameFunction(mine, key) { return true }
+        let k = batteryScripts(key)
+        for mine in forms {
+            if DoitGrader.normalizeText(mine) == DoitGrader.normalizeText(k) { return true }
+            if DoitGrader.cleanMath(mine) == DoitGrader.cleanMath(k) { return true }
+            if DoitGrader.equivalentMath(mine, k) == true { return true }
+            if batterySameFunction(mine, k) { return true }
+            if batterySameList(mine, k) { return true }
+        }
     }
     return false
 }
