@@ -239,26 +239,37 @@ extension DoitGrammar {
     /// "어법상 바른 문장은?" · "어법상 틀린 문장은?" (단원 안의 맞는 문장·틀린 문장으로)
     static func composites(_ list: [GrammarUnit]) -> [Problem] {
         let items = list.flatMap(\.items)
-        var rightPool: [String] = [], wrongPool: [String] = []
-        for item in items {
-            for s in correctSentences(item) where !rightPool.contains(s) { rightPool.append(s) }
-            for s in wrongSentences(item) where !wrongPool.contains(s) { wrongPool.append(s) }
+        // 문장마다 어느 문제에서 나왔는지 (같은 문제에서 나온 문장끼리는 한 문제의 보기로 같이 쓰지 않음: 서로 비교하면 답이 보여서)
+        var rightPool: [(String, Int)] = [], wrongPool: [(String, Int)] = []
+        for (family, item) in items.enumerated() {
+            for s in correctSentences(item) where !rightPool.contains(where: { $0.0 == s }) { rightPool.append((s, family)) }
+            for s in wrongSentences(item) where !wrongPool.contains(where: { $0.0 == s }) { wrongPool.append((s, family)) }
         }
-        guard rightPool.count >= 4, wrongPool.count >= 4 else { return [] }
+        guard rightPool.count >= 5, wrongPool.count >= 5 else { return [] }
         let seed = list.map(\.name).joined()
-        let rights = seededShuffle(rightPool, seed: seed + "o"), wrongs = seededShuffle(wrongPool, seed: seed + "x")
+        let rights = seededShuffle(rightPool.map { $0.0 }, seed: seed + "o").compactMap { s in rightPool.first { $0.0 == s } }
+        let wrongs = seededShuffle(wrongPool.map { $0.0 }, seed: seed + "x").compactMap { s in wrongPool.first { $0.0 == s } }
+        /// 정답 문장과 다른 문제에서 나온 문장 넷 (서로도 다른 문제에서)
+        func others(from pool: [(String, Int)], start: Int, avoid family: Int) -> [String] {
+            var used: Set<Int> = [family], picked: [String] = []
+            for k in 0..<pool.count where picked.count < 4 {
+                let (s, f) = pool[(start + k) % pool.count]
+                if used.insert(f).inserted { picked.append(s) }
+            }
+            return picked
+        }
         var result: [Problem] = []
         for round in 0..<3 {
             // 바른 문장 하나 + 틀린 문장 넷
             let r = rights[round % rights.count]
-            let ws = (0..<4).map { wrongs[(round * 4 + $0) % wrongs.count] }
-            if Set(ws).count == 4, let p = problem("다음 중 어법상 바른 문장은?", choices: seededShuffle([r] + ws, seed: seed + "\(round)a"), answer: r,
-                                                   steps: ["바른 문장: \(r)", "나머지는 모두 어법상 틀려요."]) { result.append(p) }
+            let ws = others(from: wrongs, start: round * 4, avoid: r.1)
+            if ws.count == 4, let p = problem("다음 중 어법상 바른 문장은?", choices: seededShuffle([r.0] + ws, seed: seed + "\(round)a"), answer: r.0,
+                                              steps: ["바른 문장: \(r.0)", "나머지는 모두 어법상 틀려요."]) { result.append(p) }
             // 틀린 문장 하나 + 바른 문장 넷
             let w = wrongs[(round + 7) % wrongs.count]
-            let rs = (0..<4).map { rights[(round * 4 + 5 + $0) % rights.count] }
-            if Set(rs).count == 4, let p = problem("다음 중 어법상 틀린 문장은?", choices: seededShuffle([w] + rs, seed: seed + "\(round)b"), answer: w,
-                                                   steps: ["틀린 문장: \(w)", explainWrong(w, items: items)]) { result.append(p) }
+            let rs = others(from: rights, start: round * 4 + 5, avoid: w.1)
+            if rs.count == 4, let p = problem("다음 중 어법상 틀린 문장은?", choices: seededShuffle([w.0] + rs, seed: seed + "\(round)b"), answer: w.0,
+                                              steps: ["틀린 문장: \(w.0)", explainWrong(w.0, items: items)]) { result.append(p) }
         }
         return result
     }
