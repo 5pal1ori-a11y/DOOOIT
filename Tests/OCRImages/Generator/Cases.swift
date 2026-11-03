@@ -29,6 +29,9 @@ func plain(_ segs: [Seg]) -> String {
         case .sub(let s): return String(s.map { c in ["0": "₀", "1": "₁", "2": "₂", "3": "₃", "4": "₄", "5": "₅", "6": "₆", "7": "₇", "8": "₈", "9": "₉"][c] ?? c })
         case .supText(let s): return String(s.map { c in ["2": "²", "3": "³", "+": "⁺", "−": "⁻", "-": "⁻"][c] ?? c })
         case .u(let s): return s
+        // 선분은 앱 표기 A̅B̅ (글자마다 윗줄 U+0305), 호는 "호 AB"
+        case .over(let s): return s.map { "\($0)\u{305}" }.joined()
+        case .arc(let s): return "호 " + s
         }
     }.joined()
 }

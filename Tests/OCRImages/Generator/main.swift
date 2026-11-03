@@ -55,6 +55,11 @@ for (k, content) in moreSubjectContents.enumerated() {
     let style = variantStyle(content.style, index: k + 1)
     emit(content, style: style, degrades: [.clean, problemDegrades[(k + 1) % problemDegrades.count], problemDegrades[(k + 3) % problemDegrades.count]])
 }
+// 도형 기호 문제 (∠, △, 선분 윗줄, °, ⊥, ∥ …)
+for (k, content) in geometryContents.enumerated() {
+    let style = variantStyle(content.style, index: k + 2)
+    emit(content, style: style, degrades: [.clean, problemDegrades[(k + 2) % problemDegrades.count], problemDegrades[(k + 4) % problemDegrades.count]])
+}
 
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
