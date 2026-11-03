@@ -267,6 +267,9 @@ enum DoitMathFigures {
     static func triangle(_ t: String) -> Solved? {
         if let s = parallelLines(t) { return s }
         if let s = similar(t) { return s }
+        if let s = congruent(t) { return s }
+        if let s = parallelogram(t) { return s }
+        if let s = parallelAngles(t) { return s }
         if let s = similarityRatio(t) { return s }
         if let s = circleAngles(t) { return s }
         if let s = tangentLength(t) { return s }
@@ -308,10 +311,17 @@ enum DoitMathFigures {
             tri.angle[key] = deg
             given.append("\(m[1]) \(m[2]) = \(m[3])")
         }
-        // 이등변삼각형: AB = AC → ∠B = ∠C
+        // 이등변삼각형: AB = AC → ∠B = ∠C ("AB = AC인 이등변삼각형", "AB = AC이고")
         var equalPair: (Character, Character)?
-        if let m = match(t, #"([A-C]{2})\s*=\s*([A-C]{2})\s*인\s*이등변"#), let k1 = sideKey(m[1]), let k2 = sideKey(m[2]) {
+        if let m = match(t, #"(?<![A-Za-z])([A-C]{2})\s*=\s*([A-C]{2})(?![A-Za-z])"#), let k1 = sideKey(m[1]), let k2 = sideKey(m[2]), k1 != k2 {
             equalPair = (Character(k1.uppercased()), Character(k2.uppercased()))
+        }
+        // 수직: AB ⊥ BC → 두 변이 만나는 꼭짓점의 각이 90°
+        for m in matches(t, #"(?<![A-Za-z])([A-C]{2})\s*⊥\s*([A-C]{2})(?![A-Za-z])"#) {
+            let common = Set(m[1]).intersection(Set(m[2]))
+            guard common.count == 1, let vertex = common.first, tri.angle[vertex] == nil else { continue }
+            tri.angle[vertex] = 90
+            given.append("\(m[1]) ⊥ \(m[2]) → ∠\(vertex) = 90°")
         }
         // ∠A : ∠B : ∠C = 1 : 2 : 3
         if let m = match(t, #"∠?\s*A\s*:\s*∠?\s*B\s*:\s*∠?\s*C\s*=\s*(\d+)\s*:\s*(\d+)\s*:\s*(\d+)"#),
@@ -516,6 +526,82 @@ enum DoitMathFigures {
                       answer: shown)
     }
 
+    // MARK: - 합동 (△ABC ≡ △DEF): 대응변의 길이, 대응각의 크기는 같음
+
+    private static func congruent(_ t: String) -> Solved? {
+        guard let m = match(t, #"△\s*([A-Z]{3})\s*≡\s*△\s*([A-Z]{3})"#) else { return nil }
+        let p = Array(m[1]), q = Array(m[2])
+        guard Set(p).count == 3, Set(q).count == 3 else { return nil }
+        var map: [Character: Character] = [:]
+        for i in 0..<3 { map[p[i]] = q[i]; map[q[i]] = p[i] }
+        func norm(_ s: String) -> String { String(s.sorted()) }
+        var seg: [String: Double] = [:]
+        for mm in matches(t, #"(?<![A-Z])([A-Z]{2})\s*=\s*(\d+(?:\.\d+)?)(?!\s*°)"#) { if let v = Double(mm[2]) { seg[norm(mm[1])] = v } }
+        var angle: [Character: Double] = [:]
+        for mm in matches(t, #"∠\s*([A-Z])\s*=\s*(\d+(?:\.\d+)?)\s*°"#) { if let c = mm[1].first, let v = Double(mm[2]) { angle[c] = v } }
+        // 한 삼각형의 두 각을 알면 나머지 각 (세 각의 합 180°)
+        for tri in [p, q] {
+            let known = tri.filter { angle[$0] != nil }
+            if known.count == 2, let missing = tri.first(where: { angle[$0] == nil }) {
+                let rest = 180 - known.reduce(0) { $0 + angle[$1]! }
+                guard rest > 0 else { return nil }
+                angle[missing] = rest
+            }
+        }
+        let concept = "합동인 두 도형은 대응변의 길이와 대응각의 크기가 각각 같아요. 꼭짓점을 쓴 순서대로 대응해요."
+        if let ask = match(t, #"(?<![A-Z])([A-Z]{2})\s*의\s*길이"#) {
+            let key = norm(ask[1])
+            let mapped = ask[1].compactMap { map[$0] }
+            guard mapped.count == 2 else { return nil }
+            let other = norm(String(mapped))
+            guard let v = seg[key] ?? seg[other], let shown = nice(v) else { return nil }
+            return Solved(kind: .geometry, topic: "합동인 도형의 대응변", concept: concept,
+                          steps: [SolutionStep(hint: "\(ask[1])에 대응하는 변은 \(String(mapped))", work: "\(ask[1]) = \(String(mapped)) = \(shown)")], answer: shown)
+        }
+        if let ask = match(t, #"∠\s*([A-Z])\s*의\s*크기"#), let c = ask[1].first, let partner = map[c] {
+            guard let v = angle[c] ?? angle[partner], v > 0, v < 180 else { return nil }
+            return Solved(kind: .geometry, topic: "합동인 도형의 대응각", concept: concept,
+                          steps: [SolutionStep(hint: "∠\(c)에 대응하는 각은 ∠\(partner)", work: "∠\(c) = ∠\(partner) = \(d(v))°")], answer: "\(d(v))°")
+        }
+        return nil
+    }
+
+    // MARK: - 평행사변형 ABCD: 마주 보는 각은 같고, 이웃한 두 각의 합은 180°
+
+    private static func parallelogram(_ t: String) -> Solved? {
+        guard let m = match(t, #"(?:사각형|□)\s*([A-Z]{4})\s*(?:는|은|이|가)?\s*(평행사변형|마름모)"#) ?? match(t, #"(평행사변형|마름모)\s*([A-Z]{4})"#).map({ [$0[0], $0[2], $0[1]] }) else { return nil }
+        let v = Array(m[1])
+        guard Set(v).count == 4 else { return nil }
+        let given = matches(t, #"∠\s*([A-Z])\s*=\s*(\d+(?:\.\d+)?)\s*°"#)
+        guard given.count == 1, let g = given[0][1].first, let gv = Double(given[0][2]), gv > 0, gv < 180, let gi = v.firstIndex(of: g),
+              let ask = match(t, #"∠\s*([A-Z])\s*의\s*크기"#), let a = ask[1].first, let ai = v.firstIndex(of: a), ai != gi else { return nil }
+        let opposite = (gi + 2) % 4 == ai
+        let value = opposite ? gv : 180 - gv
+        return Solved(kind: .geometry, topic: "평행사변형의 성질", concept: "평행사변형은 두 쌍의 대각의 크기가 각각 같고, 이웃한 두 내각의 크기의 합은 180°예요.",
+                      steps: [SolutionStep(hint: opposite ? "∠\(a)는 ∠\(g)의 대각" : "∠\(a)는 ∠\(g)와 이웃한 각", work: opposite ? "∠\(a) = ∠\(g) = \(d(gv))°" : "180° − \(d(gv))° = \(d(value))°")],
+                      answer: "\(d(value))°")
+    }
+
+    // MARK: - 평행선의 동위각·엇각, 맞꼭지각 (글로 관계를 밝힌 문제만: 그림이 필요한 문제는 안 풂)
+
+    private static func parallelAngles(_ t: String) -> Solved? {
+        guard let rel = match(t, #"(동위각|엇각|맞꼭지각)"#)?[1] else { return nil }
+        // 동위각·엇각은 평행할 때만 크기가 같음
+        if rel != "맞꼭지각" { guard has(t, ["∥", "//", "평행"]) else { return nil } }
+        guard !has(t, ["동측내각", "같은 쪽", "그림"]) else { return nil }
+        let given = matches(t, #"∠\s*([a-z])\s*=\s*(\d+(?:\.\d+)?)\s*°"#)
+        guard given.count == 1, let g = given[0][1].first, let gv = Double(given[0][2]), gv > 0, gv < 180 else { return nil }
+        // "∠a와 ∠b는 동위각", "∠b는 ∠a의 엇각", "∠a의 동위각 ∠b"처럼 두 각의 관계를 글로 말해야 함
+        let names = Set(matches(t, #"∠\s*([a-z])(?![A-Za-z])"#).compactMap { $0[1].first })
+        guard names.count == 2, names.contains(g), let asked = names.first(where: { $0 != g }) else { return nil }
+        let a = String(asked), pair = "[" + String(g) + String(asked) + "]"
+        guard t.range(of: "∠\\s*" + a + "\\s*(?:의\\s*크기|의\\s*값|(?:는|은)\\s*\\?)", options: .regularExpression) != nil,
+              t.range(of: "∠\\s*" + pair + "\\s*(?:와|과|의|는|은)?\\s*(?:∠\\s*" + pair + "\\s*(?:의|는|은|가|이)?\\s*)?" + rel, options: .regularExpression) != nil else { return nil }
+        let reason = rel == "맞꼭지각" ? "맞꼭지각의 크기는 서로 같아요." : "평행한 두 직선이 다른 한 직선과 만날 때 생기는 \(rel)의 크기는 서로 같아요."
+        return Solved(kind: .geometry, topic: rel == "맞꼭지각" ? "맞꼭지각" : "평행선과 \(rel)", concept: reason,
+                      steps: [SolutionStep(hint: "∠\(asked)와 ∠\(g)는 \(rel)", work: "∠\(asked) = ∠\(g) = \(d(gv))°")], answer: "\(d(gv))°")
+    }
+
     /// "닮음비가 2 : 3인 두 삼각형의 넓이의 비"
     private static func similarityRatio(_ t: String) -> Solved? {
         guard let m = match(t, #"닮음비(?:가|는)\s*(\d+)\s*:\s*(\d+)"#), let a = Int(m[1]), let b = Int(m[2]) else { return nil }
@@ -541,7 +627,7 @@ enum DoitMathFigures {
             return Solved(kind: .geometry, topic: "반원에 대한 원주각", concept: "지름에 대한 원주각(반원에 대한 원주각)은 항상 90°예요.",
                           steps: [SolutionStep(hint: "지름 AB에 대한 중심각은 180°, 원주각은 그 절반", work: "180° ÷ 2 = 90°")], answer: "90°")
         }
-        guard let m = match(t, #"(중심각|원주각)(?:\s*∠\s*[A-Z]{3})?(?:의\s*크기)?(?:가|이|은|는)\s*(\d+(?:\.\d+)?)\s*°"#), let v = Double(m[2]) else { return nil }
+        guard let m = match(t, #"(중심각|원주각)(?:\s*∠\s*[A-Z]{3})?(?:의\s*크기)?\s*(?:가|이|은|는|=)\s*(\d+(?:\.\d+)?)\s*°"#), let v = Double(m[2]) else { return nil }
         if m[1] == "중심각", has(t, ["원주각"]) {
             return Solved(kind: .geometry, topic: "원주각과 중심각", concept: "한 호에 대한 원주각의 크기는 그 호에 대한 중심각의 크기의 ½이에요.",
                           steps: [SolutionStep(hint: "원주각 = 중심각 ÷ 2", work: "\(d(v))° ÷ 2 = \(d(v / 2))°")], answer: "\(d(v / 2))°")

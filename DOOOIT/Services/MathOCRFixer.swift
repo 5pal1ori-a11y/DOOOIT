@@ -661,7 +661,12 @@ enum MathOCRFixer {
     }
 
     static func fix(_ text: String) -> String {
-        var result = normalizeBlanks(expandVulgarFractions(latinLookalikes(text)))
+        var result = expandVulgarFractions(latinLookalikes(text))
+        // 도형 문제: ∠·△·°·선분·평행(//)을 다르게 읽은 것부터
+        // (∠x를 "Zx"로 읽은 것이 아래 규칙에서 "2x"가, l // m이 빈칸 규칙에서 "l / □ / m"이 되지 않게)
+        let isGeometric = GeometryText.isGeometric(result)
+        result = GeometryText.fixOCR(result)
+        result = normalizeBlanks(result)
         let isComplex = text.contains("복소수") || text.contains("켤레") || text.range(of: #"[0-9)]\s*i(?![a-z])"#, options: .regularExpression) != nil
         for rule in (isComplex ? complexRules : digitRules) {
             guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
@@ -679,7 +684,9 @@ enum MathOCRFixer {
             }
         }
         for rule in letterRules {
-            guard let regex = try? NSRegularExpression(pattern: rule.pattern, options: [.anchorsMatchLines]) else { continue }
+            // 도형 문제의 x°, 2x°는 각의 크기 (x²가 아님)
+            let pattern = isGeometric ? rule.pattern.replacingOccurrences(of: "[°'", with: "['") : rule.pattern
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.anchorsMatchLines]) else { continue }
             result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: rule.template)
         }
         for rule in rules {
@@ -687,6 +694,6 @@ enum MathOCRFixer {
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: rule.template)
         }
-        return cleanChoiceMarks(normalizeChoices(result))
+        return GeometryText.canonical(cleanChoiceMarks(normalizeChoices(result)))
     }
 }

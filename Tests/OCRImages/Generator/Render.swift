@@ -34,6 +34,10 @@ enum Seg {
     case u(String)
     /// 위 첨자 (바른 글꼴: 이온 전하 ⁺, 단위 ²)
     case supText(String)
+    /// 선분: 글자 위에 가로줄 (AB̅)
+    case over(String)
+    /// 호: 글자 위에 둥근 선 (호 AB)
+    case arc(String)
 }
 
 /// 그래프 (축 이름, 눈금, 점들 0~1)
@@ -209,6 +213,26 @@ func measure(_ seg: Seg, style: Style) -> Measured {
         let raise = size * 0.42
         return Measured(width: inner.width + size * 0.05, ascent: raise + inner.ascent, descent: 0) { ctx, p in
             inner.draw(ctx, CGPoint(x: p.x + size * 0.02, y: p.y + raise))
+        }
+    case .over(let s):
+        let inner = measureText(attributed(s, math: true, size: size, style: style))
+        let thick = max(1.5, size / 24)
+        let top = inner.ascent * 0.78 + size * 0.1
+        return Measured(width: inner.width + size * 0.06, ascent: top + thick + size * 0.04, descent: inner.descent) { ctx, p in
+            inner.draw(ctx, CGPoint(x: p.x + size * 0.03, y: p.y))
+            ctx.fill(CGRect(x: p.x + size * 0.04, y: p.y + top, width: inner.width - size * 0.02, height: thick))
+        }
+    case .arc(let s):
+        let inner = measureText(attributed(s, math: true, size: size, style: style))
+        let lineWidth = max(1.5, size / 26)
+        let top = inner.ascent * 0.78 + size * 0.12
+        return Measured(width: inner.width + size * 0.06, ascent: top + size * 0.22, descent: inner.descent) { ctx, p in
+            inner.draw(ctx, CGPoint(x: p.x + size * 0.03, y: p.y))
+            ctx.setLineWidth(lineWidth)
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: p.x + size * 0.06, y: p.y + top))
+            ctx.addQuadCurve(to: CGPoint(x: p.x + inner.width, y: p.y + top), control: CGPoint(x: p.x + size * 0.03 + inner.width / 2, y: p.y + top + size * 0.36))
+            ctx.strokePath()
         }
     case .u(let s):
         let inner = measureText(attributed(s, math: false, size: size, style: style, fontName: style.termFont ?? style.latin))

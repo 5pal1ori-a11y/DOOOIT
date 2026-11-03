@@ -22,8 +22,8 @@ extension OCRService {
             if "xyabcknmt".contains(c) { score += 2 }
             else if "+-=×÷^()√<>≤≥/²³".contains(c) { score += 1 }
             else if c.isUppercase && c.isASCII { score -= 1 }
-            // 보기 번호·근호는 낯선 기호가 아님 (보기 번호를 더 읽은 쪽이 오히려 깎이지 않게)
-            else if !c.isASCII && !"−·αβγθπ①②③④⑤√".contains(c) { score -= 2 }
+            // 보기 번호·근호·도형 기호(∠ △ ° ⊥ ∥ ≡ ∽, 선분 윗줄 A̅)는 낯선 기호가 아님 (더 읽은 쪽이 오히려 깎이지 않게)
+            else if !c.isASCII && !"−·αβγθπ①②③④⑤√∠△°⊥∥≡∽".contains(c) && c.unicodeScalars.last?.value != 0x305 { score -= 2 }
         }
         return score - 3 * mathPenalty(text)
     }
@@ -76,7 +76,28 @@ extension OCRService {
             let score = readingScore(reading)
             if score > best.score + 3 { best = (reading, score) }
         }
-        return (best.text, best.text != base)
+        let text = geometryLines(best.text, readings: readings)
+        return (text, text != base)
+    }
+
+    /// 도형 문제: 줄마다 다른 읽기의 같은 줄(한글이 같은 줄)이 확실히 나으면 그 줄로
+    /// (본문은 다른 읽기가 낫고 보기 줄은 기본 읽기가 나은 경우: "∠B = 609"를 읽은 줄만 "∠B= 60°"로)
+    static func geometryLines(_ text: String, readings: [String]) -> String {
+        guard text.contains(where: { "∠△".contains($0) }) else { return text }
+        let others = readings.flatMap { $0.components(separatedBy: "\n") }
+        var lines = text.components(separatedBy: "\n")
+        for i in lines.indices {
+            let line = lines[i]
+            let hangul = line.filter(isHangul)
+            guard hangul.count >= 4 else { continue }
+            var best = (text: line, score: readingScore(line))
+            for other in others where other.filter(isHangul) == hangul && other.count >= line.count * 2 / 3 && other.count <= line.count * 3 / 2 + 4 {
+                let score = readingScore(other)
+                if score > best.score + 3 { best = (other, score) }
+            }
+            lines[i] = best.text
+        }
+        return lines.joined(separator: "\n")
     }
 
     static func unsureLines(_ lines: [OCRLine]) -> [String] {
@@ -96,6 +117,13 @@ extension OCRService {
         }
         // 보기 번호를 읽은 쪽을 더 믿음
         score += text.filter { "①②③④⑤".contains($0) }.count * 4
+        // 도형 문제: 제대로 읽은 각(∠A = 50°, ∠C의 크기)·삼각형(△ABC)은 더 믿고, 끼어든 키릴 글자(В, С)는 덜 믿음
+        if text.contains(where: { "∠△".contains($0) }) {
+            score += 3 * text.matches(of: #/∠[A-Za-z]{1,3}\s*=\s*\d{1,3}(?:\.\d+)?°/#).count
+            score += 2 * text.matches(of: #/∠[A-Za-z]{1,3}\s*의\s*(?:크기|외각)/#).count
+            score += 2 * text.matches(of: #/△[A-Z]{3}(?![A-Za-z])/#).count
+            score -= 3 * text.filter { ("\u{0400}"..."\u{04FF}").contains($0) }.count
+        }
         return score
     }
 

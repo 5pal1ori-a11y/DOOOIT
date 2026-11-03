@@ -27,9 +27,17 @@ struct MathSymbolBar: View {
         Symbol("π"), Symbol("±"), Symbol("×"), Symbol("÷"),
         Symbol("≤"), Symbol("≥"), Symbol("≠"), Symbol("∞"),
         Symbol("|x|", "||", caret: 1),
-        Symbol("θ"), Symbol("∠"), Symbol("△"),
+        Symbol("θ"),
+        // 도형 기호 (앱 표기는 GeometryText): 선분 윗줄은 앞에 쓴 두 글자 위에 붙음 (AB → A̅B̅)
+        Symbol("°"), Symbol("∠"), Symbol("△"), Symbol("A̅B̅", GeometryText.overlineMark, caret: 0),
+        Symbol("⊥"), Symbol("∥"), Symbol("≡"), Symbol("∽"), Symbol("호", "호 "), Symbol("□"),
         Symbol("①"), Symbol("②"), Symbol("③"), Symbol("④"), Symbol("⑤")
     ]
+
+    /// 기호를 넣은 뒤 글 정리: 선분 윗줄을 두 글자 모두에 펼침 ("AB̅" → "A̅B̅", 글자 수는 그대로)
+    static func tidy(_ text: String, after symbol: Symbol) -> String {
+        symbol.insert == GeometryText.overlineMark ? GeometryText.spreadOverlines(text) : text
+    }
 
     var body: some View {
         ScrollView(.horizontal) {
@@ -55,7 +63,8 @@ struct MathSymbolBar: View {
     static func pretty(_ text: String) -> String {
         let superscripts: [Character: Character] = ["0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵",
                                                     "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹", "n": "ⁿ", "-": "⁻", "+": "⁺"]
-        var result = text.replacingOccurrences(of: "sqrt(", with: "√(")
+        // 도형 기호는 앱 표기로 (AB̅ → A̅B̅, △ ABC → △ABC, □ABCD → 사각형 ABCD, 선 이름 사이 // → ∥)
+        var result = GeometryText.canonical(text).replacingOccurrences(of: "sqrt(", with: "√(")
         var output = ""
         var index = result.startIndex
         while index < result.endIndex {

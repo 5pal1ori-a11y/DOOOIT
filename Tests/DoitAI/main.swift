@@ -835,6 +835,7 @@ runPaddleOCRCases()
 runAutoSolveCases()
 runSolverBatteryCases()
 runSubjectBatteryCases()
+runGeometryCases()
 
 print("두잇 AI 테스트: \(passed)개 통과, \(failed.count)개 실패")
 for f in failed { print(f) }

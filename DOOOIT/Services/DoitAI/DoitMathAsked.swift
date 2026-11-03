@@ -42,7 +42,7 @@ enum DoitMathAsked {
     // MARK: - 물은 값 하나로
 
     static func focus(_ solved: Solved, _ raw: String) -> Solved? {
-        let t = DoitAlgebra.normalize(DoitMathExact.tidy(raw))
+        let t = DoitAlgebra.normalize(DoitMathExact.tidy(GeometryText.forSolver(raw)))
         let answer = solved.answer
         // 선지 번호를 고른 답은 이미 본문으로 맞춰 본 것
         if let first = answer.first, "①②③④⑤".contains(first) { return solved }

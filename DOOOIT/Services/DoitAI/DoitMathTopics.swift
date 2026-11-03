@@ -823,7 +823,8 @@ enum DoitMathTopics {
         let r = v[0]
         // 반지름/지름
         let radius = has(t, ["지름"]) && !has(t, ["반지름"]) ? r / 2 : r
-        if has(t, ["원"]) && !has(t, ["원기둥", "원뿔", "원의 방정식", "원순열", "원형", "원짜리", "원가", "원에", "원을 냈"]) && has(t, ["넓이", "둘레", "원주", "면적"]) {
+        // 원주각·중심각(각의 크기) 문제의 "원주"는 원의 둘레가 아님
+        if has(t, ["원"]) && !has(t, ["원기둥", "원뿔", "원의 방정식", "원순열", "원형", "원짜리", "원가", "원에", "원을 냈", "원주각", "중심각", "∠"]) && has(t, ["넓이", "둘레", "원주", "면적"]) {
             if has(t, ["둘레", "원주"]) {
                 return Solved(kind: .geometry, topic: "원의 둘레", concept: "원의 둘레 = 2πr = 지름 × π", steps: step("반지름 r = \(f(radius))", "2 × \(piName) × \(f(radius))"), answer: piText(2 * radius))
             }

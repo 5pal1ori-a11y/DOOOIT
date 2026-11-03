@@ -18,6 +18,9 @@ enum PaddleOCRText {
         "in": "∈", "notin": "∉", "cup": "∪", "cap": "∩", "subset": "⊂", "subseteq": "⊆", "supset": "⊃", "emptyset": "∅",
         "pi": "π", "alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ", "theta": "θ", "lambda": "λ", "mu": "μ",
         "sigma": "σ", "omega": "ω", "Delta": "Δ", "Omega": "Ω", "prime": "′",
+        // 도형 기호 (앱 표기는 GeometryText): 합동 \cong → ≡, 닮음 \backsim → ∽, 평행 \| → ∥
+        "cong": "≡", "backsim": "∽", "thicksim": "∽", "frown": "⌒", "smallfrown": "⌒", "bot": "⊥", "measuredangle": "∠",
+        "bigtriangleup": "△", "vartriangle": "△", "triangleup": "△", "|": "∥", "shortparallel": "∥", "varpi": "π",
         "%": "%", "{": "{", "}": "}", "_": "_", "&": "&", "#": "#", "$": "$",
         "quad": " ", "qquad": " ", ",": " ", ";": " ", ":": " ", ">": " ", "!": "", " ": " ", "enspace": " ", "thinspace": " ",
         "lbrace": "{", "rbrace": "}", "langle": "⟨", "rangle": "⟩", "vert": "|", "mid": "|", "lvert": "|", "rvert": "|",
@@ -26,7 +29,7 @@ enum PaddleOCRText {
     /// 글자만 남기는 명령 (\text{…} → …)
     static let keepArgument: Set<String> = ["text", "mathrm", "mathbf", "textbf", "mathit", "textit", "operatorname", "boldsymbol",
                                             "mbox", "textrm", "mathsf", "mathtt", "texttt", "bm", "mathbb", "mathcal", "hbox", "textnormal",
-                                            "overline", "widehat", "hat", "bar", "vec", "overrightarrow", "displaylines"]
+                                            "widehat", "hat", "vec", "overrightarrow", "displaylines"]
     /// 지우는 명령 (글자 없이 꾸미기만)
     static let drop: Set<String> = ["left", "right", "big", "Big", "bigg", "Bigg", "bigl", "bigr", "Bigl", "Bigr", "biggl", "biggr",
                                     "displaystyle", "textstyle", "scriptstyle", "limits", "nolimits", "middle", "nonumber", "notag",
@@ -98,9 +101,11 @@ enum PaddleOCRText {
         var chars = Array(s)
         var i = 0
         let result = parse(&chars, &i, stopAtBrace: false)
-        return result.replacingOccurrences(of: #"[ \t]{2,}"#, with: " ", options: .regularExpression)
+        let flat = result.replacingOccurrences(of: #"[ \t]{2,}"#, with: " ", options: .regularExpression)
             .replacingOccurrences(of: "&", with: " ")
             .trimmingCharacters(in: .whitespaces)
+        // 도형 기호를 앱 표기로 (△ ABC → △ABC, △ABC ~ △DEF → ∽, 호 호 AB → 호 AB)
+        return GeometryText.canonical(flat).replacingOccurrences(of: #"호\s+호\s+"#, with: "호 ", options: .regularExpression)
     }
 
     private static func parse(_ c: inout [Character], _ i: inout Int, stopAtBrace: Bool) -> String {
@@ -200,6 +205,27 @@ enum PaddleOCRText {
         case "underline", "underbar", "uline":
             let a = argument(&c, &i)
             return a.trimmingCharacters(in: .whitespaces).isEmpty ? "___" : a
+        // 선분 \overline{AB} → A̅B̅ (꼭짓점 두 글자일 때만, 순환소수·켤레 같은 다른 윗줄은 글자만)
+        case "overline", "bar", "widebar", "overbar":
+            let a = argument(&c, &i)
+            let letters = a.filter { !$0.isWhitespace }
+            return letters.count == 2 && letters.allSatisfy({ $0.isASCII && $0.isUppercase }) && Set(letters).count == 2 ? GeometryText.segment(letters) : a
+        // 호 \overset{\frown}{AB}, \wideparen{AB} → 호 AB
+        case "overset", "stackrel", "overunderset":
+            let top = argument(&c, &i), bottom = argument(&c, &i)
+            return top.contains("⌒") || top.contains("frown") || top.contains("smile") ? "호 " + bottom.trimmingCharacters(in: .whitespaces) : bottom
+        case "wideparen", "overarc", "arc", "overparen", "overgroup":
+            return "호 " + argument(&c, &i).trimmingCharacters(in: .whitespaces)
+        // 사각형 \square ABCD → 사각형 ABCD (□ 뒤에 꼭짓점 넷이 없으면 빈칸 □)
+        case "square", "Box", "Square":
+            var j = i
+            while j < c.count, c[j] == " " { j += 1 }
+            let next = c[j..<min(c.count, j + 5)]
+            if next.count >= 4, next.prefix(4).allSatisfy({ $0.isASCII && $0.isUppercase }), next.count == 4 || !next.last!.isLetter {
+                i = j
+                return "사각형 "
+            }
+            return "□"
         case "phantom", "hphantom", "vphantom", "label", "tag":
             _ = argument(&c, &i)
             return name == "phantom" || name == "hphantom" ? " " : ""
