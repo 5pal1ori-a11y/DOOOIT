@@ -160,7 +160,7 @@ enum DoitSentenceCheck {
     /// 절이 하나인 짧은 문장인지 (때 단서 규칙은 이런 문장에만)
     private static func singleClause(_ ws: Words) -> Bool {
         let joiners: Set<String> = ["that", "because", "when", "while", "if", "after", "before", "and", "but", "so", "who", "which", "said", "says",
-                                    "think", "thinks", "thought", "know", "knows", "knew", "believe", "until", "though", "although", "since", "what", "where"]
+                                    "think", "thinks", "thought", "know", "knows", "knew", "believe", "until", "though", "although", "since", "what", "where", "whom", "whose", "or", "than", "as"]
         return !ws.comma.contains(true) && !ws.w.contains(where: joiners.contains)
     }
 
@@ -322,13 +322,20 @@ enum DoitSentenceCheck {
     private static func tenseCues(_ ws: Words) -> Issue? {
         let line = ws.w.joined(separator: " ")
         guard line.range(of: pastCue, options: .regularExpression) != nil, singleClause(ws) else { return nil }
+        // 동사 뒤에 또 주어·동사가 오면 (관계사를 뺀 "He is the man I met yesterday") 과거 단서가 어느 동사 것인지 몰라요
+        func anotherClause(after j: Int) -> Bool {
+            ws.w.indices.contains { k in k > j && (subjectPronouns.contains(ws.w[k]) || isPastOnly(ws.w[k]) || isThirdForm(ws.w[k])
+                || (base(ws.w[k]).map { DoitEnglish.pastForms($0).contains(ws.w[k]) && $0 != ws.w[k] } ?? false)) }
+        }
         for i in ws.w.indices where isPresentPerfect(ws, at: i) {
+            guard !anotherClause(after: i + 1) else { return nil }
             return Issue(rule: "현재완료와 과거 단서", why: "yesterday · ago · last … 같은 과거 시점은 현재완료와 함께 쓰지 않아요 (과거형).")
         }
         guard subjectPronouns.contains(ws.at(0)) else { return nil }
         var j = 1
         while frequency.contains(ws.at(j)) { j += 1 }
         let v = ws.at(j)
+        guard !anotherClause(after: j) else { return nil }
         if ["am", "is", "are"].contains(v) || isThirdForm(v) || isPlainBase(v) {
             return Issue(rule: "과거 시제", why: "과거를 나타내는 말이 있어서 과거형을 써요 ('\(ws.raw[j])' ✗).")
         }

@@ -32,7 +32,37 @@ func runSentenceCheckCases() {
         "I want clothing for winter.", "Were I rich, I would buy it.", "He is taller than his brother.", "Tell the teacher what happened.",
         "They helped me carry the box.", "I had my brother fix the computer.", "She has gone to Paris.", "He was born in 2010.",
         "Do you have a pen?", "Was it fun?", "Am I late?", "He and I are classmates.", "You and he are right.", "Let it go.",
-        "If it rains tomorrow, I will stay home.", "I enjoy swimming in the sea.", "We hope to see you again.", "Would you mind opening the window?"
+        "If it rains tomorrow, I will stay home.", "I enjoy swimming in the sea.", "We hope to see you again.", "Would you mind opening the window?",
+        // 교과서에 자주 나오는 바른 문장 (규칙이 잘못 걸리지 않는지)
+        "I usually get up at seven.", "She has been to London twice.", "He used to live in Busan.", "They are used to eating spicy food.",
+        "I stopped to buy some water.", "She stopped talking.", "I remember meeting her.", "Don't forget to call me.", "He made his son a doctor.",
+        "I had my hair cut.", "She let her dog run in the park.", "My mother made me a cake.", "It is easy to learn English.",
+        "It is important for us to exercise.", "The girl standing there is my sister.", "The book written by him is famous.", "I saw him cross the street.",
+        "I heard her singing.", "This is the house where I was born.", "I remember the day when we met.", "That is why I was late.",
+        "What I want is your love.", "The man whose car was stolen called the police.", "He is the boy whom I met yesterday.", "He is the man I met yesterday.",
+        "I don't know what to do.", "Tell me how to use it.", "If it is sunny tomorrow, we will go hiking.", "If I had wings, I could fly.",
+        "I wish I could speak French.", "As soon as he arrives, I will call you.", "Although it was cold, we went out.", "He is so tired that he can't walk.",
+        "She is too young to drive.", "He is old enough to drive.", "Not only you but also he is wrong.", "Both Tom and Jane are students.",
+        "Either you or he has to go.", "The number of students is increasing.", "A number of students are absent.", "Each student has his own desk.",
+        "Most of the water is polluted.", "Some of the books are mine.", "None of them were there.", "Mathematics is my favorite subject.",
+        "The news was surprising.", "Ten years is a long time.", "There are some apples on the table.", "There is a lot of water.",
+        "Is there a bank near here?", "Are there any questions?", "How many brothers do you have?", "How much money do you have?",
+        "What does he do?", "Where did you go yesterday?", "Who broke the window?", "Which do you like better, tea or coffee?",
+        "He runs as fast as his brother.", "She is the most beautiful girl in the class.", "This is much bigger than that.",
+        "The more you study, the more you learn.", "He is one of the best players in the world.", "I have known him for ten years.",
+        "She has lived here since she was a child.", "They have just arrived.", "Have you ever been to Jeju?", "I have never seen such a beautiful place.",
+        "He had already left when I arrived.", "I will have finished it by tomorrow.", "The letter was written by Mina.", "The windows are cleaned every day.",
+        "The bridge will be built next year.", "The cake was being made.", "He was given a present.", "I was surprised at the news.",
+        "She seems to be happy.", "He wants me to help him.", "I asked her to open the door.", "My father told me not to give up.",
+        "She enjoys reading books.", "We finished cleaning the room.", "He decided not to go.", "I'm looking forward to the trip.",
+        "Thank you for helping me.", "He is good at playing soccer.", "She is interested in art.", "Let's go to the park.", "Please be quiet.",
+        "Don't be late.", "He can't be a liar.", "You must be hungry.", "She may be at home.", "I could not sleep last night.", "We should save energy.",
+        "You had better go now.", "He would like to visit Paris.", "It took me two hours to finish it.", "It's time to go to bed.", "He kept me waiting.",
+        "She found the book interesting.", "I want something cold to drink.", "He has a lot of homework to do.", "Reading books is fun.",
+        "To see is to believe.", "She is a nurse who works at a hospital.", "The dog which is barking is mine.", "He lost the watch that his father gave him.",
+        "I bought an MP3 player.", "He is an honest man.", "She is a European.", "It was a unique experience.", "He has a one-year-old son.",
+        "It rained a lot yesterday.", "He was at home last night.", "She has a cat and two dogs.", "I need two pieces of paper.",
+        "We visited our grandparents last weekend.", "My sister is taller than me.", "This is the cheapest one in the store."
     ]
     for s in right {
         let issue = DoitSentenceCheck.error(in: s)
