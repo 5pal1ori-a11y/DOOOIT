@@ -54,6 +54,9 @@ struct StudyView: View {
             .uiShotPush(.words) { WordHomeView() }
             .uiShotPush(.mathList, .mathNote) { MathNoteListView() }
             .uiShotPush(.mockExam, .mockResult) { MockExamView() }
+            .uiShotPush(.grammar) { UnitStudyView(subject: "중학교 영어", unit: "현재완료") }
+            .uiShotPush(.grammarOX) { UnitStudyView(subject: "중학교 영어", unit: "현재완료", initialStep: .ox) }
+            .uiShotPush(.grammarProblem) { UnitStudyView(subject: "중학교 영어", unit: "현재완료", initialStep: .problem) }
             #endif
         }
     }

@@ -10,6 +10,8 @@ import UIKit
 enum UIShotScreen: String, CaseIterable {
     case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, timer, auth
     case badges, badgeNew, mockExam, mockResult, soundMixer, voice
+    /// 영어 문법 단원 학습 (중학교 영어 · 현재완료): 개념 · O/X · 문제
+    case grammar, grammarOX, grammarProblem
 }
 
 @MainActor
@@ -34,7 +36,7 @@ enum UIShot {
 
     static var tab: AppTab {
         switch screen {
-        case .study, .words, .mathList, .mathNote, .mockExam, .mockResult: return .study
+        case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
         case .account, .accountSettings, .badges: return .account

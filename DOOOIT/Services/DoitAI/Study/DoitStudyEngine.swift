@@ -36,6 +36,11 @@ extension DoitStudy {
     /// 개념 정리를 새로 만들고 묶음을 저장 (개념 보기 화면)
     static func makePack(subject: String, unit: String, booster: Bool) async throws -> StudyPack {
         let scope = try scope(subject: subject, unit: unit)
+        // 영어 문법 단원: 손으로 쓰고 검증한 문법 자료로 (모델 없이 늘 같은 내용)
+        if let grammar = grammarPack(scope: scope) {
+            await store.set(scope.key, grammar)
+            return grammar
+        }
         var list = materials(for: scope)
         // 교육과정 자료가 없을 때만, 모델이 있으면 인터넷 자료로 (출처 표시)
         if list.isEmpty, await modelAvailable() {
@@ -85,6 +90,8 @@ extension DoitStudy {
 
     static func cloze(subject: String, unit: String, count: Int) async throws -> ClozeSet {
         let pack = try await pack(subject: subject, unit: unit)
+        let grammar = DoitGrammar.units(for: pack.scope)
+        if !grammar.isEmpty { return ClozeSet(items: DoitGrammar.pickCloze(grammar, count: count)) }
         var items: [ClozeItem] = []
         if await modelAvailable() {
             items = await verified(count: count, attempts: maxRetries + 1) { missing in
@@ -100,6 +107,8 @@ extension DoitStudy {
 
     static func ox(subject: String, unit: String, count: Int) async throws -> OXSet {
         let pack = try await pack(subject: subject, unit: unit)
+        let grammar = DoitGrammar.units(for: pack.scope)
+        if !grammar.isEmpty { return OXSet(items: DoitGrammar.pickOX(grammar, count: count)) }
         var items: [OXItem] = []
         if await modelAvailable() {
             items = await verified(count: count, attempts: maxRetries + 1) { missing in
@@ -115,6 +124,8 @@ extension DoitStudy {
 
     static func problems(subject: String, unit: String, count: Int, hard: Bool) async throws -> ProblemSet {
         let pack = try await pack(subject: subject, unit: unit)
+        let grammar = DoitGrammar.units(for: pack.scope)
+        if !grammar.isEmpty { return ProblemSet(items: DoitGrammar.pickProblems(grammar, count: count)) }
         var items: [Problem] = []
         // 수학 계산 문제는 정답이 항상 맞는 생성기로 (모델이 만든 계산 문제는 쓰지 않음)
         let mathUnit = pack.scope.subject == "수학" && mathTopics(for: pack.scope) != nil

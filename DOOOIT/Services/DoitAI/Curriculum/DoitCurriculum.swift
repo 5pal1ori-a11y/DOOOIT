@@ -44,6 +44,8 @@ enum DoitCurriculum {
             for (subject, entries) in bySubject {
                 var units: [String] = []
                 for item in entries where item.level == level && !units.contains(item.unit) { units.append(item.unit) }
+                // 영어 문법 단원 (교육과정 사전에 없는 이름만 더함)
+                if subject == "영어" { units += DoitGrammar.extraUnitNames(level: level, existing: units) }
                 units = orderedByGrade(units, level: level, subject: subject)
                 if !units.isEmpty { result.append(("\(level.rawValue) \(subject)", level, subject, units)) }
             }

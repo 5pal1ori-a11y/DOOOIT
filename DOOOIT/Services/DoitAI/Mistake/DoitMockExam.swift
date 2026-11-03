@@ -118,6 +118,15 @@ enum DoitMockExam {
     /// 한 개념으로 문제 하나 (slot에 따라 계산 · 객관식 · 단답)
     static func item(for source: MockExamSource, slot: Int, avoid: Set<String>, packs: inout [String: StudyPack?]) -> PracticeItem? {
         let concept = source.concept.isEmpty ? source.unit : source.concept
+        // 영어 문법 단원: 손으로 쓰고 검증한 문법 문제로 (객관식 · 단답 · O/X)
+        if source.category == .english {
+            let grammar = DoitGrammar.units(forSource: source.subject, unit: source.unit, concept: concept)
+            if !grammar.isEmpty {
+                for _ in 0..<3 {
+                    if let item = DoitGrammar.practice(for: grammar, concept: concept, slot: slot, avoid: avoid), verified(item) { return item }
+                }
+            }
+        }
         let pack = rulePack(for: source, cache: &packs)
         var makers: [() -> PracticeItem?] = []
         let calc = { mathItem(for: source, concept: concept, hard: slot % 4 == 3, avoid: avoid) }
@@ -145,7 +154,9 @@ enum DoitMockExam {
         if item.kind == .multipleChoice {
             guard item.choices.count >= 2, let n = Int(item.answer), n >= 1, n <= item.choices.count else { return false }
         }
-        return DoitPractice.grade(item, answer: item.answer).verdict == .correct
+        // 정답이 여럿("goes|go → goes")이면 첫 정답으로 확인
+        let first = item.answer.contains("|") ? (DoitGrader.alternatives(item.answer).first ?? item.answer) : item.answer
+        return DoitPractice.grade(item, answer: first).verdict == .correct
     }
 
     // MARK: 문제 종류별
@@ -243,7 +254,9 @@ enum DoitMockExam {
             return GradeResult(verdict: .wrong, score: 0, method: "답 없음", reasons: ["답을 쓰지 않았어요"],
                                answerUsed: question.item.answer, answerSource: "모의고사")
         }
-        return DoitPractice.grade(question.item, answer: trimmed)
+        // 저장된 정답 글을 그대로 넣으면 (정답이 여럿 "goes|go → goes") 첫 정답으로
+        let given = trimmed == question.item.answer && trimmed.contains("|") ? (DoitGrader.alternatives(trimmed).first ?? trimmed) : trimmed
+        return DoitPractice.grade(question.item, answer: given)
     }
 
     /// 맞음 여부 (확실히 정답일 때만 맞음 — 확인 필요·부분 정답은 틀림으로 셈)
@@ -280,6 +293,8 @@ enum DoitMockExam {
             let marks = ["①", "②", "③", "④", "⑤", "⑥"]
             return (n <= marks.count ? marks[n - 1] + " " : "\(n)번 ") + item.choices[n - 1]
         }
+        // 같이 인정하는 답이 있으면 대표 답만 ("goes|does go" → "goes")
+        if item.answer.contains("|") { return DoitGrader.alternatives(item.answer).first ?? item.answer }
         return item.answer
     }
 
