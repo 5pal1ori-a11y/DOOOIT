@@ -104,7 +104,7 @@ struct MathNoteEditorView: View {
                     Button {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isDrawing.toggle() }
                     } label: {
-                        Label(isDrawing ? "완료" : "필기", systemImage: isDrawing ? "checkmark" : "pencil.tip.crop.circle")
+                        Label(isDrawing ? "완료" : "필기", systemImage: isDrawing ? "checkmark" : "pencil.tip")
                     }
                 }
             }

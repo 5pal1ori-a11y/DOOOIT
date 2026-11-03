@@ -136,7 +136,7 @@ struct ProblemTypeChip: View {
                 Haptics.tap()
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "list.bullet.clipboard").font(.caption.weight(.bold))
+                    Image(systemName: "list.bullet").font(.caption.weight(.bold))
                     Text("문제 유형").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     Text(type.name).font(.caption.weight(.bold)).foregroundStyle(Palette.ink).lineLimit(1)
                     Spacer(minLength: 0)

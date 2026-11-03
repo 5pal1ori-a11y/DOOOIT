@@ -76,8 +76,8 @@ struct MathNoteListView: View {
                         .appearAnimation()
                     if !weakConcepts.isEmpty {
                         NavigationLink { WeakConceptListView() } label: {
-                            RowLabel(symbol: "scope", color: Palette.danger, title: "취약 개념",
-                                     subtitle: "\(weakConcepts.count)개 · 약한 개념부터 다시 풀기")
+                            RowLabel(symbol: "target", color: Palette.pink, title: "취약 개념",
+                                     value: "\(weakConcepts.count)")
                                 .softCardBackground(cornerRadius: 20)
                         }
                         .buttonStyle(.pressable)
@@ -113,11 +113,11 @@ struct MathNoteListView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { openScanner() } label: { Label("문제 촬영", systemImage: "doc.viewfinder") }
+                    Button { openScanner() } label: { Label("문제 촬영", systemImage: "camera.fill") }
                     Button { showPhotoPicker = true } label: { Label("앨범에서 선택", systemImage: "photo.on.rectangle") }
                     Button { createBlank() } label: { Label("문제 직접 입력", systemImage: "square.and.pencil") }
                     subjectPicker
-                    NavigationLink { WeakConceptListView() } label: { Label("취약 개념 보기", systemImage: "scope") }
+                    NavigationLink { WeakConceptListView() } label: { Label("취약 개념 보기", systemImage: "target") }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -159,6 +159,14 @@ struct MathNoteListView: View {
         .navigationDestination(item: $openedNote) { note in
             MathNoteEditorView(note: note)
         }
+        #if DEBUG
+        .task {
+            if UIShot.screen == .mathNote, openedNote == nil {
+                try? await Task.sleep(for: .milliseconds(400))
+                openedNote = notes.first { $0.subjectKind == .math && $0.status == .wrong }
+            }
+        }
+        #endif
         .errorAlert($errorMessage)
     }
 
@@ -178,9 +186,6 @@ struct MathNoteListView: View {
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .foregroundStyle(Palette.ink)
                         .contentTransition(.numericText())
-                    Text("오답 \(count(.wrong)) · 미채점 \(count(.unsolved)) · 정답 \(count(.correct))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 8)
                 ZStack {
@@ -221,7 +226,7 @@ struct MathNoteListView: View {
                 }
                 .foregroundStyle(addSubjectColor)
                 .frame(width: 52, height: 52)
-                .background(addSubjectColor.opacity(0.12), in: .rect(cornerRadius: 16))
+                .background(addSubjectColor.pastel, in: .rect(cornerRadius: 20, style: .continuous))
             }
             .accessibilityLabel(addSubjectSpoken)
             Button { openScanner() } label: {
@@ -233,7 +238,7 @@ struct MathNoteListView: View {
                     .font(.headline)
                     .foregroundStyle(Theme.accent)
                     .frame(width: 52, height: 52)
-                    .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 16))
+                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 20, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("앨범에서 선택")
@@ -380,7 +385,7 @@ struct MathNoteListView: View {
                 Text("틀린 문제를 찍어 보세요")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(Palette.ink)
-                Text("채점 → 틀린 이유 → 풀이 → 비슷한 문제까지 이어서 도와줘요.")
+                Text("채점 · 풀이 · 비슷한 문제까지")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

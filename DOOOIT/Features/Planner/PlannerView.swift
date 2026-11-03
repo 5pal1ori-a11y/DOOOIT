@@ -43,7 +43,7 @@ struct PlannerView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
-                    .padding(.bottom, 110)
+                    .padding(.bottom, 32)
                 }
                 .scrollIndicators(.hidden)
                 .onChange(of: router.scrollRequest) { _, _ in scrollToNow(proxy) }
@@ -54,26 +54,20 @@ struct PlannerView: View {
             .navigationTitle("플래너")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    DDayChip()
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showCategories = true } label: { Image(systemName: "tag") }
                         .accessibilityLabel("카테고리 관리")
                 }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                Button {
-                    editorTarget = .new(router.selectedDate)
-                } label: {
-                    Image(systemName: "plus")
-                        .font(.title2.weight(.bold))
-                        .frame(width: 44, height: 44)
+                ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        editorTarget = .new(router.selectedDate)
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .buttonStyle(.glassProminent)
+                    .accessibilityLabel("플랜 추가")
                 }
-                .buttonStyle(.glassProminent)
-                .buttonBorderShape(.circle)
-                .padding(20)
-                .accessibilityLabel("플랜 추가")
             }
             .sheet(item: $editorTarget) { target in
                 PlanEditorView(target: target)
@@ -100,9 +94,12 @@ struct PlannerView: View {
     private var header: some View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(month.kr("yyyy년"))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(month.kr("yyyy년"))
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    DDayChip()
+                }
                 Text(month.kr("M월"))
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(Palette.ink)
@@ -162,10 +159,6 @@ struct PlannerView: View {
                     Button { changeMonth(-1) } label: { Image(systemName: "chevron.left").frame(width: 40, height: 36) }
                         .accessibilityLabel("이전 달")
                     Spacer()
-                    Text("밀어서 다른 달 보기")
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                    Spacer()
                     Button { changeMonth(1) } label: { Image(systemName: "chevron.right").frame(width: 40, height: 36) }
                         .accessibilityLabel("다음 달")
                 }
@@ -220,8 +213,8 @@ struct PlannerView: View {
             if occurrences.isEmpty {
                 Button { editorTarget = .new(selected) } label: {
                     HStack(spacing: 12) {
-                        IconBadge(symbol: "calendar.badge.plus", size: 40)
-                        Text("일정이 없어요. 눌러서 추가해 보세요")
+                        IconBadge(symbol: "calendar", size: 40)
+                        Text("일정 없음")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.leading)
@@ -377,7 +370,7 @@ struct DayTimelineView: View {
             .frame(height: 24 * hourHeight + 10)
 
             if occurrences.isEmpty {
-                Text("이 날은 일정이 없어요. + 버튼으로 추가해보세요")
+                Text("일정 없음")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -619,8 +612,7 @@ private struct DaySummaryHeader<Trailing: View>: View {
     }
 
     private func summary(done: Int, studyMinutes: Int) -> String {
-        let when = day.isSameDay(as: Date()) ? "오늘" : "이날"
-        if done == occurrences.count { return "\(when) 할 일 \(occurrences.count)개를 모두 완료했어요" }
-        return "\(when) 전체 할 일 \(occurrences.count)개 중 \(done)개를 완료했어요"
+        if done == occurrences.count { return "\(occurrences.count)개 모두 완료" }
+        return "\(done) / \(occurrences.count) 완료"
     }
 }

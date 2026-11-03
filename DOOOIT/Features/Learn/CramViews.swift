@@ -12,8 +12,7 @@ struct CramListView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if exams.isEmpty {
                     VStack(spacing: 16) {
-                        EmptyStateView(symbol: "bolt.fill", title: "다가오는 시험이 없어요",
-                                       message: "시험 날짜와 범위를 정하면 단원마다\n개념 → 빈칸 → O/X → 문제 → 취약 순서로 정리해 드려요.")
+                        EmptyStateView(symbol: "bolt.fill", title: "다가오는 시험이 없어요")
                         Button { showNew = true } label: {
                             Label("시험 추가하기", systemImage: "plus")
                                 .font(.body.weight(.bold))

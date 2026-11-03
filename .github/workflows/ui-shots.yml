@@ -1,0 +1,158 @@
+name: UI Shots
+
+# 화면 사진: Debug 빌드를 시뮬레이터에서 켜고(-uiShot 데모 계정 · 예시 데이터) 화면마다 밝게·어둡게 찍어서
+# ui-shots-out 브랜치의 <브랜치>-<커밋>/ 폴더에 올림 (Release/TestFlight와는 상관없음)
+on:
+  workflow_dispatch:
+    inputs:
+      screens:
+        description: "찍을 화면 (빈칸이면 전부)"
+        required: false
+        default: ""
+  push:
+    branches:
+      - "ui-shots*"
+      - "!ui-shots-out"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ui-shots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shots:
+    runs-on: macos-26
+    timeout-minutes: 100
+    env:
+      SCREENS_ALL: "home study words mathList mathNote ai planner account accountSettings timer auth"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version; sw_vers
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/spm
+            ${{ runner.temp }}/dd
+          key: uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-${{ github.sha }}
+          restore-keys: |
+            uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-
+            uishots-${{ runner.os }}-
+
+      - name: Boot simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)['devices']
+          ios = sorted([k for k in d if 'iOS' in k], key=lambda k: [int(x) for x in k.split('iOS-')[-1].split('-') if x.isdigit()])
+          pick = None
+          for want in ['iPhone 17 Pro', 'iPhone 16 Pro', 'iPhone 17', 'iPhone']:
+              for rt in reversed(ios):
+                  for dev in d[rt]:
+                      if dev['name'].startswith(want) and 'Max' not in dev['name'] and 'Plus' not in dev['name']:
+                          pick = pick or (dev['udid'], dev['name'], rt)
+              if pick: break
+          print(pick[0]); print(pick[1], pick[2], file=sys.stderr)
+          ")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+
+      - name: Build (Debug, iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project DOOOIT.xcodeproj \
+            -scheme DOOOIT \
+            -configuration Debug \
+            -destination "id=$UDID" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
+            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|warning: unre|\*\* BUILD" || true
+          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build.log"; then
+            grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error title=Build::${line:0:900}"
+            done
+            tail -80 "$RUNNER_TEMP/build.log"
+            exit 1
+          fi
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "*.app" | head -1)
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          echo "::notice title=Build::$APP"
+
+      - name: Install
+        run: |
+          # 서명 없이 만든 앱: 시뮬레이터에 넣을 수 있게 임시 서명
+          codesign --force --deep --sign - "$APP" || true
+          xcrun simctl install "$UDID" "$APP"
+          BUNDLE=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP/Info.plist")
+          echo "BUNDLE=$BUNDLE" >> "$GITHUB_ENV"
+
+      - name: Take screenshots
+        env:
+          SCREENS: ${{ github.event.inputs.screens }}
+        run: |
+          OUT="$RUNNER_TEMP/shots"
+          mkdir -p "$OUT"
+          LIST="${SCREENS:-$SCREENS_ALL}"
+          for mode in light dark; do
+            xcrun simctl ui "$UDID" appearance "$mode" || true
+            for screen in $LIST; do
+              xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+              ARGS=(-uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR)
+              [ "$mode" = dark ] && ARGS+=(-uiDark)
+              xcrun simctl launch "$UDID" "$BUNDLE" "${ARGS[@]}" >/dev/null
+              case "$screen" in
+                ai) sleep 14 ;;
+                mathNote) sleep 12 ;;
+                *) sleep 7 ;;
+              esac
+              xcrun simctl io "$UDID" screenshot --type=png "$OUT/$screen-$mode.png" >/dev/null 2>&1 || echo "::warning::$screen-$mode 사진 실패"
+              sips -Z 1200 "$OUT/$screen-$mode.png" >/dev/null 2>&1 || true
+              echo "$screen-$mode"
+            done
+          done
+          xcrun simctl spawn "$UDID" log show --last 15m --style compact --predicate 'process == "DOOOIT"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/app-log.txt" || true
+          ls -la "$OUT"
+
+      - name: Push to ui-shots-out
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHORT=$(git rev-parse --short=7 HEAD)
+          BR="${GITHUB_REF_NAME//\//-}"
+          DIR="$BR-$SHORT"
+          URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          WORK="$RUNNER_TEMP/out"
+          if git ls-remote --exit-code --heads "$URL" ui-shots-out >/dev/null 2>&1; then
+            git clone --depth 1 --branch ui-shots-out "$URL" "$WORK"
+          else
+            mkdir -p "$WORK" && cd "$WORK" && git init -q && git checkout -q -b ui-shots-out && git remote add origin "$URL" && cd -
+          fi
+          cd "$WORK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf "$DIR" && mkdir -p "$DIR"
+          cp "$RUNNER_TEMP"/shots/* "$DIR/"
+          (cd "$GITHUB_WORKSPACE" && git log -1 --format='%H %s') > "$DIR/commit.txt"
+          git add -A
+          git commit -q -m "화면 사진 $DIR"
+          for i in 1 2 3; do
+            git push origin ui-shots-out && break
+            git pull --rebase origin ui-shots-out
+          done
+          echo "::notice title=Shots::ui-shots-out/$DIR"

@@ -29,7 +29,7 @@ enum LearnStep: String, CaseIterable, Identifiable, Codable {
     var symbol: String {
         switch self {
         case .concept: return "book.pages"
-        case .cloze: return "rectangle.and.pencil.and.ellipsis"
+        case .cloze: return "pencil"
         case .ox: return "circle.slash"
         case .problem: return "list.number"
         case .weak: return "arrow.counterclockwise.circle"
@@ -283,7 +283,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.98)))
             } else if let error {
                 VStack(spacing: 12) {
-                    Image(systemName: "exclamationmark.bubble")
+                    Image(systemName: "exclamationmark.circle")
                         .font(.system(size: 30, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         .frame(width: 64, height: 64)
@@ -439,7 +439,7 @@ struct ConceptStepView: View {
                         }
                         .padding(.top, 8)
                     } label: {
-                        Label("자세히 알아보기", systemImage: "text.book.closed").font(.subheadline.weight(.bold))
+                        Label("자세히 알아보기", systemImage: "book.closed").font(.subheadline.weight(.bold))
                     }
                     .padding(14)
                     .background(Palette.card, in: .rect(cornerRadius: 16))
@@ -763,7 +763,7 @@ struct ProblemStepView: View {
                         if let picked, picked != item.answerNumber {
                             Button { saveToNotes(item, picked: picked) } label: {
                                 Label(savedToNotes.contains(item.question) ? "오답노트에 담았어요" : "오답노트에 담기",
-                                      systemImage: savedToNotes.contains(item.question) ? "checkmark" : "tray.and.arrow.down")
+                                      systemImage: savedToNotes.contains(item.question) ? "checkmark" : "arrow.down.circle")
                                     .font(.subheadline.weight(.semibold))
                             }
                             .disabled(savedToNotes.contains(item.question))

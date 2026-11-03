@@ -4,7 +4,7 @@ import SwiftUI
 
 extension View {
     /// 흰 카드: 얇은 테두리 + 아주 옅은 그림자 + 둥근 모서리 (또렷하고 가볍게)
-    func softCard(cornerRadius: CGFloat = 20, padding: CGFloat = 18) -> some View {
+    func softCard(cornerRadius: CGFloat = 24, padding: CGFloat = 18) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -12,12 +12,19 @@ extension View {
     }
 
     /// 패딩 없이 흰 카드 배경만 (목록 묶음 등)
-    func softCardBackground(cornerRadius: CGFloat = 20) -> some View {
-        self
-            .background(Palette.card, in: .rect(cornerRadius: cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.04), radius: 8, y: 2)
+    /// (모서리는 조금 더 둥글게: 큰 카드일수록 4pt 더)
+    func softCardBackground(cornerRadius: CGFloat = 24) -> some View {
+        let radius = cornerRadius >= 18 ? cornerRadius + 4 : cornerRadius
+        return self
+            .background(Palette.card, in: .rect(cornerRadius: radius, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5))
+            .shadow(color: Color(light: "#5B4BC4", dark: "#000000").opacity(0.06), radius: 14, y: 5)
     }
+}
+
+extension String {
+    /// 선 아이콘 이름: 끝의 ".fill"을 뺌 (작은 아이콘은 탭 바처럼 얇은 선 모양으로 통일)
+    var outlineSymbol: String { hasSuffix(".fill") ? String(dropLast(5)) : self }
 }
 
 /// 강조 색 (예전엔 그라데이션 — 깔끔하게 한 색으로 통일. 이름은 그대로 두어 모든 화면에 한 번에 적용)
@@ -35,11 +42,12 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol)
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 24, height: 24)
-                .background(AccentGradient.linear, in: .rect(cornerRadius: 7))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.caption.weight(.regular))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 26, height: 26)
+                .background(Theme.accent.pastel, in: .rect(cornerRadius: 8, style: .continuous))
             Text(title)
                 .font(.headline.weight(.bold))
                 .foregroundStyle(Palette.ink)
@@ -59,26 +67,34 @@ extension SectionHeader where Trailing == EmptyView {
 struct EmptyStateView: View {
     let symbol: String
     let title: String
-    let message: String
+    var message: String? = nil
+
+    @State private var appeared = false
 
     var body: some View {
-        VStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 30, weight: .semibold))
+        VStack(spacing: 12) {
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.system(size: 28, weight: .regular))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 68, height: 68)
-                .background(Theme.accent.opacity(0.12), in: .circle)
+                .frame(width: 72, height: 72)
+                .background(Theme.accent.pastel, in: .rect(cornerRadius: 24, style: .continuous))
+                .symbolEffect(.bounce, value: appeared)
                 .padding(.bottom, 2)
             Text(title)
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
-            Text(message)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+            if let message {
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
+        .padding(.vertical, 32)
+        .onAppear { appeared = true }
     }
 }
 
@@ -89,11 +105,12 @@ struct IconBadge: View {
     var size: CGFloat = 40
 
     var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: size * 0.42, weight: .semibold))
+        Image(systemName: symbol.outlineSymbol)
+            .environment(\.symbolVariants, .none)
+            .font(.system(size: size * 0.42, weight: .regular))
             .foregroundStyle(color)
             .frame(width: size, height: size)
-            .background(color.opacity(0.14), in: .rect(cornerRadius: size * 0.32))
+            .background(color.pastel, in: .rect(cornerRadius: size * 0.34, style: .continuous))
     }
 }
 
@@ -201,11 +218,11 @@ struct ThemePicker: View {
             }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "paintpalette.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 29, height: 29)
-                    .background(current.accent, in: .rect(cornerRadius: 7))
+                Image(systemName: "paintpalette")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(current.accent)
+                    .frame(width: 30, height: 30)
+                    .background(current.accent.pastel, in: .rect(cornerRadius: 10, style: .continuous))
                 Text("테마 색")
             }
         }
@@ -252,11 +269,12 @@ struct RowLabel: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol)
-                .font(.system(size: 17, weight: .semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.system(size: 17, weight: .regular))
                 .foregroundStyle(color)
                 .frame(width: 40, height: 40)
-                .background(color.opacity(0.12), in: .rect(cornerRadius: 12))
+                .background(color.pastel, in: .rect(cornerRadius: 14, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
                 if let subtitle {
@@ -328,11 +346,12 @@ struct PrimaryButtonStyle: ButtonStyle {
             .font(.body.weight(.bold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Theme.accent, in: .rect(cornerRadius: 16))
-            .opacity(configuration.isPressed ? 0.85 : 1)
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
+            .frame(height: 54)
+            .background(Theme.accent, in: .rect(cornerRadius: 20, style: .continuous))
+            .shadow(color: Theme.accent.opacity(0.25), radius: 10, y: 4)
+            .opacity(configuration.isPressed ? 0.88 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 

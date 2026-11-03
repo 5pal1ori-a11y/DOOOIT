@@ -29,7 +29,7 @@ struct HomeView: View {
             TimelineView(.everyMinute) { timeline in
                 let now = timeline.date
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
+                    VStack(alignment: .leading, spacing: 24) {
                         header(now: now)
                             .appearAnimation()
                         focusPanel(now: now)
@@ -153,11 +153,11 @@ struct HomeView: View {
                 .buttonStyle(.primaryFill)
 
                 NavigationLink { RankingView() } label: {
-                    Image(systemName: "trophy.fill")
-                        .font(.title3)
-                        .foregroundStyle(Palette.warning)
-                        .frame(width: 52, height: 52)
-                        .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
+                    Image(systemName: "trophy")
+                        .font(.title3.weight(.regular))
+                        .foregroundStyle(Palette.butter)
+                        .frame(width: 54, height: 54)
+                        .background(Palette.butter.pastel, in: .rect(cornerRadius: 20, style: .continuous))
                 }
                 .accessibilityLabel("공부 랭킹")
             }
@@ -175,13 +175,13 @@ struct HomeView: View {
         let wordValue = wordsLeft + due == 0 ? "완료" : "\(wordsLeft + due)개"
         let unsolved = mathNotes.filter { $0.status != .correct }.count
         return HStack(spacing: 10) {
-            tile(symbol: "flame.fill", color: Color(hex: "#FF7A45"), value: "\(streak(now: now))일", label: "연속 공부")
+            tile(symbol: "flame.fill", color: Palette.peach, value: "\(streak(now: now))일", label: "연속 공부")
             NavigationLink { WordHomeView() } label: {
-                tile(symbol: "character.book.closed.fill", color: Theme.accent, value: wordValue, label: due > 0 ? "외울·복습 단어" : "외울 단어")
+                tile(symbol: "book.closed.fill", color: Theme.accent, value: wordValue, label: "오늘 단어")
             }
             .buttonStyle(.pressable)
             NavigationLink { MathNoteListView() } label: {
-                tile(symbol: "pencil.and.list.clipboard", color: Palette.danger, value: "\(unsolved)개", label: "복습할 오답")
+                tile(symbol: "pencil", color: Palette.pink, value: "\(unsolved)개", label: "복습할 오답")
             }
             .buttonStyle(.pressable)
         }
@@ -189,11 +189,12 @@ struct HomeView: View {
 
     private func tile(symbol: String, color: Color, value: String, label: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: symbol)
-                .font(.subheadline.weight(.semibold))
+            Image(systemName: symbol.outlineSymbol)
+                .environment(\.symbolVariants, .none)
+                .font(.subheadline.weight(.regular))
                 .foregroundStyle(color)
-                .frame(width: 32, height: 32)
-                .background(color.opacity(0.12), in: .circle)
+                .frame(width: 34, height: 34)
+                .background(color.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
                     .font(.title3.weight(.bold))
@@ -225,7 +226,7 @@ struct HomeView: View {
 
             if occurrences.isEmpty {
                 Button { showNewPlan = true } label: {
-                    RowLabel(symbol: "plus", title: "오늘 할 일 추가", subtitle: "아직 등록된 플랜이 없어요", chevron: false)
+                    RowLabel(symbol: "plus", title: "할 일 추가", chevron: false)
                         .softCardBackground(cornerRadius: 20)
                 }
                 .buttonStyle(.pressable)
@@ -268,7 +269,7 @@ struct HomeView: View {
                         .font(.title2.weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .contentTransition(.numericText())
-                    Text("최근 7일 총 공부")
+                    Text("최근 7일")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

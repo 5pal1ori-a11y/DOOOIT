@@ -50,49 +50,36 @@ struct AccountView: View {
                         settingLabel("하루 공부", value: TimeText.duration(minutes: studyGoalMinutes), symbol: "clock.fill", color: Theme.accent)
                     }
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
-                        settingLabel("하루 단어", value: "\(wordGoal)개", symbol: "character.book.closed.fill", color: Color(hex: "#5AC8FA"))
+                        settingLabel("하루 단어", value: "\(wordGoal)개", symbol: "book.closed.fill", color: Palette.sky)
                     }
                 }
 
                 Section {
-                    NavigationLink { notificationSettings } label: {
-                        HStack(spacing: 12) {
-                            icon("bell.badge.fill", Palette.danger)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("알림 설정").foregroundStyle(Palette.ink)
-                                Text("탭하여 설정").font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
+                    NavigationLink { notificationSettings } label: { item("알림", "bell.fill", Palette.pink) }
                 }
 
                 Section("앱") {
                     Picker(selection: $appearanceRaw) {
                         ForEach(AppearanceMode.allCases) { Text($0.title).tag($0.rawValue) }
-                    } label: { item("화면 모드", "circle.lefthalf.filled", Color(hex: "#1F2433")) }
+                    } label: { item("화면 모드", "circle.lefthalf.filled", Color.indigo) }
                     .pickerStyle(.menu)
                     ThemePicker()
-                    NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Color(hex: "#AF52DE")) }
+                    NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Palette.pink) }
                     NavigationLink { StatsView() } label: { item("공부 통계", "chart.bar.fill", Theme.accent) }
-                    NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Color(hex: "#FF7A45")) }
+                    NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Palette.peach) }
                 }
 
                 Section {
-                    NavigationLink { accountSettings } label: {
-                        HStack(spacing: 12) {
-                            icon("person.crop.circle.badge.checkmark", Color.gray)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("계정 설정").foregroundStyle(Palette.ink)
-                                Text("버전 \(appVersion)").font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                    }
+                    NavigationLink { accountSettings } label: { item("계정 설정", "person.fill", Color.gray) }
                 }
             }
             .scrollContentBackground(.hidden)
             .background { AppBackground() }
             .tint(Theme.accent)
             .navigationTitle("계정")
+            #if DEBUG
+            .uiShotPush(.accountSettings) { accountSettings }
+            #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {
                     if enabled { _ = await NotificationService.requestAuthorization() }
@@ -117,15 +104,15 @@ struct AccountView: View {
     private var notificationSettings: some View {
         List {
             Section {
-                Toggle(isOn: $notificationsEnabled) { item("일정 알림", "bell.badge.fill", Palette.danger) }
+                Toggle(isOn: $notificationsEnabled) { item("일정 알림", "bell.fill", Palette.pink) }
                 Picker(selection: $leadMinutes) {
                     Text("5분 전").tag(5)
                     Text("10분 전").tag(10)
                     Text("15분 전").tag(15)
                     Text("30분 전").tag(30)
-                } label: { item("미리 알림", "alarm.fill", Palette.warning) }
-                Toggle(isOn: $liveActivityEnabled) { item("다이나믹 아일랜드", "capsule.fill", Color(hex: "#1F2433")) }
-                Toggle(isOn: $autoStartTimer) { item("타이머 자동 시작", "timer", Palette.success) }
+                } label: { item("미리 알림", "alarm.fill", Palette.butter) }
+                Toggle(isOn: $liveActivityEnabled) { item("다이나믹 아일랜드", "capsule.fill", Color.indigo) }
+                Toggle(isOn: $autoStartTimer) { item("타이머 자동 시작", "timer", Palette.mint) }
             }
         }
         .scrollContentBackground(.hidden)
@@ -141,7 +128,7 @@ struct AccountView: View {
             if AccountStore.syncReady {
             Section {
                 Toggle(isOn: Binding(get: { syncOn }, set: { changeSync($0) })) {
-                    item("iCloud 동기화", "icloud", Color(hex: "#3B82F6"))
+                    item("iCloud 동기화", "icloud", Palette.sky)
                 }
                 .disabled(!AccountStore.iCloudAvailable && !syncOn)
             } footer: {
@@ -209,6 +196,8 @@ struct AccountView: View {
                 .foregroundStyle(.white)
                 .frame(width: 60, height: 60)
                 .background(Theme.accent, in: .circle)
+                .padding(3)
+                .background(Theme.accent.pastel, in: .circle)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(user?.name ?? "")
@@ -280,7 +269,7 @@ struct AccountView: View {
         }
     }
 
-    /// iOS 설정 앱처럼 색깔 네모 아이콘 + 제목
+    /// 옅은 파스텔 네모 아이콘 + 제목
     private func item(_ title: String, _ symbol: String, _ color: Color) -> some View {
         HStack(spacing: 12) {
             icon(symbol, color)
@@ -289,11 +278,12 @@ struct AccountView: View {
     }
 
     private func icon(_ symbol: String, _ color: Color) -> some View {
-        Image(systemName: symbol)
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 29, height: 29)
-            .background(color, in: .rect(cornerRadius: 7))
+        Image(systemName: symbol.outlineSymbol)
+            .environment(\.symbolVariants, .none)
+            .font(.system(size: 14, weight: .regular))
+            .foregroundStyle(color)
+            .frame(width: 30, height: 30)
+            .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: Helpers

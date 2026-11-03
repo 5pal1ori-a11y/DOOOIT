@@ -246,7 +246,7 @@ struct CurriculumView: View {
     private func missedCard(_ options: [StudyScope]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                Image(systemName: "text.magnifyingglass")
+                Image(systemName: "magnifyingglass")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Palette.warning)
                     .frame(width: 42, height: 42)
@@ -543,7 +543,7 @@ struct FreeStudyOption: View {
         if brain.isAvailable {
             if let start {
                 Button(action: start) {
-                    RowLabel(symbol: "wand.and.stars", title: "AI로 학습해 보기", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
+                    RowLabel(symbol: "sparkles", title: "AI로 학습해 보기", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
                         .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
                 }
                 .buttonStyle(.pressable)
@@ -555,7 +555,7 @@ struct FreeStudyOption: View {
                 Task { await brain.prepare() }
                 start?()
             } label: {
-                RowLabel(symbol: "wand.and.stars", title: "\(model.title) 켜고 AI로 학습", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
+                RowLabel(symbol: "sparkles", title: "\(model.title) 켜고 AI로 학습", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
                     .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
             }
             .buttonStyle(.pressable)

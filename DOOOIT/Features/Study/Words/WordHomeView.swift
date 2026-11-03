@@ -73,7 +73,7 @@ struct WordHomeView: View {
                 .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showStats = true } label: {
-                    Image(systemName: "chart.bar.xaxis")
+                    Image(systemName: "chart.bar.fill")
                 }
                 .accessibilityLabel("기록")
             }
@@ -210,7 +210,7 @@ struct WordHomeView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Theme.accent, in: .rect(cornerRadius: 16))
+                    .background(Theme.accent, in: .rect(cornerRadius: 20, style: .continuous))
             }
             .padding(.top, 14)
         }
@@ -303,13 +303,13 @@ struct WordHomeView: View {
             }
         }
         .buttonStyle(.pressable)
-        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 18))
+        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 24, style: .continuous))
     }
 
     private func addMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {
         let content = label()
         return Menu {
-            Button { openScanner() } label: { Label("촬영", systemImage: "doc.viewfinder") }
+            Button { openScanner() } label: { Label("촬영", systemImage: "camera.fill") }
             Button { showPhotoPicker = true } label: { Label("앨범", systemImage: "photo.on.rectangle") }
             Button { showManualAdd = true } label: { Label("직접 입력", systemImage: "keyboard") }
         } label: {

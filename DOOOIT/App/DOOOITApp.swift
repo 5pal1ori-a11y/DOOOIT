@@ -15,6 +15,16 @@ struct DOOOITApp: App {
 
     init() {
         let auth = AuthManager()
+        #if DEBUG
+        // 화면 사진 찍기 (-uiShot): 데모 계정 + 메모리 저장소 (실제 계정·저장소는 열지 않음)
+        if UIShot.isActive {
+            UIShot.prepareDefaults()
+            auth.useUIShotAccount(UIShot.demoUser)
+            _auth = State(initialValue: auth)
+            _container = State(initialValue: UIShot.makeContainer())
+            return
+        }
+        #endif
         _auth = State(initialValue: auth)
         AccountStore.switchSettings(to: auth.currentUser?.id)
         _container = State(initialValue: AccountStore.container(for: auth.currentUser?.id))
@@ -24,6 +34,14 @@ struct DOOOITApp: App {
     @MainActor
     private func attachServices() {
         let context = container.mainContext
+        #if DEBUG
+        if UIShot.isActive {
+            studyTimer.attach(context: context)
+            DoitActions.shared.context = context
+            DoitMemory.shared.attach(folder: nil)
+            return
+        }
+        #endif
         if auth.currentUser != nil { SeedData.seedIfNeeded(context) }
         studyTimer.attach(context: context)
         PlanScheduler.shared.start(context: context, timer: studyTimer)
@@ -52,6 +70,13 @@ struct DOOOITApp: App {
                 .environment(studyTimer)
                 .modelContainer(container)
                 .task {
+                    #if DEBUG
+                    if UIShot.isActive {
+                        attachServices()
+                        await UIShot.afterLaunch(timer: studyTimer)
+                        return
+                    }
+                    #endif
                     attachServices()
                     PaddleOCRService.shared.autoDownloadIfNeeded()
                     await auth.verifyAppleCredential()
@@ -63,6 +88,9 @@ struct DOOOITApp: App {
                 .onOpenURL { url in _ = AuthManager.handleGoogleURL(url) }
                 // iCloud 동기화를 켜거나 끄면 저장소를 다시 엶
                 .onReceive(NotificationCenter.default.publisher(for: AccountStore.storeChanged)) { _ in
+                    #if DEBUG
+                    if UIShot.isActive { return }
+                    #endif
                     container = AccountStore.container(for: auth.currentUser?.id)
                     attachServices()
                 }
@@ -73,6 +101,9 @@ struct DOOOITApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
+            #if DEBUG
+            if UIShot.isActive { return }
+            #endif
             if phase == .background || phase == .inactive {
                 WidgetSync.update(context: container.mainContext)
             }

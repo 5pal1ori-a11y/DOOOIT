@@ -112,7 +112,7 @@ struct DoitAIView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 10)
-                        .background(Theme.accent, in: UnevenRoundedRectangle(topLeadingRadius: 20, bottomLeadingRadius: 20, bottomTrailingRadius: 6, topTrailingRadius: 20))
+                        .background(Theme.accent, in: UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 22, bottomTrailingRadius: 8, topTrailingRadius: 22))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -158,8 +158,8 @@ struct DoitAIView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.card, in: UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20))
-                    .overlay(UnevenRoundedRectangle(topLeadingRadius: 6, bottomLeadingRadius: 20, bottomTrailingRadius: 20, topTrailingRadius: 20)
+                    .background(Palette.card, in: UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 22, bottomTrailingRadius: 22, topTrailingRadius: 22))
+                    .overlay(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 22, bottomTrailingRadius: 22, topTrailingRadius: 22)
                         .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
                     .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                 }
@@ -297,6 +297,7 @@ struct DoitAIView: View {
                         Image(systemName: "arrow.up")
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(.white)
+                            .symbolEffect(.bounce, value: assistant.messages.count)
                             .frame(width: 32, height: 32)
                             .background(canSend ? Theme.accent : Color.secondary.opacity(0.35), in: .circle)
                     }

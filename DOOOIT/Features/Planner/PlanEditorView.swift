@@ -100,7 +100,7 @@ struct PlanEditorView: View {
                     }
                     if kind == .study || !isAllDay {
                         timeRow("시작", symbol: "clock", value: startTime) { timeField = .start }
-                        timeRow("종료", symbol: "clock.badge.checkmark", value: endTime) { timeField = .end }
+                        timeRow("종료", symbol: "clock.fill", value: endTime) { timeField = .end }
                         LabeledContent(kind == .study ? "공부 시간" : "소요 시간") {
                             Text(TimeText.duration(minutes: durationMinutes))
                                 .fontWeight(.semibold)
@@ -119,7 +119,7 @@ struct PlanEditorView: View {
                     }
                     if repeatRule != .none {
                         Toggle(isOn: $hasRepeatEnd.animation()) {
-                            Label("반복 종료일", systemImage: "calendar.badge.minus")
+                            Label("반복 종료일", systemImage: "calendar")
                         }
                         if hasRepeatEnd {
                             DatePicker("종료일", selection: $repeatEnd, in: day..., displayedComponents: .date)

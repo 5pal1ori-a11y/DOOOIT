@@ -72,9 +72,9 @@ struct WrittenSolutionCard: View {
         HStack(spacing: 10) {
             Image(systemName: "list.number")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 34, height: 34)
-                .background(Theme.accent, in: .rect(cornerRadius: 10))
+                .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
                 Text("단계별 풀이").font(.headline)
                 if let solution {
@@ -121,7 +121,7 @@ struct WrittenSolutionCard: View {
     private var unsolvedState: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: "questionmark.bubble")
+                Image(systemName: "questionmark.circle")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(Palette.warning)
                     .frame(width: 42, height: 42)
@@ -152,7 +152,7 @@ struct WrittenSolutionCard: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 tip("textformat", "숫자·기호가 다르게 읽혔다면 고친 뒤 다시 시도해 주세요")
-                tip("chart.xyaxis.line", "그림·표가 필요한 문제는 필요한 값을 문제 글에 적어 주세요")
+                tip("chart.bar.fill", "그림·표가 필요한 문제는 필요한 값을 문제 글에 적어 주세요")
             }
 
             HStack(spacing: 10) {
@@ -277,7 +277,7 @@ struct WrittenSolutionCard: View {
                             .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
                         // 왜 이렇게 하는지 · 다음 단계
                         if !step.reason.isEmpty {
-                            Label(step.reason, systemImage: "questionmark.bubble")
+                            Label(step.reason, systemImage: "questionmark.circle")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -317,7 +317,7 @@ struct WrittenSolutionCard: View {
                 Button {
                     note.correctAnswer = solution.finalAnswer
                 } label: {
-                    Label("이 답을 정답 칸에 넣기", systemImage: "arrow.down.doc")
+                    Label("이 답을 정답 칸에 넣기", systemImage: "arrow.down.circle")
                         .font(.caption.weight(.semibold))
                 }
                 .padding(.top, 10)

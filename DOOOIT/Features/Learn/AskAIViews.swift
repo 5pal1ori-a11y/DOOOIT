@@ -12,14 +12,13 @@ struct AskAIListView: View {
     var body: some View {
         List {
             if questions.isEmpty {
-                EmptyStateView(symbol: "questionmark.bubble", title: "궁금한 걸 물어보세요",
-                               message: "모르는 문제를 사진으로 찍거나 글로 적으면\nAI 선생님이 풀이와 해설을 알려줘요.")
+                EmptyStateView(symbol: "questionmark.circle", title: "궁금한 걸 물어보세요")
                     .listRowBackground(Color.clear)
             }
             ForEach(questions) { item in
                 NavigationLink { AIQuestionDetailView(item: item) } label: {
                     HStack(spacing: 12) {
-                        IconBadge(symbol: item.imageData != nil ? "photo.fill" : "questionmark.bubble.fill",
+                        IconBadge(symbol: item.imageData != nil ? "photo.fill" : "questionmark.circle.fill",
                                   color: item.helpful > 0 ? Palette.success : Theme.accent, size: 38)
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
@@ -88,7 +87,7 @@ struct AskAIComposer: View {
                     }
                     HStack {
                         Button { if DocumentScanner.isSupported { showScanner = true } else { showPicker = true } } label: {
-                            Label("문제 촬영", systemImage: "doc.viewfinder")
+                            Label("문제 촬영", systemImage: "camera.fill")
                         }
                         Spacer()
                         Button { showPicker = true } label: { Label("앨범", systemImage: "photo.on.rectangle") }
@@ -197,7 +196,7 @@ struct AIQuestionDetailView: View {
                 .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
 
                 Toggle(isOn: $showNotes.animation()) {
-                    Label("답변 위에 내 필기", systemImage: "pencil.tip.crop.circle")
+                    Label("답변 위에 내 필기", systemImage: "pencil.tip")
                 }
                 if showNotes {
                     HStack {
