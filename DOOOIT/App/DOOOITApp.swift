@@ -27,7 +27,10 @@ struct DOOOITApp: App {
         #endif
         _auth = State(initialValue: auth)
         AccountStore.switchSettings(to: auth.currentUser?.id)
-        _container = State(initialValue: AccountStore.container(for: auth.currentUser?.id))
+        let container = AccountStore.container(for: auth.currentUser?.id)
+        _container = State(initialValue: container)
+        // 애플 워치: 워치가 앱을 뒤에서 깨워도(화면 없이) 명령을 받아 기록할 수 있게 바로 연결
+        WatchBridge.shared.start(container: container)
     }
 
     /// 저장소를 쓰는 서비스들을 지금 계정 저장소에 연결
@@ -49,6 +52,7 @@ struct DOOOITApp: App {
         // 모티 AI가 배운 내용도 계정마다 따로 (로그인 전에는 저장하지 않음)
         DoitMemory.shared.attach(folder: auth.currentUser.map { AccountStore.folder(for: $0.id) })
         WidgetSync.update(context: context)
+        WatchBridge.shared.start(container: container)
     }
 
     /// 로그인·로그아웃·계정 바꾸기: 진행 중인 타이머를 정리하고 그 계정의 저장소와 설정으로 바꿈
@@ -109,6 +113,7 @@ struct DOOOITApp: App {
             }
             if phase == .active {
                 WidgetSync.update(context: container.mainContext)
+                WatchBridge.shared.setNeedsPush()
                 PlanScheduler.shared.tick()
                 PlanScheduler.shared.rescheduleNotifications()
                 // 뒤로 가서 끊긴 정밀 인식 받기를 이어서

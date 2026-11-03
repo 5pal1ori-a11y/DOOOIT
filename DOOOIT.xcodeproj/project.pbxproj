@@ -18,6 +18,8 @@
 		A1C0DE0000000000000000B1 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE0000000000000000B2 /* GoogleSignIn */; };
 		A1C0DE0000000000000000C1 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE0000000000000000C2 /* MLX */; };
 		A1C0DE0000000000000000C3 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = A1C0DE0000000000000000C4 /* MLXNN */; };
+		B7A7C0DE000000000000000A /* DOOOITWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B7A7C0DE0000000000000001 /* DOOOITWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B7A7C0DE000000000000000B /* DOOOITWatchWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B7A7C0DE0000000000000002 /* DOOOITWatchWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -35,6 +37,20 @@
 			remoteGlobalIDString = 22210292FC848C35A0A48512;
 			remoteInfo = DOOOITActivityMonitor;
 		};
+		B7A7C0DE000000000000000E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DD7512F5E0289CDDCE66B0F8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B7A7C0DE0000000000000012;
+			remoteInfo = DOOOITWatch;
+		};
+		B7A7C0DE000000000000000F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = DD7512F5E0289CDDCE66B0F8 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B7A7C0DE0000000000000013;
+			remoteInfo = DOOOITWatchWidgetsExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -45,6 +61,28 @@
 			dstSubfolderSpec = 13;
 			files = (
 				6382D7D514DFB3B766EA5AC6,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7A7C0DE000000000000000C /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				B7A7C0DE000000000000000A /* DOOOITWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7A7C0DE000000000000000D /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				B7A7C0DE000000000000000B /* DOOOITWatchWidgetsExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -62,6 +100,12 @@
 		72633821598B23E7BA2C8123 /* DOOOITActivityMonitor-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DOOOITActivityMonitor-Info.plist"; sourceTree = "<group>"; };
 		994E174672B092C8CFEE55B9 /* DOOOITActivityMonitor.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "DOOOITActivityMonitor.entitlements"; sourceTree = "<group>"; };
 		3949BCCCCA9E06A4D49E8FBC /* DOOOITActivityMonitor-AppLock.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "DOOOITActivityMonitor-AppLock.entitlements"; sourceTree = "<group>"; };
+		B7A7C0DE0000000000000001 /* DOOOITWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DOOOITWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B7A7C0DE0000000000000002 /* DOOOITWatchWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DOOOITWatchWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B7A7C0DE0000000000000003 /* DOOOITWatch-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DOOOITWatch-Info.plist"; sourceTree = "<group>"; };
+		B7A7C0DE0000000000000004 /* DOOOITWatchWidgets-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DOOOITWatchWidgets-Info.plist"; sourceTree = "<group>"; };
+		B7A7C0DE0000000000000005 /* DOOOITWatch.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "DOOOITWatch.entitlements"; sourceTree = "<group>"; };
+		B7A7C0DE0000000000000006 /* DOOOITWatch-AppGroup.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "DOOOITWatch-AppGroup.entitlements"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -83,6 +127,21 @@
 		D085A8DDA2CFD916636A3AA9 /* DOOOITActivityMonitor */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = DOOOITActivityMonitor;
+			sourceTree = "<group>";
+		};
+		B7A7C0DE0000000000000007 /* DOOOITWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DOOOITWatch;
+			sourceTree = "<group>";
+		};
+		B7A7C0DE0000000000000008 /* DOOOITWatchWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = DOOOITWatchWidgets;
+			sourceTree = "<group>";
+		};
+		B7A7C0DE0000000000000009 /* WatchShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WatchShared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -118,6 +177,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B7A7C0DE0000000000000015 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7A7C0DE0000000000000018 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -128,6 +201,9 @@
 				62073C66595723C3FB02BE22,
 				D085A8DDA2CFD916636A3AA9,
 				5946ABB114403A2E5563F52C,
+				B7A7C0DE0000000000000007 /* DOOOITWatch */,
+				B7A7C0DE0000000000000008 /* DOOOITWatchWidgets */,
+				B7A7C0DE0000000000000009 /* WatchShared */,
 				A8357FE86727A531ECB1E8DB,
 				D71BD8A0B6A6AA54EDBA6454,
 			);
@@ -143,6 +219,10 @@
 				72633821598B23E7BA2C8123,
 				994E174672B092C8CFEE55B9,
 				3949BCCCCA9E06A4D49E8FBC,
+				B7A7C0DE0000000000000003 /* DOOOITWatch-Info.plist */,
+				B7A7C0DE0000000000000004 /* DOOOITWatchWidgets-Info.plist */,
+				B7A7C0DE0000000000000005 /* DOOOITWatch.entitlements */,
+				B7A7C0DE0000000000000006 /* DOOOITWatch-AppGroup.entitlements */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -153,6 +233,8 @@
 				56276DD632C62329F6ADA69E,
 				34A12B4316E0C7804F2E247E,
 				B02EF2EFFCB28CF8F37799DB,
+				B7A7C0DE0000000000000001 /* DOOOITWatch.app */,
+				B7A7C0DE0000000000000002 /* DOOOITWatchWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -168,15 +250,18 @@
 				2985118D9DA11F5994ACC150,
 				E72F2323F0EA673E68CCEB8D,
 				105C13218B570748CB263C1B,
+				B7A7C0DE000000000000000C /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				337424A03EB20DF6B28A3EB8,
+				B7A7C0DE0000000000000010 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				4133148486FD3F88917196CC,
 				5946ABB114403A2E5563F52C,
+				B7A7C0DE0000000000000009 /* WatchShared */,
 			);
 			name = DOOOIT;
 			packageProductDependencies = (
@@ -239,6 +324,54 @@
 			productReference = B02EF2EFFCB28CF8F37799DB;
 			productType = "com.apple.product-type.app-extension";
 		};
+		B7A7C0DE0000000000000012 /* DOOOITWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B7A7C0DE000000000000001E /* Build configuration list for PBXNativeTarget "DOOOITWatch" */;
+			buildPhases = (
+				B7A7C0DE0000000000000014 /* Sources */,
+				B7A7C0DE0000000000000015 /* Frameworks */,
+				B7A7C0DE0000000000000016 /* Resources */,
+				B7A7C0DE000000000000000D /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B7A7C0DE0000000000000011 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B7A7C0DE0000000000000007 /* DOOOITWatch */,
+				B7A7C0DE0000000000000009 /* WatchShared */,
+			);
+			name = DOOOITWatch;
+			packageProductDependencies = (
+			);
+			productName = DOOOITWatch;
+			productReference = B7A7C0DE0000000000000001 /* DOOOITWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B7A7C0DE0000000000000013 /* DOOOITWatchWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B7A7C0DE000000000000001F /* Build configuration list for PBXNativeTarget "DOOOITWatchWidgetsExtension" */;
+			buildPhases = (
+				B7A7C0DE0000000000000017 /* Sources */,
+				B7A7C0DE0000000000000018 /* Frameworks */,
+				B7A7C0DE0000000000000019 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				B7A7C0DE0000000000000008 /* DOOOITWatchWidgets */,
+				B7A7C0DE0000000000000009 /* WatchShared */,
+			);
+			name = DOOOITWatchWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = DOOOITWatchWidgetsExtension;
+			productReference = B7A7C0DE0000000000000002 /* DOOOITWatchWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -256,6 +389,12 @@
 						CreatedOnToolsVersion = 26.0;
 					};
 					22210292FC848C35A0A48512 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					B7A7C0DE0000000000000012 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					B7A7C0DE0000000000000013 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -285,6 +424,8 @@
 				A8B151EF80197D866D8AAC4C,
 				090470DEBBEDF60952B5EEB7,
 				22210292FC848C35A0A48512,
+				B7A7C0DE0000000000000012 /* DOOOITWatch */,
+				B7A7C0DE0000000000000013 /* DOOOITWatchWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -305,6 +446,20 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		5A1A28303D34C14368B5F788 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7A7C0DE0000000000000016 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7A7C0DE0000000000000019 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -335,6 +490,20 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B7A7C0DE0000000000000014 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7A7C0DE0000000000000017 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -347,6 +516,16 @@
 			isa = PBXTargetDependency;
 			target = 22210292FC848C35A0A48512;
 			targetProxy = A6464534FE49480347417EE1;
+		};
+		B7A7C0DE0000000000000010 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B7A7C0DE0000000000000012 /* DOOOITWatch */;
+			targetProxy = B7A7C0DE000000000000000E /* PBXContainerItemProxy */;
+		};
+		B7A7C0DE0000000000000011 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B7A7C0DE0000000000000013 /* DOOOITWatchWidgetsExtension */;
+			targetProxy = B7A7C0DE000000000000000F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -363,6 +542,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				DOOOIT_APPLOCK_SUFFIX = "";
+				DOOOIT_WATCH_GROUP_SUFFIX = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -399,6 +579,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				DOOOIT_APPLOCK_SUFFIX = "";
+				DOOOIT_WATCH_GROUP_SUFFIX = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -594,6 +775,128 @@
 			};
 			name = Release;
 		};
+		B7A7C0DE000000000000001A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Config/DOOOITWatch$(DOOOIT_WATCH_GROUP_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DOOOITWatch-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = MOTI;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.bravekoon.dooit;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bravekoon.dooit.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		B7A7C0DE000000000000001B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Config/DOOOITWatch$(DOOOIT_WATCH_GROUP_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DOOOITWatch-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = MOTI;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = com.bravekoon.dooit;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bravekoon.dooit.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
+		B7A7C0DE000000000000001C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = "Config/DOOOITWatch$(DOOOIT_WATCH_GROUP_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DOOOITWatchWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "MOTI Widgets";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bravekoon.dooit.watchkitapp.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Debug;
+		};
+		B7A7C0DE000000000000001D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = "Config/DOOOITWatch$(DOOOIT_WATCH_GROUP_SUFFIX).entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Config/DOOOITWatchWidgets-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "MOTI Widgets";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bravekoon.dooit.watchkitapp.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 26.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -629,6 +932,24 @@
 			buildConfigurations = (
 				D9A89EF4C600B26B33D1FF10 /* Debug */,
 				3F3A705195C5FFB0F4630196 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B7A7C0DE000000000000001E /* Build configuration list for PBXNativeTarget "DOOOITWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7A7C0DE000000000000001A /* Debug */,
+				B7A7C0DE000000000000001B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B7A7C0DE000000000000001F /* Build configuration list for PBXNativeTarget "DOOOITWatchWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7A7C0DE000000000000001C /* Debug */,
+				B7A7C0DE000000000000001D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

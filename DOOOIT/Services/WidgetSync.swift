@@ -5,18 +5,22 @@ import WidgetKit
 /// 앱 데이터로 홈 화면 위젯용 요약을 만들어 App Group에 저장하고 위젯을 새로 그림
 @MainActor
 enum WidgetSync {
+    /// 지금 고른 강조색 (위젯 · 애플 워치)
+    static var accentHex: String {
+        switch UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "" {
+        case ThemeColor.sky.rawValue: return "#3D9BE0"
+        case ThemeColor.mint.rawValue: return "#4CAF63"
+        default: return "#7B68EE"
+        }
+    }
+
     static func update(context: ModelContext) {
         let now = Date()
         let defaults = UserDefaults.standard
         var snapshot = WidgetSnapshot()
         snapshot.dayKey = now.dayKey
 
-        let themeHex: String
-        switch defaults.string(forKey: SettingsKey.themeColor) ?? "" {
-        case ThemeColor.sky.rawValue: themeHex = "#3D9BE0"
-        case ThemeColor.mint.rawValue: themeHex = "#4CAF63"
-        default: themeHex = "#7B68EE"
-        }
+        let themeHex = accentHex
         snapshot.accentHex = themeHex
 
         let plans = (try? context.fetch(FetchDescriptor<Plan>())) ?? []

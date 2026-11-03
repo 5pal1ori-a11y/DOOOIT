@@ -59,9 +59,9 @@ final class StudyTimer {
         accumulated + (segmentStart.map { max(0, date.timeIntervalSince($0)) } ?? 0)
     }
 
-    func start(title: String, categoryName: String, symbol: String, planKey: String? = nil, targetMinutes: Int? = nil, lockUntil: Date? = nil) {
+    /// at: 시작을 누른 시각 (애플 워치에서 늦게 도착한 명령도 기록이 맞게, 보통은 지금)
+    func start(title: String, categoryName: String, symbol: String, planKey: String? = nil, targetMinutes: Int? = nil, lockUntil: Date? = nil, at now: Date = Date()) {
         if phase != .idle { stop() }
-        let now = Date()
         self.title = title.isEmpty ? "자유 공부" : title
         self.categoryName = categoryName
         self.symbol = symbol
@@ -84,18 +84,17 @@ final class StudyTimer {
         )
     }
 
-    func pause() {
+    func pause(at now: Date = Date()) {
         guard phase == .running, let segmentStart else { return }
-        accumulated += Date().timeIntervalSince(segmentStart)
+        accumulated += max(0, now.timeIntervalSince(segmentStart))
         self.segmentStart = nil
         phase = .paused
         persist()
         LiveActivityManager.shared.showPaused(elapsed: accumulated)
     }
 
-    func resume() {
+    func resume(at now: Date = Date()) {
         guard phase == .paused else { return }
-        let now = Date()
         segmentStart = now
         phase = .running
         persist()
@@ -111,9 +110,9 @@ final class StudyTimer {
 
     /// 타이머 종료 후 기록 저장. 저장된 초를 반환.
     @discardableResult
-    func stop() -> Int {
+    func stop(at now: Date = Date()) -> Int {
         // 끄는 걸 잊고 며칠 동안 켜 둔 경우 등 비정상적으로 긴 기록은 12시간까지만 저장
-        let seconds = min(Int(elapsed()), Self.maxSessionSeconds)
+        let seconds = min(Int(elapsed(at: now)), Self.maxSessionSeconds)
         if seconds >= 10, let context, let startedAt {
             context.insert(StudySession(title: title, categoryName: categoryName, start: startedAt,
                                         seconds: seconds, planKey: planKey))

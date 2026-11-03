@@ -1,0 +1,180 @@
+name: Watch Build
+
+# 애플 워치 앱 확인: 아이폰 앱(워치 앱 포함)을 iOS 시뮬레이터용으로, 워치 앱을 watchOS 시뮬레이터용으로 빌드하고
+# 워치 화면 사진(타이머 · 오늘 할 일 · 단어 카드)을 ui-shots-out 브랜치의 <브랜치>-<커밋>/ 폴더에 올림
+# (Release/TestFlight와는 상관없음)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "watch-build*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: watch-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version; sw_vers
+          xcodebuild -showsdks | grep -iE "watch|iphone" || true
+          xcrun simctl list runtimes | grep -iE "watch|ios" || true
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/spm
+            ${{ runner.temp }}/dd
+          key: uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-${{ github.sha }}
+          restore-keys: |
+            uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-
+            uishots-${{ runner.os }}-
+
+      - name: Pick simulators
+        run: |
+          pick() {
+            xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          plat, wants = sys.argv[1], sys.argv[2].split(',')
+          d = json.load(sys.stdin)['devices']
+          rts = sorted([k for k in d if plat in k], key=lambda k: [int(x) for x in k.split(plat + '-')[-1].split('-') if x.isdigit()])
+          for want in wants:
+              for rt in reversed(rts):
+                  for dev in d[rt]:
+                      if dev['name'].startswith(want):
+                          print(dev['udid']); print(dev['name'], rt, file=sys.stderr); sys.exit(0)
+          " "$1" "$2"
+          }
+          IOS=$(pick iOS "iPhone 17 Pro,iPhone 16 Pro,iPhone 17,iPhone")
+          echo "IOS_UDID=$IOS" >> "$GITHUB_ENV"
+          WATCH=$(pick watchOS "Apple Watch Series 11 (46mm),Apple Watch Series 10 (46mm),Apple Watch Series,Apple Watch Ultra,Apple Watch" || true)
+          if [ -z "$WATCH" ]; then
+            echo "::notice title=Watch::watchOS 시뮬레이터가 없어서 받는 중"
+            xcodebuild -downloadPlatform watchOS || true
+            WATCH=$(pick watchOS "Apple Watch Series 11 (46mm),Apple Watch Series 10 (46mm),Apple Watch Series,Apple Watch Ultra,Apple Watch" || true)
+          fi
+          if [ -z "$WATCH" ]; then
+            RT=$(xcrun simctl list runtimes -j | python3 -c "import json,sys; r=[x['identifier'] for x in json.load(sys.stdin)['runtimes'] if 'watchOS' in x['name'] and x.get('isAvailable')]; print(r[-1] if r else '')")
+            DT=$(xcrun simctl list devicetypes -j | python3 -c "import json,sys; t=[x['identifier'] for x in json.load(sys.stdin)['devicetypes'] if 'Apple-Watch-Series' in x['identifier']]; print(t[-1] if t else '')")
+            [ -n "$RT" ] && [ -n "$DT" ] && WATCH=$(xcrun simctl create "MOTI Watch" "$DT" "$RT")
+          fi
+          echo "WATCH_UDID=$WATCH" >> "$GITHUB_ENV"
+          echo "iOS=$IOS watch=$WATCH"
+
+      - name: Build iPhone app with watch app (Debug, iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project DOOOIT.xcodeproj \
+            -scheme DOOOIT \
+            -configuration Debug \
+            -destination "id=$IOS_UDID" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
+            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build-ios.log" | grep -E "error:|warning: .*Watch|\*\* BUILD" || true
+          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build-ios.log"; then
+            grep -E "error:" "$RUNNER_TEMP/build-ios.log" | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error title=iOS Build::${line:0:900}"
+            done
+            tail -80 "$RUNNER_TEMP/build-ios.log"
+            exit 1
+          fi
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "DOOOIT.app" | head -1)
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          echo "::notice title=iOS Build::BUILD SUCCEEDED $APP"
+          ls -la "$APP/Watch" || { echo "::error title=Embed::워치 앱이 아이폰 앱 안에 없어요"; exit 1; }
+          ls -la "$APP/Watch/DOOOITWatch.app/PlugIns" || echo "::warning::워치 위젯이 없어요"
+          /usr/libexec/PlistBuddy -c "Print" "$APP/Watch/DOOOITWatch.app/Info.plist" | grep -E "CFBundleIdentifier|WKApplication|WKCompanion|CFBundleDisplayName|CFBundleVersion" || true
+
+      - name: Build watch app (Debug, watchOS Simulator)
+        run: |
+          set -o pipefail
+          if [ -n "$WATCH_UDID" ]; then DEST="id=$WATCH_UDID"; else DEST="generic/platform=watchOS Simulator"; fi
+          xcodebuild build \
+            -project DOOOIT.xcodeproj \
+            -scheme DOOOITWatch \
+            -configuration Debug \
+            -destination "$DEST" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build-watch.log" | grep -E "error:|\*\* BUILD" || true
+          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build-watch.log"; then
+            grep -E "error:" "$RUNNER_TEMP/build-watch.log" | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error title=watchOS Build::${line:0:900}"
+            done
+            tail -80 "$RUNNER_TEMP/build-watch.log"
+            exit 1
+          fi
+          WAPP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-watchsimulator" -maxdepth 1 -name "DOOOITWatch.app" | head -1)
+          echo "WAPP=$WAPP" >> "$GITHUB_ENV"
+          echo "::notice title=watchOS Build::BUILD SUCCEEDED $WAPP"
+
+      - name: Watch screenshots
+        if: env.WATCH_UDID != ''
+        run: |
+          OUT="$RUNNER_TEMP/shots"
+          mkdir -p "$OUT"
+          xcrun simctl boot "$WATCH_UDID" || true
+          xcrun simctl bootstatus "$WATCH_UDID" -b || true
+          xcrun simctl status_bar "$WATCH_UDID" override --time "9:41" || true
+          codesign --force --deep --sign - "$WAPP" || true
+          xcrun simctl install "$WATCH_UDID" "$WAPP"
+          for screen in timer today words; do
+            xcrun simctl terminate "$WATCH_UDID" com.bravekoon.dooit.watchkitapp 2>/dev/null || true
+            xcrun simctl launch "$WATCH_UDID" com.bravekoon.dooit.watchkitapp -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || echo "::warning::$screen 실행 실패"
+            sleep 8
+            xcrun simctl io "$WATCH_UDID" screenshot --type=png "$OUT/watch-$screen.png" >/dev/null 2>&1 || echo "::warning::watch-$screen 사진 실패"
+            echo "watch-$screen"
+          done
+          # 시작 전 화면 (크라운으로 목표 고르기)
+          xcrun simctl terminate "$WATCH_UDID" com.bravekoon.dooit.watchkitapp 2>/dev/null || true
+          xcrun simctl launch "$WATCH_UDID" com.bravekoon.dooit.watchkitapp -uiShot picker -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || true
+          sleep 8
+          xcrun simctl io "$WATCH_UDID" screenshot --type=png "$OUT/watch-picker.png" >/dev/null 2>&1 || true
+          xcrun simctl spawn "$WATCH_UDID" log show --last 10m --style compact --predicate 'process == "DOOOITWatch"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/watch-log.txt" || true
+          ls -la "$OUT"
+
+      - name: Push to ui-shots-out
+        if: env.WATCH_UDID != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHORT=$(git rev-parse --short=7 HEAD)
+          DIR="watch-app-$SHORT"
+          URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          WORK="$RUNNER_TEMP/out"
+          git clone --depth 1 --branch ui-shots-out "$URL" "$WORK"
+          cd "$WORK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf "$DIR" && mkdir -p "$DIR"
+          cp "$RUNNER_TEMP"/shots/* "$DIR/"
+          (cd "$GITHUB_WORKSPACE" && git log -1 --format='%H %s') > "$DIR/commit.txt"
+          git add -A
+          git commit -q -m "워치 화면 사진 $DIR"
+          for i in 1 2 3; do
+            git push origin ui-shots-out && break
+            git pull --rebase origin ui-shots-out
+          done
+          echo "::notice title=Shots::ui-shots-out/$DIR"
