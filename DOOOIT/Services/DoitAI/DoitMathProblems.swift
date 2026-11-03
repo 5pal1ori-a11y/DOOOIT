@@ -23,7 +23,9 @@ enum MathSolver {
 
     /// 문장을 보고 알맞은 풀이를 찾아 풂 (못 풀면 nil)
     /// 객관식(①~⑤)이면 보기를 떼고 풀어서, 값이 같은 보기를 답에 붙여요 ("④ 12").
-    static func solve(_ raw: String) -> Solved? {
+    static func solve(_ input: String) -> Solved? {
+        // 도형 기호는 앱 표기로 맞추고 선분 윗줄은 지움 (A̅B̅ = 6 → AB = 6, □ABCD → 사각형 ABCD)
+        let raw = GeometryText.forSolver(input)
         if let split = DoitMathExact.splitChoices(raw) {
             // 보기마다 참·거짓을 확인하는 문제 ("옳은 것", "아닌 것", "모두 고르면", "소수인 것")
             if let s = DoitMathChoice.solve(body: split.body, choices: split.choices) { return s }
