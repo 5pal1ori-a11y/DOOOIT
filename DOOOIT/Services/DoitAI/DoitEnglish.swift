@@ -59,7 +59,7 @@ enum DoitEnglish {
     }
 
     /// 영어 단어 사전 (무료 키 없는 Free Dictionary API)
-    /// 발음기호, 품사별 영어 뜻 2~3개, 예문, 유의어. 실패하면 nil
+    /// 발음기호, 품사별 영어 뜻 2~3개 (예문·유의어·반의어는 보여 주지 않음). 실패하면 nil
     static func define(_ word: String) async -> String? {
         let w = word.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !w.isEmpty, w.count <= 40,
@@ -354,8 +354,6 @@ private enum EngDictionary {
             lines.append(label + ":")
             for (index, definition) in list.enumerated() { lines.append("\(index + 1)) \(definition)") }
         }
-        if let example { lines.append("예문: \(example)") }
-        if !synonyms.isEmpty { lines.append("유의어: " + synonyms.prefix(5).joined(separator: ", ")) }
         lines.append("출처: Free Dictionary API (Wiktionary)")
         return lines.joined(separator: "\n")
     }
