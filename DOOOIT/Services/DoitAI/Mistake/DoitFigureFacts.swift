@@ -73,7 +73,7 @@ enum DoitFigureFacts {
     /// 화면에 보일 짧은 이름
     static func title(_ facts: [String]) -> String {
         if facts.contains(where: { $0.hasPrefix("[") && $0.contains("그래프]") || $0.hasPrefix("[표]") || $0.contains(" | ") }) { return "자료" }
-        if facts.contains(where: { $0.contains("그래프") || $0.contains("꼭짓점 (") || $0.contains("절편") }) { return "그래프" }
+        if facts.contains(where: { $0.contains("그래프") || $0.contains("꼭짓점 (") || $0.contains("절편") || $0.hasPrefix("지나는 점") }) { return "그래프" }
         return "그림"
     }
 
@@ -542,7 +542,7 @@ enum DoitFigureFacts {
                 else if value.contains("도형") { kind = .geometry }
             case "점", "points":
                 let names = value.components(separatedBy: CharacterSet(charactersIn: ", ")).filter { $0.count == 1 && $0.first!.isUppercase }
-                if names.count == 3 { add("△" + names.joined()) }
+                if names.count == 3 { add("△" + names.joined()) } else if names.count == 4 { add("사각형 " + names.joined()) }
             case "길이", "변", "선분", "length", "side":
                 for m in matchAll(value, seg + #"\s*=\s*(\d+(?:\.\d+)?(?:\s*cm)?)"#) {
                     add(GeometryText.segment(m[1] + m[2]) + " = " + m[3].replacingOccurrences(of: " ", with: ""))
@@ -581,9 +581,15 @@ enum DoitFigureFacts {
                 if let n = matchAll(value, #"-?\d+(?:\.\d+)?"#).first?[0] { add("x절편 \(n)"); kind = .graph }
             case "y절편", "y 절편", "y-intercept":
                 if let n = matchAll(value, #"-?\d+(?:\.\d+)?"#).first?[0] { add("y절편 \(n)"); kind = .graph }
-            case "값", "value":
-                if let m = matchAll(value, #"^(.+?)\s*[=:]\s*(-?\d[\d,]*(?:\.\d+)?\s*%?)$"#).first {
-                    values.append((m[1].trimmingCharacters(in: .whitespaces), m[2].replacingOccurrences(of: " ", with: "")))
+            case "값", "value", "자료":
+                // "1월 = 30" 한 줄에 하나, 또는 "1월 30, 2월 45"처럼 쉼표로 여러 개
+                // 천 단위 쉼표("1,200")는 나누지 않음: 쉼표 바로 뒤가 숫자가 아닐 때만 다음 항목
+                let items = value.replacingOccurrences(of: #",(?!\d)"#, with: "\u{1F}", options: .regularExpression).components(separatedBy: "\u{1F}")
+                for item in items.map({ $0.trimmingCharacters(in: .whitespaces) }) {
+                    guard let m = matchAll(item, #"^(.+?)\s*[=:]?\s*(-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?)\s*(%?)$"#).first else { continue }
+                    let label = m[1].trimmingCharacters(in: .whitespaces)
+                    guard !label.isEmpty, !values.contains(where: { $0.0 == label }) else { continue }
+                    values.append((label, m[2].replacingOccurrences(of: ",", with: "") + m[3]))
                 }
             default:
                 continue
