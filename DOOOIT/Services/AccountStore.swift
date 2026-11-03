@@ -20,7 +20,9 @@ enum AccountStore {
         SettingsKey.dailyWordGoal, SettingsKey.dailyStudyGoalMinutes, SettingsKey.wordGoalDoneKey,
         SettingsKey.reminderLeadMinutes, SettingsKey.notificationsEnabled, SettingsKey.liveActivityEnabled,
         SettingsKey.autoStartTimer, SettingsKey.appearance, SettingsKey.themeColor,
-        SettingsKey.dDayTitle, SettingsKey.dDayDate, "selectedTab", "doitUserName", "dooit.autoStartedPlanKeys"
+        SettingsKey.dDayTitle, SettingsKey.dDayDate, "selectedTab", "doitUserName", "dooit.autoStartedPlanKeys",
+        // 배지를 처음 받은 날짜
+        BadgeCenter.unlockedKey
     ]
 
     // MARK: iCloud 동기화 (같은 Apple ID 기기끼리 이어짐)

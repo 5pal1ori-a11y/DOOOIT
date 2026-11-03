@@ -63,6 +63,7 @@ struct MainTabView: View {
     @State private var plannerRouter = PlannerRouter()
     @State private var router = AppRouter.shared
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.modelContext) private var context
     /// 달력 아이콘에 적는 오늘 날짜 (앱을 다시 열 때 바뀌었으면 새로 그림)
     @State private var today = Calendar.current.component(.day, from: Date())
 
@@ -116,7 +117,22 @@ struct MainTabView: View {
         .tint(Palette.ink)
         .tabBarMinimizeBehavior(.onScrollDown)
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { today = Calendar.current.component(.day, from: Date()) }
+            if phase == .active {
+                today = Calendar.current.component(.day, from: Date())
+                BadgeCenter.shared.check(context: context)
+            }
+        }
+        // 공부를 마치고 타이머를 닫을 때 · 탭을 옮길 때 새 배지 확인
+        .onChange(of: studyTimer.isPresented) { _, shown in
+            if !shown { BadgeCenter.shared.check(context: context) }
+        }
+        .onChange(of: studyTimer.phase) { _, phase in
+            if phase == .idle && !studyTimer.isPresented { BadgeCenter.shared.check(context: context) }
+        }
+        .onChange(of: tab) { BadgeCenter.shared.check(context: context) }
+        // 새 배지 축하 (어느 탭에서든 위에서 살짝)
+        .overlay(alignment: .top) {
+            BadgeToastHost()
         }
         .tabViewBottomAccessory {
             TimerAccessoryView().tint(Theme.accent)
@@ -152,6 +168,7 @@ struct MainTabView: View {
             }
         }
         .task {
+            BadgeCenter.shared.check(context: context)
             #if DEBUG
             if UIShot.isActive { return }
             #endif

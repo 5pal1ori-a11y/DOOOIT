@@ -6,7 +6,7 @@ import Foundation
 /// 영어 사전(Free Dictionary API), 모델 받기(Hugging Face, 개인정보 없음)뿐
 /// 내용을 바꾸면 version을 올려서 다시 동의를 받음
 enum LegalText {
-    static let version = 2
+    static let version = 3
     static let effectiveDate = "2026년 11월 3일"
     static let service = "DOOOIT (두잇)"
     /// 문의처
@@ -81,7 +81,7 @@ enum LegalText {
     static let privacy: [Section] = [
         Section(title: "1. 처리하는 개인정보", body: """
         • 계정: 이름(닉네임), 이메일 주소. Apple·Google 로그인을 쓰면 그 서비스가 알려 주는 이름, 이메일, 계정 식별값
-        • 학습 자료: 플랜, 공부 시간, 단어장, 오답노트(문제 사진, 필기, 답), 메모, AI와 나눈 대화
+        • 학습 자료: 플랜, 공부 시간, 단어장, 오답노트(문제 사진, 필기, 답), 메모, AI와 나눈 대화, 모의고사 기록, 받은 배지
         • 랭킹에 참여한 경우: Game Center 닉네임과 공부 시간
         학습 자료는 이 기기 안에 저장되고, iCloud 동기화를 켜면 본인의 iCloud에도 저장돼요. 운영자는 서버를 두지 않으며 이 정보를 모으지 않아요.
         """),
@@ -103,11 +103,11 @@ enum LegalText {
         • Free Dictionary API (영어 단어 뜻 찾기): 찾는 영어 단어
         • Hugging Face (AI 모델 받기): 개인정보를 보내지 않아요
         AI 풀이, 사진 인식(정밀 인식 포함), 두잇 1·2 대화는 기기 안에서 처리되어 문제 사진과 대화 내용을 밖으로 보내지 않아요.
-        발음 연습의 음성 인식은 기기 안에서 하며, 기기가 지원하지 않으면 Apple의 음성 인식을 거칠 수 있어요.
+        발음 연습과 두잇 AI에 말로 질문하기의 음성 인식은 기기 안에서 하며, 기기가 지원하지 않으면 Apple의 음성 인식을 거칠 수 있어요. 녹음한 소리는 저장하지 않아요.
         """),
         Section(title: "5. 기기 권한", body: """
         • 카메라 · 사진: 단어장·문제 사진 찍기와 불러오기
-        • 마이크 · 음성 인식: 영어 발음 연습
+        • 마이크 · 음성 인식: 영어 발음 연습, 두잇 AI에 말로 질문하기
         • 알림: 플랜 알림
         • 스크린 타임: 공부 중 다른 앱 잠금 (쓸 때만)
         모두 선택이며, 허용하지 않아도 다른 기능은 쓸 수 있어요. iPhone 설정에서 언제든 바꿀 수 있어요.

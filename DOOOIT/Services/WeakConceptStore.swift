@@ -48,6 +48,14 @@ enum WeakConceptStore {
         item.record(correct: correct, level: level, source: source, answer: note.myAnswer, correctAnswer: note.correctAnswer, cause: cause)
         note.conceptKey = info.key
         try? context.save()
+        // 채점한 뒤 새 배지 확인 (다시 맞힘 등)
+        BadgeCenter.shared.check(context: context)
         return item
+    }
+
+    /// AI 모의고사 채점 결과를 개념별로 기록 (개념 키가 있는 문제만)
+    static func recordMock(key: String, correct: Bool, answer: String, correctAnswer: String, context: ModelContext) {
+        guard !key.isEmpty, let item = find(key, context: context) else { return }
+        item.record(correct: correct, level: 3, source: "모의고사", answer: answer, correctAnswer: correctAnswer)
     }
 }

@@ -27,6 +27,7 @@ struct AccountView: View {
     /// iCloud 동기화 (같은 Apple ID 기기끼리)
     @State private var syncOn = false
     @State private var confirmSyncTakeover = false
+    @State private var badges = BadgeCenter.shared
 
     var body: some View {
         NavigationStack {
@@ -44,6 +45,19 @@ struct AccountView: View {
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
+
+                Section {
+                    NavigationLink { BadgeShelfView() } label: {
+                        HStack(spacing: 12) {
+                            icon("rosette", Palette.butter)
+                            Text("배지").foregroundStyle(Palette.ink)
+                            Spacer()
+                            Text("\(BadgeBook.all.filter { badges.isUnlocked($0) }.count) / \(BadgeBook.all.count)")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                }
 
                 Section("목표") {
                     Stepper(value: $studyGoalMinutes, in: 30...720, step: 30) {
@@ -72,6 +86,7 @@ struct AccountView: View {
             .navigationTitle("계정")
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
+            .uiShotPush(.badges) { BadgeShelfView() }
             #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {

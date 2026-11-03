@@ -53,6 +53,7 @@ struct StudyView: View {
             #if DEBUG
             .uiShotPush(.words) { WordHomeView() }
             .uiShotPush(.mathList, .mathNote) { MathNoteListView() }
+            .uiShotPush(.mockExam, .mockResult) { MockExamView() }
             #endif
         }
     }

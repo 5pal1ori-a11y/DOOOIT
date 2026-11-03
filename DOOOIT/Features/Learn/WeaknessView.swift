@@ -88,6 +88,19 @@ struct WeaknessView: View {
                     .softCard(cornerRadius: 20, padding: 14)
                 }
                 .buttonStyle(.pressable)
+                NavigationLink { MockExamView() } label: {
+                    HStack(spacing: 12) {
+                        IconBadge(symbol: "doc.text", color: Palette.sky)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("AI 모의고사").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("취약 개념 10문제").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                    }
+                    .softCard(cornerRadius: 20, padding: 14)
+                }
+                .buttonStyle(.pressable)
                 if list.isEmpty {
                     EmptyStateView(symbol: "target", title: "아직 취약 유형이 없어요")
                         .softCard()
