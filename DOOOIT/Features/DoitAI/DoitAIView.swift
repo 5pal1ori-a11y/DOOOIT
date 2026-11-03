@@ -12,24 +12,29 @@ struct DoitAIView: View {
     /// 말로 질문하기
     @State private var voice = VoiceQuestion()
     @FocusState private var focused: Bool
+    /// 맨 아래를 보고 있을 때만 새 글을 따라 내려감 (위로 올려 읽는 중이면 그대로 둠)
+    @State private var atBottom = true
+    @State private var lastFollow = Date.distantPast
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(alignment: .leading, spacing: 16) {
+                        // 대화는 길지 않아서 VStack: LazyVStack은 높이를 어림하다가 스크롤이 튀어요
+                        VStack(alignment: .leading, spacing: 16) {
                             if assistant.messages.isEmpty {
                                 welcome
                             }
                             ForEach(assistant.messages) { message in
                                 bubble(message)
                                     .id(message.id)
-                                    .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
+                                    .transition(.opacity)
                             }
                             if assistant.isResponding && !isStreamingText {
                                 TypingIndicator(status: assistant.status).id("typing")
                             }
+                            Color.clear.frame(height: 1).id(Self.bottomID)
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
@@ -38,15 +43,27 @@ struct DoitAIView: View {
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .simultaneousGesture(TapGesture().onEnded { focused = false })
+                    .onScrollGeometryChange(for: Bool.self) { geometry in
+                        geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 80
+                    } action: { _, isAtBottom in
+                        atBottom = isAtBottom
+                    }
                     .onChange(of: assistant.messages.count) {
-                        withAnimation { proxy.scrollTo(assistant.messages.last?.id, anchor: .bottom) }
+                        // 내가 보낸 말은 항상 아래로, 답은 아래를 보고 있을 때만
+                        guard atBottom || assistant.messages.last?.role == .user else { return }
+                        atBottom = true
+                        withAnimation(.snappy) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
                     }
                     .onChange(of: assistant.isResponding) { _, responding in
-                        if responding { withAnimation { proxy.scrollTo("typing", anchor: .bottom) } }
+                        if responding, atBottom { withAnimation(.snappy) { proxy.scrollTo(Self.bottomID, anchor: .bottom) } }
                     }
-                    // 모델이 쓰는 글이 길어지면 따라 내려감
+                    // 모델이 쓰는 글이 길어지면 따라 내려감: 애니메이션 없이, 자주 하지 않게 (흔들림 방지)
                     .onChange(of: assistant.messages.last?.text.count ?? 0) {
-                        if assistant.messages.last?.isStreaming == true { proxy.scrollTo(assistant.messages.last?.id, anchor: .bottom) }
+                        guard atBottom, assistant.messages.last?.isStreaming == true, Date().timeIntervalSince(lastFollow) > 0.12 else { return }
+                        lastFollow = Date()
+                        var quiet = Transaction()
+                        quiet.disablesAnimations = true
+                        withTransaction(quiet) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
                     }
                 }
                 inputBar
@@ -162,12 +179,13 @@ struct DoitAIView: View {
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         } else {
-                            Text(Self.markdown(MathSymbolBar.pretty(message.text)))
+                            // 쓰는 중에는 글자마다 겹쳐 바뀌는 효과 없이 (흔들림 방지), 덜 닫힌 **도 닫아서 보여 줌
+                            Text(Self.markdown(MathSymbolBar.pretty(message.isStreaming ? Self.closingMarkdown(message.text) : message.text)))
                                 .font(.body)
                                 .lineSpacing(3)
                                 .foregroundStyle(Palette.ink)
                                 .textSelection(.enabled)
-                                .contentTransition(.opacity)
+                                .transaction { if message.isStreaming { $0.animation = nil } }
                         }
                         if !message.sources.isEmpty && !message.isStreaming {
                             Label(message.sources.joined(separator: " · "), systemImage: "books.vertical")
@@ -378,6 +396,17 @@ struct DoitAIView: View {
     }
 
     /// **굵게** 같은 간단한 마크다운만 적용
+    private static let bottomID = "chat-bottom"
+
+    /// 쓰는 중인 글의 덜 닫힌 굵게(**)·기울임(*)·코드(`) 표시를 닫음: 닫히는 순간 글자 폭이 바뀌며 줄이 튀지 않게
+    static func closingMarkdown(_ text: String) -> String {
+        var out = text
+        if out.hasSuffix("*") && !out.hasSuffix("**") { out.removeLast() }
+        if out.components(separatedBy: "**").count % 2 == 0 { out += "**" }
+        if out.filter({ $0 == "`" }).count % 2 == 1 { out += "`" }
+        return out
+    }
+
     private static func markdown(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
             ?? AttributedString(text)

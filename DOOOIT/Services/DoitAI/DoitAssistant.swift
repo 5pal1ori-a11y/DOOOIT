@@ -331,6 +331,7 @@ final class DoitAssistant {
         let index = messages.count - 1
         let id = messages[index].id
         var raw = ""
+        var shown = Date.distantPast
         // 이유·원리·계산 질문은 DOOOIT 2가 먼저 속으로 생각(추론)한 뒤 답함 (생각 과정은 안 보여 줌)
         let reasoning = origin != .chat && DoitBrain.shared.selected == .dooit2 && DoitMind.needsReasoning(question)
         if reasoning { status = "깊게 생각하는 중…" }
@@ -343,6 +344,9 @@ final class DoitAssistant {
                                                            temperature: origin == .chat || origin == .conversation ? 0.6 : 0.4,
                                                            thinking: reasoning) {
                 raw += chunk
+                // 화면은 조금씩 모아서 고침 (낱말 조각마다 다시 그리면 말풍선이 흔들림)
+                guard Date().timeIntervalSince(shown) > 0.06 else { continue }
+                shown = Date()
                 if messages.indices.contains(index), messages[index].id == id { messages[index].text = DoitMind.answer(raw) }
             }
         } catch {
