@@ -28,8 +28,9 @@ final class DoitVision {
 
     private(set) var phase: Phase = .idle
 
-    /// 사진 쪽까지 올릴 때 앱이 더 쓸 수 있어야 하는 메모리 (글 모델 3.7GB + 사진 인코더·사진 토큰 여유)
-    static let neededMemory: UInt64 = 4_300_000_000
+    /// 사진 쪽까지 올릴 때 앱이 더 쓸 수 있어야 하는 메모리
+    /// (맥 M1 측정, 사진 긴 변 1024: 올린 뒤 3.5GB, 읽는 중 최대 4.0~4.2GB → 여유를 더해 4.5GB)
+    static let neededMemory: UInt64 = 4_500_000_000
 
     /// 그림 읽기를 쓸 수 있는지: 모델을 받을 수 있는 실기기, 8GB 이상, 두잇 2를 받아 둠
     var isAvailable: Bool {
