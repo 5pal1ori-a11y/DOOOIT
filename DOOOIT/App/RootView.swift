@@ -5,7 +5,12 @@ struct RootView: View {
     @Environment(AuthManager.self) private var auth
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
-    @State private var showSplash = true
+    @State private var showSplash: Bool = {
+        #if DEBUG
+        if UIShot.isActive { return false }
+        #endif
+        return true
+    }()
 
     var body: some View {
         ZStack {
@@ -127,6 +132,9 @@ struct MainTabView: View {
             }
         }
         .task {
+            #if DEBUG
+            if UIShot.isActive { return }
+            #endif
             // 랭킹에 참여 중이면 Game Center에 로그인해 둠 (타이머를 마치면 바로 반영되게)
             if RankingService.shared.isJoined { RankingService.shared.authenticate() }
             if AppSettings.notificationsEnabled {

@@ -313,6 +313,13 @@ final class AuthManager {
         signOut()
     }
 
+    #if DEBUG
+    /// 화면 사진 찍기용 데모 계정 (키체인에 저장하지 않음 · Debug 빌드에서만)
+    func useUIShotAccount(_ user: UserAccount?) {
+        currentUser = user
+    }
+    #endif
+
     // MARK: Private
 
     private func setUser(_ user: UserAccount) {

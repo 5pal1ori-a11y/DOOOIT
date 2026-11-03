@@ -50,6 +50,10 @@ struct StudyView: View {
             .scrollIndicators(.hidden)
             .background { AppBackground() }
             .navigationTitle("학습")
+            #if DEBUG
+            .uiShotPush(.words) { WordHomeView() }
+            .uiShotPush(.mathList, .mathNote) { MathNoteListView() }
+            #endif
         }
     }
 

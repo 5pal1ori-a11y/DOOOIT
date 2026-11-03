@@ -159,6 +159,14 @@ struct MathNoteListView: View {
         .navigationDestination(item: $openedNote) { note in
             MathNoteEditorView(note: note)
         }
+        #if DEBUG
+        .task {
+            if UIShot.screen == .mathNote, openedNote == nil {
+                try? await Task.sleep(for: .milliseconds(400))
+                openedNote = notes.first { $0.subjectKind == .math && $0.status == .wrong }
+            }
+        }
+        #endif
         .errorAlert($errorMessage)
     }
 

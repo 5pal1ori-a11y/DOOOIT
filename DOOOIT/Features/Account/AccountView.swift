@@ -90,6 +90,9 @@ struct AccountView: View {
             .background { AppBackground() }
             .tint(Theme.accent)
             .navigationTitle("계정")
+            #if DEBUG
+            .uiShotPush(.accountSettings) { accountSettings }
+            #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {
                     if enabled { _ = await NotificationService.requestAuthorization() }
