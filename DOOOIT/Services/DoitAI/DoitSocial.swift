@@ -629,4 +629,9 @@ extension DoitSocial {
     static var eventList: [(year: Int, names: [String], who: String?, approx: Bool)] {
         events.map { ($0.year, $0.names, $0.who, $0.approx) }
     }
+
+    /// 연표 사건 자세히 (끝난 해, 세계사인지)
+    static var eventDetails: [(year: Int, end: Int?, names: [String], who: String?, approx: Bool, world: Bool)] {
+        events.map { ($0.year, $0.end, $0.names, $0.who, $0.approx, $0.world) }
+    }
 }

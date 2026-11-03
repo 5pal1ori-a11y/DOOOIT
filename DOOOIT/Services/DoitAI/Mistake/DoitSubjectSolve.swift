@@ -11,9 +11,12 @@ enum DoitSubjectSolve {
         let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !full.isEmpty else { return nil }
         let p = Problem(full: full, body: body, choices: choices, box: boxItems)
-        var solvers: [(Problem) -> Found?] = [chartData, koreanSpelling, englishGrammar, englishVocabulary, category, socialLookup, element, facts, colorMix, scienceCalc]
+        let calc: [(Problem) -> Found?] = [scienceMore, scienceCalc]
+        var solvers: [(Problem) -> Found?] = [chartData, itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling,
+                                              englishGrammar, englishVocabulary, oddWordClass, category, statements, phenomena, eraQuestion, personEvent,
+                                              socialLookup, timeZone, element, facts, colorMix]
         // 과학이면 계산을 먼저 (계산 문제에 낱말 사실표가 먼저 걸리지 않게)
-        if subjectBroad == "과학" { solvers = [scienceCalc] + solvers.dropLast() }
+        solvers = subjectBroad == "과학" ? calc + solvers : solvers + calc
         for solver in solvers {
             guard let found = solver(p) else { continue }
             var solution = WrittenSolution(concept: found.concept, steps: found.steps, finalAnswer: found.answer)
@@ -76,20 +79,20 @@ enum DoitSubjectSolve {
     }
 
     /// 정답 하나를 고른 풀이 (객관식이면 선지 번호)
-    private static func pick(_ p: Problem, index: Int, concept: String, steps: [SolutionStep]) -> Found {
+    static func pick(_ p: Problem, index: Int, concept: String, steps: [SolutionStep]) -> Found {
         var all = steps
         all.append(SolutionStep(hint: "정답", work: "\(circled(index + 1)) \(p.choices[index])"))
         return Found(answer: "\(index + 1)", concept: concept, steps: all)
     }
 
     /// 답 이름들과 같은 선지가 하나뿐이면 그 번호
-    private static func uniqueChoice(_ p: Problem, matching names: [String]) -> Int? {
+    static func uniqueChoice(_ p: Problem, matching names: [String]) -> Int? {
         let keys = Set(names.map(key))
         let hits = p.choices.indices.filter { keys.contains(key(p.choices[$0])) }
         return hits.count == 1 ? hits[0] : nil
     }
 
-    private static func matches(_ text: String, _ pattern: String) -> Bool {
+    static func matches(_ text: String, _ pattern: String) -> Bool {
         text.range(of: pattern, options: .regularExpression) != nil
     }
 
@@ -122,6 +125,8 @@ enum DoitSubjectSolve {
         if let special = scienceSpecial(p) { return special }
         guard let reply = DoitScience.calculation(stem) else { return nil }
         guard let parsed = parseCalc(reply), !ambiguousValues(stem, title: parsed.title) else { return nil }
+        // 직렬·병렬 회로나 "저항 2개"인데 저항 하나로 계산했으면 믿지 않음 (회로 계산은 scienceMore에서)
+        if matches(p.compact, #"Ω(인|의|짜리)?(저항)?(두|세|네|[2-9])개"#) || matches(p.compact, #"(직렬|병렬)"#) && !parsed.title.contains("합성 저항") { return nil }
         let asked = askedUnit(stem)
         // 계산한 값: 기본 단위 값과 보여 준 단위
         guard let value = DoitScience.quantities(in: parsed.answerHead).first ?? plainNumber(parsed.answerHead) else { return nil }
@@ -190,7 +195,7 @@ enum DoitSubjectSolve {
         return Calc(title: title, steps: steps, answerHead: head)
     }
 
-    private static func plainNumber(_ text: String) -> DoitScience.Quantity? {
+    static func plainNumber(_ text: String) -> DoitScience.Quantity? {
         let t = text.trimmingCharacters(in: .whitespaces)
         guard let m = t.firstMatch(of: #/^(-?[0-9]+(?:\.[0-9]+)?)\s*(배|개)?$/#), let v = Double(String(m.1)) else { return nil }
         return DoitScience.Quantity(dimension: "number", si: v, raw: v, unit: m.2.map(String.init) ?? "")
@@ -394,7 +399,7 @@ enum DoitSubjectSolve {
         let elementUniverse = Set((metals + nonmetals).flatMap(names).map(key))
         list.append(Category(names: ["금속 원소", "금속"], members: Set(metals.flatMap(names).map(key)), universe: elementUniverse, subject: "과학"))
         list.append(Category(names: ["비금속 원소", "비금속"], members: Set(nonmetals.flatMap(names).map(key)), universe: elementUniverse, subject: "과학"))
-        return list
+        return list + moreCategories
     }()
 
     /// 질문에 나온 분류 (더 긴 이름에 들어 있는 짧은 이름은 빼고, 둘 이상이면 nil)
@@ -459,7 +464,7 @@ enum DoitSubjectSolve {
     }
 
     /// 선지의 ㄱ·ㄴ·ㄷ 모음 ("ㄱ, ㄷ" → {ㄱ, ㄷ})
-    private static func letters(_ choice: String) -> Set<Character>? {
+    static func letters(_ choice: String) -> Set<Character>? {
         let t = choice.filter { !" ,·.、".contains($0) }
         guard !t.isEmpty, t.allSatisfy({ "ㄱㄴㄷㄹㅁ".contains($0) }) else { return nil }
         return Set(t)
@@ -553,8 +558,18 @@ enum DoitSubjectSolve {
 
     static func facts(_ p: Problem) -> Found? {
         let c = p.compact
-        let hits = factTable.filter { fact in fact.patterns.contains { matches(c, $0) } }
-        guard let first = hits.first, Set(hits.map { key($0.answers[0]) }).count == 1, !p.negated else { return nil }
+        var hits = (factTable + moreFacts).filter { fact in fact.patterns.contains { matches(c, $0) } }
+        // 꼴이 둘 이상 걸리면 (물가 상승 → 인플레이션 / 화폐 가치) 선지에 답이 있는 사실 하나만
+        if Set(hits.map { key($0.answers[0]) }).count > 1, p.isChoice {
+            hits = hits.filter { fact in p.choices.contains { choice in fact.answers.contains { key($0) == key(choice) } } }
+        }
+        // 사실 꼴 안의 '않는·아닌'("분해되지 않는", "사람이 아닌")은 틀린 것을 묻는 말이 아님
+        //   (꼴에 그 말이 글자 그대로 들어 있을 때만 빼요: ".{0,30}" 같은 틈에 들어간 '않는'은 묻는 말일 수 있어서)
+        let outside = hits.reduce(c) { text, fact in
+            fact.patterns.filter { $0.contains("않") || $0.contains("아닌") }.reduce(text) { $0.replacingOccurrences(of: $1, with: "", options: .regularExpression) }
+        }
+        let negated = ["아닌", "않은", "않는", "틀린", "잘못", "옳지않", "알맞지않", "바르지않", "적절하지않", "해당하지않"].contains { outside.contains($0) }
+        guard let first = hits.first, Set(hits.map { key($0.answers[0]) }).count == 1, !negated else { return nil }
         let steps = [SolutionStep(hint: "개념", work: first.why)]
         if p.isChoice {
             guard let index = uniqueChoice(p, matching: first.answers) else { return nil }
@@ -701,7 +716,7 @@ enum DoitSubjectSolve {
         return Found(answer: country.capital, concept: "나라와 수도", steps: steps)
     }
 
-    private static func yearText(_ year: Int) -> String { year < 0 ? "기원전 \(-year)년" : "\(year)년" }
+    static func yearText(_ year: Int) -> String { year < 0 ? "기원전 \(-year)년" : "\(year)년" }
 
     /// 글 속 사건 이름 (이름의 낱말이 차례대로 나오면: "훈민정음이 반포된" ↔ "훈민정음 반포")
     private static func events(in text: String) -> [(year: Int, names: [String], who: String?, score: Int)] {
@@ -726,7 +741,7 @@ enum DoitSubjectSolve {
         return found.sorted { $0.score > $1.score }
     }
 
-    private static func exactEvent(_ choice: String) -> (year: Int, names: [String], who: String?)? {
+    static func exactEvent(_ choice: String) -> (year: Int, names: [String], who: String?)? {
         let k = key(choice).replacingOccurrences(of: "의", with: "")
         let hits = DoitSocial.eventList.filter { e in !e.approx && e.names.contains { key($0).replacingOccurrences(of: "의", with: "") == k } }
         guard let first = hits.first, Set(hits.map(\.year)).count == 1 else { return nil }
@@ -784,26 +799,53 @@ enum DoitSubjectSolve {
         ("구지 ", "굳이 "), ("윗층", "위층"), ("윗쪽", "위쪽"), ("웃사람", "윗사람"), ("아랫층", "아래층"), ("갯수", "개수"), ("촛점", "초점"),
         ("댓가", "대가"), ("설레임", "설렘"), ("하마트면", "하마터면"), ("귀뜸", "귀띔"), ("뒷풀이", "뒤풀이"), ("어의없", "어이없"),
         ("곱배기", "곱빼기"), ("짜집기", "짜깁기"), ("왠걸", "웬걸"), ("문안하", "무난하"), ("개였다", "개었다"), ("했읍니다", "했습니다"),
-        ("않 돼", "안 돼"), ("않돼", "안 돼"), ("안되요", "안 돼요")
+        ("않 돼", "안 돼"), ("않돼", "안 돼"), ("안되요", "안 돼요"),
+        ("육계장", "육개장"), ("휴계실", "휴게실"), ("계시판", "게시판"), ("잠궜", "잠갔"), ("잠궈", "잠가"), ("담궜", "담갔"), ("담궈", "담가"),
+        ("치뤘", "치렀"), ("치뤄", "치러"), ("머릿말", "머리말"), ("인삿말", "인사말"), ("햇님", "해님"), ("통채", "통째"), ("깡총", "깡충"),
+        ("우뢰", "우레"), ("나뭇군", "나무꾼"), ("삭월세", "사글세"), ("끼여들", "끼어들"), ("떡볶기", "떡볶이"), ("깍뚜기", "깍두기"),
+        ("오뚜기", "오뚝이"), ("눈꼽", "눈곱"), ("생각컨대", "생각건대"), ("익숙치", "익숙지"), ("넉넉치", "넉넉지"), ("섭섭치", "섭섭지"),
+        ("서슴치", "서슴지"), ("짖궂", "짓궂"), ("애띤", "앳된"), ("희노애락", "희로애락"), ("구렛나루", "구레나룻"), ("내노라", "내로라"),
+        ("닥달", "닦달"), ("뇌졸증", "뇌졸중"), ("괜시리", "괜스레"), ("어줍잖", "어쭙잖"), ("오랜동안", "오랫동안"), ("아뭏든", "아무튼")
     ]
+
+    /// 낱말 하나로 쓸 때만 틀린 말 ("살이 찌게 되다"의 찌게는 맞아서, 선지가 그 낱말 하나이거나 조사가 붙었을 때만)
+    static let wordMisspellings: [(wrong: String, right: String)] = [("찌게", "찌개"), ("베게", "베개")]
 
     /// 바르게 쓴 말 (선지에 이 말이 있고 틀린 말이 없으면 바른 선지)
     static let correctSpellings: [String] = [
         "며칠", "금세", "일부러", "설거지", "웬일", "왠지", "웬만", "오랜만", "희한", "역할", "할게", "됐", "돼서", "돼요", "봬요", "어떡해", "어떻게",
         "곰곰이", "깨끗이", "일일이", "틈틈이", "꼼꼼히", "솔직히", "굳이", "위층", "위쪽", "윗사람", "윗니", "웃어른", "아랫니", "아래층", "개수",
-        "초점", "대가", "설렘", "하마터면", "귀띔", "뒤풀이", "어이없", "곱빼기", "짜깁기", "웬걸", "무난하", "거예요", "할게요", "안 돼"
+        "초점", "대가", "설렘", "하마터면", "귀띔", "뒤풀이", "어이없", "곱빼기", "짜깁기", "웬걸", "무난하", "거예요", "할게요", "안 돼",
+        "찌개", "베개", "육개장", "휴게실", "게시판", "잠갔", "잠가", "담갔", "담가", "치렀", "치러", "머리말", "인사말", "해님", "통째", "깡충",
+        "우레", "나무꾼", "사글세", "끼어들", "떡볶이", "깍두기", "오뚝이", "눈곱", "생각건대", "익숙지", "넉넉지", "섭섭지", "서슴지", "짓궂",
+        "앳된", "희로애락", "구레나룻", "닦달", "오랫동안", "아무튼", "뇌졸중", "괜스레"
     ]
 
-    private static func wrongSpelling(in text: String) -> (wrong: String, right: String)? {
+    private static let particles = ["", "이", "가", "을", "를", "은", "는", "도", "에", "와", "과", "로", "으로", "의", "만", "처럼"]
+
+    static func wrongSpelling(in text: String) -> (wrong: String, right: String)? {
         if let hit = misspellings.first(where: { text.contains($0.wrong) }) { return hit }
+        let tokens = text.split(separator: " ").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".,!?'\"‘’“”")) }
+        for pair in wordMisspellings {
+            for token in tokens where token.hasPrefix(pair.wrong) {
+                let rest = String(token.dropFirst(pair.wrong.count))
+                if rest.isEmpty ? tokens.count == 1 : particles.contains(rest) { return pair }
+            }
+        }
         // 띄어쓰기: '-ㄹ 수 있다'의 '수'는 의존 명사라 띄어 써요
-        if matches(text, #"[가-힣]수(있|없)"#) || matches(text, #"(할|갈|볼|올|먹을|읽을|쓸|될|살)수\s"#) || matches(text, #"수(있다|있어|있는|있을|없다|없어|없는|없을)"#) { return ("붙여 쓴 '수'", "띄어 쓴 '-ㄹ 수 있다'") }
+        if matches(text, #"[가-힣]수(있|없)"#) || matches(text, #"(할|갈|볼|올|먹을|읽을|쓸|될|살)수\s"#) || matches(text, #"수(있다|있어|있는|있을|없다|없어|없는|없을)"#)
+            || matches(text, #"(할|갈|볼|올|먹을|읽을|쓸|될|살|알|잘)수(도|가|는|밖에)\s?(있|없)"#) { return ("붙여 쓴 '수'", "띄어 쓴 '-ㄹ 수 있다'") }
+        // 의존 명사 '것'도 띄어 써요 ("먹을것" → "먹을 것")
+        if matches(text, #"[가-힣](을|는|은)것(이|을|은|도|만|들|\s|$|[.,!?])"#) { return ("붙여 쓴 '것'", "띄어 쓴 '-ㄹ 것'") }
+        // 조사는 앞말에 붙여 써요 ("학교 에" → "학교에")
+        if matches(text, #"[가-힣] (에|을|를|에서|에게|에게서|으로|처럼|까지|부터|한테|께서|조차|마저)(\s|$|[.,!?])"#) { return ("띄어 쓴 조사", "조사는 앞말에 붙여 써요") }
         return nil
     }
 
-    private static func rightSpelling(in text: String) -> String? {
+    static func rightSpelling(in text: String) -> String? {
         if let hit = correctSpellings.first(where: { text.contains($0) }) { return hit }
         if matches(text, #"[가-힣] 수 (있|없)"#) { return "-ㄹ 수 있다" }
+        if matches(text, #"(을|는|은|할|갈|볼|올|쓸|될|살|알|잘) (것|데|줄|바|뿐|만큼)"#) { return "띄어 쓴 의존 명사" }
         return nil
     }
 
@@ -1004,6 +1046,12 @@ enum DoitSubjectSolve {
         } else if isVerbLike(next) {
             allowed = person ? ["who", "that"] : ["which", "that"]; role = "뒤에 동사(\(next))가 바로 와서 주격"
         } else if subjectPronouns.contains(next) || next.first?.isUppercase == true {
+            // 관계부사(where · when …)가 선지에 있으면 뒤 동사가 목적어를 갖는지 몰라서 풀지 않음 ("the house ___ I live")
+            // (뒤 동사가 목적어를 꼭 갖는 동사면 목적격: "the book ___ I bought")
+            let transitive: Set<String> = ["buy", "make", "meet", "see", "write", "read", "like", "love", "want", "give", "take", "find", "build", "draw",
+                                           "eat", "cook", "know", "visit", "watch", "choose", "wear", "send", "lose", "borrow", "paint", "bake", "invite", "call"]
+            let objectVerb = b.right.dropFirst().prefix(3).contains { w in DoitEnglish.verbBase(w).map { transitive.contains($0) && w != $0 || transitive.contains(w) && w == $0 } ?? false }
+            guard !options.contains(where: { ["where", "when", "why", "how"].contains($0) }) || objectVerb else { return nil }
             allowed = person ? ["who", "whom", "that"] : ["which", "that"]; role = "뒤에 주어(\(next))와 동사가 와서 목적격"
         } else { return nil }
         let why = ["선행사 '\(antecedent)'는 \(person ? "사람" : "사물·동물")이에요.", "빈칸 \(role) 관계대명사가 필요해요.",
@@ -1076,9 +1124,24 @@ enum DoitSubjectSolve {
 
     private enum Person { case first, third, plural }
 
+    private static let collectiveNouns: Set<String> = ["team", "family", "class", "group", "staff", "audience", "crowd", "committee", "police", "government", "jury", "band", "club"]
+    private static let amountNouns: Set<String> = ["dollars", "minutes", "hours", "years", "miles", "kilometers", "meters", "days", "weeks", "months", "seconds", "won", "pounds", "euros", "kilograms"]
+    private static let numberWords: Set<String> = ["two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "twenty", "thirty", "fifty", "hundred", "a"]
+
+    /// "Two dollars", "Ten minutes" (수 + 단위)
+    private static func isAmount(_ words: [String]) -> Bool {
+        words.count == 2 && (numberWords.contains(words[0]) || Int(words[0]) != nil) && amountNouns.contains(words[1])
+    }
+
     /// 주어의 인칭·수 (모르면 nil)
     private static func person(_ words: [String], original: String) -> Person? {
         guard !words.isEmpty else { return nil }
+        // 금액·시간·거리 덩어리(Two dollars)는 뜻에 따라 달라서 여기서는 모름, 집합 명사(team, family)도 모름
+        if isAmount(words) { return nil }
+        if let last = words.last, collectiveNouns.contains(last) || ["mathematics", "physics", "economics", "politics", "species", "series", "means", "lens"].contains(last) { return nil }
+        // every · each + 단수 명사, each of · one of + 복수 명사 → 단수
+        if ["every", "each"].contains(words[0]), words.count == 2, words[1] != "of" { return .third }
+        if ["each", "one"].contains(words[0]), words.count >= 3, words.count <= 4, words[1] == "of", words.last!.hasSuffix("s") || ["children", "people", "men", "women"].contains(words.last!) { return .third }
         // 꾸미는 말이 붙은 주어 ("The boys in the park")·의문사·there는 주어를 확실히 모름
         let unsure: Set<String> = ["in", "of", "on", "at", "with", "from", "for", "near", "under", "behind", "who", "which", "that",
                                    "what", "where", "when", "why", "how", "there", "here"]
@@ -1108,6 +1171,42 @@ enum DoitSubjectSolve {
         if last.hasSuffix("s"), !last.hasSuffix("ss"), !["bus", "news", "class", "glass"].contains(last) { return .plural }
         if ["someone", "one"].contains(last) { return .third }
         return .third
+    }
+
+    /// 때 단서가 없을 때: 주어와 수가 맞는 정형 동사(현재·과거·미래) 선지가 하나뿐이면 그것
+    /// ("Every student ___ a uniform." → wears, -ing·to부정사는 혼자 동사가 될 수 없고 wear는 수가 안 맞음)
+    private static func agreementOnly(_ p: Problem, _ options: [String], base: String, who: Person, b: Blank) -> Found? {
+        func agrees(_ o: String) -> Bool {
+            switch o {
+            case "am": return who == .first
+            case "is": return who == .third
+            case "are": return who == .plural
+            case "was": return who != .plural
+            case "were": return who == .plural
+            default: break
+            }
+            if base == "be" { return false }
+            if DoitEnglish.pastForms(base).contains(o) { return true }   // read · put처럼 원형과 과거형이 같으면 과거로도 맞음
+            if o == base { return who != .third }
+            if o == DoitEnglish.thirdPerson(base) { return who == .third }
+            if DoitEnglish.pastForms(base).contains(o) { return true }
+            if o.hasPrefix("will ") { return true }
+            if o.hasPrefix("has ") { return who == .third }
+            if o.hasPrefix("have ") { return who != .third }
+            return false
+        }
+        var candidates = options.filter(agrees)
+        // already · yet: 현재완료 (과거형 선지가 없을 때만)
+        let whole = " " + b.whole + " "
+        if candidates.count > 1, whole.contains(" already ") || whole.hasSuffix(" yet ") || whole.contains(" yet?") {
+            let perfect = candidates.filter { $0.hasPrefix("has ") || $0.hasPrefix("have ") }
+            let past = candidates.filter { DoitEnglish.pastForms(base).contains($0) }
+            if perfect.count == 1, past.isEmpty { candidates = perfect }
+        }
+        guard candidates.count == 1 else { return nil }
+        let subjectWord = who == .first ? "1인칭 I" : who == .third ? "3인칭 단수" : "복수(또는 you)"
+        let why = ["빈칸은 주어 뒤 동사 자리라 -ing·to부정사·원형 be는 올 수 없어요.", "주어가 \(subjectWord)라서 수가 맞는 것: \(candidates[0])"]
+        return choose(p, options, allowed: [candidates[0]], concept: "주어와 동사의 수일치", why: why)
     }
 
     /// 때 단서 (yesterday → 과거 …). 둘 이상이면 nil
@@ -1187,6 +1286,8 @@ enum DoitSubjectSolve {
         } else if let first = left.first, ["do", "does", "did"].contains(first), left.count >= 2, left.count <= 4,
                   !left.dropFirst().contains(where: { DoitEnglish.verbBase($0) != nil && !personNouns.contains($0) && !thingNouns.contains($0) && !["she", "he", "you", "they", "we", "i", "it"].contains($0) }) {
             allowed = [base]; why = ["\(first.capitalized)로 시작하는 의문문에서 주어 뒤에는 동사원형을 써요."]; concept = "의문문의 동사원형"
+        } else if last == "to", leftText.hasSuffix("forward to") {
+            allowed = [ing]; why = ["look forward to의 to는 전치사라 뒤에 동명사(-ing)를 써요.", "\(base) → \(ing)"]; concept = "look forward to + -ing"
         } else if last == "to" {
             guard let v = listedVerb(previous), infinitiveVerbs.contains(v) || bothVerbs.contains(v) else { return nil }
             allowed = [base]; why = ["to부정사: to + 동사원형"]; concept = "to부정사"
@@ -1209,16 +1310,46 @@ enum DoitSubjectSolve {
             else { allowed = [ing, "to " + base]; why = ["\(v)는 동명사와 to부정사를 모두 목적어로 써요."]; concept = "동명사·to부정사" }
         } else if gerundPhrases.contains(where: { leftText.hasSuffix($0) || leftText.hasSuffix($0.replacingOccurrences(of: "give", with: "gave")) }) {
             allowed = [ing]; why = ["'\(left.suffix(2).joined(separator: " "))' 뒤에는 동명사(-ing)를 써요.", "\(base) → \(ing)"]; concept = "동명사"
+        } else if ["me", "you", "him", "her", "us", "them"].contains(last), ["make", "makes", "made", "let", "lets", "had"].contains(previous) {
+            allowed = [base]; why = ["사역동사 \(previous) + 목적어 + 동사원형"]; concept = "사역동사"
+        } else if ["me", "you", "him", "her", "us", "them"].contains(last),
+                  ["tell", "tells", "told", "ask", "asks", "asked", "want", "wants", "wanted", "advise", "advised", "allow", "allowed",
+                   "expect", "expected", "order", "ordered", "encourage", "encouraged"].contains(previous) {
+            allowed = ["to " + base]; why = ["\(previous) + 목적어 + to부정사"]; concept = "목적격 보어 to부정사"
+        } else if left.first == "if", left.count >= 2, left.count <= 3, b.right.contains(where: { ["would", "could", "might"].contains($0) }) {
+            allowed = base == "be" ? ["were"] : pastForms
+            why = ["If + 주어 + 과거형 …, 주어 + would/could + 동사원형: 가정법 과거 (be동사는 주어와 상관없이 were)"]; concept = "가정법 과거"
         } else {
             // 주어 + 빈칸: 때 단서로 시제, 주어로 인칭
             var subject = left
             let adverbs: Set<String> = ["always", "usually", "often", "sometimes", "never", "also", "really"]
             while let w = subject.last, adverbs.contains(w) { subject.removeLast() }
             guard !subject.isEmpty, subject.count <= 4, !subject.contains(where: { modalsList.contains($0) || ["is", "are", "was", "were", "am", "has", "have", "does", "did", "do"].contains($0) }),
-                  !["i", "you", "he", "she", "we", "they", "it"].contains(b.right.first ?? ""), let time = timeCue(b) else { return nil }
+                  !["i", "you", "he", "she", "we", "they", "it"].contains(b.right.first ?? "") else { return nil }
             let originalLeft = b.sentence.components(separatedBy: "___").first ?? ""
             let originalSubject = originalLeft.split(separator: " ").suffix(subject.count + (left.count - subject.count)).joined(separator: " ")
-            let who = person(subject, original: originalSubject)
+            // 금액·시간 덩어리 + enough · too much … → 단수 ("Two dollars is enough")
+            let amountCue: Set<String> = ["enough", "too", "a", "not", "quite", "very", "much", "plenty", "worth", "expensive", "cheap", "long", "short", "far"]
+            let who: Person? = isAmount(subject) ? (amountCue.contains(b.right.first ?? "") ? .third : nil) : person(subject, original: originalSubject)
+            let since = matches(" " + b.whole + " ", #" since ((1[89]|20)[0-9]{2}|last|yesterday|i|you|he|she|we|they|it|my|his|her|our|their|the|then|childhood) "#)
+            if since {
+                // since + 시점: 현재완료
+                guard let who else { return nil }
+                allowed = Set(ppForms.map { (who == .third ? "has " : "have ") + $0 })
+                why = ["since + 시점(…부터 지금까지): 현재완료 have/has + 과거분사", "\(allowed.sorted().joined(separator: " / "))"]; concept = "현재완료 (since)"
+                return choose(p, options, allowed: allowed, concept: concept, why: why)
+            }
+            guard let time = timeCue(b) else {
+                // 때 단서가 없으면 주어와 수가 맞는 정형 동사가 하나뿐일 때만
+                guard let who else { return nil }
+                return agreementOnly(p, options, base: base, who: who, b: b)
+            }
+            if base == "be", let next = b.right.first, next.hasSuffix("ing"), time == .future || time == .now, let who {
+                // be going to · 진행형의 be동사: 주어에 맞는 현재형
+                allowed = [who == .first ? "am" : who == .third ? "is" : "are"]
+                why = ["뒤에 \(next)가 있어 be동사 현재형, 주어에 맞춰 \(allowed.first!)"]; concept = "be동사와 주어의 수일치"
+                return choose(p, options, allowed: allowed, concept: concept, why: why)
+            }
             switch time {
             case .past:
                 if base == "be" {
@@ -1260,6 +1391,12 @@ enum DoitSubjectSolve {
             let others = known.filter { !members.contains($0) }
             if !members.isEmpty { hints.append("자료: " + members.map { "\(circled($0 + 1)) \(p.choices[$0])" }.joined(separator: ", ") + "은(는) \(cat.names[0])이에요.") }
             if !others.isEmpty { hints.append("자료: " + others.map { "\(circled($0 + 1)) \(p.choices[$0])" }.joined(separator: ", ") + "은(는) \(cat.names[0])이 아니에요.") }
+        }
+        // 영어 문장 선지: 규칙으로 확실히 틀린 곳을 찾은 선지
+        if p.choices.allSatisfy(DoitSentenceCheck.isEnglishSentence) {
+            for (i, choice) in p.choices.enumerated() {
+                if let issue = DoitSentenceCheck.error(in: choice) { hints.append("어법 규칙: \(circled(i + 1)) \(choice) → \(issue.why)") }
+            }
         }
         let englishInStem = englishRuns(p.stem)
         if Set(englishInStem.map { $0.lowercased() }).count == 1, let word = englishInStem.first, let list = meanings(of: word) {

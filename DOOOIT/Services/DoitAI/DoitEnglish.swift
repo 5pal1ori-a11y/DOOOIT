@@ -3183,4 +3183,19 @@ extension DoitEnglish {
 
     /// 불규칙 복수형 → 단수 ("children" → "child")
     static func singular(ofIrregular plural: String) -> String? { EngNouns.pluralToSingular[plural.lowercased()] }
+
+    /// 규칙 변화로 잘못 만든 동사 모양인지 ("goed", "eated")
+    static func isWrongVerbForm(_ word: String) -> Bool { EngVerbs.wrongForms[word.lowercased()] != nil }
+
+    /// 비교급·최상급을 만들 수 있는 흔한 형용사
+    static var commonAdjectives: [String] { EngAdjectives.common }
+
+    /// 셀 수 없는 명사
+    static var uncountableNouns: Set<String> { EngNouns.uncountable }
+
+    /// 모음 소리로 시작하는지 (a / an)
+    static func vowelSound(_ word: String) -> Bool { EngText.startsWithVowelSound(word) }
+
+    /// 원형 동사 목록에 있는지
+    static func isKnownBaseVerb(_ word: String) -> Bool { EngVerbs.isBaseVerb(word.lowercased()) }
 }
