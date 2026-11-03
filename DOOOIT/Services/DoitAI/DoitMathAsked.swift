@@ -228,6 +228,9 @@ enum DoitMathAsked {
         if let s = areaBetween(t) { return s }
         if let s = roundTrip(t) { return s }
         if let s = repeatingDecimal(t) { return s }
+        if let s = comparedNumber(t) { return s }
+        if let s = twoItemPrices(t) { return s }
+        if let s = sufficientCondition(t) { return s }
         return nil
     }
 
@@ -710,6 +713,78 @@ enum DoitMathAsked {
         return Solved(kind: .calc, topic: "순환소수를 분수로", concept: "순환소수 = (전체 수 − 순환하지 않는 부분) / (순환마디 자리 수만큼 9, 그 뒤에 순환하지 않는 소수 자리 수만큼 0)",
                       steps: [SolutionStep(hint: "순환마디", work: block), SolutionStep(hint: "분수로 바꾸면", work: "\(top)/\(denominator) = \(answer)")],
                       answer: denominator / g == 1 ? "\(top / g)" : answer)
+    }
+
+    /// "어떤 수의 3배에 5를 더하면 그 수의 5배보다 7만큼 작다" → 3x + 5 = 5x − 7
+    private static func comparedNumber(_ t: String) -> Solved? {
+        guard let m = match(t, #"어떤\s*수(?:의\s*(\d+)\s*배)?\s*(?:에|에서)\s*(\d+)\s*(?:을|를)\s*(더하면|빼면|더한\s*수는|뺀\s*수는)\s*(?:그\s*수|어떤\s*수)(?:의\s*(\d+)\s*배)?보다\s*(\d+)\s*만큼\s*(작|크|많|적)"#),
+              let d = Double(m[5]) else { return nil }
+        let c = Double(m[4]) ?? 1
+        let a = Double(m[1]) ?? 1, b = (Double(m[2]) ?? 0) * (m[3].hasPrefix("더") ? 1 : -1)
+        // ax + b = cx ∓ d
+        let right = m[6] == "작" || m[6] == "적" ? -d : d
+        guard abs(a - c) > 1e-12 else { return nil }
+        let x = (right - b) / (a - c)
+        guard isNice(x) else { return nil }
+        let leftText = "\(a == 1 ? "" : f(a))x \(b >= 0 ? "+" : "−") \(f(abs(b)))"
+        let rightText = "\(f(c))x \(right >= 0 ? "+" : "−") \(f(abs(right)))"
+        return Solved(kind: .linear, topic: "어떤 수 구하기 (일차방정식)", concept: "어떤 수를 x로 놓고 '~보다 d만큼 작다'는 '(그것) − d'로 식을 세워요.",
+                      steps: [SolutionStep(hint: "어떤 수를 x라 하면", work: "\(leftText) = \(rightText)"),
+                              SolutionStep(hint: "x항은 왼쪽, 수는 오른쪽으로", work: "\(f(a - c))x = \(f(right - b))"),
+                              SolutionStep(hint: "풀면", work: "x = \(f(x))")],
+                      answer: f(x))
+    }
+
+    /// "사과 3개와 배 2개의 값은 3400원이고, 사과 1개와 배 2개의 값은 2200원이다. 사과 한 개의 값은?" → 연립방정식
+    private static func twoItemPrices(_ t: String) -> Solved? {
+        let unit = #"(?:개|자루|권|송이|병|장|봉지|켤레|마리)"#
+        let pattern = "([가-힣]+)\\s*(\\d+)\\s*\(unit)\\s*(?:와|과)\\s*([가-힣]+)\\s*(\\d+)\\s*\(unit)\\s*(?:의|을|를)?\\s*(?:값|가격|금액)?(?:은|는|이|가)?\\s*(?:모두|합해서|합하여)?\\s*(\\d+)\\s*원"
+        let all = matches(t, pattern)
+        guard all.count == 2, all[0][1] == all[1][1], all[0][3] == all[1][3], all[0][1] != all[0][3],
+              let a1 = Double(all[0][2]), let b1 = Double(all[0][4]), let p1 = Double(all[0][5]),
+              let a2 = Double(all[1][2]), let b2 = Double(all[1][4]), let p2 = Double(all[1][5]) else { return nil }
+        let det = a1 * b2 - a2 * b1
+        guard abs(det) > 1e-12 else { return nil }
+        let x = (p1 * b2 - p2 * b1) / det, y = (a1 * p2 - a2 * p1) / det
+        guard x > 0, y > 0, isNice(x), isNice(y) else { return nil }
+        let first = all[0][1], second = all[0][3]
+        let tail = t.components(separatedBy: "원").last ?? t
+        let answer: String
+        if has(tail, [first]) && !has(tail, [second]) { answer = "\(f(x))원" }
+        else if has(tail, [second]) && !has(tail, [first]) { answer = "\(f(y))원" }
+        else { return nil }
+        return Solved(kind: .system, topic: "연립방정식의 활용 (물건 값)", concept: "두 물건의 한 개 값을 x, y로 놓고 주어진 두 조건으로 연립방정식을 세워요.",
+                      steps: [SolutionStep(hint: "\(first) 한 개를 x원, \(second) 한 개를 y원이라 하면", work: "\(f(a1))x + \(f(b1))y = \(f(p1)), \(f(a2))x + \(f(b2))y = \(f(p2))"),
+                              SolutionStep(hint: "연립해서 풀면", work: "x = \(f(x)), y = \(f(y))")],
+                      answer: answer)
+    }
+
+    /// "p: x > 2, q: x > a에 대하여 p가 q이기 위한 충분조건이 되도록 하는 a의 최댓값" (한쪽으로 열린 같은 방향 범위만)
+    /// 충분조건: P ⊂ Q, 필요조건: Q ⊂ P
+    private static func sufficientCondition(_ t: String) -> Solved? {
+        guard let pm = match(t, "p\\s*:\\s*x\\s*(>|≥|<|≤)\\s*(\(num))"), let n = value(pm[2]),
+              let qm = match(t, #"q\s*:\s*x\s*(>|≥|<|≤)\s*([a-w])(?![a-z0-9])"#),
+              let ask = match(t, "\(qm[2])\\s*의\\s*(최댓값|최솟값)") else { return nil }
+        let sufficient: Bool
+        if has(t, ["충분조건"]) && !has(t, ["필요조건"]) { sufficient = true }
+        else if has(t, ["필요조건"]) && !has(t, ["충분조건", "필요충분"]) { sufficient = false }
+        else { return nil }
+        let pUp = pm[1] == ">" || pm[1] == "≥", qUp = qm[1] == ">" || qm[1] == "≥"
+        guard pUp == qUp else { return nil }
+        let pStrict = pm[1] == ">" || pm[1] == "<", qStrict = qm[1] == ">" || qm[1] == "<"
+        // 작은 쪽 집합 ⊂ 큰 쪽 집합. x > n ⊂ x > a ⇔ a ≤ n (x ≥ n ⊂ x > a 일 때만 a < n)
+        let inner = sufficient ? (strict: pStrict, isP: true) : (strict: qStrict, isP: false)
+        let outerStrict = sufficient ? qStrict : pStrict
+        let strictBound = !inner.strict && outerStrict
+        // a의 범위: 위로 열린 범위(x > …)면 충분조건일 때 a ≤ n, 필요조건일 때 a ≥ n (아래로 열리면 반대)
+        let aBelow = (pUp && sufficient) || (!pUp && !sufficient)
+        let wantsMax = ask[1] == "최댓값"
+        guard wantsMax == aBelow, !strictBound else { return nil }
+        let rangeText = "\(qm[2]) \(aBelow ? "≤" : "≥") \(f(n))"
+        return Solved(kind: .inequality, topic: "충분조건·필요조건과 진리집합", concept: "p가 q이기 위한 충분조건이면 P ⊂ Q, 필요조건이면 Q ⊂ P (P, Q는 조건을 참이 되게 하는 x의 모임)",
+                      steps: [SolutionStep(hint: sufficient ? "P ⊂ Q 가 되려면" : "Q ⊂ P 가 되려면", work: rangeText),
+                              SolutionStep(hint: "\(qm[2])의 \(ask[1])", work: f(n))],
+                      answer: f(n))
     }
 }
 

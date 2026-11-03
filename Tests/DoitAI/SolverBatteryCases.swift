@@ -515,6 +515,8 @@ func runSolverBatteryCases() {
         if right { correct += 1 } else { wrong.append("\(label) → 엔진 답 '\(answer)', 정답 '\(item.answer)'") }
         check("풀이 배터리 오답 없음: \(label)", right, "엔진 답 '\(answer)', 정답 '\(item.answer)'")
     }
+    // 틀린 답은 하나도 없어야 함 (못 푸는 건 괜찮아요)
+    check("풀이 배터리: 오답 0개", wrong.isEmpty, "오답 \(wrong.count)개")
     print("풀이 배터리: 정답 \(correct) / 전체 \(solverBattery.count), 못 풂 \(unsolved.count), 오답 \(wrong.count)")
     for w in wrong { print("  ✗ 오답: " + w) }
     for u in unsolved { print("  · 못 풂: " + u) }
