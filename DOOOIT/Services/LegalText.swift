@@ -6,7 +6,7 @@ import Foundation
 /// 영어 사전(Free Dictionary API), 모델 받기(Hugging Face, 개인정보 없음)뿐
 /// 내용을 바꾸면 version을 올려서 다시 동의를 받음
 enum LegalText {
-    static let version = 1
+    static let version = 2
     static let effectiveDate = "2026년 11월 3일"
     static let service = "DOOOIT (두잇)"
     /// 문의처
@@ -52,7 +52,7 @@ enum LegalText {
         """),
         Section(title: "제6조 (콘텐츠의 권리)", body: """
         이용자가 앱에 넣은 사진, 메모, 필기, 학습 기록의 권리는 이용자에게 있어요.
-        이 자료는 기기에 저장되며 운영자가 따로 모으지 않아요.
+        이 자료는 기기(iCloud 동기화를 켜면 본인 iCloud)에 저장되며 운영자가 따로 모으지 않아요.
         """),
         Section(title: "제7조 (서비스의 변경과 중단)", body: """
         운영자는 기능을 고치거나 바꿀 수 있어요. 중요한 변경은 앱 안에서 알려요.
@@ -83,7 +83,7 @@ enum LegalText {
         • 계정: 이름(닉네임), 이메일 주소. Apple·Google 로그인을 쓰면 그 서비스가 알려 주는 이름, 이메일, 계정 식별값
         • 학습 자료: 플랜, 공부 시간, 단어장, 오답노트(문제 사진, 필기, 답), 메모, AI와 나눈 대화
         • 랭킹에 참여한 경우: Game Center 닉네임과 공부 시간
-        학습 자료는 모두 이 기기 안에만 저장돼요. 운영자는 서버를 두지 않으며 이 정보를 모으지 않아요.
+        학습 자료는 이 기기 안에 저장되고, iCloud 동기화를 켜면 본인의 iCloud에도 저장돼요. 운영자는 서버를 두지 않으며 이 정보를 모으지 않아요.
         """),
         Section(title: "2. 처리 목적", body: """
         로그인과 계정 구분, 학습 기록 저장과 통계, 오답노트·AI 풀이, 랭킹 표시를 위해서만 써요.
@@ -91,10 +91,12 @@ enum LegalText {
         """),
         Section(title: "3. 보관 기간과 파기", body: """
         이용자가 앱에서 지우거나 [계정 삭제]를 하거나 앱을 지울 때까지 기기에 보관돼요.
-        계정을 삭제하면 기기 안의 계정 정보와 학습 자료를 바로 지워요.
+        계정을 삭제하면 기기 안의 계정 정보와 학습 자료를 바로 지우고, iCloud 동기화를 켰다면 iCloud의 자료도 지워요.
+        iCloud에 남은 자료는 iPhone 설정 → Apple 계정 → iCloud → 저장 공간 관리에서도 지울 수 있어요.
         """),
         Section(title: "4. 밖으로 보내는 정보 (외부 서비스)", body: """
         앱은 아래 경우에만 기기 밖으로 정보를 보내요.
+        • Apple iCloud (iCloud 동기화를 켰을 때만): 학습 자료를 본인 iCloud 계정에 암호화해 저장하고 같은 Apple ID 기기끼리 이어 줘요. 운영자는 볼 수 없어요.
         • Apple (로그인, Game Center 랭킹): 로그인 정보, 랭킹에 참여하면 공부 시간
         • Google (Google 로그인): 로그인 정보
         • DuckDuckGo (두잇 AI 인터넷 검색, 켰을 때만): 검색어

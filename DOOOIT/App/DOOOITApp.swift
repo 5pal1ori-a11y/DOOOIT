@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import CoreData
+import Combine
 
 @main
 struct DOOOITApp: App {
@@ -59,6 +61,16 @@ struct DOOOITApp: App {
                 }
                 // Google 로그인 화면에서 돌아온 주소
                 .onOpenURL { url in _ = AuthManager.handleGoogleURL(url) }
+                // iCloud 동기화를 켜거나 끄면 저장소를 다시 엶
+                .onReceive(NotificationCenter.default.publisher(for: AccountStore.storeChanged)) { _ in
+                    container = AccountStore.container(for: auth.currentUser?.id)
+                    attachServices()
+                }
+                // iCloud에서 자료를 받아 오면: 기기마다 만든 기본 카테고리 합치기
+                .onReceive(NotificationCenter.default.publisher(for: .NSPersistentStoreRemoteChange).debounce(for: .seconds(2), scheduler: RunLoop.main)) { _ in
+                    guard AccountStore.isSyncEnabled(for: auth.currentUser?.id) else { return }
+                    SeedData.mergeDuplicateCategories(container.mainContext)
+                }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .background || phase == .inactive {

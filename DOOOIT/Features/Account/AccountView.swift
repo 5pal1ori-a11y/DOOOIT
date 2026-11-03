@@ -24,6 +24,9 @@ struct AccountView: View {
     @State private var showSignOut = false
     @State private var showDelete = false
     @State private var showResetRecords = false
+    /// iCloud 동기화 (같은 Apple ID 기기끼리)
+    @State private var syncOn = false
+    @State private var confirmSyncTakeover = false
 
     var body: some View {
         NavigationStack {
@@ -136,6 +139,14 @@ struct AccountView: View {
     private var accountSettings: some View {
         List {
             Section {
+                Toggle(isOn: Binding(get: { syncOn }, set: { changeSync($0) })) {
+                    item("iCloud 동기화", "icloud", Color(hex: "#3B82F6"))
+                }
+                .disabled(!AccountStore.iCloudAvailable && !syncOn)
+            } footer: {
+                Text(AccountStore.iCloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
+            }
+            Section {
                 LabeledContent { Text(appVersion) } label: { item("버전", "info", Color.gray) }
                 NavigationLink { LegalDocumentView(kind: .terms) } label: { item("이용약관", "doc.text", Color.gray) }
                 NavigationLink { LegalDocumentView(kind: .privacy) } label: { item("개인정보 처리방침", "hand.raised", Color.gray) }
@@ -157,6 +168,12 @@ struct AccountView: View {
         .tint(Theme.accent)
         .navigationTitle("계정 설정")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { syncOn = AccountStore.isSyncEnabled(for: auth.currentUser?.id) }
+        .confirmationDialog("다른 계정이 이 기기에서 iCloud를 쓰고 있어요", isPresented: $confirmSyncTakeover, titleVisibility: .visible) {
+            Button("이 계정으로 바꾸기") { applySync(true) }
+        } message: {
+            Text("한 기기에서는 한 계정만 iCloud로 이어져요.")
+        }
         .confirmationDialog("로그아웃할까요?", isPresented: $showSignOut, titleVisibility: .visible) {
             Button("로그아웃", role: .destructive) {
                 if studyTimer.isActive { studyTimer.stop() }
@@ -285,8 +302,33 @@ struct AccountView: View {
         return "\(version) (\(build))"
     }
 
+    /// 동기화 켜기·끄기 (다른 계정이 쓰고 있으면 먼저 물어봄)
+    private func changeSync(_ on: Bool) {
+        if on, AccountStore.syncOwnedByOther(than: auth.currentUser?.id) { confirmSyncTakeover = true; return }
+        applySync(on)
+    }
+
+    private func deleteEach<T: PersistentModel>(_ type: T.Type) {
+        for item in (try? context.fetch(FetchDescriptor<T>())) ?? [] { context.delete(item) }
+    }
+
+    private func applySync(_ on: Bool) {
+        guard let id = auth.currentUser?.id else { return }
+        syncOn = on
+        Haptics.tap()
+        AccountStore.setSync(on, for: id)
+    }
+
     private func deleteAccount() {
         if studyTimer.isActive { studyTimer.stop() }
+        // iCloud로 이어 쓰던 계정: 하나씩 지워야 iCloud에서도 지워짐 (한꺼번에 지우기는 iCloud로 전해지지 않음)
+        if AccountStore.isSyncEnabled(for: auth.currentUser?.id) {
+            deleteEach(Plan.self); deleteEach(PlanCategory.self); deleteEach(Word.self); deleteEach(MathNote.self); deleteEach(Memo.self)
+            deleteEach(StudySession.self); deleteEach(ExamPlan.self); deleteEach(StudyContent.self); deleteEach(QuizRecord.self)
+            deleteEach(AIQuestion.self); deleteEach(WeakConcept.self)
+            try? context.save()
+            if let id = auth.currentUser?.id { AccountStore.clearSync(for: id) }
+        }
         try? context.delete(model: Plan.self)
         try? context.delete(model: Word.self)
         try? context.delete(model: MathNote.self)
