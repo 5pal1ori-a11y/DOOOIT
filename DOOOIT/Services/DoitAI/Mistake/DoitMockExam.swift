@@ -254,7 +254,9 @@ enum DoitMockExam {
             return GradeResult(verdict: .wrong, score: 0, method: "답 없음", reasons: ["답을 쓰지 않았어요"],
                                answerUsed: question.item.answer, answerSource: "모의고사")
         }
-        return DoitPractice.grade(question.item, answer: trimmed)
+        // 저장된 정답 글을 그대로 넣으면 (정답이 여럿 "goes|go → goes") 첫 정답으로
+        let given = trimmed == question.item.answer && trimmed.contains("|") ? (DoitGrader.alternatives(trimmed).first ?? trimmed) : trimmed
+        return DoitPractice.grade(question.item, answer: given)
     }
 
     /// 맞음 여부 (확실히 정답일 때만 맞음 — 확인 필요·부분 정답은 틀림으로 셈)

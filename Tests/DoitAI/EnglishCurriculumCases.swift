@@ -207,7 +207,7 @@ func runEnglishCurriculumCases() async {
     let sources = units.prefix(12).map { MockExamSource(key: "영어|\($0.name)|\($0.name)", subject: "영어", unit: $0.name, concept: $0.name, mastery: 0.2, wrongCount: 2) }
     let exam = DoitMockExam.assemble(weak: Array(sources), scope: .english)
     check("모의고사 영어 문법: 10문제", exam.questions.count == DoitMockExam.size, "\(exam.questions.count)")
-    check("모의고사 영어 문법: 모두 정답 확인", exam.questions.allSatisfy { DoitMockExam.isCorrect($0, answer: DoitMockExam.answerText($0.item).hasPrefix("①") || $0.isChoice ? $0.item.answer : DoitMockExam.answerText($0.item)) })
+    check("모의고사 영어 문법: 모두 정답 확인", exam.questions.allSatisfy { DoitMockExam.isCorrect($0, answer: $0.item.answer) && DoitMockExam.isCorrect($0, answer: $0.isChoice ? $0.item.answer : DoitMockExam.answerText($0.item)) })
     check("모의고사 영어 문법: 객관식·단답 섞임", exam.questions.contains { $0.isChoice } && exam.questions.contains { !$0.isChoice })
     let fallback = DoitMockExam.assemble(weak: [], scope: .english)
     check("모의고사 영어 (취약 개념 없음): 공통영어 단원에서 문제", fallback.questions.count >= 5, "\(fallback.questions.count)")

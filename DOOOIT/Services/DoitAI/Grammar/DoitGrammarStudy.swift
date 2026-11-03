@@ -125,7 +125,7 @@ extension DoitGrammar {
             case .blank, .transform:
                 guard item.ko == nil else { continue }
                 add(OXItem(statement: oxStatement(filled(item.text, item.answer)), isTrue: true, explanation: "맞아요. \(item.note)"))
-                if let wrong = item.wrong.first {
+                if item.kind == .blank, let wrong = item.wrong.first {
                     add(OXItem(statement: oxStatement(filled(item.text, wrong)), isTrue: false, explanation: "틀려요. '\(wrong)' 대신 '\(item.answer)'. \(item.note)"))
                 }
             case .order:
@@ -198,7 +198,7 @@ extension DoitGrammar {
         var others: [String] = []
         for (index, word) in all.enumerated() where index > 0 {
             let lower = word.lowercased()
-            guard !partWords.contains(lower), !avoid.contains(lower), lower.count >= 2 || lower == "a",
+            guard lower.contains(where: \.isLetter), !partWords.contains(lower), !avoid.contains(lower), lower.count >= 2 || lower == "a",
                   !others.contains(where: { $0.lowercased() == lower }), !part.lowercased().contains(lower) else { continue }
             others.append(word)
         }
@@ -349,6 +349,11 @@ extension DoitGrammar {
     /// 모의고사·연습에 쓸 문제 (객관식 · 단답 · O/X)
     static func practiceItems(_ list: [GrammarUnit], concept: String) -> [PracticeItem] {
         var result: [PracticeItem] = []
+        /// 단답: 오답 보기(또는 틀린 부분)를 적었을 때 정답으로 채점되면 내지 않음 (글자 채점으로 구별할 수 없는 문제)
+        func safeShort(_ p: PracticeItem, _ item: GrammarItem) {
+            guard !item.wrong.contains(where: { DoitPractice.grade(p, answer: $0).verdict == .correct }) else { return }
+            result.append(p)
+        }
         for p in problems(list) {
             result.append(PracticeItem(level: 3, kind: .multipleChoice, question: p.question, choices: p.choices, answer: "\(p.answerNumber)",
                                        explanation: p.steps, concept: concept))
@@ -357,20 +362,20 @@ extension DoitGrammar {
             switch item.kind {
             case .blank:
                 guard distinguishable(item) else { continue }
-                result.append(PracticeItem(level: 3, kind: .shortAnswer, question: "빈칸에 알맞은 말을 쓰세요.\n\(blankPrompt(item))",
-                                           answer: keys([item.answer] + item.alternatives), explanation: ["정답: \(item.answer)", item.note], concept: concept))
+                safeShort(PracticeItem(level: 3, kind: .shortAnswer, question: "빈칸에 알맞은 말을 쓰세요.\n\(blankPrompt(item))",
+                                           answer: keys([item.answer] + item.alternatives), explanation: ["정답: \(item.answer)", item.note], concept: concept), item)
             case .transform:
                 guard distinguishable(item) else { continue }
-                result.append(PracticeItem(level: 4, kind: .shortAnswer, question: "\(item.instruction ?? "문장을 바꿔 쓰세요.") 빈칸에 알맞은 말을 쓰세요.\n\(item.from ?? "")\n→ \(display(item.text))",
-                                           answer: keys([item.answer] + item.alternatives), explanation: ["정답: \(item.answer)", item.note], concept: concept))
+                safeShort(PracticeItem(level: 4, kind: .shortAnswer, question: "\(item.instruction ?? "문장을 바꿔 쓰세요.") 빈칸에 알맞은 말을 쓰세요.\n\(item.from ?? "")\n→ \(display(item.text))",
+                                           answer: keys([item.answer] + item.alternatives), explanation: ["정답: \(item.answer)", item.note], concept: concept), item)
             case .fix:
                 guard let part = item.wrong.first, let right = corrected(item) else { continue }
-                result.append(PracticeItem(level: 4, kind: .shortAnswer, question: "어법상 틀린 부분을 찾아 바르게 고쳐 쓰세요. (고친 표현만)\n\(item.text)",
+                safeShort(PracticeItem(level: 4, kind: .shortAnswer, question: "어법상 틀린 부분을 찾아 바르게 고쳐 쓰세요. (고친 표현만)\n\(item.text)",
                                            answer: keys([item.answer] + item.alternatives + ["\(part) → \(item.answer)", right]),
-                                           explanation: ["'\(part)' → '\(item.answer)'", item.note], concept: concept))
+                                           explanation: ["'\(part)' → '\(item.answer)'", item.note], concept: concept), item)
             case .order:
-                result.append(PracticeItem(level: 4, kind: .shortAnswer, question: "주어진 낱말을 모두 써서 바르게 배열하세요.\n( " + scrambled(item).joined(separator: " / ") + " )",
-                                           answer: keys([item.text]), explanation: ["바른 문장: \(item.text)", item.note], concept: concept))
+                safeShort(PracticeItem(level: 4, kind: .shortAnswer, question: "주어진 낱말을 모두 써서 바르게 배열하세요.\n( " + scrambled(item).joined(separator: " / ") + " )",
+                                           answer: keys([item.text]), explanation: ["바른 문장: \(item.text)", item.note], concept: concept), item)
             default: continue
             }
         }

@@ -191,7 +191,7 @@ extension DoitGrammar {
         }
         for (base, past, pp, frame) in pastTable {
             var wrong = [base, wrongPast(base, past)]
-            wrong.append(pp != past ? pp : DoitEnglish.ingForm(base))
+            wrong.append(pp != past && pp != base ? pp : DoitEnglish.ingForm(base))
             let irregular = past != regularPast(base)
             add("중학교 영어|과거시제", b(frame, past, wrong, irregular ? "불규칙 동사: \(base) – \(past) – \(pp)" : "규칙 동사: \(base) → \(past) (\(pastRule(base, past)))", hint: base))
         }
@@ -205,7 +205,7 @@ extension DoitGrammar {
             case "bad": compWrong = ["badder", "more bad", "worst"]; supWrong = ["worse", "most bad", "baddest"]
             default:
                 compWrong = isMore ? [adj + "er", adj, sup] : ["more " + adj, adj, sup]
-                supWrong = isMore ? [comp, adj + "est", "more " + adj] : [comp, "most " + adj, "more " + adj]
+                supWrong = isMore ? [comp, adj + "est", "most " + adj + "est"] : [comp, "most " + adj, "more " + adj]
             }
             // 짧은 형용사 앞쪽은 초등, 나머지와 최상급 대부분은 중학교
             let compKey = index < 10 ? "초등 영어|비교 기본" : "중학교 영어|비교 표현"

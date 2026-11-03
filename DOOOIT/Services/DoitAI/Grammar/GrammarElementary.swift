@@ -135,7 +135,7 @@ extension DoitGrammar {
           items: [
             b("This is Mina. ___ is my best friend.", "She", ["Her", "Hers", "Herself"], "주어 자리에는 주격 She를 써요."),
             b("I love my parents. I always help ___.", "them", ["they", "their", "theirs"], "동사 help의 목적어 자리에는 목적격 them을 써요."),
-            b("Is this your bag? – Yes, it's ___.", "mine", ["my", "me", "I"], "'내 것'은 소유대명사 mine이에요."),
+            b("Is this your bag? – Yes, it's ___.", "mine", ["my", "mines", "myself"], "'내 것'은 소유대명사 mine이에요."),
             b("Tom likes ___ new bike.", "his", ["he", "him", "himself"], "명사 앞 '그의'는 소유격 his예요."),
             b("Please call ___ tomorrow.", "me", ["I", "my", "myself"], "동사 call의 목적어 자리에는 목적격 me를 써요."),
             b("The dog is wagging ___ tail.", "its", ["it's", "it", "it is"], "'그것의'는 소유격 its예요. it's는 it is의 줄임말이에요."),

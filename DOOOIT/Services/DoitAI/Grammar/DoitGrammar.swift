@@ -130,7 +130,9 @@ enum DoitGrammar {
     /// 어법상 틀린 영어 문장들 (빈칸에 오답을 넣은 것 · 고치기 전 문장 · X 문장)
     static func wrongSentences(_ item: GrammarItem) -> [String] {
         switch item.kind {
-        case .blank, .transform: return item.ko == nil ? item.wrong.map { filled(item.text, $0) } : []
+        // 문장 전환의 오답은 원래 문장과 뜻·시제가 맞지 않을 뿐 어법상 맞을 수 있어서 넣지 않음
+        case .blank: return item.ko == nil ? item.wrong.map { filled(item.text, $0) } : []
+        case .transform: return []
         case .fix: return [item.text]
         case .ox: return item.answer == "X" ? [item.text] : []
         default: return []
