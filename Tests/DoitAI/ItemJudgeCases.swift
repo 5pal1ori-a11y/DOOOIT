@@ -72,4 +72,20 @@ func runItemJudgeCases() {
         ParsedWord(term: "go through a crisis", meaning: "위기를 겪다"), ParsedWord(term: "look after", meaning: "돌보다"),
     ])
     check("단어장 정리: 표제어만", cleaned.map(\.term) == ["oversee", "brief", "compact", "crisis", "look after"], "\(cleaned.map(\.term))")
+
+    // 번호 붙은 표제어만 (보내 준 단어장: 541 ultimately … 550 impressive)
+    let rows = ["541 ultimately [ʌ́ltimətli] 부 결국, 궁극적으로", "ultimate 형 최종의, 궁극적인 / in the end", "542 compact [kəmpǽkt] 형 간결한, 소형의",
+                "a compact camera 소형 카메라", "543 oversee [òuvərsíː] 동 감독하다", "oversaw-overseen", "544 phenomenon [fənɑ́ːminən] 명 현상",
+                "546 brief d [briːf] 형 (시간이) 짧은", "in brief 간단히 말해서, 요약하면", "550 impressive 형 인상적인, 감명 깊은", "impression 명 인상"]
+    let heads = WordParser.numberedHeads(rows)
+    check("단어장 번호 표제어 찾기", heads.isSuperset(of: ["ultimately", "compact", "oversee", "phenomenon", "impressive"]), "\(heads.sorted())")
+    let parsedWords = [("Ultimately", "결국, 궁극적으로"), ("ultimate", "최종의, 궁극적인"), ("compact", "간결한, 소형의"), ("a compact camera", "소형 카메라"),
+                       ("oversee", "감독하다"), ("phenomenon", "현상"), ("phenomena", "복"), ("brief", "짧은, 간단한"), ("in brief", "간단히 말해서"),
+                       ("impressive", "인상적인, 감명 깊은"), ("impression", "인상")].map { ParsedWord(term: $0.0, meaning: $0.1) }
+    let kept = WordParser.keepNumberedHeads(WordParser.cleanEntries(parsedWords), heads: heads)
+    check("단어장 번호 표제어만 남김", kept.map { $0.term.lowercased() } == ["ultimately", "compact", "oversee", "phenomenon", "brief", "impressive"], "\(kept.map(\.term))")
+    // 번호가 드문 목록은 그대로
+    let few = WordParser.keepNumberedHeads([ParsedWord(term: "apple", meaning: "사과"), ParsedWord(term: "pear", meaning: "배"), ParsedWord(term: "plum", meaning: "자두")],
+                                           heads: ["apple", "kiwi", "fig"])
+    check("단어장 번호가 드문 목록은 그대로", few.count == 3)
 }

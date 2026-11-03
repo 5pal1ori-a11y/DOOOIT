@@ -120,7 +120,9 @@ enum WordParser {
             if !isHeader(text, next: i + 1 < joined.count ? joined[i + 1] : nil) { texts.append(text) }
         }
         // 시중 단어장(표제어 + [발음] + 품사 + 뜻 + 예시 구·예문)은 품사 표시를 기준으로 읽음
-        return cleanEntries(isBookPage(texts) ? parseBook(texts) : parseList(texts))
+        let parsed = cleanEntries(isBookPage(texts) ? parseBook(texts) : parseList(texts))
+        // 표제어에 번호(541, 542 …)가 붙은 단어장: 번호 붙은 표제어만 (파생어·예시 구·변화형은 번호가 없음)
+        return keepNumberedHeads(parsed, heads: numberedHeads(raw))
     }
 
     // MARK: - 단어장의 덧붙인 줄 (표제어가 아닌 것)
@@ -139,6 +141,42 @@ enum WordParser {
         if t.range(of: "[가-힣]", options: .regularExpression) == nil,
            t.range(of: #"^[A-Za-z]{2,}\s*[-–/]\s*[A-Za-z]{2,}(\s*[-–/]\s*[A-Za-z]{2,})?$"#, options: .regularExpression) != nil { return true }
         return false
+    }
+
+    /// 줄 맨 앞 번호 뒤의 영어 표제어 ("541 ultimately [ʌ́ltimətli]" → ultimately, "12. give up 포기하다" → give up)
+    static func numberedHeads(_ rows: [String]) -> Set<String> {
+        var heads = Set<String>()
+        let pattern = #"^\s*[\[(]?(\d{1,4})[\])\.]?\s*[□☐■ㅁ\s]*([A-Za-z][A-Za-z'’\-]*(?:\s+[a-z][A-Za-z'’\-]*){0,3})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return heads }
+        for row in rows {
+            guard let m = regex.firstMatch(in: row, range: NSRange(row.startIndex..., in: row)),
+                  let r = Range(m.range(at: 2), in: row) else { continue }
+            heads.insert(String(row[r]).trimmingCharacters(in: .whitespaces).lowercased())
+        }
+        return heads
+    }
+
+    /// 번호 붙은 표제어가 절반 이상인 단어장: 번호 없는 것 중 덧붙인 것으로 보이는 것만 뺌
+    /// (여러 낱말 예시 구·숙어 "in brief", 변화형 "oversaw-overseen", 표제어와 뿌리가 같은 파생어·복수형 "ultimate"·"phenomena")
+    /// 번호를 잘못 읽은 표제어(efficient)는 남김
+    static func keepNumberedHeads(_ words: [ParsedWord], heads: Set<String>) -> [ParsedWord] {
+        guard heads.count >= 4, !words.isEmpty else { return words }
+        func isHead(_ t: String) -> Bool { heads.contains(t) || heads.contains { $0.hasPrefix(t + " ") } }
+        let numbered = words.filter { isHead($0.term.lowercased()) }
+        guard numbered.count >= 4, Double(numbered.count) / Double(words.count) >= 0.5 else { return words }
+        let singleHeads = heads.map { $0.split(separator: " ").first.map(String.init) ?? $0 }
+        func sameRoot(_ a: String, _ b: String) -> Bool {
+            guard a != b else { return false }
+            let common = zip(a, b).prefix { $0 == $1 }.count
+            return common >= 5 && Double(common) >= 0.7 * Double(min(a.count, b.count))
+        }
+        return words.filter { word in
+            let t = word.term.lowercased()
+            if isHead(t) { return true }
+            if t.contains(" ") || t.contains("-") { return false }
+            if singleHeads.contains(where: { sameRoot($0, t) }) { return false }
+            return true
+        }
     }
 
     /// 다 읽은 뒤 정리: 표제어가 아닌 것 빼기 · 체크 칸이 글자로 붙은 것 떼기
