@@ -509,7 +509,7 @@ struct ClozeStepView: View {
                         .accessibilityLabel("새 문제")
                 }
                 ForEach(Array(set.items.enumerated()), id: \.offset) { index, item in
-                    let ok = AnswerChecker.checkMeaning(answers[index] ?? "", answer: item.answer)
+                    let ok = DoitStudy.clozeMatches(answers[index] ?? "", answer: item.answer)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("\(index + 1). \(item.sentence)").fixedSize(horizontal: false, vertical: true)
                         HStack {
@@ -533,13 +533,13 @@ struct ClozeStepView: View {
                     }
                 }
                 if checked {
-                    let score = set.items.indices.filter { AnswerChecker.checkMeaning(answers[$0] ?? "", answer: set.items[$0].answer) }.count
+                    let score = set.items.indices.filter { DoitStudy.clozeMatches(answers[$0] ?? "", answer: set.items[$0].answer) }.count
                     ResultSummaryCard(correct: score, total: set.items.count)
                     primaryButton("O/X 문제로") { onDone(.cloze) }
                 } else {
                     primaryButton("채점하기", symbol: "checkmark") {
                         withAnimation(Motion.spring) { checked = true }
-                        let wrong = set.items.indices.filter { !AnswerChecker.checkMeaning(answers[$0] ?? "", answer: set.items[$0].answer) }
+                        let wrong = set.items.indices.filter { !DoitStudy.clozeMatches(answers[$0] ?? "", answer: set.items[$0].answer) }
                         record(context, subject: subject, unit: unit, step: .cloze, correct: set.items.count - wrong.count, total: set.items.count)
                         saveWeak(wrong.map { WeakItem(prompt: set.items[$0].sentence, answer: set.items[$0].answer, explanation: "") }, subject: subject, unit: unit, context: context)
                     }

@@ -247,7 +247,8 @@ enum DoitStudy {
                 }
             }
         }
-        return list
+        // 영어 문법 단원 (be동사 ~ 특수구문)
+        return DoitGrammar.extendCatalog(list)
     }()
 
     static func scope(for item: CatalogUnit, grade: Int? = nil, subtopic: String? = nil, inputName: String? = nil) -> StudyScope {
@@ -540,6 +541,14 @@ enum DoitStudy {
         let rawTopic = parsed.topic
         let topic = withoutRequests(rawTopic)
         parsed.topic = topic
+        // "영어 문법", "영문법", "중2 영어 어법": 그 학교급 문법 단원 중에서 고르기
+        if parsed.subject == "영어", ["문법", "어법", "문법전체", "영문법", ""].contains(norm(topic)),
+           norm(subjectText + unitText).contains("문법") || norm(subjectText + unitText).contains("어법") {
+            let list = DoitGrammar.overview(level: parsed.level ?? .middle)
+            let options = list.compactMap { g in catalog.first { $0.subjectName == g.subjectName && $0.unit == g.name } }
+                .map { scope(for: $0, grade: parsed.grade) }
+            if options.count > 1 { return .ambiguous(Array(options.prefix(5))) }
+        }
         guard norm(topic).count >= 2 else {
             return .notFound(message: "어떤 단원을 공부할지 함께 적어 주세요. 예: 중3 수학 이차방정식", suggestions: [])
         }
