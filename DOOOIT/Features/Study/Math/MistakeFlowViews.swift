@@ -71,7 +71,7 @@ struct ProblemReviewCard: View {
                     }
                 }
                 if !scan.table.isEmpty { tableView(scan.table) }
-                if let graph = scan.graphNote { row("그래프", graph, symbol: "chart.xyaxis.line", color: Theme.accent) }
+                if let graph = scan.graphNote { row("그래프", graph, symbol: "chart.bar.fill", color: Theme.accent) }
                 if let lines = scan.figureLines, !lines.isEmpty { FigureFactsBox(note: note, lines: lines) }
                 kindPicker
             }
@@ -108,7 +108,7 @@ struct ProblemReviewCard: View {
 
     private var doubtsBox: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("확실하지 않은 부분이 있어요", systemImage: "exclamationmark.bubble.fill")
+            Label("확실하지 않은 부분이 있어요", systemImage: "exclamationmark.circle.fill")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(Palette.warning)
             ForEach(scan.doubts, id: \.self) { doubt in
@@ -484,8 +484,8 @@ struct MistakeAnalysisCard: View {
                 if !analysis.evidence.isEmpty || !analysis.direction.isEmpty || !analysis.review.isEmpty || !analysis.next.isEmpty {
                     DisclosureGroup("자세히") {
                         VStack(alignment: .leading, spacing: 10) {
-                            if !analysis.evidence.isEmpty { section("근거", items: analysis.evidence, symbol: "doc.text.magnifyingglass") }
-                            if !analysis.direction.isEmpty { section("풀이 방향", items: [analysis.direction], symbol: "arrow.triangle.turn.up.right.diamond") }
+                            if !analysis.evidence.isEmpty { section("근거", items: analysis.evidence, symbol: "newspaper.fill") }
+                            if !analysis.direction.isEmpty { section("풀이 방향", items: [analysis.direction], symbol: "arrow.turn.up.right") }
                             if !analysis.review.isEmpty { section("복습", items: analysis.review, symbol: "book") }
                             if !analysis.next.isEmpty { section("다음 학습", items: analysis.next, symbol: "flag.checkered") }
                         }
@@ -522,7 +522,7 @@ struct WeakConceptBadge: View {
             NavigationLink { WeakConceptListView() } label: {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Label("이 문제의 개념: \(concept.concept)", systemImage: "scope").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                        Label("이 문제의 개념: \(concept.concept)", systemImage: "target").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
                         Spacer()
                         TagLabel(text: concept.state.rawValue, color: stateColor(concept.state))
                     }
@@ -577,7 +577,7 @@ struct WeakConceptListView: View {
                 }
                 .pickerStyle(.segmented)
                 if shown.isEmpty {
-                    EmptyStateView(symbol: "checkmark.seal", title: "연습할 개념이 없어요", message: "오답노트에서 채점하면 개념별로 모아 드려요.")
+                    EmptyStateView(symbol: "checkmark.seal", title: "연습할 개념이 없어요")
                         .softCard()
                 }
                 ForEach(shown) { concept in

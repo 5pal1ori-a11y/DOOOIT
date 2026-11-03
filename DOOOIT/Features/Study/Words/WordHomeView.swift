@@ -73,7 +73,7 @@ struct WordHomeView: View {
                 .sharedBackgroundVisibility(.hidden)
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showStats = true } label: {
-                    Image(systemName: "chart.bar.xaxis")
+                    Image(systemName: "chart.bar.fill")
                 }
                 .accessibilityLabel("기록")
             }
@@ -309,7 +309,7 @@ struct WordHomeView: View {
     private func addMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {
         let content = label()
         return Menu {
-            Button { openScanner() } label: { Label("촬영", systemImage: "doc.viewfinder") }
+            Button { openScanner() } label: { Label("촬영", systemImage: "camera.fill") }
             Button { showPhotoPicker = true } label: { Label("앨범", systemImage: "photo.on.rectangle") }
             Button { showManualAdd = true } label: { Label("직접 입력", systemImage: "keyboard") }
         } label: {

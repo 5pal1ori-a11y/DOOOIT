@@ -17,7 +17,7 @@ struct MemoListView: View {
     var body: some View {
         List {
             if memos.isEmpty {
-                EmptyStateView(symbol: "note.text", title: "메모가 없어요", message: "오른쪽 위 버튼을 눌러 새 메모를 작성해보세요.")
+                EmptyStateView(symbol: "doc.text.fill", title: "메모가 없어요")
                     .listRowBackground(Color.clear)
             }
 
@@ -59,7 +59,7 @@ struct MemoListView: View {
     private func row(_ memo: Memo) -> some View {
         Button { opened = memo } label: {
             HStack(spacing: 12) {
-                IconBadge(symbol: memo.isPinned ? "pin.fill" : "note.text",
+                IconBadge(symbol: memo.isPinned ? "pin.fill" : "doc.text.fill",
                           color: memo.isPinned ? Palette.warning : Theme.accent, size: 38)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(memo.displayTitle)

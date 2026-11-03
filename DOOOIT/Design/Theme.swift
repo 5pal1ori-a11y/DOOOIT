@@ -74,6 +74,21 @@ enum Palette {
     static let success = Color(hex: "#22C55E")
     static let danger = Color(hex: "#EF4444")
     static let warning = Color(hex: "#F59E0B")
+
+    // 아기자기한 파스텔 포인트 (아이콘 색 · 보라 강조색 옆에 함께 씀)
+    static let mint = Color(hex: "#2FBF8F")
+    static let peach = Color(hex: "#FF8A5C")
+    static let pink = Color(hex: "#F2709C")
+    static let butter = Color(hex: "#F2B233")
+    static let sky = Color(hex: "#4FA3F7")
+}
+
+extension Color {
+    /// 아이콘 바탕용 옅은 파스텔 (어두운 화면에서는 조금 더 옅게)
+    var pastel: Color {
+        let base = UIColor(self)
+        return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? base.withAlphaComponent(0.2) : base.withAlphaComponent(0.14) })
+    }
 }
 
 // MARK: - Background

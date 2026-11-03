@@ -58,9 +58,9 @@ struct AISolutionCard: View {
         HStack(spacing: 10) {
             Image(systemName: "sparkles")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.accent)
                 .frame(width: 34, height: 34)
-                .background(Theme.accent, in: .rect(cornerRadius: 10))
+                .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             Text("AI 풀이").font(.headline)
             Spacer()
             if current != nil, !working {

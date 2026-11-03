@@ -38,6 +38,8 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
+        // 둥근 글꼴로 앱 전체를 부드럽게
+        .fontDesign(.rounded)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceRaw)?.colorScheme)
     }
 }

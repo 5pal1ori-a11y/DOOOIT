@@ -7,7 +7,7 @@ enum PlannerMode: String, CaseIterable, Identifiable {
     case month, day
     var id: String { rawValue }
     var title: String { self == .month ? "월간" : "하루 타임라인" }
-    var symbol: String { self == .month ? "calendar" : "calendar.day.timeline.left" }
+    var symbol: String { self == .month ? "calendar" : "list.bullet" }
 }
 
 @MainActor
@@ -118,6 +118,7 @@ struct PlanTimelineRow: View {
                     .font(.title2)
                     .foregroundStyle(done ? plan.color : Color.secondary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
+                    .symbolEffect(.bounce, value: done)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(done ? "완료 취소" : "완료로 표시")

@@ -23,11 +23,11 @@ struct GuidedSolveEntryCard: View {
             if ready { open = true } else { onNeedConfirm() }
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "bubble.left.and.text.bubble.right.fill")
+                Image(systemName: "bubble.left.fill")
                     .font(.subheadline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.accent)
                     .frame(width: 34, height: 34)
-                    .background(Theme.accent, in: .rect(cornerRadius: 10))
+                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
                     Text("AI와 함께 풀기").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
                     Text(ready ? (note.guidedSolve?.summary ?? "힌트를 보며 직접 풀어요") : "문제를 먼저 확인해 주세요")

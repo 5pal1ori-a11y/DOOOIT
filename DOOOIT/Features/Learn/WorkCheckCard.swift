@@ -90,9 +90,9 @@ struct WorkCheckCard: View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(Palette.mint)
                 .frame(width: 34, height: 34)
-                .background(Palette.success.gradient, in: .rect(cornerRadius: 10))
+                .background(Palette.mint.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
                 Text("풀이 과정 채점").font(.headline).foregroundStyle(Palette.ink)
                 Text("내 풀이에서 틀린 줄을 찾아요")
@@ -112,7 +112,7 @@ struct WorkCheckCard: View {
                 }
                 sourceButton("앨범", symbol: "photo.on.rectangle") { showPhotoPicker = true }
                 if note.drawingData != nil {
-                    sourceButton("내 필기 읽기", symbol: "pencil.and.scribble") {
+                    sourceButton("내 필기 읽기", symbol: "pencil") {
                         Task { await readDrawing() }
                     }
                 }

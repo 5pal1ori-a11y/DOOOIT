@@ -18,16 +18,16 @@ struct StudyView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     LazyVGrid(columns: columns, spacing: 12) {
                         NavigationLink { WordHomeView() } label: {
-                            tile(symbol: "character.book.closed.fill", color: Theme.accent, title: "영어 단어", detail: wordDetail)
+                            tile(symbol: "book.closed.fill", color: Theme.accent, title: "영어 단어", detail: wordDetail)
                         }
                         NavigationLink { MathNoteListView() } label: {
-                            tile(symbol: "pencil.and.list.clipboard", color: Palette.success, title: "오답노트", detail: noteDetail)
+                            tile(symbol: "pencil", color: Palette.mint, title: "오답노트", detail: noteDetail)
                         }
                         NavigationLink { MemoListView() } label: {
-                            tile(symbol: "note.text", color: Palette.warning, title: "메모장", detail: memos.isEmpty ? "새 메모" : "\(memos.count)개")
+                            tile(symbol: "doc.text.fill", color: Palette.butter, title: "메모장", detail: memos.isEmpty ? "새 메모" : "\(memos.count)개")
                         }
                         NavigationLink { RankingView() } label: {
-                            tile(symbol: "trophy.fill", color: Color(hex: "#FF7A45"), title: "공부 랭킹", detail: "오늘 순위")
+                            tile(symbol: "trophy.fill", color: Palette.peach, title: "공부 랭킹", detail: "오늘 순위")
                         }
                     }
                     .buttonStyle(.pressable)
@@ -74,10 +74,11 @@ struct StudyView: View {
     private func tile(symbol: String, color: Color, title: String, detail: String) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Image(systemName: symbol)
+                .symbolVariant(.fill)
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(color)
-                .frame(width: 42, height: 42)
-                .background(color.opacity(0.12), in: .rect(cornerRadius: 13))
+                .frame(width: 44, height: 44)
+                .background(color.pastel, in: .rect(cornerRadius: 15, style: .continuous))
             Spacer(minLength: 14)
             Text(title)
                 .font(.headline)
@@ -90,6 +91,6 @@ struct StudyView: View {
                 .padding(.top, 1)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .softCard(cornerRadius: 22, padding: 16)
+        .softCard(cornerRadius: 24, padding: 18)
     }
 }

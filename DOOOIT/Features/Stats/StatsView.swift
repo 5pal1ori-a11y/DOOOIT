@@ -74,7 +74,7 @@ struct StatsView: View {
                     .contentTransition(.numericText())
 
                     if total == 0 {
-                        EmptyStateView(symbol: "chart.pie", title: "아직 공부 기록이 없어요", message: "타이머로 공부하면 여기에 쌓여요.")
+                        EmptyStateView(symbol: "chart.pie", title: "아직 공부 기록이 없어요")
                     } else {
                         subjectBar(bySubject, total: total)
                     }

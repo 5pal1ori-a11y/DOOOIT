@@ -12,11 +12,11 @@ struct LearnHubSection: View {
                 }
                 RowDivider()
                 NavigationLink { WeaknessView() } label: {
-                    RowLabel(symbol: "scope", color: Palette.danger, title: "취약 유형")
+                    RowLabel(symbol: "target", color: Palette.pink, title: "취약 유형")
                 }
                 RowDivider()
                 NavigationLink { WeeklyReportView() } label: {
-                    RowLabel(symbol: "doc.text.magnifyingglass", color: Palette.warning, title: "주간 리포트")
+                    RowLabel(symbol: "newspaper.fill", color: Palette.butter, title: "주간 리포트")
                 }
             }
             .buttonStyle(.pressable)

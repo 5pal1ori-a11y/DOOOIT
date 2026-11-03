@@ -213,7 +213,7 @@ struct PlannerView: View {
             if occurrences.isEmpty {
                 Button { editorTarget = .new(selected) } label: {
                     HStack(spacing: 12) {
-                        IconBadge(symbol: "calendar.badge.plus", size: 40)
+                        IconBadge(symbol: "calendar", size: 40)
                         Text("일정 없음")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)

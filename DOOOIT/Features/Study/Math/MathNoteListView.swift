@@ -76,7 +76,7 @@ struct MathNoteListView: View {
                         .appearAnimation()
                     if !weakConcepts.isEmpty {
                         NavigationLink { WeakConceptListView() } label: {
-                            RowLabel(symbol: "scope", color: Palette.danger, title: "취약 개념",
+                            RowLabel(symbol: "target", color: Palette.danger, title: "취약 개념",
                                      value: "\(weakConcepts.count)")
                                 .softCardBackground(cornerRadius: 20)
                         }
@@ -113,11 +113,11 @@ struct MathNoteListView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button { openScanner() } label: { Label("문제 촬영", systemImage: "doc.viewfinder") }
+                    Button { openScanner() } label: { Label("문제 촬영", systemImage: "camera.fill") }
                     Button { showPhotoPicker = true } label: { Label("앨범에서 선택", systemImage: "photo.on.rectangle") }
                     Button { createBlank() } label: { Label("문제 직접 입력", systemImage: "square.and.pencil") }
                     subjectPicker
-                    NavigationLink { WeakConceptListView() } label: { Label("취약 개념 보기", systemImage: "scope") }
+                    NavigationLink { WeakConceptListView() } label: { Label("취약 개념 보기", systemImage: "target") }
                 } label: {
                     Image(systemName: "plus")
                 }

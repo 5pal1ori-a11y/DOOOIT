@@ -44,7 +44,7 @@ struct AuthView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
-                            Spacer(minLength: 24)
+                            Spacer(minLength: 8)
                             content
                             Spacer(minLength: 16)
                         }
@@ -74,12 +74,12 @@ struct AuthView: View {
     private var content: some View {
         VStack(spacing: 0) {
             hero
-                .padding(.bottom, 28)
+                .padding(.bottom, 22)
                 .appearAnimation()
 
             PillSegmentedControl(items: Mode.allCases, selection: $mode) { $0.rawValue }
                 .disabled(isSubmitting)
-                .padding(.bottom, 18)
+                .padding(.bottom, 14)
                 .appearAnimation(delay: 0.05)
 
             fields
@@ -87,11 +87,11 @@ struct AuthView: View {
                 .appearAnimation(delay: 0.1)
 
             primaryButton
-                .padding(.top, 22)
+                .padding(.top, 18)
                 .appearAnimation(delay: 0.14)
 
             orDivider
-                .padding(.vertical, 18)
+                .padding(.vertical, 14)
                 .appearAnimation(delay: 0.18)
 
             appleButton
@@ -102,7 +102,7 @@ struct AuthView: View {
                 .appearAnimation(delay: 0.2)
 
             LegalConsentRow(agreed: $agreed)
-                .padding(.top, 18)
+                .padding(.top, 14)
                 .shake(trigger: consentNudge)
         }
         .onAppear { agreed = agreedVersion >= LegalText.version }
@@ -119,8 +119,8 @@ struct AuthView: View {
 
     private var hero: some View {
         VStack(spacing: 8) {
-            BrandLogo(size: 84)
-                .padding(.bottom, 14)
+            BrandLogo(size: 72)
+                .padding(.bottom, 10)
             Text(mode == .signUp ? "DOOOIT 시작하기" : "다시 만나서 반가워요")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .foregroundStyle(Palette.ink)
@@ -136,7 +136,7 @@ struct AuthView: View {
     }
 
     private var fields: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 10) {
             if mode == .signUp {
                 AuthField(symbol: "person.fill", isFocused: focus == .name) {
                     TextField("이름 (닉네임)", text: $name)
@@ -174,7 +174,7 @@ struct AuthView: View {
             .id(Field.password)
 
             if mode == .signUp {
-                AuthField(symbol: "lock.rotation", isFocused: focus == .confirm, message: confirmMessage) {
+                AuthField(symbol: "lock.fill", isFocused: focus == .confirm, message: confirmMessage) {
                     passwordInput("비밀번호 확인", text: $confirm, field: .confirm, contentType: .newPassword)
                         .submitLabel(.go)
                         .onSubmit { submit() }

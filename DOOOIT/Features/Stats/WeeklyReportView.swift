@@ -176,8 +176,8 @@ struct WeeklyReportView: View {
                  detail: "\(r.planDone)/\(r.planTotal)", symbol: "checklist", color: Theme.accent, progress: r.planRate)
             stat(title: "문제 정답률", value: r.quizRate.map { "\(Int(($0 * 100).rounded()))%" } ?? "–",
                  detail: r.quizTotal == 0 ? "AI 학습 기록 없음" : "\(r.quizCorrect)/\(r.quizTotal)", symbol: "target", color: Palette.success, progress: r.quizRate)
-            stat(title: "단어", value: "\(r.wordsLearned)개", detail: "외움 · 추가 \(r.wordsAdded)개", symbol: "character.book.closed.fill", color: Palette.warning, progress: nil)
-            stat(title: "오답노트", value: "\(r.notesAdded)문제", detail: "이번 주 추가 · 남은 오답 \(r.notesWrong)", symbol: "pencil.and.list.clipboard", color: Palette.danger, progress: nil)
+            stat(title: "단어", value: "\(r.wordsLearned)개", detail: "외움 · 추가 \(r.wordsAdded)개", symbol: "book.closed.fill", color: Palette.warning, progress: nil)
+            stat(title: "오답노트", value: "\(r.notesAdded)문제", detail: "이번 주 추가 · 남은 오답 \(r.notesWrong)", symbol: "pencil", color: Palette.danger, progress: nil)
         }
     }
 
@@ -241,7 +241,7 @@ struct WeeklyReportView: View {
 
     private func units(_ r: WeeklyReport) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "단원 실력 (최근 4주)", symbol: "scope") { EmptyView() }
+            SectionHeader(title: "단원 실력 (최근 4주)", symbol: "target") { EmptyView() }
             ForEach(r.weakUnits) { unit in unitRow(unit, weak: true) }
             ForEach(r.strongUnits) { unit in unitRow(unit, weak: false) }
         }
@@ -290,7 +290,7 @@ struct WeeklyReportView: View {
 
     private func nextWeek(_ r: WeeklyReport) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "다음 주 추천 플랜", symbol: "calendar.badge.plus") { EmptyView() }
+            SectionHeader(title: "다음 주 추천 플랜", symbol: "calendar") { EmptyView() }
             ForEach(r.nextWeek) { item in
                 HStack(spacing: 12) {
                     VStack(spacing: 2) {
@@ -347,7 +347,7 @@ struct WeeklyReportLink: View {
     var body: some View {
         NavigationLink { WeeklyReportView() } label: {
             HStack(spacing: 14) {
-                Image(systemName: "doc.text.magnifyingglass")
+                Image(systemName: "newspaper.fill")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 46, height: 46)

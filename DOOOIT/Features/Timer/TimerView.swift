@@ -348,7 +348,7 @@ struct TimerView: View {
     private func summary(seconds: Int) -> some View {
         VStack(spacing: 22) {
             Spacer()
-            Image(systemName: seconds >= 10 ? "checkmark.seal.fill" : "clock.badge.xmark")
+            Image(systemName: seconds >= 10 ? "checkmark.seal.fill" : "clock.fill")
                 .font(.system(size: 64, weight: .bold))
                 .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
                 .symbolEffect(.bounce, value: seconds)

@@ -23,7 +23,7 @@ struct RankingView: View {
                 }
                 if let board {
                     if board.entries.isEmpty {
-                        EmptyStateView(symbol: "trophy", title: "아직 기록이 없어요", message: "공부 타이머로 기록하면 순위에 올라가요.")
+                        EmptyStateView(symbol: "trophy", title: "아직 기록이 없어요")
                             .softCard()
                     } else {
                         topThree(board)
