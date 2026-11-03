@@ -1,6 +1,6 @@
 import Foundation
 
-/// 두잇 AI 수학 개념 정리 (교과서 핵심을 직접 정리, 인터넷 없이 동작)
+/// 모티 AI 수학 개념 정리 (교과서 핵심을 직접 정리, 인터넷 없이 동작)
 /// AI 학습의 "개념" 단계에서 씀
 enum DoitMathConcepts {
     private struct Entry {
@@ -209,7 +209,7 @@ enum DoitMathConcepts {
     ]
 }
 
-// MARK: - 두잇 AI 지식 검색용
+// MARK: - 모티 AI 지식 검색용
 
 extension DoitMathConcepts {
     static var knowledgeEntries: [(names: [String], body: String)] {

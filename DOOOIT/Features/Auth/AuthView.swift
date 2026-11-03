@@ -121,13 +121,13 @@ struct AuthView: View {
         VStack(spacing: 8) {
             BrandLogo(size: 72)
                 .padding(.bottom, 10)
-            Text(mode == .signUp ? "DOOOIT 시작하기" : "다시 만나서 반가워요")
+            Text(mode == .signUp ? "MOTI 시작하기" : "다시 만나서 반가워요")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.opacity)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
-            Text("오늘 할 일, 끝까지 두잇")
+            Text("오늘 할 일, 끝까지 함께")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }

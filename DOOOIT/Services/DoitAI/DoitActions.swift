@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 두잇 AI가 실제로 앱을 조작하는 부분 (플랜, 타이머, 단어, 메모, 목표, 통계, 화면 이동)
+/// 모티 AI가 실제로 앱을 조작하는 부분 (플랜, 타이머, 단어, 메모, 목표, 통계, 화면 이동)
 /// 도구(Tool)는 여기 함수를 부르고, 결과를 짧은 문장으로 AI에게 돌려줌
 @MainActor
 final class DoitActions {
@@ -241,7 +241,7 @@ final class DoitActions {
         let text = problem.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || image != nil else { return "저장할 문제가 없어요." }
         let name = (title ?? "").trimmingCharacters(in: .whitespaces)
-        let noteTitle = name.isEmpty ? (DoitProblemScan.titled(text, base: MathOCRFixer.title(from:)) ?? "두잇 AI 오답") : name
+        let noteTitle = name.isEmpty ? (DoitProblemScan.titled(text, base: MathOCRFixer.title(from:)) ?? "모티 AI 오답") : name
         let note = MathNote(
             title: noteTitle,
             imageData: image?.jpegForStorage(maxDimension: 2000),
@@ -361,7 +361,7 @@ extension DoitActions {
 // MARK: - 주간 리포트
 
 extension DoitActions {
-    /// 두잇 AI 채팅에서 "주간 리포트"라고 하면 보여줄 요약
+    /// 모티 AI 채팅에서 "주간 리포트"라고 하면 보여줄 요약
     func weeklyReportText() -> String {
         guard let context else { return "기록을 불러오지 못했어요." }
         let report = WeeklyReportBuilder.build(context: context)

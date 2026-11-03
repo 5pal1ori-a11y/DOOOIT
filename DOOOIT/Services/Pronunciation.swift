@@ -93,7 +93,7 @@ final class SpeechChecker {
         errorMessage = nil
         transcript = ""
         guard await Self.requestPermission() else {
-            errorMessage = "설정 > DOOOIT에서 마이크와 음성 인식을 허용해주세요."
+            errorMessage = "설정 > MOTI에서 마이크와 음성 인식을 허용해주세요."
             return
         }
         guard let recognizer, recognizer.isAvailable else {

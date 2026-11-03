@@ -41,7 +41,7 @@ struct SplashView: View {
                     .offset(y: reduceMotion || showWordmark ? 0 : 8)
                     .padding(.bottom, 10)
 
-                Text("오늘 할 일, 끝까지 두잇")
+                Text("오늘 할 일, 끝까지 함께")
                     .font(.subheadline.weight(.medium))
                     .tracking(0.3)
                     .foregroundStyle(.secondary)
@@ -50,7 +50,7 @@ struct SplashView: View {
             }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("DOOOIT, 오늘 할 일, 끝까지 두잇")
+        .accessibilityLabel("MOTI, 오늘 할 일, 끝까지 함께")
         .task { await play() }
     }
 

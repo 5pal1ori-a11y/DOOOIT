@@ -1,16 +1,16 @@
 import UIKit
 
 /// 문제 사진의 그림·그래프·차트·표를 읽어 "[그림에서 읽음]" 줄로 (기계가 읽은 값: 문제 탭에서 학생이 확인한 뒤에만 풀이에 씀)
-/// - 표·차트: 정밀 인식(PaddleOCR-VL)의 표/차트 읽기 → 안 되면 두잇 2 사진 읽기(차트) → Vision 문서 읽기의 표
-/// - 도형·좌표 그래프: 두잇 2 사진 읽기(8GB 기기 + 두잇 2) → 안 되면 기본 판독(그래프 식, 도형 이름·길이)
-/// 큰 모델은 한 번에 하나만 메모리에 둠 (정밀 인식을 쓰기 전에 두잇 2 사진 모델을, 그 반대도 내림)
+/// - 표·차트: 정밀 인식(PaddleOCR-VL)의 표/차트 읽기 → 안 되면 모티 2 사진 읽기(차트) → Vision 문서 읽기의 표
+/// - 도형·좌표 그래프: 모티 2 사진 읽기(8GB 기기 + 모티 2) → 안 되면 기본 판독(그래프 식, 도형 이름·길이)
+/// 큰 모델은 한 번에 하나만 메모리에 둠 (정밀 인식을 쓰기 전에 모티 2 사진 모델을, 그 반대도 내림)
 @MainActor
 enum FigureReader {
     /// 지금 무엇을 하는지 (진행 표시에 씀)
     static var status: String {
         switch DoitVision.shared.phase {
-        case .loading: return "두잇 2가 그림을 볼 준비를 하고 있어요"
-        case .reading: return "두잇 2가 그림을 읽고 있어요"
+        case .loading: return "모티 2가 그림을 볼 준비를 하고 있어요"
+        case .reading: return "모티 2가 그림을 읽고 있어요"
         default: return "문제를 분석하고 있어요"
         }
     }
@@ -61,7 +61,7 @@ enum FigureReader {
         }
     }
 
-    /// 두잇 2 사진 읽기 (쓸 수 없으면 nil)
+    /// 모티 2 사진 읽기 (쓸 수 없으면 nil)
     private static func vision(_ cgImage: CGImage) async -> DoitFigureFacts.Reading? {
         #if canImport(MLXVLM)
         guard DoitVision.shared.isAvailable else { return nil }

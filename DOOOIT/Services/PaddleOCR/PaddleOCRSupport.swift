@@ -39,7 +39,7 @@ enum PaddleOCRRouting {
         case mathProblem
         /// 수학이 아닌 과목 문제 (보기 번호만 정리)
         case subjectProblem
-        /// 두잇 AI 대화에 보낸 문제 사진
+        /// 모티 AI 대화에 보낸 문제 사진
         case chatPhoto
         /// 단어장: Vision이 더 잘 읽어서 (실험) 늘 Vision
         case wordBook

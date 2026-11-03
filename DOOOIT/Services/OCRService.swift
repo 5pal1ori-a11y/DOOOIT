@@ -27,7 +27,7 @@ extension OCRService {
     }
 
     /// 수학 문제 사진 → 문제 글 (improved: 기본 결과보다 나은 걸 골랐는지)
-    /// 정밀 인식(PaddleOCR-VL)을 받아 두었으면 그걸로 먼저 (두잇 AI 사진 질문), 안 되면 Vision
+    /// 정밀 인식(PaddleOCR-VL)을 받아 두었으면 그걸로 먼저 (모티 AI 사진 질문), 안 되면 Vision
     static func readMathProblem(_ image: UIImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
         guard let cgImage = upright(image) else { return ("", false) }
         // 맨 앞 문제 번호는 "12번) " 모양으로

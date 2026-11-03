@@ -1,7 +1,7 @@
 import PhotosUI
 import SwiftUI
 
-/// 두잇 AI 탭: 채팅으로 앱의 모든 일을 처리 (플랜, 타이머, 단어, 메모, 목표, 기록, 공부 질문)
+/// 모티 AI 탭: 채팅으로 앱의 모든 일을 처리 (플랜, 타이머, 단어, 메모, 목표, 기록, 공부 질문)
 struct DoitAIView: View {
     @State private var assistant = DoitAssistant.shared
     @State private var input = ""
@@ -52,7 +52,7 @@ struct DoitAIView: View {
                 inputBar
             }
             .background { AppBackground() }
-            .navigationTitle("두잇 AI")
+            .navigationTitle("모티 AI")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 // ChatGPT·Gemini처럼 위쪽에서 모델 고르기
@@ -308,7 +308,7 @@ struct DoitAIView: View {
                 }
 
                 HStack(alignment: .bottom, spacing: 6) {
-                    TextField(voice.isListening ? "듣고 있어요…" : "두잇 AI에게 물어보기", text: $input, axis: .vertical)
+                    TextField(voice.isListening ? "듣고 있어요…" : "모티 AI에게 물어보기", text: $input, axis: .vertical)
                         .submitLabel(.send)
                         .onSubmit { submit() }
                         .lineLimit(1...5)
@@ -400,11 +400,11 @@ struct DoitAIView: View {
 
 // MARK: - 꾸밈
 
-/// 두잇 AI 아이콘: 테마 색 그라데이션 원 + 은은한 빛
+/// 모티 AI 아이콘: 테마 색 그라데이션 원 + 은은한 빛
 private struct AIOrb: View {
     var size: CGFloat
 
-    /// 두잇 AI 프로필 = 앱 아이콘(DOOIT 로고)을 둥글게
+    /// 모티 AI 프로필 = 앱 아이콘(DOOIT 로고)을 둥글게
     var body: some View {
         ZStack {
             if size > 50 {
@@ -422,7 +422,7 @@ private struct AIOrb: View {
                 .shadow(color: .black.opacity(0.12), radius: size * 0.08, y: size * 0.03)
         }
         .frame(width: size, height: size)
-        .accessibilityLabel("두잇 AI")
+        .accessibilityLabel("모티 AI")
     }
 }
 

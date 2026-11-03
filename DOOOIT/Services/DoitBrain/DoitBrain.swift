@@ -15,13 +15,13 @@ import MLXLMCommon
 import Tokenizers
 #endif
 
-/// 두잇 AI 모델 관리: 두잇 1 · 두잇 2 (휴대폰 안에서 돌아가는 언어 모델)
+/// 모티 AI 모델 관리: 모티 1 · 모티 2 (휴대폰 안에서 돌아가는 언어 모델)
 /// - 고른 모델을 처음 한 번만 다운로드하면 인터넷 없이도 돌아가요.
 /// - 앱 기능, 수학 풀이, 계산처럼 정확해야 하는 일은 규칙형 엔진이 그대로 맡고,
 ///   설명·대화·학습 자료 만들기처럼 "자기 말로" 해야 하는 일을 모델이 맡아요.
-/// (두잇 1 = Qwen3 1.7B, 두잇 2 = Qwen3.5 4B — Apache-2.0 오픈소스 모델을 바탕으로 함)
-/// 100문제 비교: 수학 외 과목 4B 45/60 · 1.7B 34/60 · Qwen3.5 2B 29/60 → 2B보다 1.7B가 나아서 두잇 1은 1.7B
-/// 예전 두잇 2(1.7B)를 받아 둔 기기는 그 파일을 새 두잇 1로 그대로 쓰고, 예전 두잇 1(0.6B) 파일은 지워요.
+/// (모티 1 = Qwen3 1.7B, 모티 2 = Qwen3.5 4B — Apache-2.0 오픈소스 모델을 바탕으로 함)
+/// 100문제 비교: 수학 외 과목 4B 45/60 · 1.7B 34/60 · Qwen3.5 2B 29/60 → 2B보다 1.7B가 나아서 모티 1은 1.7B
+/// 예전 모티 2(1.7B)를 받아 둔 기기는 그 파일을 새 모티 1로 그대로 쓰고, 예전 모티 1(0.6B) 파일은 지워요.
 @MainActor
 @Observable
 final class DoitBrain {
@@ -31,12 +31,12 @@ final class DoitBrain {
         case dooit1, dooit2
 
         var id: String { rawValue }
-        var title: String { self == .dooit1 ? "두잇 1" : "두잇 2" }
+        var title: String { self == .dooit1 ? "모티 1" : "모티 2" }
         var detail: String { self == .dooit1 ? "빠르고 가볍게" : "더 똑똑하고 자세하게" }
         var sizeText: String { self == .dooit1 ? "약 0.9GB" : "약 2.9GB" }
         var repository: String { self == .dooit1 ? "mlx-community/Qwen3-1.7B-4bit" : "mlx-community/Qwen3.5-4B-MLX-4bit" }
 
-        /// 이 모델을 돌릴 메모리: 두잇 1(1.7B)은 지금처럼 모든 기기, 두잇 2(4B)는 8GB 이상 (8GB 기기는 7.5GB 넘게 잡혀요)
+        /// 이 모델을 돌릴 메모리: 모티 1(1.7B)은 지금처럼 모든 기기, 모티 2(4B)는 8GB 이상 (8GB 기기는 7.5GB 넘게 잡혀요)
         var minimumMemory: UInt64 { self == .dooit1 ? 0 : 7_500_000_000 }
         /// 불러올 때 앱이 더 쓸 수 있어야 하는 메모리 (Mac 측정: 1.7B 최대 1.6GB, 4B 최대 3.2GB + 여유)
         var neededMemory: UInt64 { self == .dooit1 ? 2_000_000_000 : 3_700_000_000 }
@@ -44,10 +44,10 @@ final class DoitBrain {
         var thinks: Bool { self == .dooit1 }
         var fitsDevice: Bool { ProcessInfo.processInfo.physicalMemory >= minimumMemory }
 
-        /// 기기 메모리에 맞는 모델 (8GB 미만이면 두잇 1)
+        /// 기기 메모리에 맞는 모델 (8GB 미만이면 모티 1)
         static var recommended: Model { Model.dooit2.fitsDevice ? .dooit2 : .dooit1 }
 
-        /// 예전 두잇 1 (Qwen3 0.6B) — 새 모델로 바꿀 때 지움
+        /// 예전 모티 1 (Qwen3 0.6B) — 새 모델로 바꿀 때 지움
         static let legacyRepositories = ["mlx-community/Qwen3-0.6B-4bit"]
     }
 
@@ -102,7 +102,7 @@ final class DoitBrain {
 
     var isBusy: Bool { generating }
 
-    /// 휴대폰 실기기에서만 (시뮬레이터·리눅스 테스트에서는 꺼짐), 메모리 6GB 이상 (두잇 1을 돌릴 수 있어야 함)
+    /// 휴대폰 실기기에서만 (시뮬레이터·리눅스 테스트에서는 꺼짐), 메모리 6GB 이상 (모티 1을 돌릴 수 있어야 함)
     static var isSupported: Bool {
         #if canImport(MLXLLM) && !targetEnvironment(simulator)
         return Model.dooit1.fitsDevice
@@ -127,8 +127,8 @@ final class DoitBrain {
             if defaults.object(forKey: "doitBrain.enabled") as? Bool ?? true { defaults.set(model.rawValue, forKey: selectedKey) }
             for key in ["doitBrain.installed", "doitBrain.enabled", "doitBrain.size"] { defaults.removeObject(forKey: key) }
         }
-        // 예전 세대: 두잇 1 = 0.6B, 두잇 2 = 1.7B → 새 세대: 두잇 1 = 1.7B, 두잇 2 = 4B
-        // 받아 둔 1.7B는 새 두잇 1로 그대로 쓰고 (다시 받지 않음), 0.6B 파일은 지움
+        // 예전 세대: 모티 1 = 0.6B, 모티 2 = 1.7B → 새 세대: 모티 1 = 1.7B, 모티 2 = 4B
+        // 받아 둔 1.7B는 새 모티 1로 그대로 쓰고 (다시 받지 않음), 0.6B 파일은 지움
         if defaults.integer(forKey: generationKey) < 2 {
             let had17 = defaults.bool(forKey: installedKey(.dooit2))
             for model in Model.allCases { defaults.removeObject(forKey: installedKey(model)) }
@@ -221,13 +221,13 @@ final class DoitBrain {
         // 메모리가 모자라면 불러오지 않음 (불러오다 iOS가 앱을 끄는 것 막기) → 규칙형 엔진으로 답함
         if loadedModel != model {
             unload()
-            // 그림 읽기(두잇 2 사진 모델)가 올라와 있으면 내림: 큰 모델은 한 번에 하나만
+            // 그림 읽기(모티 2 사진 모델)가 올라와 있으면 내림: 큰 모델은 한 번에 하나만
             DoitVision.shared.unload()
             #if canImport(MLX)
             MLX.Memory.clearCache()
             #endif
             if Self.availableMemory < model.neededMemory {
-                phase = .failed(model == .dooit2 ? "메모리가 모자라 두잇 2를 켜지 못했어요. 다른 앱을 닫거나 두잇 1을 써 주세요."
+                phase = .failed(model == .dooit2 ? "메모리가 모자라 모티 2를 켜지 못했어요. 다른 앱을 닫거나 모티 1을 써 주세요."
                                                  : "메모리가 모자라 \(model.title)을(를) 켜지 못했어요. 다른 앱을 닫고 다시 해 주세요.")
                 return false
             }
@@ -295,7 +295,7 @@ final class DoitBrain {
 
     /// 글을 조금씩 만들어 보냄 (생각 과정 <think>는 걸러서)
     /// thinking: 답하기 전에 속으로 생각(추론)하게 함 — 더 정확하지만 느림, 생각 과정은 걸러서 안 보여 줌
-    /// history: 이전 대화 (학생·두잇 역할 그대로 Qwen 대화 형식으로 넣음, 학생 말로 시작)
+    /// history: 이전 대화 (학생·모티 역할 그대로 Qwen 대화 형식으로 넣음, 학생 말로 시작)
     func stream(system: String, prompt: String, history: [DoitMind.Turn] = [], maxTokens: Int = 700, temperature: Float = 0.6, thinking: Bool = false) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task { @MainActor in
@@ -303,7 +303,7 @@ final class DoitBrain {
                 guard await self.prepare() else { continuation.finish(throwing: BrainError.notReady); return }
                 self.generating = true
                 defer { self.generating = false }
-                // 생각 모드를 못 쓰는 모델(두잇 2, Qwen3.5 4B)은 끔
+                // 생각 모드를 못 쓰는 모델(모티 2, Qwen3.5 4B)은 끔
                 let thinking = thinking && (self.selected?.thinks ?? false)
                 #if canImport(MLXLLM)
                 guard let container = self.container else { continuation.finish(throwing: BrainError.notReady); return }

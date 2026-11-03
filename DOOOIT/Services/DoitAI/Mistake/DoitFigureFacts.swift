@@ -8,7 +8,7 @@ import Foundation
 ///   A̅B̅ = 10
 ///   ∠C = 90°
 ///   [막대그래프] 1월 30, 2월 45, 3월 25
-/// - 정밀 인식(PaddleOCR-VL)의 표·차트 읽기, 두잇 2(Qwen3.5 4B)의 그림 읽기, 기본 그래프 판독이 모두 이 모양으로 냄
+/// - 정밀 인식(PaddleOCR-VL)의 표·차트 읽기, 모티 2(Qwen3.5 4B)의 그림 읽기, 기본 그래프 판독이 모두 이 모양으로 냄
 /// - 모델이 답을 내게 하지 않음: 그림에 보이는 사실만 읽고, 계산은 규칙형 풀이가 함
 enum DoitFigureFacts {
     static let header = "[그림에서 읽음]"
@@ -19,7 +19,7 @@ enum DoitFigureFacts {
         var kind: Kind
         /// 앱 표기 한 줄씩
         var lines: [String]
-        /// 어디서 읽었는지 ("정밀 인식", "두잇 2", "기본 판독")
+        /// 어디서 읽었는지 ("정밀 인식", "모티 2", "기본 판독")
         var source: String = ""
         var isEmpty: Bool { lines.isEmpty }
     }
@@ -492,9 +492,9 @@ enum DoitFigureFacts {
         return (String(problem[..<cut]).trimmingCharacters(in: .whitespacesAndNewlines), String(problem[cut...]))
     }
 
-    // MARK: - 두잇 2 그림 읽기 지시문과 답 읽기
+    // MARK: - 모티 2 그림 읽기 지시문과 답 읽기
 
-    /// 두잇 2(사진을 보는 모델)에게 주는 지시: 보이는 사실만, 정해진 줄 모양으로 (답·풀이 금지)
+    /// 모티 2(사진을 보는 모델)에게 주는 지시: 보이는 사실만, 정해진 줄 모양으로 (답·풀이 금지)
     static let visionPrompt = """
     이 문제 사진의 그림·그래프·표에 실제로 보이는 것만 아래 줄 모양으로 적으세요.
     문제를 풀거나 답을 쓰지 마세요. 그림에 적혀 있지 않은 값은 계산하거나 짐작하지 말고 빼세요.
@@ -528,7 +528,7 @@ enum DoitFigureFacts {
         return out
     }
 
-    /// 두잇 2가 낸 글 → 앱 표기 줄 (모양이 맞는 줄만 씀: 모르는 줄·답 같은 줄은 버림)
+    /// 모티 2가 낸 글 → 앱 표기 줄 (모양이 맞는 줄만 씀: 모르는 줄·답 같은 줄은 버림)
     static func parseVision(_ raw: String) -> Reading? {
         var kind: Reading.Kind = .geometry
         var chart: ChartKind?
@@ -633,6 +633,6 @@ enum DoitFigureFacts {
             lines.append("[\((chart ?? .bar).rawValue)] " + values.map { "\($0.0) \($0.1)" }.joined(separator: ", "))
         }
         guard !lines.isEmpty else { return nil }
-        return Reading(kind: kind, lines: lines, source: "두잇 2")
+        return Reading(kind: kind, lines: lines, source: "모티 2")
     }
 }

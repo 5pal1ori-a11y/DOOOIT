@@ -145,7 +145,7 @@ final class AuthManager {
 
     // MARK: Google
 
-    /// Google 계정으로 로그인 (같은 Google 계정이면 같은 두잇 계정 → 저장소가 이어짐)
+    /// Google 계정으로 로그인 (같은 Google 계정이면 같은 모티 계정 → 저장소가 이어짐)
     func signInWithGoogle() async throws {
         #if canImport(GoogleSignIn)
         guard let presenter = Self.topViewController() else { throw AuthError.google("화면을 찾을 수 없어요.") }

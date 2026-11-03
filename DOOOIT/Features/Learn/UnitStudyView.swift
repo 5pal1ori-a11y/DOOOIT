@@ -304,7 +304,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                         .background(AccentGradient.linear, in: .circle)
                         .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
                         .symbolEffect(.pulse, options: .repeating)
-                    Text("두잇 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+                    Text("모티 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요" : "준비 중")
                             .font(.caption)

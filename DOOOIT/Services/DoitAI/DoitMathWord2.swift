@@ -1,6 +1,6 @@
 import Foundation
 
-/// 두잇 AI 문장제 2 (외부 AI 없이): 연립방정식이 되는 문장제, 만남·따라잡기, 기차, 강물, 일의 양, 물탱크, 시계
+/// 모티 AI 문장제 2 (외부 AI 없이): 연립방정식이 되는 문장제, 만남·따라잡기, 기차, 강물, 일의 양, 물탱크, 시계
 /// 문장의 모양이 확실할 때만 풀고, 애매하면 nil
 enum DoitMathWord2 {
     typealias Solved = MathSolver.Solved

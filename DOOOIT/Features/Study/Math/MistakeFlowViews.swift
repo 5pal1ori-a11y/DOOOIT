@@ -349,7 +349,7 @@ struct MistakeGradingCard: View {
             field("내 답", text: $note.myAnswer, placeholder: "풀이 후 답을 입력")
         }
         field(kind == .essay ? "모범 답안" : "정답", text: $note.correctAnswer, axis: kind == .essay ? .vertical : .horizontal,
-              placeholder: kind == .essay ? "모범 답안이나 채점 기준 (핵심 내용)" : (kind == .math ? "비우면 두잇이 직접 풀어서 확인" : (isOX ? "O 또는 X" : "정답 (여러 개면 | 로 구분)")))
+              placeholder: kind == .essay ? "모범 답안이나 채점 기준 (핵심 내용)" : (kind == .math ? "비우면 모티가 직접 풀어서 확인" : (isOX ? "O 또는 X" : "정답 (여러 개면 | 로 구분)")))
     }
 
     private func field(_ title: String, text: Binding<String>, axis: Axis = .horizontal, placeholder: String) -> some View {
@@ -380,7 +380,7 @@ struct MistakeGradingCard: View {
             Text("채점 방법: \(result.method)" + (result.answerSource.isEmpty ? "" : " · 정답: \(result.answerSource)"))
                 .font(.caption2).foregroundStyle(.secondary)
             if result.verdict == .needsReview || result.verdict == .partial {
-                Text(result.verdict == .needsReview ? "두잇이 확실하게 채점할 수 없었어요. 직접 골라 주세요." : "부분 정답이에요. 최종 결과를 골라 주세요.")
+                Text(result.verdict == .needsReview ? "모티가 확실하게 채점할 수 없었어요. 직접 골라 주세요." : "부분 정답이에요. 최종 결과를 골라 주세요.")
                     .font(.caption.weight(.semibold))
                 HStack(spacing: 10) {
                     confirmButton("맞았어요", correct: true)

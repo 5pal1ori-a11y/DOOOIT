@@ -45,7 +45,7 @@ struct RankingView: View {
         }
         .scrollIndicators(.hidden)
         .background(Palette.card)
-        .navigationTitle("두잇 랭킹")
+        .navigationTitle("모티 랭킹")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(submit: true) }
         .task { ranking.authenticate(); await reload(submit: true) }
@@ -106,7 +106,7 @@ struct RankingView: View {
     private var signInCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Game Center에 로그인해 주세요", systemImage: "gamecontroller.fill").font(.headline)
-            Text(ranking.authMessage ?? "두잇 랭킹은 Apple Game Center로 순위를 모아요. 로그인하면 다른 학생들과 공부 시간을 겨룰 수 있어요.")
+            Text(ranking.authMessage ?? "모티 랭킹은 Apple Game Center로 순위를 모아요. 로그인하면 다른 학생들과 공부 시간을 겨룰 수 있어요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button("로그인") { ranking.authenticate() }

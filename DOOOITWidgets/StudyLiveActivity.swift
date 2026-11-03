@@ -114,9 +114,9 @@ struct StudyLockScreenView: View {
 
     private var headline: String {
         switch context.state.phase {
-        case .upcoming: return "곧 시작해요 · DOOOIT"
-        case .studying: return "공부 중 · DOOOIT"
-        case .paused: return "일시정지 · DOOOIT"
+        case .upcoming: return "곧 시작해요 · MOTI"
+        case .studying: return "공부 중 · MOTI"
+        case .paused: return "일시정지 · MOTI"
         }
     }
 }

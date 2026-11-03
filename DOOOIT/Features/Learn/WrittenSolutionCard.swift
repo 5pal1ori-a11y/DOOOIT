@@ -41,7 +41,7 @@ struct WrittenSolutionCard: View {
                 .id(tab)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
 
-                Label("두잇 풀이 엔진이 직접 푼 단계예요. 문제 글이 정확해야 풀이도 정확해요.", systemImage: "exclamationmark.circle")
+                Label("모티 풀이 엔진이 직접 푼 단계예요. 문제 글이 정확해야 풀이도 정확해요.", systemImage: "exclamationmark.circle")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if working {

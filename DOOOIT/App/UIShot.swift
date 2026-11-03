@@ -29,7 +29,7 @@ enum UIShot {
     }
 
     static var demoUser: UserAccount? {
-        screen == .auth ? nil : UserAccount(id: "uishot.demo", name: "김두잇", email: "dooit@example.com", provider: .email, createdAt: Date())
+        screen == .auth ? nil : UserAccount(id: "uishot.demo", name: "김모티", email: "dooit@example.com", provider: .email, createdAt: Date())
     }
 
     static var tab: AppTab {
@@ -66,7 +66,7 @@ enum UIShot {
         return container
     }
 
-    /// 화면이 뜬 뒤 할 일 (두잇 AI 예시 대화, 타이머 열기)
+    /// 화면이 뜬 뒤 할 일 (모티 AI 예시 대화, 타이머 열기)
     static func afterLaunch(timer: StudyTimer) async {
         switch screen {
         case .ai:

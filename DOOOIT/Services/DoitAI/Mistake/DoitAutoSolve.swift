@@ -3,7 +3,7 @@ import Foundation
 /// 오답노트 풀이 탭: AI가 문제를 읽고 직접 풀어 답과 풀이를 냄
 /// 1) 수학은 풀이 엔진이 직접 풀기 (계산으로 확인한 답)
 /// 2) 다른 과목은 규칙·자료 풀이(DoitSubjectSolve)로 확인한 답 (과학 계산, 영어 문법, 분류·사실·연표, 맞춤법)
-/// 3) 그래도 못 풀면 다른 과목은 두잇 1·2 모델이 참고 자료를 보고 풀기 (추측이라 확인해 보라고 표시)
+/// 3) 그래도 못 풀면 다른 과목은 모티 1·2 모델이 참고 자료를 보고 풀기 (추측이라 확인해 보라고 표시)
 enum DoitAutoSolve {
     static let engineSource = "engine"
     static let modelSource = "model"
@@ -298,7 +298,7 @@ enum DoitAutoSolve {
         return saved == problem.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // MARK: - 두잇 AI 대화: 사진 속 문제 풀기
+    // MARK: - 모티 AI 대화: 사진 속 문제 풀기
 
     /// 풀어 달라는 말인지 ("풀어줘", "답 알려줘", "이거 몇 번이야?", "어떻게 풀어?")
     /// 저장·단어·메모·유형·과목을 묻는 말은 아님

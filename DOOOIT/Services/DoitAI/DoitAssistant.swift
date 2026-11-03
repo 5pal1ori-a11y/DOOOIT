@@ -1,7 +1,7 @@
 import Observation
 import UIKit
 
-/// 두잇 AI 대화 (외부 AI·서버 없음)
+/// 모티 AI 대화 (외부 AI·서버 없음)
 /// - 규칙형 엔진: 앱 기능 실행, 수학 풀이, 계산, 퀴즈, 사진 분석 (정확해야 하는 일)
 /// - 모델(기기 안 언어 모델, 받아 두었을 때): 설명·대화를 근거(앱 지식·배운 기억·인터넷)를 읽고 자기 말로
 /// 사진은 기기 안 글자 인식(Vision)으로 읽음
@@ -310,7 +310,7 @@ final class DoitAssistant {
     /// 근거를 모으고, 모델이 쓰는 답을 조금씩 보여줌. 답이 이상하면 엔진 답(fallback)으로 바꿈
     /// topic: 지금 이야기 중인 주제 (이어 말하기일 때 모델이 앞 이야기를 잇게)
     private func think(question: String, draft: String?, origin: DoitEngine.Origin, suggestions: [String], fallback: String? = nil, topic hint: String? = nil) async {
-        // 이전 대화: 학생·두잇 역할 그대로, 토큰 예산 안에서 최근 것부터 (넘친 오래된 대화는 짧게 요약)
+        // 이전 대화: 학생·모티 역할 그대로, 토큰 예산 안에서 최근 것부터 (넘친 오래된 대화는 짧게 요약)
         let turns = messages.dropLast().compactMap { message -> DoitMind.Turn? in
             guard !message.isStreaming, !message.text.isEmpty else { return nil }
             switch message.role {
@@ -402,7 +402,7 @@ final class DoitAssistant {
                 let mark = note.kind == .learned ? "📘" : (note.kind == .correction ? "✏️" : "📝")
                 return "\(mark) **\(note.topic)**: \(DoitMemory.trimmed(note.summary.replacingOccurrences(of: "\n", with: " "), max: 60))"
             }
-            return Message(role: .assistant, text: "**두잇 AI가 배운 내용** (\(DoitMemory.shared.notes.count)개)\n" + lines.joined(separator: "\n") + "\n\n위쪽 모델 메뉴 > 배운 내용에서 관리할 수 있어요.")
+            return Message(role: .assistant, text: "**모티 AI가 배운 내용** (\(DoitMemory.shared.notes.count)개)\n" + lines.joined(separator: "\n") + "\n\n위쪽 모델 메뉴 > 배운 내용에서 관리할 수 있어요.")
         }
         // "아니야 괜찮아", "아니 됐어" 같은 말은 고쳐 주는 말이 아님
         let casual = ["괜찮", "됐어", "고마워", "그냥", "아무것도", "몰라", "ㅋㅋ", "알겠어", "아니야아니야"]
@@ -591,7 +591,7 @@ final class DoitAssistant {
         }
     }
 
-    /// 사진 속 문제를 읽고 풀기: 수학은 풀이 엔진(계산으로 확인), 못 풀면 · 다른 과목은 두잇 1·2 모델 (추측 표시)
+    /// 사진 속 문제를 읽고 풀기: 수학은 풀이 엔진(계산으로 확인), 못 풀면 · 다른 과목은 모티 1·2 모델 (추측 표시)
     private func solvePhotoProblem(_ question: String, photo: DoitEngine.PhotoContext?, fresh: Bool) async -> Message? {
         guard let photo, !photo.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         let asked = DoitAutoSolve.asksToSolve(question)
@@ -623,12 +623,12 @@ final class DoitAssistant {
         var judged = false
         if !isMath, solution == nil, DoitMind.isAvailable, isChoice,
            let setup = DoitItemJudge.setup(text: text, body: scan.body, choices: choices, boxItems: scan.boxItems) {
-            status = "두잇 AI가 항목을 하나씩 따지는 중…"
+            status = "모티 AI가 항목을 하나씩 따지는 중…"
             solution = await DoitItemJudge.run(setup, subjectName: subject?.noteLabel ?? "모름", problem: text)
             judged = true
         }
         if !isMath, !judged, solution == nil, DoitMind.isAvailable {
-            status = "두잇 AI가 문제를 푸는 중…"
+            status = "모티 AI가 문제를 푸는 중…"
             let body = scan.body.isEmpty ? text : scan.body
             let material = DoitAutoSolve.modelMaterial(text: text, body: scan.body, choices: isChoice ? choices : [], boxItems: scan.boxItems,
                                                        subject: NoteSubject.from(subject?.broad ?? "기타"))
@@ -659,7 +659,7 @@ final class DoitAssistant {
         if let seen = DoitFigureFacts.chatBlock(text) { lines.append("\n" + seen) }
         lines.append("\n읽은 문제\n" + MathSymbolBar.pretty(String(DoitFigureFacts.split(text).problem.prefix(400))))
         if isMath { lines.append("\n틀린 답을 보여 주지 않으려고 계산으로 확인한 답만 알려 줘요. 글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
-        else if !DoitMind.isAvailable { lines.append("\n위쪽 메뉴에서 두잇 모델을 받으면 다른 과목 문제도 풀어 봐요.") }
+        else if !DoitMind.isAvailable { lines.append("\n위쪽 메뉴에서 모티 모델을 받으면 다른 과목 문제도 풀어 봐요.") }
         else { lines.append("\n글자가 잘못 읽혔으면 고쳐서 보내 주세요.") }
         return Message(role: .assistant, text: lines.joined(separator: "\n"), suggestions: suggestions)
     }

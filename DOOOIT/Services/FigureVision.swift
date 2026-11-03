@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// 기본 판독 (모델 없이 Apple Vision + 픽셀 계산): 두잇 1·모델 없는 기기에서도 그림을 조금은 읽음
+/// 기본 판독 (모델 없이 Apple Vision + 픽셀 계산): 모티 1·모델 없는 기기에서도 그림을 조금은 읽음
 /// - 표: 문서 읽기(RecognizeDocumentsRequest)가 찾은 표 칸
 /// - 좌표 그래프: GraphReader가 맞춘 식과 절편·꼭짓점
 /// - 도형: ShapeReader가 붙인 꼭짓점 이름·변 길이 (직각은 그림에서 90°에 아주 가까울 때만)

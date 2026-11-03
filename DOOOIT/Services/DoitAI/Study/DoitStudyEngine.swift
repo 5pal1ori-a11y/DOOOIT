@@ -45,7 +45,7 @@ extension DoitStudy {
             }
         }
         guard !list.isEmpty else {
-            throw StudyError.noMaterial("'\(scope.label)' 단원의 학습 자료가 아직 없어요. 두잇 AI는 자료가 없는 내용을 지어내지 않아요. 같은 과목의 다른 단원을 골라 주세요.")
+            throw StudyError.noMaterial("'\(scope.label)' 단원의 학습 자료가 아직 없어요. 모티 AI는 자료가 없는 내용을 지어내지 않아요. 같은 과목의 다른 단원을 골라 주세요.")
         }
         let basis = DoitStudyCheck.Basis(materials: list, scope: scope)
         var concept = ruleConcept(scope: scope, materials: list, booster: booster)
@@ -137,7 +137,7 @@ extension DoitStudy {
         return ProblemSet(items: items)
     }
 
-    /// 단원 하나에서 개념 이름으로 O/X 하나 (두잇 AI 대화의 "이걸로 퀴즈 내줘")
+    /// 단원 하나에서 개념 이름으로 O/X 하나 (모티 AI 대화의 "이걸로 퀴즈 내줘")
     static func quickOX(topic: String) -> OXItem? {
         // 교육과정 사전에서 그 이름의 개념 (가장 낮은 학교급부터) → 그 단원 자료로
         let key = DoitStudyCheck.norm(topic)
@@ -151,7 +151,7 @@ extension DoitStudy {
             // 교육과정 사전에 없는 개념(과목 엔진의 지식): 그 개념 + 같은 과목의 가까운 개념으로
             guard let entry = DoitKnowledge.entry(named: topic) else { return nil }
             let list = ([entry] + DoitKnowledge.related(to: entry.title, limit: 3)).map {
-                DoitStudyMaterial(kind: .curriculum, title: $0.title, names: $0.names, body: $0.body, source: "두잇 지식 사전")
+                DoitStudyMaterial(kind: .curriculum, title: $0.title, names: $0.names, body: $0.body, source: "모티 지식 사전")
             }
             let scope = StudyScope(level: entry.level, subject: entry.subject, subjectName: entry.label, unit: entry.title, sources: [])
             let basis = DoitStudyCheck.Basis(materials: list, scope: scope)

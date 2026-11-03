@@ -3,7 +3,7 @@ import SwiftUI
 
 /// 오답노트 풀이 탭 맨 위: AI가 문제를 읽고 직접 풀어 정답과 풀이를 보여 줌
 /// 수학은 풀이 엔진이 계산해서 풀고, 다른 과목은 규칙·자료로 확인해서 풀어요.
-/// 그래도 못 풀면 다른 과목은 두잇 1·2 모델이 참고 자료를 보고 풀어요 (추측이라 확인 표시)
+/// 그래도 못 풀면 다른 과목은 모티 1·2 모델이 참고 자료를 보고 풀어요 (추측이라 확인 표시)
 struct AISolutionCard: View {
     @Bindable var note: MathNote
     /// 못 풀었을 때 '문제 글 고치기' (문제 탭으로)
@@ -159,7 +159,7 @@ struct AISolutionCard: View {
     private var failedState: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(note.subjectKind.isMath ? "확실한 답을 찾지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요."
-                 : DoitMind.isAvailable ? "풀지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요." : "풀지 못했어요. 두잇 AI 탭에서 모델을 받으면 더 많이 풀어요.")
+                 : DoitMind.isAvailable ? "풀지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요." : "풀지 못했어요. 모티 AI 탭에서 모델을 받으면 더 많이 풀어요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -215,7 +215,7 @@ struct AISolutionCard: View {
             if noteKey.isEmpty, !isChoice || matchesChoice(solved.finalAnswer) { note.correctAnswer = solved.finalAnswer; save() }
             return
         }
-        // 3) 두잇 1·2 모델 (수학이 아닌 과목만: 작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만 보여 줌)
+        // 3) 모티 1·2 모델 (수학이 아닌 과목만: 작은 모델의 수학 답은 자주 틀려서 계산으로 확인한 답만 보여 줌)
         if !note.subjectKind.isMath, DoitMind.isAvailable {
             // 보기 항목을 하나씩 따지는 문제 ("어법상 바른 것끼리"): 항목마다 O·X만 묻고 선지는 앱이 고름, 두 번 물어 같을 때만
             if isChoice, let setup = DoitItemJudge.setup(text: text, body: note.scan?.body, choices: choices, boxItems: note.scan?.boxItems) {

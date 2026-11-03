@@ -1,6 +1,6 @@
 import Foundation
 
-// 두잇 AI 엔진 테스트 모음
+// 모티 AI 엔진 테스트 모음
 // - 대화(앱 명령 / 공부 질문 / 일상 대화 / 퀴즈 흐름)
 // - 수학 풀이 정답, 문제 생성기 검증, 풀이 과정 채점, 사진 글자 교정, 지식 검색
 
@@ -101,7 +101,7 @@ let chatCases: [ChatCase] = [
     ChatCase(name: "모르는 질문은 솔직하게", inputs: ["우리 동네 떡볶이집 사장님 이름이 뭐야?"], expect: ["몰라요"]),
     ChatCase(name: "블랙홀 (교육과정 지식)", inputs: ["블랙홀이 뭐야?"], expect: ["블랙홀", "빛"]),
     ChatCase(name: "영어 인사", inputs: ["How are you?"], expect: ["(저는"]),
-    ChatCase(name: "자기소개", inputs: ["너 누구야?"], expect: ["두잇 AI"], reject: ["Apple"]),
+    ChatCase(name: "자기소개", inputs: ["너 누구야?"], expect: ["모티 AI"], reject: ["Apple"]),
     ChatCase(name: "공부 싫다", inputs: ["공부하기 너무 싫다"], expectAny: ["5분", "의욕", "1%"]),
     ChatCase(name: "시간 있는 단어 공부는 플랜", inputs: ["매일 오전 7시 영어 단어 30분 추가"], expect: ["[ADD PLAN] 영어 단어", "min=30"]),
     ChatCase(name: "문자 전개", inputs: ["(a+b)^2 전개"], expect: ["a² + 2ab + b²"]),
@@ -391,7 +391,7 @@ func runBrain() {
     check("생각 태그 없을 때 그대로", plain.feed("a < b 이고 ") + plain.feed("b > c") == "a < b 이고 b > c")
 
     // 답 다듬기·검사
-    check("답 다듬기", DoitMind.clean("<think>\n</think>\n\n두잇: ### 핵심\n- 하나\n- 둘") == "**핵심**\n• 하나\n• 둘", DoitMind.clean("<think>\n</think>\n\n두잇: ### 핵심\n- 하나\n- 둘"))
+    check("답 다듬기", DoitMind.clean("<think>\n</think>\n\n모티: ### 핵심\n- 하나\n- 둘") == "**핵심**\n• 하나\n• 둘", DoitMind.clean("<think>\n</think>\n\n모티: ### 핵심\n- 하나\n- 둘"))
     let fluffy = "좋은 질문이에요! 광합성은 식물이 빛으로 양분을 만드는 과정이에요.\n엽록체에서 일어나요.\n\n**요약**\n• 빛 → 양분\n\n더 궁금한 게 있으면 언제든 물어봐 주세요!"
     check("군더더기 빼기: 칭찬·요약·끝인사", DoitMind.answer(fluffy) == "광합성은 식물이 빛으로 양분을 만드는 과정이에요.\n엽록체에서 일어나요.", DoitMind.answer(fluffy))
     let conclusion = "물은 100도에서 끓어요.\n결론적으로, 물은 100도에서 끓는다는 거예요."
@@ -848,6 +848,6 @@ runBadgeCases()
 runSoundMixCases()
 runMockExamCases()
 
-print("두잇 AI 테스트: \(passed)개 통과, \(failed.count)개 실패")
+print("모티 AI 테스트: \(passed)개 통과, \(failed.count)개 실패")
 for f in failed { print(f) }
 exit(failed.isEmpty ? 0 : 1)

@@ -8,7 +8,7 @@ import Foundation
 enum LegalText {
     static let version = 3
     static let effectiveDate = "2026년 11월 3일"
-    static let service = "DOOOIT (두잇)"
+    static let service = "MOTI (모티)"
     /// 문의처
     static let contact = "TestFlight 앱의 '베타 피드백 보내기' 또는 App Store 앱 정보의 개발자 문의"
 
@@ -39,7 +39,7 @@ enum LegalText {
         """),
         Section(title: "제3조 (서비스 내용)", body: """
         앱은 학습 플래너, 공부 타이머, 단어장, 오답노트, AI 학습·풀이, 랭킹 같은 기능을 제공해요.
-        AI 기능(두잇 AI, AI 풀이, 사진 인식)은 대부분 기기 안에서 실행돼요.
+        AI 기능(모티 AI, AI 풀이, 사진 인식)은 대부분 기기 안에서 실행돼요.
         """),
         Section(title: "제4조 (AI 결과에 대한 안내)", body: """
         1. AI가 읽은 문제, 풀이, 정답, 설명은 학습을 돕기 위한 참고 자료이며 틀릴 수 있어요.
@@ -99,15 +99,15 @@ enum LegalText {
         • Apple iCloud (iCloud 동기화를 켰을 때만): 학습 자료를 본인 iCloud 계정에 암호화해 저장하고 같은 Apple ID 기기끼리 이어 줘요. 운영자는 볼 수 없어요.
         • Apple (로그인, Game Center 랭킹): 로그인 정보, 랭킹에 참여하면 공부 시간
         • Google (Google 로그인): 로그인 정보
-        • DuckDuckGo (두잇 AI 인터넷 검색, 켰을 때만): 검색어
+        • DuckDuckGo (모티 AI 인터넷 검색, 켰을 때만): 검색어
         • Free Dictionary API (영어 단어 뜻 찾기): 찾는 영어 단어
         • Hugging Face (AI 모델 받기): 개인정보를 보내지 않아요
-        AI 풀이, 사진 인식(정밀 인식 포함), 두잇 1·2 대화는 기기 안에서 처리되어 문제 사진과 대화 내용을 밖으로 보내지 않아요.
-        발음 연습과 두잇 AI에 말로 질문하기의 음성 인식은 기기 안에서 하며, 기기가 지원하지 않으면 Apple의 음성 인식을 거칠 수 있어요. 녹음한 소리는 저장하지 않아요.
+        AI 풀이, 사진 인식(정밀 인식 포함), 모티 1·2 대화는 기기 안에서 처리되어 문제 사진과 대화 내용을 밖으로 보내지 않아요.
+        발음 연습과 모티 AI에 말로 질문하기의 음성 인식은 기기 안에서 하며, 기기가 지원하지 않으면 Apple의 음성 인식을 거칠 수 있어요. 녹음한 소리는 저장하지 않아요.
         """),
         Section(title: "5. 기기 권한", body: """
         • 카메라 · 사진: 단어장·문제 사진 찍기와 불러오기
-        • 마이크 · 음성 인식: 영어 발음 연습, 두잇 AI에 말로 질문하기
+        • 마이크 · 음성 인식: 영어 발음 연습, 모티 AI에 말로 질문하기
         • 알림: 플랜 알림
         • 스크린 타임: 공부 중 다른 앱 잠금 (쓸 때만)
         모두 선택이며, 허용하지 않아도 다른 기능은 쓸 수 있어요. iPhone 설정에서 언제든 바꿀 수 있어요.

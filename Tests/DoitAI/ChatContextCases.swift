@@ -161,7 +161,7 @@ func runChatContextCases() async {
     check("이전 대화: 오래된 말은 요약", budget.summary?.contains("질문 1") == true || budget.summary?.contains("질문") == true, budget.summary ?? "nil")
     let short = DoitMind.budgetHistory([DoitMind.Turn(fromUser: false, text: "안녕하세요"), DoitMind.Turn(fromUser: true, text: "광합성이 뭐야?"),
                                         DoitMind.Turn(fromUser: false, text: "**광합성**은 빛으로 양분을 만드는 거예요.")], maxTokens: 500)
-    check("이전 대화: 두잇 말로 시작하면 뺌, 굵은 글씨 정리", short.recent.count == 2 && short.recent[0].fromUser && !short.recent[1].text.contains("**"))
+    check("이전 대화: 모티 말로 시작하면 뺌, 굵은 글씨 정리", short.recent.count == 2 && short.recent[0].fromUser && !short.recent[1].text.contains("**"))
     let prompt = DoitMind.answerPrompt(question: "왜?", context: DoitMind.Context(), history: [], summary: "학생이 앞에서 물은 것: 광합성", topic: "광합성")
     check("프롬프트: 앞선 대화 요약·주제", prompt.contains("[앞선 대화]") && prompt.contains("[지금 이야기 중인 주제] 광합성") && prompt.contains("[질문]\n왜?") && !prompt.contains("[이전 대화]"), prompt)
 

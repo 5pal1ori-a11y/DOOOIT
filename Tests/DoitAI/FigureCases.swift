@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - 그림·그래프·차트·표에서 읽은 것 (DoitFigureFacts): 표 읽기, 두잇 2 답 읽기, 블록, 풀이에 쓰기
+// MARK: - 그림·그래프·차트·표에서 읽은 것 (DoitFigureFacts): 표 읽기, 모티 2 답 읽기, 블록, 풀이에 쓰기
 
 func runFigureCases() {
     let ab = GeometryText.segment("AB"), ac = GeometryText.segment("AC"), cd = GeometryText.segment("CD"), bc = GeometryText.segment("BC")
@@ -56,7 +56,7 @@ func runFigureCases() {
     check("그래프 식: 한 직선 위에 없으면 안 냄", DoitFigureFacts.graphEquation(["지나는 점 (0, 0), (1, 1), (2, 5)"]) == nil)
     check("그래프 식: 분수 기울기", DoitFigureFacts.graphEquation(["지나는 점 (0, 2), (3, 0)"]) == "y = -(2/3)x + 2", DoitFigureFacts.graphEquation(["지나는 점 (0, 2), (3, 0)"]) ?? "nil")
 
-    // 5) 두잇 2 답 읽기
+    // 5) 모티 2 답 읽기
     let geo = DoitFigureFacts.parseVision("""
     종류: 도형
     점: A, B, C
@@ -67,35 +67,35 @@ func runFigureCases() {
     평행: 없음
     정답: 8
     """)
-    check("두잇 2 읽기: 도형", geo?.lines == ["△ABC", "\(ab) = 10", "\(ac) = 6", "∠C = 90°"], "\(geo?.lines ?? [])")
-    check("두잇 2 읽기: 종류", geo?.kind == .geometry)
+    check("모티 2 읽기: 도형", geo?.lines == ["△ABC", "\(ab) = 10", "\(ac) = 6", "∠C = 90°"], "\(geo?.lines ?? [])")
+    check("모티 2 읽기: 종류", geo?.kind == .geometry)
     let par = DoitFigureFacts.parseVision("- 평행: AB, CD\n- 각: ∠x = 65°\n- 수직: AB, BC")
-    check("두잇 2 읽기: 평행·각·수직", par?.lines == ["\(ab) ∥ \(cd)", "∠x = 65°", "\(ab) ⊥ \(bc)"], "\(par?.lines ?? [])")
+    check("모티 2 읽기: 평행·각·수직", par?.lines == ["\(ab) ∥ \(cd)", "∠x = 65°", "\(ab) ⊥ \(bc)"], "\(par?.lines ?? [])")
     let graph = DoitFigureFacts.parseVision("종류: 그래프\n지나는 점: (0,1), (2, 5)\ny절편: 1")
-    check("두잇 2 읽기: 그래프", graph?.lines == ["지나는 점 (0, 1), (2, 5)", "y절편 1"] && graph?.kind == .graph, "\(graph?.lines ?? [])")
+    check("모티 2 읽기: 그래프", graph?.lines == ["지나는 점 (0, 1), (2, 5)", "y절편 1"] && graph?.kind == .graph, "\(graph?.lines ?? [])")
     let bars = DoitFigureFacts.parseVision("종류: 막대그래프\n값: 1월 = 30\n값: 2월 = 45\n값: 3월 = 25")
-    check("두잇 2 읽기: 막대그래프", bars?.lines == ["[막대그래프] 1월 30, 2월 45, 3월 25"] && bars?.kind == .chart, "\(bars?.lines ?? [])")
+    check("모티 2 읽기: 막대그래프", bars?.lines == ["[막대그래프] 1월 30, 2월 45, 3월 25"] && bars?.kind == .chart, "\(bars?.lines ?? [])")
     let inline = DoitFigureFacts.parseVision("종류: 꺾은선그래프\n값: 2018 12, 2019 15, 2020 11")
-    check("두잇 2 읽기: 값 여러 개 한 줄", inline?.lines == ["[꺾은선그래프] 2018 12, 2019 15, 2020 11"], "\(inline?.lines ?? [])")
+    check("모티 2 읽기: 값 여러 개 한 줄", inline?.lines == ["[꺾은선그래프] 2018 12, 2019 15, 2020 11"], "\(inline?.lines ?? [])")
     let thousands = DoitFigureFacts.parseVision("값: 가 = 1,200\n값: 나 = 950\n값: 다 = 40%")
-    check("두잇 2 읽기: 천 단위 쉼표", thousands?.lines == ["[막대그래프] 가 1200, 나 950, 다 40%"], "\(thousands?.lines ?? [])")
+    check("모티 2 읽기: 천 단위 쉼표", thousands?.lines == ["[막대그래프] 가 1200, 나 950, 다 40%"], "\(thousands?.lines ?? [])")
     let bare = DoitFigureFacts.parseVision("막대그래프, A=20, B=35, C=15, D=40")
-    check("두잇 2 읽기: 머리말 없는 값 줄", bare?.lines == ["[막대그래프] A 20, B 35, C 15, D 40"], "\(bare?.lines ?? [])")
+    check("모티 2 읽기: 머리말 없는 값 줄", bare?.lines == ["[막대그래프] A 20, B 35, C 15, D 40"], "\(bare?.lines ?? [])")
     let rows = DoitFigureFacts.parseVision("표\n\n1월, 30\n2월, 45\n3월, 25")
-    check("두잇 2 읽기: 이름, 값 줄", rows?.lines == ["[표] 1월 30, 2월 45, 3월 25"], "\(rows?.lines ?? [])")
+    check("모티 2 읽기: 이름, 값 줄", rows?.lines == ["[표] 1월 30, 2월 45, 3월 25"], "\(rows?.lines ?? [])")
     let unnamed = DoitFigureFacts.parseVision("평행: l, m\n각: ∠x = x, ∠65° = 65°")
-    check("두잇 2 읽기: 이름 없는 각", unnamed?.lines == ["l ∥ m", "그림에 적힌 각 65°"], "\(unnamed?.lines ?? [])")
-    check("두잇 2 읽기: 되풀이한 답은 버림", DoitFigureFacts.parseVision("도형, 도형, 도형, 도형, 도형, 도형, 도형, 도형, 없음, A, B, C, AB = 1, AC = 1, ∠A = 40°") == nil)
-    check("두잇 2 읽기: 도형 답의 '이름 = 숫자'는 자료가 아님", DoitFigureFacts.parseVision("종류: 도형\nAB = 1, AC = 1") == nil)
-    check("두잇 2 읽기: 아무 글은 값이 아님", DoitFigureFacts.parseVision("그림에는 삼각형이 있고, 길이는 5이다") == nil)
+    check("모티 2 읽기: 이름 없는 각", unnamed?.lines == ["l ∥ m", "그림에 적힌 각 65°"], "\(unnamed?.lines ?? [])")
+    check("모티 2 읽기: 되풀이한 답은 버림", DoitFigureFacts.parseVision("도형, 도형, 도형, 도형, 도형, 도형, 도형, 도형, 없음, A, B, C, AB = 1, AC = 1, ∠A = 40°") == nil)
+    check("모티 2 읽기: 도형 답의 '이름 = 숫자'는 자료가 아님", DoitFigureFacts.parseVision("종류: 도형\nAB = 1, AC = 1") == nil)
+    check("모티 2 읽기: 아무 글은 값이 아님", DoitFigureFacts.parseVision("그림에는 삼각형이 있고, 길이는 5이다") == nil)
     check("그래프 식: 문제 글이 포물선이면 점 셋으로", DoitFigureFacts.graphEquation(["지나는 점 (-1, 0), (3, 0), (0, -3)"], hint: "그림과 같은 포물선") == "y = x² - 2x - 3")
     let circle = DoitFigureFacts.parseVision("원: O, 반지름 = 5\n중심각: AOB = 80")
-    check("두잇 2 읽기: 원", circle?.lines == ["원 O의 반지름 = 5", "중심각 ∠AOB = 80°"], "\(circle?.lines ?? [])")
-    check("두잇 2 읽기: 줄 모양이 아니면 없음", DoitFigureFacts.parseVision("이 문제의 답은 8입니다. 피타고라스 정리를 쓰면 돼요.") == nil)
-    check("두잇 2 읽기: 자리표시만 따라 쓴 답", DoitFigureFacts.parseVision(DoitFigureFacts.visionPrompt) == nil)
+    check("모티 2 읽기: 원", circle?.lines == ["원 O의 반지름 = 5", "중심각 ∠AOB = 80°"], "\(circle?.lines ?? [])")
+    check("모티 2 읽기: 줄 모양이 아니면 없음", DoitFigureFacts.parseVision("이 문제의 답은 8입니다. 피타고라스 정리를 쓰면 돼요.") == nil)
+    check("모티 2 읽기: 자리표시만 따라 쓴 답", DoitFigureFacts.parseVision(DoitFigureFacts.visionPrompt) == nil)
 
     let lm = DoitFigureFacts.parseVision("평행: l, m\n각: 65")
-    check("두잇 2 읽기: 직선 이름 평행", lm?.lines.first == "l ∥ m", "\(lm?.lines ?? [])")
+    check("모티 2 읽기: 직선 이름 평행", lm?.lines.first == "l ∥ m", "\(lm?.lines ?? [])")
 
     // 어떤 그림인지 (문제 글로)
     let routes: [(String, DoitFigureFacts.Route)] = [

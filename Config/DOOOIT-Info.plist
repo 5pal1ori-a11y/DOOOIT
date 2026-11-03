@@ -14,7 +14,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>영어 단어장과 수학 문제를 촬영해 자동으로 글자를 읽기 위해 카메라를 사용해요.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>영어 발음 연습과 두잇 AI에 말로 질문할 때 마이크를 사용해요.</string>
+	<string>영어 발음 연습과 모티 AI에 말로 질문할 때 마이크를 사용해요.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>따라 말한 단어와 말로 한 질문을 글자로 바꿔요. 되도록 기기 안에서 처리해요.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

@@ -207,11 +207,11 @@ struct WeeklyReportView: View {
         .softCard()
     }
 
-    // MARK: 두잇 AI 한마디
+    // MARK: 모티 AI 한마디
 
     private var aiCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("두잇 AI 한마디", systemImage: "sparkles")
+            Label("모티 AI 한마디", systemImage: "sparkles")
                 .font(.caption.weight(.bold))
                 .foregroundStyle(Theme.accent)
             Text(aiComment ?? "")

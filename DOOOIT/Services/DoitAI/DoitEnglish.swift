@@ -3,7 +3,7 @@ import Foundation
 import FoundationNetworking
 #endif
 
-/// 두잇 AI 영어 선생님 (외부 AI 없이 직접 만든 규칙 + 내장 자료)
+/// 모티 AI 영어 선생님 (외부 AI 없이 직접 만든 규칙 + 내장 자료)
 /// - 문법 개념 설명, 동사·명사·형용사 변화, 숙어, 간단한 문장 교정, 영어 인사말, 내장 단어장
 /// - 사전: 무료 Free Dictionary API (키 없음)
 enum DoitEnglish {
@@ -68,7 +68,7 @@ enum DoitEnglish {
               let url = URL(string: "https://api.dictionaryapi.dev/api/v2/entries/en/" + encoded) else { return nil }
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
-        request.setValue("DOOOIT/1.0 (iOS study planner)", forHTTPHeaderField: "User-Agent")
+        request.setValue("MOTI/1.0 (iOS study planner)", forHTTPHeaderField: "User-Agent")
         guard let data = await EngNetwork.fetch(request) else { return nil }
         return EngDictionary.format(data: data, word: w)
     }
@@ -223,7 +223,7 @@ private enum EngSmallTalk {
              reply: "I'm doing great, thanks for asking! How about you?\n(저는 잘 지내요, 물어봐 줘서 고마워요! 당신은요?)\n\n팁: \"I'm good.\", \"Not bad.\", \"Pretty good, thanks.\"로 대답할 수 있어요."),
         Rule(phrases: ["what's your name", "what is your name", "whats your name", "who are you", "your name"],
              maxWords: 7,
-             reply: "I'm DOOOIT AI, your study buddy. Nice to meet you!\n(저는 공부 친구 두잇 AI예요. 만나서 반가워요!)\n\n팁: 이름을 물을 때 \"May I ask your name?\"이라고 하면 더 공손해요."),
+             reply: "I'm MOTI AI, your study buddy. Nice to meet you!\n(저는 공부 친구 모티 AI예요. 만나서 반가워요!)\n\n팁: 이름을 물을 때 \"May I ask your name?\"이라고 하면 더 공손해요."),
         Rule(phrases: ["nice to meet you", "nice meeting you", "pleased to meet you", "glad to meet you"],
              maxWords: 7,
              reply: "Nice to meet you, too!\n(저도 만나서 반가워요!)\n\n팁: 대답할 때는 끝에 too를 붙여요."),
@@ -2666,7 +2666,7 @@ private enum EngChecker {
         }
         lines.append("고친 문장: **\(result.corrected)**")
         for (index, fix) in result.fixes.enumerated() { lines.append("\(index + 1)) \(fix.text)") }
-        lines.append("※ 두잇 AI는 자주 하는 실수를 규칙으로 찾아요. 모든 오류를 찾지는 못해요.")
+        lines.append("※ 모티 AI는 자주 하는 실수를 규칙으로 찾아요. 모든 오류를 찾지는 못해요.")
         return lines.joined(separator: "\n")
     }
 
@@ -3059,7 +3059,7 @@ private enum EngQuiz {
     }
 }
 
-// MARK: - 두잇 AI 지식 검색용
+// MARK: - 모티 AI 지식 검색용
 
 extension DoitEnglish {
     /// 문법 노트와 숙어 전체 (이름들, 설명)

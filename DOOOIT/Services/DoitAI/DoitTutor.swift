@@ -1,6 +1,6 @@
 import UIKit
 
-/// 두잇 AI 선생님: AI 학습 자료(DoitStudy), 오답노트 풀이, 비슷한 문제, 질문 답하기
+/// 모티 AI 선생님: AI 학습 자료(DoitStudy), 오답노트 풀이, 비슷한 문제, 질문 답하기
 enum DoitTutor {
     enum TutorError: LocalizedError {
         case cannotSolve(String)
@@ -46,7 +46,7 @@ enum DoitTutor {
             return DoitSolutionWriter.write(solved)
         }
         throw TutorError.cannotSolve(
-            "이 문제는 두잇 AI가 직접 풀 수 없는 유형이에요. 문제 글자가 정확히 읽혔는지 '문제' 탭에서 확인해 보세요.\n두잇 AI가 푸는 유형: 방정식(일차·이차·고차·연립·절댓값), 부등식, 인수분해, 이차함수 최대·최소, 근과 계수, 나머지정리, 복소수, 경우의 수, 좌표·직선·원, 집합, 합성·역함수, 유리·무리함수, 산술·기하평균, 미분·적분, 수열, 통계, 도형 공식"
+            "이 문제는 모티 AI가 직접 풀 수 없는 유형이에요. 문제 글자가 정확히 읽혔는지 '문제' 탭에서 확인해 보세요.\n모티 AI가 푸는 유형: 방정식(일차·이차·고차·연립·절댓값), 부등식, 인수분해, 이차함수 최대·최소, 근과 계수, 나머지정리, 복소수, 경우의 수, 좌표·직선·원, 집합, 합성·역함수, 유리·무리함수, 산술·기하평균, 미분·적분, 수열, 통계, 도형 공식"
         )
     }
 
@@ -60,7 +60,7 @@ enum DoitTutor {
         throw TutorError.cannotSolve("이 문제의 유형을 알아보지 못했어요. 문제 글자를 확인해 주세요. (방정식·부등식·인수분해·이차함수·경우의 수·좌표·함수·미적분·수열 등에서 비슷한 문제를 만들 수 있어요)")
     }
 
-    // MARK: - 7. 질문에 답하기 (AI에게 질문하기, 두잇 AI 대화)
+    // MARK: - 7. 질문에 답하기 (AI에게 질문하기, 모티 AI 대화)
 
     static func answer(_ question: String, subject: String? = nil, image: UIImage? = nil) async throws -> String {
         var text = question.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -69,7 +69,7 @@ enum DoitTutor {
             if !photoText.isEmpty { text += (text.isEmpty ? "" : "\n") + photoText }
         }
         guard !text.isEmpty else { throw TutorError.notEnough("사진에서 글자를 찾지 못했어요. 글자가 잘 보이게 다시 찍어주세요.") }
-        // 수학이면 두잇 AI가 직접 풀이
+        // 수학이면 모티 AI가 직접 풀이
         if let solved = MathSolver.solve(text) {
             var lines = ["**\(solved.topic)**", "💡 " + solved.concept]
             lines += solved.steps.enumerated().map { "\($0.offset + 1). \($0.element.hint)" + ($0.element.work.isEmpty ? "" : " → \($0.element.work)") }

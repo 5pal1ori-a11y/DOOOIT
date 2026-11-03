@@ -26,20 +26,20 @@ struct BrandLogo: View {
     }
 }
 
-/// "DOOOIT" 워드마크 (가운데 OOO만 강조색)
+/// "MOTI" 워드마크 (가운데 OOO만 강조색)
 struct BrandWordmark: View {
     var size: CGFloat = 40
     var tracking: CGFloat? = nil
 
     var body: some View {
-        let ooo = Text("OOO").foregroundStyle(Theme.accent)
-        Text("D\(ooo)IT")
+        let o = Text("O").foregroundStyle(Theme.accent)
+        Text("M\(o)TI")
             .font(.system(size: size, weight: .heavy, design: .rounded))
             .tracking(tracking ?? size * 0.12)
             .foregroundStyle(Palette.ink)
             .lineLimit(1)
             .fixedSize()
-            .accessibilityLabel("DOOOIT")
+            .accessibilityLabel("MOTI")
     }
 }
 

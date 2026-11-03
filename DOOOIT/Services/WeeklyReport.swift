@@ -67,7 +67,7 @@ struct WeeklyReport {
         return m == 0 ? "\(h)시간" : "\(h)시간 \(m)분"
     }
 
-    /// 두잇 AI 채팅에 보여줄 짧은 글
+    /// 모티 AI 채팅에 보여줄 짧은 글
     var summaryText: String {
         var lines = ["**이번 주 공부 리포트** (\(start.kr("M/d"))~\(end.kr("M/d")))"]
         var timeLine = "• 공부 시간 \(Self.duration(totalMinutes))"

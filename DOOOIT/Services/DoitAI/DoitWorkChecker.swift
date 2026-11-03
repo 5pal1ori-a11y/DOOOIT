@@ -260,7 +260,7 @@ enum DoitWorkChecker {
     private static func checkFinalOnly(lines: [String], answer: String, solvable: Bool) -> Report {
         guard solvable, !answer.isEmpty else {
             return Report(lines: lines.map { Line(text: $0, mark: .skipped, note: "") },
-                          verdict: "이 문제는 두잇 AI가 직접 풀 수 없는 유형이라 과정을 확인하지 못했어요.",
+                          verdict: "이 문제는 모티 AI가 직접 풀 수 없는 유형이라 과정을 확인하지 못했어요.",
                           finalCorrect: nil, firstWrongIndex: nil, tips: ["문제 글이 정확히 읽혔는지 '문제' 탭에서 확인해 주세요."], correctAnswer: answer)
         }
         let answerNumbers = Set(numbers(in: answer).map { ($0 * 1000).rounded() })

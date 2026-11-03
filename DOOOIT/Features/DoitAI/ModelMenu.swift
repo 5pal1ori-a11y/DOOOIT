@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 두잇 AI 화면 위쪽의 모델 고르기 (ChatGPT·Gemini처럼): 두잇 ZERO(모델 없이) / 두잇 1 / 두잇 2
+/// 모티 AI 화면 위쪽의 모델 고르기 (ChatGPT·Gemini처럼): 모티 ZERO(모델 없이) / 모티 1 / 모티 2
 /// (사진 인식 설정은 오답노트에서)
 struct ModelMenu: View {
     @State private var brain = DoitBrain.shared
@@ -9,11 +9,11 @@ struct ModelMenu: View {
     var body: some View {
         Menu {
             Section("모델") {
-                // 두잇 ZERO: 모델 없이 규칙형 엔진만 (간단한 명령)
+                // 모티 ZERO: 모델 없이 규칙형 엔진만 (간단한 명령)
                 Button {
                     brain.select(nil)
                 } label: {
-                    row(title: "두잇 ZERO", detail: "간단한 명령이 필요할 때", selected: brain.selected == nil)
+                    row(title: "모티 ZERO", detail: "간단한 명령이 필요할 때", selected: brain.selected == nil)
                 }
                 ForEach(DoitBrain.Model.allCases) { model in
                     Button {
@@ -70,7 +70,7 @@ struct ModelMenu: View {
 
     private var title: String {
         if let downloading = brain.downloading { return downloading.title }
-        return brain.selected?.title ?? "두잇 ZERO"
+        return brain.selected?.title ?? "모티 ZERO"
     }
 }
 
@@ -125,7 +125,7 @@ struct ModelDownloadCard: View {
     }
 }
 
-/// 두잇 AI가 배운 내용 (보기·지우기)
+/// 모티 AI가 배운 내용 (보기·지우기)
 struct LearnedNotesSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var notes: [DoitMemory.Note] = []
@@ -158,7 +158,7 @@ struct LearnedNotesSheet: View {
                         reload()
                     }
                 } footer: {
-                    Text("이 기기에만 저장돼요 · 두잇 1·2는 Apache-2.0 오픈소스 모델 기반")
+                    Text("이 기기에만 저장돼요 · 모티 1·2는 Apache-2.0 오픈소스 모델 기반")
                 }
             }
             .navigationTitle("배운 내용")

@@ -100,7 +100,7 @@ struct MainTabView: View {
             Tab(value: AppTab.ai) {
                 DoitAIView().tint(Theme.accent)
             } label: {
-                tabIcon("두잇 AI", "sparkles")
+                tabIcon("모티 AI", "sparkles")
             }
             Tab(value: AppTab.planner) {
                 PlannerView().tint(Theme.accent)

@@ -1,6 +1,6 @@
 import UIKit
 
-/// 두잇 AI 엔진 (외부 AI·API 없이 직접 만든 규칙형)
+/// 모티 AI 엔진 (외부 AI·API 없이 직접 만든 규칙형)
 /// 문장을 분석해서 무엇을 원하는지(의도) 고르고, 날짜·시간·이름 같은 값을 뽑아 앱 기능을 실행함
 @MainActor
 enum DoitEngine {
@@ -549,7 +549,7 @@ enum DoitEngine {
 
     private static func help() -> Reply {
         Reply(text: """
-        두잇 AI가 할 수 있는 일이에요.
+        모티 AI가 할 수 있는 일이에요.
         **앱 기능**
         • 일정: "오늘 할 일 알려줘", "금요일 오후 7시 영어 학원 추가", "수학 완료했어"
         • 타이머: "수학 50분 타이머 시작", "타이머 종료"

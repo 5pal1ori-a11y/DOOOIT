@@ -66,14 +66,14 @@ extension DoitStudy {
         for ref in scope.sources {
             for entry in DoitKnowledge.entries(inUnit: ref.unit, subject: "\(ref.level.rawValue) \(scope.subject)") {
                 list.append(DoitStudyMaterial(kind: .curriculum, title: entry.title, names: entry.names, body: entry.body,
-                                              source: "두잇 교육과정 사전 · \(ref.level.rawValue) \(scope.subject) 「\(ref.unit)」"))
+                                              source: "모티 교육과정 사전 · \(ref.level.rawValue) \(scope.subject) 「\(ref.unit)」"))
             }
         }
         if scope.usesMathEngine, let note = DoitMathConcepts.note(for: scope.unit), note.title.replacingOccurrences(of: " ", with: "") == scope.unit.replacingOccurrences(of: " ", with: "") || scope.unit.contains(note.title) || note.title.contains(scope.unit) {
             for point in note.points {
                 let name = point.components(separatedBy: ":").first.map { String($0.prefix(20)) } ?? note.title
                 list.append(DoitStudyMaterial(kind: .engine, title: point.contains(":") ? name : note.title, names: point.contains(":") ? [name] : [note.title],
-                                              body: point, source: "두잇 수학 개념 정리 「\(note.title)」"))
+                                              body: point, source: "모티 수학 개념 정리 「\(note.title)」"))
             }
         }
         // 세부 주제와 맞는 개념을 앞으로

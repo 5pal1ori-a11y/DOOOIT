@@ -1,6 +1,6 @@
 import Foundation
 
-/// 두잇 AI가 넘겨준 날짜·시간 표현을 실제 날짜로 바꿈
+/// 모티 AI가 넘겨준 날짜·시간 표현을 실제 날짜로 바꿈
 /// (AI가 날짜를 직접 계산하면 틀릴 수 있어서 "내일", "다음주 월요일", "오후 3시" 같은 말을 그대로 받아 앱에서 계산)
 enum DoitDateParser {
     private static let weekdays: [(String, Int)] = [

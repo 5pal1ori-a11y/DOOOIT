@@ -9,7 +9,7 @@ import MLXHuggingFace
 import MLXLMCommon
 #endif
 
-/// 정밀 인식 (PaddleOCR-VL 1.6 4비트, 약 0.72GB): 문제 사진(수학·모든 과목 오답노트, 두잇 AI 사진 질문)을 읽는 선택 모델
+/// 정밀 인식 (PaddleOCR-VL 1.6 4비트, 약 0.72GB): 문제 사진(수학·모든 과목 오답노트, 모티 AI 사진 질문)을 읽는 선택 모델
 /// - 모델 메뉴에서 받으면 문제 사진은 이 모델로 먼저 읽고, 받지 않았거나 · 메모리 6GB 미만 기기거나 · 실패·시간 초과면
 ///   지금처럼 Apple Vision으로 읽음 (단어장 사진은 늘 Vision: 실험에서 Vision이 더 잘 읽음)
 /// - 처음 쓸 때 메모리에 올리고, 메모리가 부족하거나 앱이 뒤로 가거나 한동안 안 쓰면 내림
@@ -247,7 +247,7 @@ final class PaddleOCRService {
             phase = .notInstalled
             return false
         }
-        // 6GB 기기이거나 큰 대화 모델(두잇 2, 4B)을 쓰면 대화 모델을 잠시 내려 메모리를 비움
+        // 6GB 기기이거나 큰 대화 모델(모티 2, 4B)을 쓰면 대화 모델을 잠시 내려 메모리를 비움
         if ProcessInfo.processInfo.physicalMemory < 7_500_000_000 || DoitBrain.shared.selected == .dooit2 { DoitBrain.shared.sleep() }
         phase = .loading
         let engine = self.engine

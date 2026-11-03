@@ -9,8 +9,8 @@ import MLX
 import MLXLMCommon
 #endif
 
-/// 두잇 2의 눈: 받아 둔 두잇 2(Qwen3.5 4B)를 사진을 보는 모델로 잠깐 올려, 문제 그림에 보이는 사실만 읽음
-/// - 8GB 기기 + 두잇 2를 받아 둔 경우만. 큰 모델은 한 번에 하나: 읽기 전에 대화 모델을 내리고, 읽은 뒤 1분 안 쓰면 내림
+/// 모티 2의 눈: 받아 둔 모티 2(Qwen3.5 4B)를 사진을 보는 모델로 잠깐 올려, 문제 그림에 보이는 사실만 읽음
+/// - 8GB 기기 + 모티 2를 받아 둔 경우만. 큰 모델은 한 번에 하나: 읽기 전에 대화 모델을 내리고, 읽은 뒤 1분 안 쓰면 내림
 /// - 답·풀이는 시키지 않음: 정해진 줄 모양의 사실만 받아 DoitFigureFacts.parseVision으로 거름 → 학생이 확인 → 규칙형 풀이
 @MainActor
 @Observable
@@ -32,7 +32,7 @@ final class DoitVision {
     /// (맥 M1 측정, 사진 긴 변 1024: 올린 뒤 3.5GB, 읽는 중 최대 4.0~4.2GB → 여유를 더해 4.5GB)
     static let neededMemory: UInt64 = 4_500_000_000
 
-    /// 그림 읽기를 쓸 수 있는지: 모델을 받을 수 있는 실기기, 8GB 이상, 두잇 2를 받아 둠
+    /// 그림 읽기를 쓸 수 있는지: 모델을 받을 수 있는 실기기, 8GB 이상, 모티 2를 받아 둠
     var isAvailable: Bool {
         DoitBrain.isSupported && DoitBrain.Model.dooit2.fitsDevice && DoitBrain.shared.isInstalled(.dooit2)
     }
@@ -95,7 +95,7 @@ final class DoitVision {
                 MLX.Memory.cacheLimit = 64 * 1024 * 1024
             } catch {
                 failures += 1
-                phase = .failed("두잇 2가 그림을 읽을 준비를 하지 못했어요.")
+                phase = .failed("모티 2가 그림을 읽을 준비를 하지 못했어요.")
                 return nil
             }
         }
@@ -106,11 +106,11 @@ final class DoitVision {
             failures = 0
             phase = .idle
             guard var parsed = DoitFigureFacts.parseVision(reading.text) else { return nil }
-            parsed.source = "두잇 2"
+            parsed.source = "모티 2"
             return parsed
         } catch {
             failures += 1
-            phase = .failed("두잇 2가 그림을 읽지 못했어요.")
+            phase = .failed("모티 2가 그림을 읽지 못했어요.")
             return nil
         }
     }

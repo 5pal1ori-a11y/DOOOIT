@@ -269,7 +269,7 @@ struct PlanEditorView: View {
                     if await AppLockManager.shared.requestAuthorization() {
                         lockApps = true
                     } else {
-                        lockError = "앱 잠금을 쓰려면 스크린 타임 권한이 필요해요. 설정 > 스크린 타임에서 DOOOIT을 허용해주세요. (개발자: README의 '앱 잠금 켜기' 참고)"
+                        lockError = "앱 잠금을 쓰려면 스크린 타임 권한이 필요해요. 설정 > 스크린 타임에서 MOTI를 허용해주세요. (개발자: README의 '앱 잠금 켜기' 참고)"
                     }
                 }
             }

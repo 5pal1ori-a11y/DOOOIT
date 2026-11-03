@@ -1,6 +1,6 @@
 import Foundation
 
-/// 수학 문제 유형 알아보기 + 풀이 (두잇 AI 대화, 오답노트 단계별 풀이, AI에게 질문)
+/// 수학 문제 유형 알아보기 + 풀이 (모티 AI 대화, 오답노트 단계별 풀이, AI에게 질문)
 enum MathSolver {
     enum Kind: String, Codable, CaseIterable {
         case linear, quadraticEquation, vertex, rootRelation, remainder, expression
@@ -366,7 +366,7 @@ enum MathSolver {
     }
 }
 
-/// 수학 계산 문제 만들기 (AI 학습 문제, 개념 예제, 비슷한 문제, 두잇 AI 퀴즈)
+/// 수학 계산 문제 만들기 (AI 학습 문제, 개념 예제, 비슷한 문제, 모티 AI 퀴즈)
 enum MathProblems {
     enum Topic: CaseIterable {
         case quadraticEquation, quadraticFunction, linear, remainder, rootRelation, expand

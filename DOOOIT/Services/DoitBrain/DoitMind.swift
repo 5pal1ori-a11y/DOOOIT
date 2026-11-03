@@ -1,6 +1,6 @@
 import Foundation
 
-/// 두잇 AI 생각 정리: 근거(앱 지식 · 내 기억 · 인터넷 자료)를 모아 모델(언어 모델)에게 주고,
+/// 모티 AI 생각 정리: 근거(앱 지식 · 내 기억 · 인터넷 자료)를 모아 모델(언어 모델)에게 주고,
 /// 그대로 베끼지 않고 자기 말로 설명하게 함. 만든 답은 검사해서 이상하면 버리고 규칙형 엔진 답을 씀.
 /// AI 학습(개념 정리·빈칸·O/X·객관식)도 같은 방식으로 새로 만들어요.
 enum DoitMind {
@@ -18,8 +18,8 @@ enum DoitMind {
         var isEmpty: Bool { knowledge.isEmpty && memories.isEmpty && web.isEmpty && (draft ?? "").isEmpty }
         var sourceLabels: [String] {
             var labels: [String] = []
-            for entry in knowledge { labels.append("두잇 지식 「\(entry.title)」") }
-            if !memories.isEmpty { labels.append("두잇 AI가 배운 내용") }
+            for entry in knowledge { labels.append("모티 지식 「\(entry.title)」") }
+            if !memories.isEmpty { labels.append("모티 AI가 배운 내용") }
             labels += web.map(\.label)
             return labels
         }
@@ -31,7 +31,7 @@ enum DoitMind {
     }
 
     static let persona = """
-    너는 '두잇 AI'야. 학생의 공부와 생활을 돕는 똑똑한 AI 선생님이야.
+    너는 '모티 AI'야. 학생의 공부와 생활을 돕는 똑똑한 AI 선생님이야.
     말하는 방식:
     - 첫 문장에서 바로 답해요. "좋은 질문이에요", "물론이에요" 같은 말로 시작하지 않아요.
     - 짧고 간단하게 말해요. 보통 1~3문장, 꼭 필요할 때만 5문장까지.
@@ -81,7 +81,7 @@ enum DoitMind {
         }
         if let app = context.app, !app.isEmpty { parts.append("[학생의 오늘 상황]\n" + app) }
         if let summary, !summary.isEmpty { parts.append("[앞선 대화]\n" + summary) }
-        let recent = history.suffix(6).map { ($0.fromUser ? "학생: " : "두잇: ") + DoitMemory.trimmed($0.text, max: 260) }
+        let recent = history.suffix(6).map { ($0.fromUser ? "학생: " : "모티: ") + DoitMemory.trimmed($0.text, max: 260) }
         if !recent.isEmpty { parts.append("[이전 대화]\n" + recent.joined(separator: "\n")) }
         if let topic, !topic.isEmpty {
             parts.append("[지금 이야기 중인 주제] \(topic)\n질문이 짧거나 '그거', '왜?'처럼 앞 이야기를 가리키면 이 주제와 앞 대화를 이어서 답해요. 다른 이야기로 새지 않아요.")
@@ -107,7 +107,7 @@ enum DoitMind {
     }
 
     /// 이전 대화를 예산 안에서 고름: 가장 최근 것부터 담고, 넘친 오래된 대화는 학생이 물은 것만 짧게 요약
-    /// - 결과는 학생 말로 시작하고 학생·두잇이 번갈아 나오게 맞춤 (Qwen 대화 형식)
+    /// - 결과는 학생 말로 시작하고 학생·모티가 번갈아 나오게 맞춤 (Qwen 대화 형식)
     static func budgetHistory(_ turns: [Turn], maxTokens: Int, maxTurns: Int = 8) -> (recent: [Turn], summary: String?) {
         // 빈 말·같은 역할이 이어진 말 합치기
         var merged: [Turn] = []
@@ -132,7 +132,7 @@ enum DoitMind {
             recent.insert(Turn(fromUser: turn.fromUser, text: text), at: 0)
             cut = index
         }
-        // 두잇 말로 시작하면 그 말은 요약 쪽으로
+        // 모티 말로 시작하면 그 말은 요약 쪽으로
         while let first = recent.first, !first.fromUser {
             recent.removeFirst()
             cut += 1
@@ -145,10 +145,10 @@ enum DoitMind {
     static func referenceText(_ context: Context, maxEach: Int = 600) -> String {
         var lines: [String] = []
         for entry in context.knowledge.prefix(3) {
-            lines.append("(두잇 지식 · \(entry.label)) \(entry.title): " + DoitMemory.trimmed(entry.body, max: maxEach))
+            lines.append("(모티 지식 · \(entry.label)) \(entry.title): " + DoitMemory.trimmed(entry.body, max: maxEach))
         }
         for note in context.memories.prefix(3) {
-            let who = note.kind == .learned ? "두잇이 전에 배운 내용" : "학생이 알려준 내용"
+            let who = note.kind == .learned ? "모티가 전에 배운 내용" : "학생이 알려준 내용"
             lines.append("(\(who)) \(note.topic): " + DoitMemory.trimmed(note.summary, max: maxEach))
         }
         for source in context.web.prefix(2) {
@@ -167,7 +167,7 @@ enum DoitMind {
         t = t.replacingOccurrences(of: "<think>", with: "").replacingOccurrences(of: "</think>", with: "")
         t = t.replacingOccurrences(of: "<|im_end|>", with: "")
         t = t.trimmingCharacters(in: .whitespacesAndNewlines)
-        for prefix in ["두잇:", "두잇 AI:", "답변:", "답:", "Answer:"] where t.hasPrefix(prefix) {
+        for prefix in ["모티:", "모티 AI:", "답변:", "답:", "Answer:"] where t.hasPrefix(prefix) {
             t = String(t.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
         }
         t = t.replacingOccurrences(of: #"\n{3,}"#, with: "\n\n", options: .regularExpression)

@@ -1,4 +1,4 @@
-// 두잇 AI 테스트용 가짜(stub): iOS 전용 타입과 앱 데이터(DoitActions)를 흉내 냄
+// 모티 AI 테스트용 가짜(stub): iOS 전용 타입과 앱 데이터(DoitActions)를 흉내 냄
 import Foundation
 #if canImport(FoundationNetworking)
 import FoundationNetworking

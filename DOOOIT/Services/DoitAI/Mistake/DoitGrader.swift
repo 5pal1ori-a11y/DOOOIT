@@ -24,7 +24,7 @@ struct GradeResult: Codable, Equatable {
     var reasons: [String]
     /// 비교에 쓴 정답
     var answerUsed: String
-    /// 정답을 어디서 가져왔는지 ("입력한 정답", "사진의 정답 표기", "두잇 풀이 엔진")
+    /// 정답을 어디서 가져왔는지 ("입력한 정답", "사진의 정답 표기", "모티 풀이 엔진")
     var answerSource: String
 }
 
@@ -51,9 +51,9 @@ enum DoitGrader {
         var key = input.answerKey.trimmingCharacters(in: .whitespacesAndNewlines)
         var source = "입력한 정답"
         if key.isEmpty, input.subject.isMath, input.kind == .math || input.kind == .multipleChoice, let solved = MathSolver.solve(input.problem) {
-            // 정답을 모르면 두잇 풀이 엔진이 직접 풀어서 (객관식이면 그 값의 보기를 찾아서)
+            // 정답을 모르면 모티 풀이 엔진이 직접 풀어서 (객관식이면 그 값의 보기를 찾아서)
             key = solved.answer
-            source = "두잇 풀이 엔진 (직접 풀어서 구함)"
+            source = "모티 풀이 엔진 (직접 풀어서 구함)"
             if input.kind == .multipleChoice, let index = input.choices.firstIndex(where: { equivalentMath($0, key) == true }) { key = "\(index + 1)" }
         }
         guard !key.isEmpty else {

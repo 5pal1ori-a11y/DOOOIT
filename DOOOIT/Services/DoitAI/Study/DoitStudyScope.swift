@@ -573,7 +573,7 @@ enum DoitStudy {
         if let best = fuzzy.first, best.base >= 0.6 { return decide(fuzzy, parsed: parsed, query: topic, inputName: inputName) }
         // 5) 못 찾음: 다른 학교급·과목에서 비슷한 단원을 제안
         let suggestions = suggest(parsed: parsed, queries: wide, subjectPool: bySubject)
-        return .notFound(message: "'\(topic)'에 맞는 단원을 찾지 못했어요. 두잇 AI는 자료가 없는 단원의 내용을 지어내지 않아요."
+        return .notFound(message: "'\(topic)'에 맞는 단원을 찾지 못했어요. 모티 AI는 자료가 없는 단원의 내용을 지어내지 않아요."
                          + (suggestions.isEmpty ? " 과목과 단원 이름을 확인해 주세요." : " 혹시 아래 단원인가요?"), suggestions: suggestions)
     }
 

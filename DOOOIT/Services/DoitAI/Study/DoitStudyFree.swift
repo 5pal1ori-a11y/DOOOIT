@@ -13,7 +13,7 @@ extension DoitStudy {
         case needsModel, failed(String)
         var errorDescription: String? {
             switch self {
-            case .needsModel: return "DOOOIT 모델을 받아야 만들 수 있어요."
+            case .needsModel: return "MOTI 모델을 받아야 만들 수 있어요."
             case .failed(let message): return message
             }
         }
@@ -349,7 +349,7 @@ extension DoitStudy {
         for _ in 0...maxRetries {
             guard let text = await ask(freeConceptPrompt(topic: topic, references: refs.text), maxTokens: 700),
                   var note = parseFreeConcept(text, topic: topic) else { continue }
-            note.sources = refs.labels.isEmpty ? ["DOOOIT 모델이 만든 내용"] : refs.labels
+            note.sources = refs.labels.isEmpty ? ["MOTI 모델이 만든 내용"] : refs.labels
             await freeStore.setNotes(freeKey(topic), [note.summary] + note.keyPoints)
             return note
         }
