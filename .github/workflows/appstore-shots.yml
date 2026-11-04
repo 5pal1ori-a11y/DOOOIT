@@ -1,0 +1,275 @@
+name: App Store Shots
+
+# 앱스토어 스크린샷: 아이폰 6.9형(1320×2868) 시뮬레이터와 애플 워치 시뮬레이터에서 Debug 빌드를 -uiShot 데모 데이터로 켜고
+# 화면을 찍은 뒤, 위에 짧은 제목 + 둥근 기기 틀을 입혀(.github/appstore/compose.py)
+# ui-shots-out 브랜치의 appstore/<커밋>/ 폴더와 아티팩트로 올림 (Release/TestFlight와는 상관없음)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "appstore-shots*"
+      - "ui-shots-appstore*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: appstore-shots-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  iphone:
+    runs-on: macos-26
+    timeout-minutes: 100
+    env:
+      # 앱스토어용 화면 + 예비로 몇 장 더
+      SCREENS: "mathNote mathList timerLock home weeklyReport wordSession ai mockResult words planner grammarProblem study"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version; sw_vers
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/spm
+            ${{ runner.temp }}/dd
+          key: uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-${{ github.sha }}
+          restore-keys: |
+            uishots-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-
+            uishots-${{ runner.os }}-
+
+      - name: Boot 6.9-inch simulator
+        run: |
+          # 6.9형: iPhone 17 Pro Max / 16 Pro Max (화면 사진이 그대로 1320×2868)
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          d = json.load(sys.stdin)['devices']
+          ios = sorted([k for k in d if 'iOS' in k], key=lambda k: [int(x) for x in k.split('iOS-')[-1].split('-') if x.isdigit()])
+          for want in ['iPhone 17 Pro Max', 'iPhone 16 Pro Max']:
+              for rt in reversed(ios):
+                  for dev in d[rt]:
+                      if dev['name'] == want:
+                          print(dev['udid']); print(dev['name'], rt, file=sys.stderr); sys.exit(0)
+          sys.exit(1)
+          ")
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl ui "$UDID" appearance light || true
+          xcrun simctl status_bar "$UDID" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 \
+            --cellularMode active --cellularBars 4 --operatorName "" --batteryState charged --batteryLevel 100 || true
+
+      - name: Build (Debug, iOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project DOOOIT.xcodeproj \
+            -scheme DOOOIT \
+            -configuration Debug \
+            -destination "id=$UDID" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            COMPILATION_CACHE_ENABLE_CACHING=YES \
+            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build.log" | grep -E "error:|\*\* BUILD" || true
+          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build.log"; then
+            grep -E "error:" "$RUNNER_TEMP/build.log" | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error title=Build::${line:0:900}"
+            done
+            tail -80 "$RUNNER_TEMP/build.log"
+            exit 1
+          fi
+          APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "DOOOIT.app" | head -1)
+          echo "APP=$APP" >> "$GITHUB_ENV"
+
+      - name: Install
+        run: |
+          codesign --force --deep --sign - "$APP" || true
+          xcrun simctl install "$UDID" "$APP"
+          BUNDLE=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$APP/Info.plist")
+          echo "BUNDLE=$BUNDLE" >> "$GITHUB_ENV"
+
+      - name: Take screenshots
+        run: |
+          OUT="$RUNNER_TEMP/raw/iphone"
+          mkdir -p "$OUT"
+          for screen in $SCREENS; do
+            xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+            xcrun simctl launch "$UDID" "$BUNDLE" -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
+            case "$screen" in
+              ai) sleep 16 ;;
+              mathNote) sleep 13 ;;
+              mockExam|mockResult|weeklyReport) sleep 10 ;;
+              *) sleep 8 ;;
+            esac
+            xcrun simctl io "$UDID" screenshot --type=png "$OUT/$screen.png" >/dev/null 2>&1 || echo "::warning::$screen 사진 실패"
+            echo "$screen $(sips -g pixelWidth -g pixelHeight "$OUT/$screen.png" | awk '/pixel/{printf "%s ", $2}')"
+          done
+          xcrun simctl spawn "$UDID" log show --last 15m --style compact --predicate 'process == "DOOOIT"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$RUNNER_TEMP/raw/app-log.txt" || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raw-iphone
+          path: ${{ runner.temp }}/raw
+
+  watch:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ runner.temp }}/spm
+            ${{ runner.temp }}/dd
+          key: appstore-watch-${{ runner.os }}-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-${{ github.sha }}
+          restore-keys: |
+            appstore-watch-${{ runner.os }}-
+
+      - name: Pick watch simulator
+        run: |
+          pick() {
+            xcrun simctl list devices available -j | python3 -c "
+          import json, sys
+          wants = sys.argv[1].split(',')
+          d = json.load(sys.stdin)['devices']
+          rts = sorted([k for k in d if 'watchOS' in k], key=lambda k: [int(x) for x in k.split('watchOS-')[-1].split('-') if x.isdigit()])
+          for want in wants:
+              for rt in reversed(rts):
+                  for dev in d[rt]:
+                      if dev['name'].startswith(want):
+                          print(dev['udid']); print(dev['name'], rt, file=sys.stderr); sys.exit(0)
+          sys.exit(1)
+          " "$1"
+          }
+          # 앱스토어가 받는 크기: Series 11 46mm = 416×496 (없으면 다른 크기)
+          WANTS="Apple Watch Series 11 (46mm),Apple Watch Series 10 (46mm),Apple Watch Ultra 3,Apple Watch Ultra,Apple Watch Series"
+          WATCH=$(pick "$WANTS" || true)
+          if [ -z "$WATCH" ]; then
+            xcodebuild -downloadPlatform watchOS || true
+            WATCH=$(pick "$WANTS" || true)
+          fi
+          [ -n "$WATCH" ] || { echo "::error::워치 시뮬레이터 없음"; exit 1; }
+          echo "WATCH_UDID=$WATCH" >> "$GITHUB_ENV"
+
+      - name: Build watch app (Debug, watchOS Simulator)
+        run: |
+          set -o pipefail
+          xcodebuild build \
+            -project DOOOIT.xcodeproj \
+            -scheme DOOOITWatch \
+            -configuration Debug \
+            -destination "id=$WATCH_UDID" \
+            -derivedDataPath "$RUNNER_TEMP/dd" \
+            -clonedSourcePackagesDirPath "$RUNNER_TEMP/spm" \
+            -skipMacroValidation \
+            -skipPackagePluginValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            DEBUG_INFORMATION_FORMAT=dwarf 2>&1 | tee "$RUNNER_TEMP/build-watch.log" | grep -E "error:|\*\* BUILD" || true
+          if ! grep -q "\*\* BUILD SUCCEEDED \*\*" "$RUNNER_TEMP/build-watch.log"; then
+            grep -E "error:" "$RUNNER_TEMP/build-watch.log" | sort -u | head -40 | while IFS= read -r line; do
+              echo "::error title=watchOS Build::${line:0:900}"
+            done
+            tail -80 "$RUNNER_TEMP/build-watch.log"
+            exit 1
+          fi
+          WAPP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-watchsimulator" -maxdepth 1 -name "DOOOITWatch.app" | head -1)
+          echo "WAPP=$WAPP" >> "$GITHUB_ENV"
+
+      - name: Watch screenshots
+        run: |
+          OUT="$RUNNER_TEMP/raw/watch"
+          mkdir -p "$OUT"
+          xcrun simctl boot "$WATCH_UDID" || true
+          xcrun simctl bootstatus "$WATCH_UDID" -b || true
+          xcrun simctl status_bar "$WATCH_UDID" override --time "9:41" || echo "::notice::워치는 상태 막대 시간 바꾸기가 안 됨"
+          codesign --force --deep --sign - "$WAPP" || true
+          xcrun simctl install "$WATCH_UDID" "$WAPP"
+          for screen in timer today words wordsBack picker; do
+            xcrun simctl terminate "$WATCH_UDID" com.donghyeon.moti.watchkitapp 2>/dev/null || true
+            xcrun simctl launch "$WATCH_UDID" com.donghyeon.moti.watchkitapp -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || echo "::warning::$screen 실행 실패"
+            sleep 8
+            xcrun simctl io "$WATCH_UDID" screenshot --type=png "$OUT/$screen.png" >/dev/null 2>&1 || echo "::warning::watch-$screen 사진 실패"
+            echo "$screen $(sips -g pixelWidth -g pixelHeight "$OUT/$screen.png" | awk '/pixel/{printf "%s ", $2}')"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: raw-watch
+          path: ${{ runner.temp }}/raw
+
+  compose:
+    needs: [iphone, watch]
+    if: ${{ always() && needs.iphone.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: raw-*
+          path: ${{ runner.temp }}/raw
+          merge-multiple: true
+
+      - name: Fonts and Pillow
+        run: |
+          # 한글 글꼴: Pretendard (npm 패키지에서 굵기 몇 개만)
+          mkdir -p "$RUNNER_TEMP/fonts" && cd "$RUNNER_TEMP/fonts"
+          curl -sSfL -o p.tgz https://registry.npmjs.org/pretendard/-/pretendard-1.3.9.tgz
+          for w in ExtraBold Bold SemiBold Medium; do
+            tar -xzf p.tgz --strip-components=4 "package/dist/public/static/Pretendard-$w.otf"
+          done
+          rm p.tgz && ls -la
+          python3 -m pip install --quiet pillow
+
+      - name: Compose frames
+        run: |
+          python3 .github/appstore/compose.py "$RUNNER_TEMP/raw" "$RUNNER_TEMP/final" "$RUNNER_TEMP/fonts"
+          mkdir -p "$RUNNER_TEMP/final/raw"
+          cp -R "$RUNNER_TEMP"/raw/* "$RUNNER_TEMP/final/raw/"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: appstore-screenshots
+          path: ${{ runner.temp }}/final
+
+      - name: Push to ui-shots-out
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SHORT=$(git rev-parse --short=7 HEAD)
+          DIR="appstore/$SHORT"
+          URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          WORK="$RUNNER_TEMP/out"
+          git clone --depth 1 --branch ui-shots-out "$URL" "$WORK"
+          cd "$WORK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -rf "$DIR" && mkdir -p "$DIR"
+          cp -R "$RUNNER_TEMP"/final/* "$DIR/"
+          (cd "$GITHUB_WORKSPACE" && git log -1 --format='%H %s') > "$DIR/commit.txt"
+          git add -A
+          git commit -q -m "앱스토어 스크린샷 $DIR"
+          for i in 1 2 3; do
+            git push origin ui-shots-out && break
+            git pull --rebase origin ui-shots-out
+          done
+          echo "::notice title=App Store Shots::ui-shots-out/$DIR"

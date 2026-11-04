@@ -18,6 +18,8 @@ enum UIShotScreen: String, CaseIterable {
     var isWidgetGallery: Bool {
         [.widgets, .widgets2, .widgets3, .widgets4, .widgetsLock].contains(self)
     }
+    /// 앱스토어 사진용: 앱 잠금 켠 채 공부 중인 타이머 · 주간 AI 리포트 · 단어 카드 학습
+    case timerLock, weeklyReport, wordSession
 }
 
 @MainActor
@@ -42,7 +44,8 @@ enum UIShot {
 
     static var tab: AppTab {
         switch screen {
-        case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem: return .study
+        case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem,
+             .weeklyReport, .wordSession: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
         case .account, .accountSettings, .badges: return .account
@@ -80,9 +83,16 @@ enum UIShot {
         case .ai:
             let assistant = DoitAssistant.shared
             guard assistant.messages.isEmpty else { return }
-            await assistant.send("2x + 3 = 11 풀어줘")
-            await assistant.send("오늘 공부 계획 알려줘")
+            await assistant.send("x² - 5x + 6 = 0 풀어줘")
+            await assistant.send("비슷한 문제 내줘")
         case .timer:
+            try? await Task.sleep(for: .milliseconds(300))
+            timer.isPresented = true
+        case .timerLock:
+            // 42분째 공부 중 · 목표 90분 · 다른 앱은 목표 시간까지 잠김 (실제 잠금·기록 저장 없음)
+            let now = Date()
+            timer.showDemo(title: "수학 오답 복습", categoryName: "수학", symbol: "function", targetMinutes: 90,
+                           startedAt: now.addingTimeInterval(-42 * 60 - 17), lockUntil: now.addingTimeInterval(48 * 60))
             try? await Task.sleep(for: .milliseconds(300))
             timer.isPresented = true
         case .soundMixer:
@@ -201,6 +211,24 @@ enum UIShot {
         fn.updatedAt = fn.createdAt
         context.insert(fn)
 
+        // 국어 · 과학 · 수학(삼각비) 문제도 몇 개 더 (오답노트 목록이 꽉 차 보이게)
+        let extra: [(String, String, NoteSubject, String, String, NoteStatus, Double)] = [
+            ("비문학 내용 일치", "5번) 윗글의 내용과 일치하지 않는 것은?\n① 광합성은 빛 에너지를 이용한다.\n② 엽록체는 잎에만 있다.", .korean, "독서", "②", .wrong, 5),
+            ("삼각비의 값", "9번) sin 30° + cos 60° 의 값은?\n① 1/2  ② 1  ③ √3/2  ④ √3  ⑤ 2", .math, "삼각비", "②", .correct, 30),
+            ("옴의 법칙", "4번) 저항이 4Ω인 전구에 2A의 전류가 흐를 때 전압은?", .science, "전기와 자기", "8V", .unsolved, 52)
+        ]
+        for e in extra {
+            let note = MathNote(title: e.0, imageData: nil, thumbnailData: thumbnail(e.1), recognizedText: e.1, correctAnswer: e.4)
+            note.subject = e.2.rawValue
+            note.unit = e.3
+            if e.2 == .math { note.kind = .math; note.myAnswer = e.4 }
+            note.isRecognitionConfirmed = true
+            note.status = e.5
+            note.createdAt = now.addingTimeInterval(-3600 * e.6)
+            note.updatedAt = note.createdAt
+            context.insert(note)
+        }
+
         // 취약 개념
         let weak: [(String, String, String, Int, Int, Double)] = [
             ("수학", "이차방정식", "근과 계수의 관계", 3, 5, 0.25),
@@ -268,7 +296,32 @@ private struct UIShotPush<Destination: View>: ViewModifier {
     }
 }
 
+/// 사진 찍을 화면이면 처음부터 전체 화면으로 띄워 둠
+private struct UIShotCover<Destination: View>: ViewModifier {
+    @State var isPresented: Bool
+    let destination: () -> Destination
+
+    func body(content: Content) -> some View {
+        content.fullScreenCover(isPresented: $isPresented, content: destination)
+    }
+}
+
+/// 단어 카드 학습 (아직 안 외운 단어 10개)
+struct UIShotWordSession: View {
+    @Query(sort: \Word.createdAt) private var words: [Word]
+
+    var body: some View {
+        if !words.isEmpty {
+            WordSessionView(words: Array(words.filter { !$0.isLearned }.prefix(10)), kind: .daily, pool: words)
+        }
+    }
+}
+
 extension View {
+    func uiShotCover<Destination: View>(_ screens: UIShotScreen..., @ViewBuilder destination: @escaping () -> Destination) -> some View {
+        modifier(UIShotCover(isPresented: UIShot.screen.map { screens.contains($0) } ?? false, destination: destination))
+    }
+
     func uiShotPush<Destination: View>(_ screens: UIShotScreen..., @ViewBuilder destination: @escaping () -> Destination) -> some View {
         modifier(UIShotPush(isPresented: UIShot.screen.map { screens.contains($0) } ?? false, destination: destination))
     }

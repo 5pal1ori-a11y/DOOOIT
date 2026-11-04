@@ -57,6 +57,8 @@ struct StudyView: View {
             .uiShotPush(.grammar) { UnitStudyView(subject: "중학교 영어", unit: "현재완료") }
             .uiShotPush(.grammarOX) { UnitStudyView(subject: "중학교 영어", unit: "현재완료", initialStep: .ox) }
             .uiShotPush(.grammarProblem) { UnitStudyView(subject: "중학교 영어", unit: "현재완료", initialStep: .problem) }
+            .uiShotPush(.weeklyReport) { WeeklyReportView() }
+            .uiShotCover(.wordSession) { UIShotWordSession() }
             #endif
         }
     }
