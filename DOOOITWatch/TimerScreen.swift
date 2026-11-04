@@ -29,7 +29,9 @@ struct TimerScreen: View {
         .navigationTitle(title(timer))
         .onAppear { crown = Double(min(max(savedIndex, 0), choices.count - 1)) }
         .sheet(isPresented: $showTasks) {
-            TaskPicker(minutes: choices[index]) { showTasks = false }
+            NavigationStack {
+                TaskPicker(minutes: choices[index]) { showTasks = false }
+            }
         }
     }
 

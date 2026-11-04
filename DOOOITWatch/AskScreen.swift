@@ -10,11 +10,16 @@ struct AskScreen: View {
 
     private var accent: Color { store.snapshot.accent }
 
+    private struct Quick: Hashable {
+        var label: String
+        var text: String
+    }
+
     /// 짧은 버튼 → 모티가 알아듣는 말
-    private let quick: [(label: String, text: String)] = [
-        ("오늘 할 일", "오늘 할 일 알려줘"),
-        ("내일 일정", "내일 일정 알려줘"),
-        ("공부 통계", "이번 주 공부 통계")
+    private let quick = [
+        Quick(label: "오늘 할 일", text: "오늘 할 일 알려줘"),
+        Quick(label: "내일 일정", text: "내일 일정 알려줘"),
+        Quick(label: "공부 통계", text: "이번 주 공부 통계")
     ]
 
     var body: some View {
@@ -44,7 +49,7 @@ struct AskScreen: View {
                     }
                 }
 
-                ForEach(quick, id: \.label) { item in
+                ForEach(quick, id: \.self) { item in
                     Button {
                         ask(item.text)
                     } label: {
