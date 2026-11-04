@@ -18,7 +18,7 @@ from asc_certs import API, token  # noqa: E402
 
 OPENSSL = "/usr/bin/openssl"  # macOS LibreSSL: 키체인이 읽는 형식의 .p12를 만듦
 # 앱 본체에 필요한 기능 (Config/DOOOIT.entitlements와 같게)
-APP_CAPABILITIES = ["SIGN_IN_WITH_APPLE", "GAME_CENTER", "INCREASED_MEMORY_LIMIT"]
+APP_CAPABILITIES = ["SIGN_IN_WITH_APPLE", "GAME_CENTER", "INCREASED_MEMORY_LIMIT", "PUSH_NOTIFICATIONS", "ICLOUD"]
 NAMES = {"": "MOTI", ".widgets": "MOTI Widgets", ".watchkitapp": "MOTI Watch", ".watchkitapp.widgets": "MOTI Watch Widgets"}
 
 
@@ -74,6 +74,10 @@ def ensure_capabilities(bid):
         if cap in have:
             continue
         attributes = {"capabilityType": cap}
+        if cap == "ICLOUD":
+            # 컨테이너 연결은 API로 못 해서, 개발자 사이트에서 켠 것을 그대로 씀 (꺼져 있으면 알려만 줌)
+            print("::warning title=iCloud::App ID에 iCloud가 꺼져 있어요 — 개발자 사이트에서 iCloud(CloudKit)와 컨테이너를 켜 주세요")
+            continue
         if cap == "SIGN_IN_WITH_APPLE":
             attributes["settings"] = [{"key": "APPLE_ID_AUTH_APP_CONSENT", "options": [{"key": "PRIMARY_APP_CONSENT"}]}]
         try:
