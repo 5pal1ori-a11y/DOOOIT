@@ -802,7 +802,7 @@ enum DoitMathTopics {
         var t = text.replacingOccurrences(of: #"(cm|mm|km|m)\s*\^\s*[23]|㎠|㎤|cm²|cm³|m²|m³"#, with: "$1", options: .regularExpression)
         // 원주율이 주어지면 그 값으로 계산 ("원주율은 3.14")
         var piValue: Double?
-        if let m = t.firstMatch(of: #/원주율(?:은|는|을|를)?\s*(3(?:\.\d+)?)/#), let v = Double(String(m.1)) {
+        if let m = t.firstMatch(of: #/원주율(?:은|는|을|를)?\s*[:=]?\s*(3(?:\.\d+)?)/#), let v = Double(String(m.1)) {
             piValue = v
             t = t.replacingOccurrences(of: String(m.0), with: " ")
         }

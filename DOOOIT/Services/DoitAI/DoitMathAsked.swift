@@ -41,13 +41,15 @@ enum DoitMathAsked {
 
     // MARK: - 물은 값 하나로
 
-    static func focus(_ solved: Solved, _ raw: String) -> Solved? {
+    static func focus(_ given: Solved, _ raw: String) -> Solved? {
+        // 물은 값과 맞는지 다시 보기 (주어진 등식을 그대로 답함, 작은 수 · 원소의 합을 물음 …)
+        guard let solved = DoitMathBasic.review(given, raw) else { return nil }
         let t = DoitAlgebra.normalize(DoitMathExact.tidy(GeometryText.forSolver(raw)))
         let answer = solved.answer
         // 선지 번호를 고른 답은 이미 본문으로 맞춰 본 것
         if let first = answer.first, "①②③④⑤".contains(first) { return solved }
         // 수 하나를 묻는 말 ("가장 큰 정수", "개수", "경우의 수")인데 답이 식·범위면 물은 값이 아님
-        if has(t, ["가장 큰 정수", "가장 작은 정수", "가장 큰 자연수", "가장 작은 자연수", "의 개수", "몇 개", "경우의 수"]), !looksLikeValue(answer) { return nil }
+        if has(t, ["가장 큰 정수", "가장 작은 정수", "가장 큰 자연수", "가장 작은 자연수", "의 개수", "몇 개", "경우의 수"]), !looksLikeValue(answer), t.range(of: #"몇\s*각형"#, options: .regularExpression) == nil { return nil }
         func pick(_ value: String) -> Solved {
             var out = solved
             if value != answer { out.steps.append(SolutionStep(hint: "구한 값을 정리하면", work: answer)) }
