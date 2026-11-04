@@ -42,6 +42,9 @@ final class AppLockManager {
         return lockedUntil > Date()
     }
 
+    /// 타이머 잠금의 자동 해제 일정 이름 (앱을 열지 않아도 끝나는 시각에 익스텐션이 풀어 줌)
+    static let timerActivity = DeviceActivityName(rawValue: activityPrefix + "timer")
+
     /// 지금 바로 잠금 (앱이 켜져 있을 때 공부가 시작된 경우)
     @discardableResult
     func lock(until end: Date) async -> Bool {
@@ -49,6 +52,15 @@ final class AppLockManager {
         store.shield.applicationCategories = .all()
         store.shield.webDomainCategories = .all()
         UserDefaults.standard.set(end.timeIntervalSince1970, forKey: lockUntilKey)
+        // 끝나는 시각에 저절로 풀리게 (iOS 제한: 15분 이상일 때만 예약됨, 짧으면 앱을 열 때 풀림)
+        if end.timeIntervalSinceNow >= 15 * 60 {
+            let cal = Calendar.current
+            let comps: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute, .second]
+            center.stopMonitoring([Self.timerActivity])
+            try? center.startMonitoring(Self.timerActivity, during: DeviceActivitySchedule(
+                intervalStart: cal.dateComponents(comps, from: Date()),
+                intervalEnd: cal.dateComponents(comps, from: end), repeats: false))
+        }
         return true
     }
 
@@ -56,6 +68,7 @@ final class AppLockManager {
     func endLock(planKey: String?) {
         store.clearAllSettings()
         UserDefaults.standard.removeObject(forKey: lockUntilKey)
+        center.stopMonitoring([Self.timerActivity])
         if let planKey {
             center.stopMonitoring([DeviceActivityName(rawValue: Self.activityPrefix + planKey)])
         }
@@ -70,7 +83,7 @@ final class AppLockManager {
     /// 앞으로 7일간의 "앱 잠금" 공부 플랜을 DeviceActivity 일정으로 등록
     /// - iOS 제한: 한 번에 등록 가능한 일정 수가 제한되고, 최소 15분 이상이어야 함
     func scheduleLocks(for plans: [Plan]) {
-        let existing = center.activities.filter { $0.rawValue.hasPrefix(Self.activityPrefix) }
+        let existing = center.activities.filter { $0.rawValue.hasPrefix(Self.activityPrefix) && $0 != Self.timerActivity }
         if !existing.isEmpty { center.stopMonitoring(existing) }
         guard isAuthorized else { return }
 

@@ -145,7 +145,7 @@ jobs:
           P12_PASS=$(openssl rand -hex 16); KC_PASS=$(openssl rand -hex 16)
           echo "::add-mask::$P12_PASS"; echo "::add-mask::$KC_PASS"
           export P12_PASS
-          python3 .github/scripts/asc_signing.py setup "$SIGN" "$APP_ID" "$APP_ID.widgets" "$APP_ID.watchkitapp" "$APP_ID.watchkitapp.widgets"
+          python3 .github/scripts/asc_signing.py setup "$SIGN" "$APP_ID" "$APP_ID.widgets" "$APP_ID.activitymonitor" "$APP_ID.watchkitapp" "$APP_ID.watchkitapp.widgets"
           KC="$SIGN/ci.keychain-db"
           security create-keychain -p "$KC_PASS" "$KC"
           security set-keychain-settings -lut 21600 "$KC"

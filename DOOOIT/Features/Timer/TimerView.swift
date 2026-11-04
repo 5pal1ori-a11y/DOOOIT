@@ -12,6 +12,9 @@ struct TimerView: View {
     @Query(sort: \Plan.startDate) private var plans: [Plan]
     @State private var targetMinutes: Int? = TimerView.savedTarget
     @State private var showStopConfirm = false
+    /// 공부하는 동안 다른 앱 잠그기 (스크린 타임 권한)
+    @AppStorage("timer.lockApps") private var lockApps = false
+    @State private var lockDenied = false
     @State private var savedSeconds: Int?
     @State private var sound = AmbientSoundPlayer.shared
     @State private var showSounds: Bool = {
@@ -186,13 +189,19 @@ struct TimerView: View {
                 .padding(.vertical, 14)
                 .background(panel, in: .rect(cornerRadius: 16))
 
+                lockToggle
+
                 Button {
                     let task = todayTasks.first { $0.id == selectedTaskID }
+                    // 잠금: 목표 시간까지 (무제한이면 끝낼 때까지, 최대 12시간)
+                    let lockUntil = lockApps && AppLockManager.shared.isAuthorized
+                        ? Date().addingTimeInterval(Double((targetMinutes ?? 12 * 60) * 60)) : nil
                     studyTimer.start(
                         title: freeTitle.trimmingCharacters(in: .whitespaces),
                         categoryName: task?.plan.category?.name ?? "공부",
                         symbol: task?.plan.symbol ?? "book.fill",
-                        targetMinutes: targetMinutes
+                        targetMinutes: targetMinutes,
+                        lockUntil: lockUntil
                     )
                     Haptics.success()
                 } label: {
@@ -206,6 +215,31 @@ struct TimerView: View {
                 .buttonStyle(.pressable)
                 .padding(.top, 4)
             }
+        }
+    }
+
+    /// 다른 앱 잠그기 스위치 (처음 켤 때 스크린 타임 권한을 물어봄)
+    private var lockToggle: some View {
+        Toggle(isOn: Binding(get: { lockApps }, set: { on in
+            guard on else { lockApps = false; return }
+            Task {
+                let ok = await AppLockManager.shared.requestAuthorization()
+                lockApps = ok
+                if !ok { lockDenied = true }
+            }
+        })) {
+            Label("다른 앱 잠그기", systemImage: "lock.fill")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white)
+        }
+        .tint(green)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(panel, in: .rect(cornerRadius: 16))
+        .alert("스크린 타임 권한이 필요해요", isPresented: $lockDenied) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            Text("권한을 허용해야 공부하는 동안 다른 앱을 잠글 수 있어요.")
         }
     }
 

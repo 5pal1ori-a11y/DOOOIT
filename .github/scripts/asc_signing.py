@@ -18,8 +18,8 @@ from asc_certs import API, token  # noqa: E402
 
 OPENSSL = "/usr/bin/openssl"  # macOS LibreSSL: 키체인이 읽는 형식의 .p12를 만듦
 # 앱 본체에 필요한 기능 (Config/DOOOIT.entitlements와 같게)
-APP_CAPABILITIES = ["SIGN_IN_WITH_APPLE", "GAME_CENTER", "INCREASED_MEMORY_LIMIT", "PUSH_NOTIFICATIONS", "ICLOUD"]
-NAMES = {"": "MOTI", ".widgets": "MOTI Widgets", ".watchkitapp": "MOTI Watch", ".watchkitapp.widgets": "MOTI Watch Widgets"}
+APP_CAPABILITIES = ["SIGN_IN_WITH_APPLE", "GAME_CENTER", "INCREASED_MEMORY_LIMIT", "PUSH_NOTIFICATIONS", "ICLOUD", "FAMILY_CONTROLS"]
+NAMES = {"": "MOTI", ".widgets": "MOTI Widgets", ".activitymonitor": "MOTI Lock", ".watchkitapp": "MOTI Watch", ".watchkitapp.widgets": "MOTI Watch Widgets"}
 
 
 def call(method, path, body=None):
@@ -68,9 +68,9 @@ def bundle_id(identifier, suffix):
     return res["data"]["id"]
 
 
-def ensure_capabilities(bid):
+def ensure_capabilities(bid, wanted):
     have = {c["attributes"]["capabilityType"] for c in call("GET", f"/bundleIds/{bid}/bundleIdCapabilities")["data"]}
-    for cap in APP_CAPABILITIES:
+    for cap in wanted:
         if cap in have:
             continue
         attributes = {"capabilityType": cap}
@@ -102,7 +102,9 @@ def setup(out, identifiers):
         suffix = identifier[len(base):]
         bid = bundle_id(identifier, suffix)
         if identifier == base:
-            ensure_capabilities(bid)
+            ensure_capabilities(bid, APP_CAPABILITIES)
+        elif suffix == ".activitymonitor":
+            ensure_capabilities(bid, ["FAMILY_CONTROLS"])
         name = f"MOTI CI {identifier} {stamp}"
         res = call("POST", "/profiles", {"data": {"type": "profiles",
                                                   "attributes": {"name": name, "profileType": "IOS_APP_STORE"},

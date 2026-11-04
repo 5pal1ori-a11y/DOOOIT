@@ -61,6 +61,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				6382D7D514DFB3B766EA5AC6,
+				A6B5EE8CB94F8E8E0A1CC3FF /* DOOOITActivityMonitor.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -256,6 +257,7 @@
 			);
 			dependencies = (
 				337424A03EB20DF6B28A3EB8,
+				8F35CBE7B2C0569B5C52BA59,
 				B7A7C0DE0000000000000010 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
@@ -541,7 +543,7 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				DOOOIT_APPLOCK_SUFFIX = "";
+				DOOOIT_APPLOCK_SUFFIX = "-AppLock";
 				DOOOIT_WATCH_GROUP_SUFFIX = "-AppGroup";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -578,7 +580,7 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
-				DOOOIT_APPLOCK_SUFFIX = "";
+				DOOOIT_APPLOCK_SUFFIX = "-AppLock";
 				DOOOIT_WATCH_GROUP_SUFFIX = "-AppGroup";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
