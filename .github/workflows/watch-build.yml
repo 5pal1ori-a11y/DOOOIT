@@ -141,15 +141,15 @@ jobs:
           codesign --force --deep --sign - "$WAPP" || true
           xcrun simctl install "$WATCH_UDID" "$WAPP"
           for screen in timer today words wordsBack; do
-            xcrun simctl terminate "$WATCH_UDID" com.bravekoon.dooit.watchkitapp 2>/dev/null || true
-            xcrun simctl launch "$WATCH_UDID" com.bravekoon.dooit.watchkitapp -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || echo "::warning::$screen 실행 실패"
+            xcrun simctl terminate "$WATCH_UDID" com.donghyeon.moti.watchkitapp 2>/dev/null || true
+            xcrun simctl launch "$WATCH_UDID" com.donghyeon.moti.watchkitapp -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || echo "::warning::$screen 실행 실패"
             sleep 8
             xcrun simctl io "$WATCH_UDID" screenshot --type=png "$OUT/watch-$screen.png" >/dev/null 2>&1 || echo "::warning::watch-$screen 사진 실패"
             echo "watch-$screen"
           done
           # 시작 전 화면 (크라운으로 목표 고르기)
-          xcrun simctl terminate "$WATCH_UDID" com.bravekoon.dooit.watchkitapp 2>/dev/null || true
-          xcrun simctl launch "$WATCH_UDID" com.bravekoon.dooit.watchkitapp -uiShot picker -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || true
+          xcrun simctl terminate "$WATCH_UDID" com.donghyeon.moti.watchkitapp 2>/dev/null || true
+          xcrun simctl launch "$WATCH_UDID" com.donghyeon.moti.watchkitapp -uiShot picker -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || true
           sleep 8
           xcrun simctl io "$WATCH_UDID" screenshot --type=png "$OUT/watch-picker.png" >/dev/null 2>&1 || true
           xcrun simctl spawn "$WATCH_UDID" log show --last 10m --style compact --predicate 'process == "DOOOITWatch"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/watch-log.txt" || true

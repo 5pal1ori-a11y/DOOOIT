@@ -1,7 +1,7 @@
 # (백업용) DOOOIT.xcodeproj가 열리지 않을 때: brew install xcodegen && xcodegen generate
 name: DOOOIT
 options:
-  bundleIdPrefix: com.bravekoon
+  bundleIdPrefix: com.donghyeon
   deploymentTarget:
     iOS: "26.0"
     watchOS: "26.0"
@@ -45,7 +45,7 @@ targets:
       - WatchShared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bravekoon.dooit
+        PRODUCT_BUNDLE_IDENTIFIER: com.donghyeon.moti
         INFOPLIST_FILE: Config/DOOOIT-Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MOTI
@@ -96,7 +96,7 @@ targets:
       - Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bravekoon.dooit.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.donghyeon.moti.widgets
         INFOPLIST_FILE: Config/DOOOITWidgets-Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MOTI Widgets
@@ -109,7 +109,7 @@ targets:
       - DOOOITActivityMonitor
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bravekoon.dooit.activitymonitor
+        PRODUCT_BUNDLE_IDENTIFIER: com.donghyeon.moti.activitymonitor
         INFOPLIST_FILE: Config/DOOOITActivityMonitor-Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MOTI App Lock
@@ -124,11 +124,11 @@ targets:
       - WatchShared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bravekoon.dooit.watchkitapp
+        PRODUCT_BUNDLE_IDENTIFIER: com.donghyeon.moti.watchkitapp
         INFOPLIST_FILE: Config/DOOOITWatch-Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MOTI
-        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.bravekoon.dooit
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: com.donghyeon.moti
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown
         CODE_SIGN_ENTITLEMENTS: Config/DOOOITWatch$(DOOOIT_WATCH_GROUP_SUFFIX).entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -147,7 +147,7 @@ targets:
       - WatchShared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.bravekoon.dooit.watchkitapp.widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.donghyeon.moti.watchkitapp.widgets
         INFOPLIST_FILE: Config/DOOOITWatchWidgets-Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: MOTI Widgets

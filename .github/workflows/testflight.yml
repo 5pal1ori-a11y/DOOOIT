@@ -117,7 +117,7 @@ jobs:
         continue-on-error: true
         env:
           ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
-          BUNDLE_ID: com.bravekoon.dooit
+          BUNDLE_ID: com.donghyeon.moti
         run: python3 .github/scripts/asc_gamecenter.py
 
       # 빌드 속도: 받은 패키지(MLX 등)와 컴파일 캐시(Xcode 26 compilation caching, DerivedData/CompilationCache.noindex)를

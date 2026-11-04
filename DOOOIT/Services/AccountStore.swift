@@ -28,7 +28,7 @@ enum AccountStore {
     // MARK: iCloud 동기화 (같은 Apple ID 기기끼리 이어짐)
 
     /// iCloud 컨테이너 (CloudKit 개인 데이터베이스: 사용자 본인 iCloud에 저장)
-    static let cloudContainer = "iCloud.com.bravekoon.dooit"
+    static let cloudContainer = "iCloud.com.donghyeon.moti"
     /// 이 기기에서 iCloud로 이어 쓰는 계정 (한 기기에 한 계정만: 여러 계정이 한 iCloud 공간을 쓰면 섞여서)
     private static let syncOwnerKey = "accounts.iCloudSyncOwner"
     /// 동기화를 켜고 끄면 저장소를 다시 엶
