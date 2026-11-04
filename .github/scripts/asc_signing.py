@@ -105,6 +105,9 @@ def setup(out, identifiers):
             ensure_capabilities(bid, APP_CAPABILITIES)
         elif suffix == ".activitymonitor":
             ensure_capabilities(bid, ["FAMILY_CONTROLS"])
+        elif suffix.startswith(".watchkitapp"):
+            # 워치 앱 · 워치 위젯이 같은 권한 파일을 써서 둘 다 Game Center를 켬
+            ensure_capabilities(bid, ["GAME_CENTER"])
         name = f"MOTI CI {identifier} {stamp}"
         res = call("POST", "/profiles", {"data": {"type": "profiles",
                                                   "attributes": {"name": name, "profileType": "IOS_APP_STORE"},
