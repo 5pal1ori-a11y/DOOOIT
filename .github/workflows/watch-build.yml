@@ -1,7 +1,7 @@
 name: Watch Build
 
 # 애플 워치 앱 확인: 아이폰 앱(워치 앱 포함)을 iOS 시뮬레이터용으로, 워치 앱을 watchOS 시뮬레이터용으로 빌드하고
-# 워치 화면 사진(타이머 · 오늘 할 일 · 단어 카드)을 ui-shots-out 브랜치의 <브랜치>-<커밋>/ 폴더에 올림
+# 워치 화면 사진(타이머 · 오늘 · 할 일 · 단어 카드 · 퀴즈 · 뽀모도로 · 모티 · 설정)을 ui-shots-out 브랜치의 <브랜치>-<커밋>/ 폴더에 올림
 # (Release/TestFlight와는 상관없음)
 on:
   workflow_dispatch:
@@ -140,7 +140,7 @@ jobs:
           xcrun simctl status_bar "$WATCH_UDID" override --time "9:41" || true
           codesign --force --deep --sign - "$WAPP" || true
           xcrun simctl install "$WATCH_UDID" "$WAPP"
-          for screen in timer today words wordsBack; do
+          for screen in timer today words wordsBack summary tasks focus rest quiz ask settings; do
             xcrun simctl terminate "$WATCH_UDID" com.donghyeon.moti.watchkitapp 2>/dev/null || true
             xcrun simctl launch "$WATCH_UDID" com.donghyeon.moti.watchkitapp -uiShot "$screen" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null || echo "::warning::$screen 실행 실패"
             sleep 8
@@ -153,6 +153,10 @@ jobs:
           sleep 8
           xcrun simctl io "$WATCH_UDID" screenshot --type=png "$OUT/watch-picker.png" >/dev/null 2>&1 || true
           xcrun simctl spawn "$WATCH_UDID" log show --last 10m --style compact --predicate 'process == "DOOOITWatch"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/watch-log.txt" || true
+          # 앱이 죽었으면 원인 (크래시 보고서 앞부분)
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/DOOOITWatch* 2>/dev/null | head -3); do
+            head -c 60000 "$f" > "$OUT/crash-$(basename "$f").txt"
+          done
           ls -la "$OUT"
 
       - name: Push to ui-shots-out

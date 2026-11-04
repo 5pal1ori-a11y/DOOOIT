@@ -106,6 +106,7 @@ struct StudyComplication: Widget {
         StaticConfiguration(kind: "WatchStudyTime", provider: StudyProvider()) { entry in
             StudyComplicationView(entry: entry)
                 .containerBackground(.background, for: .widget)
+                .widgetURL(URL(string: "motiwatch://summary"))
         }
         .configurationDisplayName("오늘 공부")
         .description("오늘 공부 시간과 목표")
@@ -117,6 +118,11 @@ struct StudyComplication: Widget {
 struct MOTIWatchWidgets: WidgetBundle {
     var body: some Widget {
         StudyComplication()
+        TimerLiveComplication()
+        NextPlanComplication()
+        DDayComplication()
+        StreakComplication()
+        TasksLeftComplication()
     }
 }
 
@@ -127,6 +133,16 @@ extension WatchSnapshot {
         s.updatedAt = Date()
         s.savedSeconds = 95 * 60
         s.goalMinutes = 180
+        s.streak = 3
+        s.week = [0, 0, 0, 0, 3_600, 7_200, 95 * 60]
+        let now = Date()
+        s.plans = [
+            WatchPlanItem(id: "a", planID: "a", dayKey: s.dayKey, title: "수학 문제집", time: "오후 4:00", colorHex: "#3D9BE0",
+                          isDone: true, isStudy: true, start: now.addingTimeInterval(-3_600)),
+            WatchPlanItem(id: "b", planID: "b", dayKey: s.dayKey, title: "영어 단어 30개", time: "오후 7:00", colorHex: "#7B68EE",
+                          isDone: false, isStudy: true, start: now.addingTimeInterval(1_500))
+        ]
+        s.ddays = [WatchDDay(id: "x", title: "기말고사", dayKey: WatchLink.dayKey(now.addingTimeInterval(86_400 * 5)))]
         return s
     }
 }

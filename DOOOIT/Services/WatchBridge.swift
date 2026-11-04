@@ -2,8 +2,8 @@ import Foundation
 import SwiftData
 import WatchConnectivity
 
-/// 애플 워치 연결: 오늘 상태(공부 시간 · 목표 · 타이머 · 할 일 · 복습 단어)를 워치에 보내고,
-/// 워치에서 누른 명령을 기존 타이머 · 플랜 · 단어 복습 규칙으로 저장
+/// 애플 워치 연결: 오늘 상태(공부 시간 · 목표 · 타이머 · 할 일 · 복습 단어 · 이번 주 · D-Day)를 워치에 보내고,
+/// 워치에서 누른 명령을 기존 타이머 · 플랜 · 단어 복습 · 모티 AI 규칙으로 저장
 /// 워치가 없거나 워치 앱을 설치하지 않았으면 아무것도 하지 않음 (안내 화면 없음)
 @MainActor
 final class WatchBridge: NSObject {
@@ -16,6 +16,8 @@ final class WatchBridge: NSObject {
     private var lastSent: Data?
     private var lastComplicationPush: Date = .distantPast
     private var lastTimerPhase: WatchTimerPhase?
+    /// 워치에서 모티에게 물어본 마지막 답
+    private var lastAnswer: WatchAnswer?
     private let recentKey = "dooit.watch.appliedCommands"
 
     private override init() {
@@ -110,28 +112,63 @@ final class WatchBridge: NSObject {
                                               elapsed: timer.elapsed(at: now), now: now)
 
         guard let context = container?.mainContext else { return snapshot }
-        let sessions = (try? context.fetch(FetchDescriptor<StudySession>())) ?? []
-        snapshot.savedSeconds = WatchBridgeLogic.todaySeconds(sessions.map { ($0.start, $0.seconds) }, now: now)
+        snapshot.answer = lastAnswer
+        let sessions = ((try? context.fetch(FetchDescriptor<StudySession>())) ?? []).map { (start: $0.start, seconds: $0.seconds) }
+        snapshot.savedSeconds = WatchBridgeLogic.todaySeconds(sessions, now: now)
+        snapshot.week = WatchBridgeLogic.weekSeconds(sessions, now: now)
+        snapshot.streak = WatchBridgeLogic.streak(sessions, now: now)
 
         let plans = (try? context.fetch(FetchDescriptor<Plan>())) ?? []
-        snapshot.plans = plans.occurrences(on: now).map { occurrence in
-            WatchPlanItem(
-                id: occurrence.id,
-                planID: occurrence.plan.id.uuidString,
-                dayKey: occurrence.day.dayKey,
-                title: occurrence.plan.title,
-                time: occurrence.plan.isAllDay ? "종일" : occurrence.start.kr("a h:mm"),
-                colorHex: occurrence.plan.category?.colorHex ?? snapshot.accentHex,
-                isDone: occurrence.isCompleted,
-                isStudy: occurrence.plan.isStudy
-            )
+        let accent = snapshot.accentHex
+        func items(on day: Date, limit: Int) -> [WatchPlanItem] {
+            plans.occurrences(on: day).prefix(limit).map { occurrence in
+                WatchPlanItem(
+                    id: occurrence.id,
+                    planID: occurrence.plan.id.uuidString,
+                    dayKey: occurrence.day.dayKey,
+                    title: String(occurrence.plan.title.prefix(40)),
+                    time: occurrence.plan.isAllDay ? "종일" : occurrence.start.kr("a h:mm"),
+                    colorHex: occurrence.plan.category?.colorHex ?? accent,
+                    isDone: occurrence.isCompleted,
+                    isStudy: occurrence.plan.isStudy,
+                    start: occurrence.plan.isAllDay ? nil : occurrence.start
+                )
+            }
         }
+        snapshot.plans = items(on: now, limit: 25)
+        snapshot.tomorrow = items(on: now.adding(days: 1), limit: 10)
+
+        // D-Day: 설정에서 정한 것 + 시험 계획
+        var ddays: [(id: String, title: String, date: Date)] = []
+        let defaults = UserDefaults.standard
+        let dDayTitle = defaults.string(forKey: SettingsKey.dDayTitle) ?? ""
+        let dDayDate = defaults.double(forKey: SettingsKey.dDayDate)
+        if !dDayTitle.isEmpty, dDayDate > 0 {
+            ddays.append((id: "dday", title: dDayTitle, date: Date(timeIntervalSince1970: dDayDate)))
+        }
+        let exams = (try? context.fetch(FetchDescriptor<ExamPlan>())) ?? []
+        ddays += exams.map { (id: $0.id.uuidString, title: $0.name.isEmpty ? "시험" : $0.name, date: $0.examDate) }
+        snapshot.ddays = WatchBridgeLogic.ddays(ddays, now: now)
+
+        let wrongRaw = NoteStatus.wrong.rawValue
+        snapshot.mistakes = (try? context.fetchCount(FetchDescriptor<MathNote>(predicate: #Predicate { $0.statusRaw == wrongRaw }))) ?? 0
 
         let words = (try? context.fetch(FetchDescriptor<Word>())) ?? []
-        snapshot.words = WatchBridgeLogic.reviewDeck(words.map {
-            WatchBridgeLogic.WordInfo(id: $0.id.uuidString, term: $0.term, meaning: $0.meaning,
+        let infos = words.map {
+            WatchBridgeLogic.WordInfo(id: $0.id.uuidString, term: String($0.term.prefix(40)), meaning: String($0.meaning.prefix(40)),
                                       reviewStage: $0.reviewStage, nextReviewAt: $0.nextReviewAt)
-        }, now: now)
+        }
+        let meanings = infos.map(\.meaning)
+        let day = now.dayKey
+        let due = WatchBridgeLogic.reviewDeck(infos, now: now)
+        snapshot.words = WatchBridgeLogic.withChoices(due, meanings: meanings, day: day)
+        snapshot.practice = WatchBridgeLogic.withChoices(
+            WatchBridgeLogic.practiceDeck(infos, excluding: Set(due.map(\.id)), now: now), meanings: meanings, day: day)
+            .filter { $0.choices != nil }
+        snapshot.wordsToday = words.filter {
+            ($0.learnedAt.map { $0.isSameDay(as: now) } ?? false)
+                || WatchBridgeLogic.reviewedToday(stage: $0.reviewStage, next: $0.nextReviewAt, now: now)
+        }.count
         return snapshot
     }
 
@@ -141,21 +178,32 @@ final class WatchBridge: NSObject {
         guard recent.insert(command.id) else { return }
         UserDefaults.standard.set(recent.ids, forKey: recentKey)
         let now = Date()
-        let at = WatchBridgeLogic.effectiveTime(sentAt: command.sentAt, now: now)
+        let at = WatchBridgeLogic.effectiveTime(sentAt: command.effectiveDate, now: now)
         let context = container?.mainContext
 
         switch command.action {
-        case .startTimer, .pauseTimer, .resumeTimer, .stopTimer:
+        case .startTimer, .startSession, .pauseTimer, .resumeTimer, .stopTimer:
             let timer = StudyTimer.shared
             // 워치가 앱을 뒤에서 깨운 경우에도 기록이 저장되게 지금 저장소에 연결
             if let context { timer.attach(context: context) }
             let phase = WatchTimerPhase(rawValue: timer.phase.rawValue) ?? .idle
             switch WatchBridgeLogic.timerAction(for: command.action, phase: phase) {
             case .start(let minutes):
-                let study = ((try? context?.fetch(FetchDescriptor<PlanCategory>())) ?? [])
-                    .filter(\.isStudy).sorted { $0.sortIndex < $1.sortIndex }
-                timer.start(title: "자유 공부", categoryName: study.first?.name ?? "공부",
-                            symbol: study.first?.symbol ?? "book.fill", targetMinutes: minutes, at: at)
+                var request = WatchStart()
+                if case .startSession(let start) = command.action { request = start }
+                // 할 일에 붙여 시작: 그 일정 이름 · 과목 · 일정 키로 기록 (플래너의 자동 시작과 같은 모양)
+                if let planID = request.planID, let id = UUID(uuidString: planID),
+                   let plan = ((try? context?.fetch(FetchDescriptor<Plan>())) ?? []).first(where: { $0.id == id }) {
+                    let day = request.dayKey.flatMap(WatchLink.date(fromDayKey:)) ?? at
+                    timer.start(title: plan.title, categoryName: plan.category?.name ?? "공부", symbol: plan.symbol,
+                                planKey: "\(plan.id.uuidString)_\(day.dayKey)", targetMinutes: minutes, at: at)
+                } else {
+                    let study = ((try? context?.fetch(FetchDescriptor<PlanCategory>())) ?? [])
+                        .filter(\.isStudy).sorted { $0.sortIndex < $1.sortIndex }
+                    let title = request.title?.trimmingCharacters(in: .whitespaces) ?? ""
+                    timer.start(title: title.isEmpty ? "자유 공부" : String(title.prefix(40)), categoryName: study.first?.name ?? "공부",
+                                symbol: study.first?.symbol ?? "book.fill", targetMinutes: minutes, at: at)
+                }
             case .pause: timer.pause(at: at)
             case .resume: timer.resume(at: at)
             case .stop:
@@ -185,6 +233,25 @@ final class WatchBridge: NSObject {
                     try? context.save()
                 }
             }
+        case .addPlan(let text, let dayKey):
+            // 모티 AI가 플랜을 넣는 것과 같은 길 (카테고리 고르기 · 알림 다시 잡기)
+            guard let context, let plan = WatchBridgeLogic.quickPlan(String(text.prefix(120)), dayKey: dayKey) else { break }
+            if DoitActions.shared.context == nil { DoitActions.shared.context = context }
+            _ = DoitActions.shared.addPlan(title: plan.title, dateText: plan.dateText, timeText: plan.timeText,
+                                           minutes: plan.minutes, isStudy: plan.isStudy, allDay: plan.timeText == nil, repeatText: nil)
+            _ = DoitActions.shared.drainLog()
+        case .ask(let text):
+            // 인터넷 · 모델 없이 도는 규칙형 모티 엔진으로만 답함
+            let question = String(text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(200))
+            guard !question.isEmpty else { break }
+            if let context {
+                StudyTimer.shared.attach(context: context)
+                if DoitActions.shared.context == nil { DoitActions.shared.context = context }
+            }
+            let reply = DoitEngine.respond(to: question, photo: nil)
+            _ = DoitActions.shared.drainLog()
+            let answer = reply.deferred == nil ? reply.text : "이건 아이폰 모티에게 물어봐 주세요"
+            lastAnswer = WatchAnswer(id: command.id, question: question, text: WatchBridgeLogic.shortAnswer(answer))
         case .refresh:
             break
         }

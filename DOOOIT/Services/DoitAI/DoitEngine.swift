@@ -649,7 +649,7 @@ enum DoitEngine {
     private static let subjects = ["국어", "영어", "수학", "과학", "사회", "한국사", "역사", "물리", "화학", "생명", "생물", "지구과학",
                                    "통합과학", "통합사회", "문학", "독서", "화법", "작문", "언어", "미적분", "확통", "기하", "제2외국어", "한문"]
 
-    private static func looksLikeStudy(_ text: String) -> Bool {
+    static func looksLikeStudy(_ text: String) -> Bool {
         let studyWords = ["공부", "복습", "예습", "문제집", "단원", "숙제", "과제", "시험", "모의고사", "인강", "강의", "단어", "문제 풀",
                           "자습", "독서실", "스터디", "기출"]
         let categories = DoitActions.shared.studyCategoryNames()
