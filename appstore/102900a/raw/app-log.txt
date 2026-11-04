@@ -1,0 +1,40 @@
+2026-11-04 12:23:48.909 Df DOOOIT[13869:af1d] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:23:48.909 Df DOOOIT[13869:af1d] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:23:48.969 Df DOOOIT[13869:af1d] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-04 12:23:48.969 Df DOOOIT[13869:af1d] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-04 12:23:49.240 Df DOOOIT[13869:b00a] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-04 12:23:49.683 Df DOOOIT[13869:af1d] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-04 12:23:49.934 Df DOOOIT[13869:af1d] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [284AC2D8-9D61-4CB9-949E-C1C2E4282905] (reporting strategy default)>
+2026-11-04 12:23:49.934 Df DOOOIT[13869:af1d] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [BE70B12A-81B7-41B4-8F3C-08796739768C] (reporting strategy default)>
+2026-11-04 12:23:49.934 Df DOOOIT[13869:af1d] [com.apple.network:activity] Set activity <nw_activity 50:1 [284AC2D8-9D61-4CB9-949E-C1C2E4282905] (reporting strategy default)> as the global parent
+2026-11-04 12:23:50.171 Df DOOOIT[13869:af1d] [com.apple.network:activity] <nw_activity 50:1 [284AC2D8-9D61-4CB9-949E-C1C2E4282905] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 2871ms
+2026-11-04 12:23:50.171 Df DOOOIT[13869:af1d] [com.apple.network:activity] <nw_activity 50:2 [BE70B12A-81B7-41B4-8F3C-08796739768C] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 2871ms
+2026-11-04 12:23:50.171 Df DOOOIT[13869:af1d] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [284AC2D8-9D61-4CB9-949E-C1C2E4282905] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-04 12:23:59.120 Df DOOOIT[14140:b214] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-04 12:23:59.120 Df DOOOIT[14140:b214] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:23:59.121 Df DOOOIT[14140:b214] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:23:59.121 Df DOOOIT[14140:b214] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:23:59.196 Df DOOOIT[14140:b214] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-04 12:23:59.196 Df DOOOIT[14140:b214] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-04 12:23:59.493 Df DOOOIT[14140:b224] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-04 12:24:00.008 Df DOOOIT[14140:b214] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-04 12:24:02.019 Df DOOOIT[14140:b214] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [309921EA-31B4-48B0-96FC-B884112AA59F] (reporting strategy default)>
+2026-11-04 12:24:02.020 Df DOOOIT[14140:b214] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [7386CAB0-DCF0-4684-832E-54D8B964D17A] (reporting strategy default)>
+2026-11-04 12:24:02.020 Df DOOOIT[14140:b214] [com.apple.network:activity] Set activity <nw_activity 50:1 [309921EA-31B4-48B0-96FC-B884112AA59F] (reporting strategy default)> as the global parent
+2026-11-04 12:24:02.384 Df DOOOIT[14140:b214] [com.apple.network:activity] <nw_activity 50:1 [309921EA-31B4-48B0-96FC-B884112AA59F] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5146ms
+2026-11-04 12:24:02.384 Df DOOOIT[14140:b214] [com.apple.network:activity] <nw_activity 50:2 [7386CAB0-DCF0-4684-832E-54D8B964D17A] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5146ms
+2026-11-04 12:24:02.384 Df DOOOIT[14140:b214] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [309921EA-31B4-48B0-96FC-B884112AA59F] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-04 12:24:09.018 Df DOOOIT[14770:b7ff] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-04 12:24:09.018 Df DOOOIT[14770:b7ff] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:24:09.019 Df DOOOIT[14770:b7ff] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:24:09.019 Df DOOOIT[14770:b7ff] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-04 12:24:09.085 Df DOOOIT[14770:b7ff] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-04 12:24:09.086 Df DOOOIT[14770:b7ff] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-04 12:24:09.353 Df DOOOIT[14770:b812] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-04 12:24:09.830 Df DOOOIT[14770:b7ff] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-04 12:24:09.933 Df DOOOIT[14770:b7ff] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [43EBE33E-CC21-408E-9ECE-6DCFB212038C] (reporting strategy default)>
+2026-11-04 12:24:09.933 Df DOOOIT[14770:b7ff] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [C8BE6685-F113-4274-904C-C391E9A51544] (reporting strategy default)>
+2026-11-04 12:24:09.933 Df DOOOIT[14770:b7ff] [com.apple.network:activity] Set activity <nw_activity 50:1 [43EBE33E-CC21-408E-9ECE-6DCFB212038C] (reporting strategy default)> as the global parent
+2026-11-04 12:24:10.085 Df DOOOIT[14770:b7ff] [com.apple.network:activity] <nw_activity 50:1 [43EBE33E-CC21-408E-9ECE-6DCFB212038C] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 2747ms
+2026-11-04 12:24:10.085 Df DOOOIT[14770:b7ff] [com.apple.network:activity] <nw_activity 50:2 [C8BE6685-F113-4274-904C-C391E9A51544] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 2747ms
+2026-11-04 12:24:10.085 Df DOOOIT[14770:b7ff] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [43EBE33E-CC21-408E-9ECE-6DCFB212038C] (global parent) (reporting strategy default) complete (reason success)>
