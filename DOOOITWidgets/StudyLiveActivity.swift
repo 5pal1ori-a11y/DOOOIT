@@ -6,12 +6,11 @@ import WidgetKit
 struct DOOOITWidgetsBundle: WidgetBundle {
     var body: some Widget {
         StudyLiveActivity()
-        // 홈 화면 위젯은 Apple 개발자 계정에 App Group(group.com.donghyeon.moti)을 등록한 뒤 켜요
-        // (Config/*.entitlements에 application-groups도 다시 추가)
-        // TodayPlansWidget()
-        // DDayWidget()
-        // TodayWordsWidget()
-        // StudyProgressWidget()
+        // 홈 화면 위젯: App Group(group.com.donghyeon.moti)으로 앱이 저장한 오늘 정보를 읽음
+        TodayPlansWidget()
+        DDayWidget()
+        TodayWordsWidget()
+        StudyProgressWidget()
     }
 }
 
