@@ -228,7 +228,7 @@ extension DoitSubjectSolve {
     /// 문제가 묻는 개념 (하나만)
     static func askedClaim(_ stem: String) -> Claim? {
         let c = stem.filter { !$0.isWhitespace }
-        let hits = claims.filter { claim in
+        let hits = (claims + claims3).filter { claim in
             claim.topics.contains { topic in
                 let k = topic.filter { !$0.isWhitespace }
                 return matches(c, NSRegularExpression.escapedPattern(for: k) + #"(에대한|에관한|의특징|의성질|의공통|의공통적인|용액의|을설명|에서일어나는)"#)
@@ -421,7 +421,7 @@ extension DoitSubjectSolve {
         let ns = p.stem as NSString
         guard let regex = try? NSRegularExpression(pattern: #"(오전|오후)\s*([0-9]{1,2})\s*시"#),
               let m = regex.firstMatch(in: p.stem, range: NSRange(location: 0, length: ns.length)),
-              m.range.location > lons[0].position, m.range.location < lons[1].position, matches(c, #"몇시"#) else { return nil }
+              m.range.location > lons[0].position, m.range.location < lons[1].position, matches(c, #"(몇시|시각은|시각을|시각이)"#) else { return nil }
         guard let h = Int(ns.substring(with: m.range(at: 2))), h >= 1, h <= 12 else { return nil }
         let given = (ns.substring(with: m.range(at: 1)) == "오후" ? (h % 12) + 12 : h % 12)
         let target = given + Int(hours)

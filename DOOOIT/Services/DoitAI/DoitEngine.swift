@@ -156,6 +156,8 @@ enum DoitEngine {
         if let english = DoitEnglish.answer(text) { return specific(text, Reply(text: DoitRelevance.brief(english), suggestions: ["영어 퀴즈 내줘", "더 자세히 알려줘"], origin: .subject)) }
         if let science = DoitScience.answer(text) { return specific(text, Reply(text: science, suggestions: ["과학 퀴즈 내줘"], origin: .subject)) }
         if let social = DoitSocial.answer(text) { return specific(text, Reply(text: social, suggestions: ["사회 퀴즈 내줘"], origin: .subject)) }
+        // 설명 → 용어 · 대상 ("발해를 건국한 사람은?", "1919년 상하이에 수립된 독립운동 기관은?"): 사전·사실표로 확실할 때만
+        if let fact = DoitSubjectSolve.chatFact(text) { return Reply(text: fact, suggestions: ["더 자세히 알려줘", "이걸로 퀴즈 내줘"], origin: .subject) }
 
         // "3시에 학원 가야 돼" → 일정으로 넣을지 물어봄
         if let time = findTime(in: text), has(t, ["가야", "해야", "있어", "약속", "만나", "가기로", "하기로"]), !has(t, ["?", "뭐", "어떻게"]) {

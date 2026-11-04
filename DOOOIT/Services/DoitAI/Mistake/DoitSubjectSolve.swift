@@ -11,12 +11,12 @@ enum DoitSubjectSolve {
         let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !full.isEmpty else { return nil }
         let p = Problem(full: full, body: body, choices: choices, box: boxItems)
-        let calc: [(Problem) -> Found?] = [scienceMore, scienceCalc]
+        let calc: [(Problem) -> Found?] = [scienceMore, scienceCalc2, scienceCalc]
         // 영어 어법: 지문 밑줄 · 네모 · 개수 · 고치기 · 문장 전환은 문장 선지 풀이보다 먼저, 빈칸 대입은 빈칸 규칙 다음에
         let englishFirst: [(Problem) -> Found?] = [englishUnderlinedPassage, englishBoxes, englishCount, englishFixError, englishTransform]
-        var solvers: [(Problem) -> Found?] = [chartData] + englishFirst + [itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling,
+        var solvers: [(Problem) -> Found?] = [chartData, socialCalc] + englishFirst + [itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling, rules3,
                                               englishGrammar, englishBlankSubstitute, englishVocabulary, oddWordClass, category, statements, phenomena, eraQuestion, personEvent,
-                                              socialLookup, timeZone, element, facts, colorMix]
+                                              socialLookup, timeZone, element, facts, glossaryAnswer, entityPairs, entityStatements, entityFromDescription, scaleQuestion, colorMix]
         // 과학이면 계산을 먼저 (계산 문제에 낱말 사실표가 먼저 걸리지 않게)
         solvers = subjectBroad == "과학" ? calc + solvers : solvers + calc
         for solver in solvers {
@@ -124,6 +124,8 @@ enum DoitSubjectSolve {
         let stem = p.stem
         // 선지가 문장이면 계산 문제가 아님
         if p.isChoice, !p.choices.allSatisfy(isNumericChoice) { return nil }
+        // 지도 축척 문제는 단위 바꾸기가 아님 (socialCalc에서)
+        if matches(p.compact, #"(축척|지도|지형도)"#) { return nil }
         if let special = scienceSpecial(p) { return special }
         guard let reply = DoitScience.calculation(stem) else { return nil }
         guard let parsed = parseCalc(reply), !ambiguousValues(stem, title: parsed.title) else { return nil }
@@ -401,15 +403,18 @@ enum DoitSubjectSolve {
         let elementUniverse = Set((metals + nonmetals).flatMap(names).map(key))
         list.append(Category(names: ["금속 원소", "금속"], members: Set(metals.flatMap(names).map(key)), universe: elementUniverse, subject: "과학"))
         list.append(Category(names: ["비금속 원소", "비금속"], members: Set(nonmetals.flatMap(names).map(key)), universe: elementUniverse, subject: "과학"))
-        return list + moreCategories
+        return list + moreCategories + moreCategories3
     }()
 
     /// 질문에 나온 분류 (더 긴 이름에 들어 있는 짧은 이름은 빼고, 둘 이상이면 nil)
     private static func askedCategory(_ p: Problem) -> Category? {
         let c = key(p.stem)
         var found: [(Category, Range<String.Index>)] = []
+        // 띄어쓰기를 빼면 낱말 경계를 넘어 붙는 이름("다음 중 성취" 속 "중성")은 빼요
+        let spaced = p.stem.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         for category in categories {
             for name in category.names {
+                guard spaced.contains(name) || spaced.contains(name.filter { !$0.isWhitespace }) else { continue }
                 let k = key(name)
                 var from = c.startIndex
                 while let r = c.range(of: k, range: from..<c.endIndex) {
@@ -424,8 +429,11 @@ enum DoitSubjectSolve {
             !found.contains { other in other.1 != item.1 && other.1.contains(item.1.lowerBound) && other.1.upperBound >= item.1.upperBound
                 && c.distance(from: other.1.lowerBound, to: other.1.upperBound) > c.distance(from: item.1.lowerBound, to: item.1.upperBound) }
         }
-        let distinct = Dictionary(grouping: kept, by: { $0.0.names[0] })
-        guard distinct.count == 1, let category = kept.first?.0 else { return nil }
+        // "알칼리 금속에 속하는 원소"처럼 넓은 분류(원소)와 좁은 분류가 함께 나오면 좁은 분류
+        var narrowed = kept
+        if Set(kept.map { $0.0.names[0] }).count > 1 { narrowed = kept.filter { $0.0.names[0] != "원소" } }
+        let distinct = Dictionary(grouping: narrowed, by: { $0.0.names[0] })
+        guard distinct.count == 1, let category = narrowed.first?.0 else { return nil }
         return category
     }
 
@@ -649,6 +657,19 @@ enum DoitSubjectSolve {
         let tail = c.components(separatedBy: how.filter { !$0.isWhitespace }).last ?? c
         let asksSymbol = matches(tail, #"원소기호(는|로|를|가무엇)"#) && !how.hasPrefix("원소 기호")
         let asksNumber = matches(tail, #"원자번호(는|를)"#) && !how.hasPrefix("원자 번호")
+        // 몇 족 · 몇 주기를 물으면 그 수 (족을 모르는 원소는 답하지 않아요)
+        let asksGroup = matches(tail, #"몇족"#), asksPeriod = matches(tail, #"몇주기"#)
+        if asksGroup || asksPeriod {
+            guard asksGroup != asksPeriod, !asksSymbol, !asksNumber, !asksGroup || e.group > 0 else { return nil }
+            let n = asksGroup ? e.group : e.period, unit = asksGroup ? "족" : "주기"
+            let steps = [SolutionStep(hint: "주기율표", work: "\(e.name)(\(e.symbol)): 원자 번호 \(e.number), \(e.period)주기" + (e.group > 0 ? " \(e.group)족" : ""))]
+            if p.isChoice {
+                let hits = p.choices.indices.filter { key(p.choices[$0]) == key("\(n)\(unit)") || key(p.choices[$0]) == "\(n)" }
+                guard hits.count == 1 else { return nil }
+                return pick(p, index: hits[0], concept: "주기율표", steps: steps)
+            }
+            return Found(answer: "\(n)\(unit)", concept: "주기율표", steps: steps + [SolutionStep(hint: "답", work: "\(n)\(unit)")])
+        }
         let answers: [String] = asksSymbol ? [e.symbol] : asksNumber ? ["\(e.number)", "\(e.number)번"] : [e.name] + e.aliases
         let steps = [SolutionStep(hint: "주기율표", work: "\(e.name)(\(e.symbol)): 원자 번호 \(e.number), \(e.period)주기" + (e.group > 0 ? " \(e.group)족" : "") + ", \(e.kind)")]
         if p.isChoice {
@@ -721,10 +742,10 @@ enum DoitSubjectSolve {
     static func yearText(_ year: Int) -> String { year < 0 ? "기원전 \(-year)년" : "\(year)년" }
 
     /// 글 속 사건 이름 (이름의 낱말이 차례대로 나오면: "훈민정음이 반포된" ↔ "훈민정음 반포")
-    private static func events(in text: String) -> [(year: Int, names: [String], who: String?, score: Int)] {
+    private static func events(in text: String) -> [(year: Int, names: [String], who: String?, score: Int, end: Int?)] {
         let compact = key(text)
-        var found: [(year: Int, names: [String], who: String?, score: Int)] = []
-        for e in DoitSocial.eventList where !e.approx {
+        var found: [(year: Int, names: [String], who: String?, score: Int, end: Int?)] = []
+        for e in DoitSocial.eventDetails where !e.approx {
             var best = 0
             for name in e.names {
                 let words = name.components(separatedBy: " ").map(key).filter { !$0.isEmpty }
@@ -738,7 +759,7 @@ enum DoitSubjectSolve {
                 let length = words.reduce(0) { $0 + $1.count }
                 if ok, length >= 2, length > best { best = length }
             }
-            if best > 0 { found.append((e.year, e.names, e.who, best)) }
+            if best > 0 { found.append((e.year, e.names, e.who, best, e.end)) }
         }
         return found.sorted { $0.score > $1.score }
     }
@@ -778,16 +799,24 @@ enum DoitSubjectSolve {
             return pick(p, index: hits[0], concept: name, steps: [SolutionStep(hint: "역사", work: "\(name) (\(yearText(top.year))): \(who)")])
         }
         guard matches(c, #"(해는|연도|년도|몇년|언제|해를)"#) else { return nil }
-        let steps = [SolutionStep(hint: "연표", work: "\(name): \(yearText(top.year))")]
+        // 끝난 해를 물으면 끝난 해 (끝난 해를 모르면 답하지 않아요)
+        var year = top.year
+        if matches(c, #"(끝난|끝났|끝나|끝맺|종결|종전|멈춘|막을내|마무리|체결되어끝|완성된|완공된|완료된)"#) {
+            guard let end = top.end else { return nil }
+            year = end
+        } else if top.end != nil, !matches(c, #"(일어난|일어났|시작|발발|일으킨|터진|벌어진|발생한|시작된)"#) {
+            return nil
+        }
+        let steps = [SolutionStep(hint: "연표", work: "\(name): \(yearText(year))")]
         if p.isChoice {
             let hits = p.choices.indices.filter { i in
                 guard let m = p.choices[i].firstMatch(of: #/(기원전\s*)?([0-9]{1,4})\s*년?/#), let y = Int(String(m.2)) else { return false }
-                return (m.1 == nil ? y : -y) == top.year
+                return (m.1 == nil ? y : -y) == year
             }
             guard hits.count == 1 else { return nil }
             return pick(p, index: hits[0], concept: name, steps: steps)
         }
-        return Found(answer: yearText(top.year), concept: name, steps: steps)
+        return Found(answer: yearText(year), concept: name, steps: steps)
     }
 
     // MARK: - 국어: 맞춤법
@@ -807,11 +836,17 @@ enum DoitSubjectSolve {
         ("우뢰", "우레"), ("나뭇군", "나무꾼"), ("삭월세", "사글세"), ("끼여들", "끼어들"), ("떡볶기", "떡볶이"), ("깍뚜기", "깍두기"),
         ("오뚜기", "오뚝이"), ("눈꼽", "눈곱"), ("생각컨대", "생각건대"), ("익숙치", "익숙지"), ("넉넉치", "넉넉지"), ("섭섭치", "섭섭지"),
         ("서슴치", "서슴지"), ("짖궂", "짓궂"), ("애띤", "앳된"), ("희노애락", "희로애락"), ("구렛나루", "구레나룻"), ("내노라", "내로라"),
-        ("닥달", "닦달"), ("뇌졸증", "뇌졸중"), ("괜시리", "괜스레"), ("어줍잖", "어쭙잖"), ("오랜동안", "오랫동안"), ("아뭏든", "아무튼")
+        ("닥달", "닦달"), ("뇌졸증", "뇌졸중"), ("괜시리", "괜스레"), ("어줍잖", "어쭙잖"), ("오랜동안", "오랫동안"), ("아뭏든", "아무튼"),
+        ("아지랭이", "아지랑이"), ("숫닭", "수탉"), ("숫병아리", "수평아리"), ("숫돼지", "수퇘지"), ("숫당나귀", "수탕나귀"), ("숫강아지", "수캉아지"),
+        ("삼가해", "삼가"), ("삼가하", "삼가"), ("윗어른", "웃어른"), ("가까히", "가까이"), ("않 먹", "안 먹"), ("않 갔", "안 갔"), ("않 했", "안 했"),
+        ("않 왔", "안 왔"), ("않 된", "안 된"), ("지 안았", "지 않았"), ("지 안는", "지 않는"), ("지 안아", "지 않아"), ("지 안고", "지 않고"),
+        ("나즈막", "나지막"), ("돐", "돌")
     ]
 
     /// 낱말 하나로 쓸 때만 틀린 말 ("살이 찌게 되다"의 찌게는 맞아서, 선지가 그 낱말 하나이거나 조사가 붙었을 때만)
-    static let wordMisspellings: [(wrong: String, right: String)] = [("찌게", "찌개"), ("베게", "베개")]
+    static let wordMisspellings: [(wrong: String, right: String)] = [("찌게", "찌개"), ("베게", "베개"), ("열심이", "열심히"), ("숫개", "수캐"), ("숫소", "수소"),
+        ("녀자", "여자"), ("량심", "양심"), ("리유", "이유"), ("로인", "노인"), ("뇨소", "요소"), ("력사", "역사"), ("래일", "내일"), ("락원", "낙원"),
+        ("년세", "연세"), ("룡궁", "용궁"), ("례절", "예절"), ("녀성", "여성")]
 
     /// 바르게 쓴 말 (선지에 이 말이 있고 틀린 말이 없으면 바른 선지)
     static let correctSpellings: [String] = [
@@ -820,7 +855,9 @@ enum DoitSubjectSolve {
         "초점", "대가", "설렘", "하마터면", "귀띔", "뒤풀이", "어이없", "곱빼기", "짜깁기", "웬걸", "무난하", "거예요", "할게요", "안 돼",
         "찌개", "베개", "육개장", "휴게실", "게시판", "잠갔", "잠가", "담갔", "담가", "치렀", "치러", "머리말", "인사말", "해님", "통째", "깡충",
         "우레", "나무꾼", "사글세", "끼어들", "떡볶이", "깍두기", "오뚝이", "눈곱", "생각건대", "익숙지", "넉넉지", "섭섭지", "서슴지", "짓궂",
-        "앳된", "희로애락", "구레나룻", "닦달", "오랫동안", "아무튼", "뇌졸중", "괜스레"
+        "앳된", "희로애락", "구레나룻", "닦달", "오랫동안", "아무튼", "뇌졸중", "괜스레",
+        "수탉", "수캐", "수평아리", "수퇘지", "아지랑이", "상추", "냄비", "삼가 주", "가까이", "안 먹", "안 갔", "않았", "않는", "나룻배", "열심히",
+        "역사", "여자", "양심", "이유", "노인", "나지막", "수소"
     ]
 
     private static let particles = ["", "이", "가", "을", "를", "은", "는", "도", "에", "와", "과", "로", "으로", "의", "만", "처럼"]
@@ -834,6 +871,12 @@ enum DoitSubjectSolve {
                 if rest.isEmpty ? tokens.count == 1 : particles.contains(rest) { return pair }
             }
         }
+        // '율/률': 모음이나 ㄴ 받침 뒤는 '율', 그 밖의 받침 뒤는 '률' (한글 맞춤법 제11항)
+        if tokens.count == 1, let rate = rateSpelling(tokens[0]), !rate.ok { return (tokens[0], rate.fixed) }
+        // 수 관형사 + 단위 명사는 띄어 써요 ("한개" → "한 개")
+        if matches(text, #"(?<![가-힣])(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)(개|명|마리|권|자루|켤레|그루|송이|대|살|시간|가지)(를|을|가|이|의|도|만|씩|\s|$|[.,!?])"#) { return ("붙여 쓴 단위", "수 관형사와 단위 명사는 띄어 써요") }
+        // '-ㄹ' 뒤 의존 명사 '데·것·줄·리' ("갈데" → "갈 데", "볼것" → "볼 것")
+        if matches(text, #"(?<![가-힣])(할|갈|볼|올|먹을|읽을|될|살|알|잘|만날|놀|찾을|들을|입을|앉을)(데|것|줄|리)(가|이|를|을|도|는|은|에|만|\s|$|[.,!?])"#) { return ("붙여 쓴 의존 명사", "'-ㄹ' 뒤 의존 명사는 띄어 써요") }
         // 띄어쓰기: '-ㄹ 수 있다'의 '수'는 의존 명사라 띄어 써요
         if matches(text, #"[가-힣]수(있|없)"#) || matches(text, #"(할|갈|볼|올|먹을|읽을|쓸|될|살)수\s"#) || matches(text, #"수(있다|있어|있는|있을|없다|없어|없는|없을)"#)
             || matches(text, #"(할|갈|볼|올|먹을|읽을|쓸|될|살|알|잘)수(도|가|는|밖에)\s?(있|없)"#) { return ("붙여 쓴 '수'", "띄어 쓴 '-ㄹ 수 있다'") }
@@ -846,14 +889,26 @@ enum DoitSubjectSolve {
 
     static func rightSpelling(in text: String) -> String? {
         if let hit = correctSpellings.first(where: { text.contains($0) }) { return hit }
+        let words = text.split(separator: " ").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: ".,!?'\"‘’“”")) }
+        if words.count == 1, let rate = rateSpelling(words[0]), rate.ok { return words[0] }
+        if matches(text, #"(?<![가-힣])(한|두|세|네|다섯) (개|명|마리|권|자루|켤레|그루|송이|살|가지)"#) { return "띄어 쓴 단위 명사" }
         if matches(text, #"[가-힣] 수 (있|없)"#) { return "-ㄹ 수 있다" }
         if matches(text, #"(을|는|은|할|갈|볼|올|쓸|될|살|알|잘) (것|데|줄|바|뿐|만큼)"#) { return "띄어 쓴 의존 명사" }
         return nil
     }
 
+    /// '율/률'로 끝나는 한자어 낱말 (두~네 글자): 맞는지와 고친 꼴
+    static func rateSpelling(_ word: String) -> (ok: Bool, fixed: String)? {
+        guard let syl = syllables(word), syl.count >= 2, syl.count <= 4, let last = word.last, last == "율" || last == "률" else { return nil }
+        let before = syl[syl.count - 2]
+        let wantYul = before.final == nil || before.final == "ㄴ"
+        let fixed = String(word.dropLast()) + (wantYul ? "율" : "률")
+        return (fixed == word, fixed)
+    }
+
     static func koreanSpelling(_ p: Problem) -> Found? {
         let c = p.compact
-        guard matches(c, #"(맞춤법|표준어|띄어쓰기|바르게쓴|바르게고|옳게쓴|표기가|바르게고쳐)"#) else { return nil }
+        guard matches(c, #"(맞춤법|표준어|띄어쓰기|바르게쓴|바르게고|옳게쓴|표기가|바르게고쳐|두음법칙|표기한|표기된|사이시옷)"#) else { return nil }
         // "‘됬다’를 바르게 고쳐 쓰시오"
         if !p.isChoice, matches(c, #"고(쳐|치)"#),
            let m = p.stem.firstMatch(of: #/[‘'"“「]([^’'"”」]{1,20})[’'"”」]/#) {
