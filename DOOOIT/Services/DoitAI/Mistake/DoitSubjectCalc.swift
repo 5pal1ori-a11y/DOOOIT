@@ -16,6 +16,14 @@ extension DoitSubjectSolve {
         return (0..<m.numberOfRanges).map { i in Range(m.range(at: i), in: text).map { String(text[$0]) } ?? "" }
     }
 
+    /// 모든 일치의 묶음들
+    static func allGroups(_ text: String, _ pattern: String) -> [[String]] {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        return regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).map { m in
+            (0..<m.numberOfRanges).map { i in Range(m.range(at: i), in: text).map { String(text[$0]) } ?? "" }
+        }
+    }
+
     static func count(_ text: String, _ pattern: String) -> Int {
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return 0 }
         return regex.numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))
@@ -418,7 +426,7 @@ extension DoitSubjectSolve {
         guard let cut = s.range(of: #"(끼리|자가\s*수분|자가\s*교배|교배)"#, options: .regularExpression) else { return nil }
         let before = String(s[..<cut.lowerBound]), after = String(s[cut.lowerBound...])
         func tokens(_ t: String) -> [String] {
-            t.matches(of: #/(?<![A-Za-z])[A-Za-z]{2,4}(?![A-Za-z])/#).map { String($0.output) }.filter { genePairs($0) != nil }
+            allGroups(t, #"(?<![A-Za-z])([A-Za-z]{2,4})(?![A-Za-z])"#).map { $0[1] }.filter { genePairs($0) != nil }
         }
         let parents = tokens(before)
         let selfCross = matches(c, #"(끼리|자가수분|자가교배)"#)
@@ -494,13 +502,13 @@ extension DoitSubjectSolve {
         let s = p.stem
         let c = dense(s)
         guard c.contains("혈액형"), c.contains("유전자형") else { return nil }
-        let parents = c.matches(of: #/(?<![A-Z])([ABO]{2})인/#).map { String($0.output.1) }
+        let parents = allGroups(c, #"(?<![A-Z])([ABO]{2})인"#).map { $0[1] }
         guard parents.count == 2 else { return nil }
         func alleles(_ g: String) -> [Character] { Array(g) }
         var dist: [String: Int] = [:]
         for x in alleles(parents[0]) { for y in alleles(parents[1]) {
-            let set = Set([x, y])
-            let type = set == ["A", "B"] ? "AB" : set.contains("A") ? "A" : set.contains("B") ? "B" : "O"
+            let set: Set<Character> = [x, y]
+            let type = set == Set<Character>(["A", "B"]) ? "AB" : set.contains("A") ? "A" : set.contains("B") ? "B" : "O"
             dist[type, default: 0] += 1
         } }
         let steps = [SolutionStep(hint: "ABO식 혈액형", work: "A, B는 O에 대해 우성이고 A와 B는 공동 우성이에요."),
@@ -644,7 +652,8 @@ extension DoitSubjectSolve {
     private static func people(_ c: String, _ name: String) -> Double? {
         guard let g = groups(c, NSRegularExpression.escapedPattern(for: name) + #"(수)?[은는이가]?([0-9.]+)(억|만|천)?명"#), let v = Double(g[2]) else { return nil }
         guard count(c, NSRegularExpression.escapedPattern(for: name) + #"(수)?[은는이가]?[0-9]"#) == 1 else { return nil }
-        let unit = ["억": 1e8, "만": 1e4, "천": 1e3][g[3]] ?? 1
+        let units: [String: Double] = ["억": 1e8, "만": 1e4, "천": 1e3]
+        let unit = units[g[3]] ?? 1
         return v * unit
     }
 

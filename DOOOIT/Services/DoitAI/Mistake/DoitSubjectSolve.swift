@@ -11,12 +11,12 @@ enum DoitSubjectSolve {
         let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !full.isEmpty else { return nil }
         let p = Problem(full: full, body: body, choices: choices, box: boxItems)
-        let calc: [(Problem) -> Found?] = [scienceMore, scienceCalc]
+        let calc: [(Problem) -> Found?] = [scienceMore, scienceCalc2, scienceCalc]
         // 영어 어법: 지문 밑줄 · 네모 · 개수 · 고치기 · 문장 전환은 문장 선지 풀이보다 먼저, 빈칸 대입은 빈칸 규칙 다음에
         let englishFirst: [(Problem) -> Found?] = [englishUnderlinedPassage, englishBoxes, englishCount, englishFixError, englishTransform]
-        var solvers: [(Problem) -> Found?] = [chartData] + englishFirst + [itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling,
+        var solvers: [(Problem) -> Found?] = [chartData, socialCalc] + englishFirst + [itemRules, englishSentences, englishTwoBlanks, koreanSound, koreanHonorific, koreanSpelling,
                                               englishGrammar, englishBlankSubstitute, englishVocabulary, oddWordClass, category, statements, phenomena, eraQuestion, personEvent,
-                                              socialLookup, timeZone, element, facts, colorMix]
+                                              socialLookup, timeZone, element, facts, entityPairs, entityStatements, entityFromDescription, scaleQuestion, colorMix]
         // 과학이면 계산을 먼저 (계산 문제에 낱말 사실표가 먼저 걸리지 않게)
         solvers = subjectBroad == "과학" ? calc + solvers : solvers + calc
         for solver in solvers {
@@ -124,6 +124,8 @@ enum DoitSubjectSolve {
         let stem = p.stem
         // 선지가 문장이면 계산 문제가 아님
         if p.isChoice, !p.choices.allSatisfy(isNumericChoice) { return nil }
+        // 지도 축척 문제는 단위 바꾸기가 아님 (socialCalc에서)
+        if matches(p.compact, #"(축척|지도|지형도)"#) { return nil }
         if let special = scienceSpecial(p) { return special }
         guard let reply = DoitScience.calculation(stem) else { return nil }
         guard let parsed = parseCalc(reply), !ambiguousValues(stem, title: parsed.title) else { return nil }
@@ -649,6 +651,19 @@ enum DoitSubjectSolve {
         let tail = c.components(separatedBy: how.filter { !$0.isWhitespace }).last ?? c
         let asksSymbol = matches(tail, #"원소기호(는|로|를|가무엇)"#) && !how.hasPrefix("원소 기호")
         let asksNumber = matches(tail, #"원자번호(는|를)"#) && !how.hasPrefix("원자 번호")
+        // 몇 족 · 몇 주기를 물으면 그 수 (족을 모르는 원소는 답하지 않아요)
+        let asksGroup = matches(tail, #"몇족"#), asksPeriod = matches(tail, #"몇주기"#)
+        if asksGroup || asksPeriod {
+            guard asksGroup != asksPeriod, !asksSymbol, !asksNumber, !asksGroup || e.group > 0 else { return nil }
+            let n = asksGroup ? e.group : e.period, unit = asksGroup ? "족" : "주기"
+            let steps = [SolutionStep(hint: "주기율표", work: "\(e.name)(\(e.symbol)): 원자 번호 \(e.number), \(e.period)주기" + (e.group > 0 ? " \(e.group)족" : ""))]
+            if p.isChoice {
+                let hits = p.choices.indices.filter { key(p.choices[$0]) == key("\(n)\(unit)") || key(p.choices[$0]) == "\(n)" }
+                guard hits.count == 1 else { return nil }
+                return pick(p, index: hits[0], concept: "주기율표", steps: steps)
+            }
+            return Found(answer: "\(n)\(unit)", concept: "주기율표", steps: steps + [SolutionStep(hint: "답", work: "\(n)\(unit)")])
+        }
         let answers: [String] = asksSymbol ? [e.symbol] : asksNumber ? ["\(e.number)", "\(e.number)번"] : [e.name] + e.aliases
         let steps = [SolutionStep(hint: "주기율표", work: "\(e.name)(\(e.symbol)): 원자 번호 \(e.number), \(e.period)주기" + (e.group > 0 ? " \(e.group)족" : "") + ", \(e.kind)")]
         if p.isChoice {
@@ -721,10 +736,10 @@ enum DoitSubjectSolve {
     static func yearText(_ year: Int) -> String { year < 0 ? "기원전 \(-year)년" : "\(year)년" }
 
     /// 글 속 사건 이름 (이름의 낱말이 차례대로 나오면: "훈민정음이 반포된" ↔ "훈민정음 반포")
-    private static func events(in text: String) -> [(year: Int, names: [String], who: String?, score: Int)] {
+    private static func events(in text: String) -> [(year: Int, names: [String], who: String?, score: Int, end: Int?)] {
         let compact = key(text)
-        var found: [(year: Int, names: [String], who: String?, score: Int)] = []
-        for e in DoitSocial.eventList where !e.approx {
+        var found: [(year: Int, names: [String], who: String?, score: Int, end: Int?)] = []
+        for e in DoitSocial.eventDetails where !e.approx {
             var best = 0
             for name in e.names {
                 let words = name.components(separatedBy: " ").map(key).filter { !$0.isEmpty }
@@ -738,7 +753,7 @@ enum DoitSubjectSolve {
                 let length = words.reduce(0) { $0 + $1.count }
                 if ok, length >= 2, length > best { best = length }
             }
-            if best > 0 { found.append((e.year, e.names, e.who, best)) }
+            if best > 0 { found.append((e.year, e.names, e.who, best, e.end)) }
         }
         return found.sorted { $0.score > $1.score }
     }
@@ -778,16 +793,24 @@ enum DoitSubjectSolve {
             return pick(p, index: hits[0], concept: name, steps: [SolutionStep(hint: "역사", work: "\(name) (\(yearText(top.year))): \(who)")])
         }
         guard matches(c, #"(해는|연도|년도|몇년|언제|해를)"#) else { return nil }
-        let steps = [SolutionStep(hint: "연표", work: "\(name): \(yearText(top.year))")]
+        // 끝난 해를 물으면 끝난 해 (끝난 해를 모르면 답하지 않아요)
+        var year = top.year
+        if matches(c, #"(끝난|끝났|끝나|끝맺|종결|종전|멈춘|막을내|마무리|체결되어끝|완성된|완공된|완료된)"#) {
+            guard let end = top.end else { return nil }
+            year = end
+        } else if top.end != nil, !matches(c, #"(일어난|일어났|시작|발발|일으킨|터진|벌어진|발생한|시작된)"#) {
+            return nil
+        }
+        let steps = [SolutionStep(hint: "연표", work: "\(name): \(yearText(year))")]
         if p.isChoice {
             let hits = p.choices.indices.filter { i in
                 guard let m = p.choices[i].firstMatch(of: #/(기원전\s*)?([0-9]{1,4})\s*년?/#), let y = Int(String(m.2)) else { return false }
-                return (m.1 == nil ? y : -y) == top.year
+                return (m.1 == nil ? y : -y) == year
             }
             guard hits.count == 1 else { return nil }
             return pick(p, index: hits[0], concept: name, steps: steps)
         }
-        return Found(answer: yearText(top.year), concept: name, steps: steps)
+        return Found(answer: yearText(year), concept: name, steps: steps)
     }
 
     // MARK: - 국어: 맞춤법

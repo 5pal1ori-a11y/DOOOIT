@@ -43,6 +43,8 @@ extension DoitSubjectSolve {
         }
         // 설명 문장: 묻는 개념의 사실표
         if let claim = askedClaim(stem), let v = judgeClaim(claim, item.text) { return (v, v ? "자료와 맞아요" : "자료와 달라요") }
+        // 묻는 대상(왕·인물·지질 시대 …)의 사실표
+        if let v = entityVerdict(item.text, stem: stem) { return (v, v ? "사실표와 맞아요" : "다른 대상의 특징이에요") }
         return nil
     }
 
