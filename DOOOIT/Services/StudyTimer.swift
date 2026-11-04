@@ -162,3 +162,21 @@ final class StudyTimer {
         }
     }
 }
+
+#if DEBUG
+extension StudyTimer {
+    /// 화면 사진용: 진행 중인 모습만 보여 줌 (실제 앱 잠금 · 라이브 액티비티 · 상태 저장 없음)
+    func showDemo(title: String, categoryName: String, symbol: String, targetMinutes: Int?, startedAt: Date, lockUntil: Date?) {
+        self.title = title
+        self.categoryName = categoryName
+        self.symbol = symbol
+        self.planKey = nil
+        self.targetSeconds = targetMinutes.map { $0 * 60 }
+        self.startedAt = startedAt
+        self.segmentStart = startedAt
+        self.accumulated = 0
+        self.lockUntil = lockUntil
+        self.phase = .running
+    }
+}
+#endif
