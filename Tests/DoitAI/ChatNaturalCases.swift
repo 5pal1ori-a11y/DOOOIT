@@ -155,7 +155,7 @@ func runChatNaturalCases() async {
     let twice = "**간격 반복**이 최고예요.\n1일 → 3일 → 1주일 뒤에 다시 봐요.\n**간격 반복**이 최고예요."
     check("모델 답 다듬기: 공부 답도 같은 문장 두 번은 빼기", DoitMind.chatAnswer(twice, question: "단어 외우는 법") == "**간격 반복**이 최고예요.\n1일 → 3일 → 1주일 뒤에 다시 봐요.", DoitMind.chatAnswer(twice, question: "단어 외우는 법"))
     check("모델 답 다듬기: 공부 답 속 영어 낱말은 그대로", DoitMind.chatAnswer("who는 사람, which는 사물을 꾸며요.", question: "관계대명사 차이") == "who는 사람, which는 사물을 꾸며요.")
-    check("해요체: 반갑습니다·셨습니다·나옵니다", DoitMind.politeEnding("반갑습니다! 수고 많으셨습니다. 36이 나옵니다.") == "반가워요! 수고 많으셨어요. 36이 나와요.", DoitMind.politeEnding("반갑습니다! 수고 많으셨습니다. 36이 나옵니다."))
+    check("해요체: 반갑습니다·셨습니다·나옵니다", DoitMind.politeEnding("반갑습니다! 수고 많으셨습니다. 36이 나옵니다. 별이 죽을 때 생깁니다.") == "반가워요! 수고 많으셨어요. 36이 나와요. 별이 죽을 때 생겨요.", DoitMind.politeEnding("반갑습니다! 수고 많으셨습니다. 36이 나옵니다. 별이 죽을 때 생깁니다."))
     let hanja = "세종대왕은 1389년에 조선王朝을 세웠어요. 이 일은 조선의 시작이 되었어요."
     check("쓸 만한 답: 한자 문장을 빼면 반도 안 남는 답은 버림 (엔진 답으로)",
           !DoitMind.isUsable(DoitMind.chatAnswer("世宗大王은 朝鮮王朝의 第四代 王이에요. 한글을 만들었어요.", question: "세종대왕이 한 일 알려줘"), question: "세종대왕이 한 일 알려줘"))
