@@ -35,10 +35,11 @@ enum MathSolver {
             // "아닌 것은?", "옳지 않은 것은?", "모두 고르면?"은 값 하나를 맞춰 보는 문제가 아님
             guard !has(split.body, ["아닌", "않은", "틀린", "않는", "모두 고르", "옳은 것", "바르게 나타낸 것", "같은 것", "모두 구하"]) else { return nil }
             let body = split.body.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let solved = solveText(body).flatMap({ DoitMathAsked.focus($0, body) }) else { return nil }
+            guard let solved = solveText(body).flatMap({ DoitMathAsked.focus($0, body) }) ?? DoitMathBasic.late(body).flatMap({ DoitMathAsked.focus($0, body) }) else { return nil }
             return DoitMathExact.pickChoice(solved, from: split.choices)
         }
-        return solveText(raw).flatMap { DoitMathAsked.focus($0, raw) }
+        // 다른 풀이가 모두 못 풀면 모양이 분명한 초등·중학교·공통수학 문제로 한 번 더
+        return solveText(raw).flatMap { DoitMathAsked.focus($0, raw) } ?? DoitMathBasic.late(raw).flatMap { DoitMathAsked.focus($0, raw) }
     }
 
     /// 차트·표 자료로 답하는 질문 (가장 많은 것, 평균, 합, 차, 증가율 …). 선택지가 있으면 같은 값의 선택지로
@@ -78,7 +79,11 @@ enum MathSolver {
             }
         }
         // 고등 수학 (극한·급수·점화식·초월함수 미분·정적분·확률·확률분포·이차곡선·벡터 …): 모양이 분명하고 계산으로 확인되는 것만
+        // 확률변수(대문자 X)는 소문자로 바꾸기 전 글로
+        if let s = DoitMathProb.solve(DoitMathExact.tidy(raw)) { return s }
         if let s = DoitMathHigh.first(t) { return s }
+        // 다른 풀이가 틀리게 읽던 초등·중학교·공통수학 모양 (어떤 수, 정비례, 함숫값, 소금물, 뽑기, 판별식 …)
+        if let s = DoitMathBasic.early(t) { return s }
         // 물은 값이 분명한 유형 (두 근으로 이차방정식, x + 1/x, 미분계수의 정의, 나머지 두 개, 지나는 점, 여사건, 몇 % …)
         if let s = DoitMathAsked.solve(t) { return s }
         // 새로 더한 유형 (조건제시법, 도수분포표, 상수 여러 개, 지수·로그·삼각방정식, 문장제, 꼭짓점 이름이 붙은 도형 …)

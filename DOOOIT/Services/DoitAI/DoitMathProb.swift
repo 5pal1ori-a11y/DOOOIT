@@ -289,7 +289,7 @@ enum DoitMathProb {
         guard sigma > 0 else { return nil }
         let concept = "X가 정규분포 N(m, σ²)을 따르면 Z = (X − m)/σ 는 표준정규분포 N(0, 1)을 따라요. 그래프는 x = m에 대하여 대칭이에요."
         // 표준화한 값
-        if has(t, ["표준화"]), let x = match(t, #"X=(-?\d+(?:\.\d+)?)"#).flatMap({ Double($0[1]) }) {
+        if has(t, ["표준화"]), let x = match(t, #"[Xx]=(-?\d+(?:\.\d+)?)"#).flatMap({ Double($0[1]) }) {
             let z = (x - mean) / sigma
             guard let zs = DoitMathCalc.nice(z, allow: [], tol: 1e-12) else { return nil }
             return Solved(kind: .statistics, topic: "정규분포의 표준화", concept: concept, steps: [step("Z = (X − m)/σ", "(\(DoitMath.format(x)) − \(DoitMath.format(mean)))/\(DoitMath.format(sigma)) = \(zs)")], answer: zs)
@@ -309,9 +309,9 @@ enum DoitMathProb {
         }
         var prob: Double?
         var shown = ""
-        if let r = match(t, #"P\((-?\d+(?:\.\d+)?)[≤<]X[≤<](-?\d+(?:\.\d+)?)\)"#), let a = Double(r[1]), let b = Double(r[2]), let fa = cdf(a), let fb = cdf(b) { prob = fb - fa; shown = r[0] }
-        else if let r = match(t, #"P\(X[≤<](-?\d+(?:\.\d+)?)\)"#), let a = Double(r[1]), let fa = cdf(a) { prob = fa; shown = r[0] }
-        else if let r = match(t, #"P\(X[≥>](-?\d+(?:\.\d+)?)\)"#), let a = Double(r[1]), let fa = cdf(a) { prob = 1 - fa; shown = r[0] }
+        if let r = match(t, #"P\((-?\d+(?:\.\d+)?)[≤<][Xx][≤<](-?\d+(?:\.\d+)?)\)"#), let a = Double(r[1]), let b = Double(r[2]), let fa = cdf(a), let fb = cdf(b) { prob = fb - fa; shown = r[0] }
+        else if let r = match(t, #"P\([Xx][≤<](-?\d+(?:\.\d+)?)\)"#), let a = Double(r[1]), let fa = cdf(a) { prob = fa; shown = r[0] }
+        else if let r = match(t, #"P\([Xx][≥>](-?\d+(?:\.\d+)?)\)"#), let a = Double(r[1]), let fa = cdf(a) { prob = 1 - fa; shown = r[0] }
         guard let p = prob, p >= 0, p <= 1 else { return nil }
         let rounded = (p * 10000).rounded() / 10000
         guard abs(rounded - p) < 1e-9 else { return nil }

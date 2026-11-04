@@ -269,7 +269,8 @@ enum DoitMathHigh {
         guard let ask = match(t, #"a\s*(\d+)\s*(?:의\s*값|값|은|는|을|를|\?|$)"#), let target = Int(ask[1]), target > order, target <= 200 else { return nil }
         if known[target] != nil { return nil }
         // 식 속 an+1 → Y, an → X, n → (k)
-        var template = rhs.replacingOccurrences(of: #"a\s*\(?\s*n\s*\+\s*1\s*\)?"#, with: "Y", options: .regularExpression)
+        // "2aₙ + 1"(띄어 씀)은 aₙ₊₁이 아님: 괄호가 있거나 붙어 쓴 것만 aₙ₊₁
+        var template = rhs.replacingOccurrences(of: #"a\s*\(\s*n\s*\+\s*1\s*\)|an\+1(?![0-9])"#, with: "Y", options: .regularExpression)
         template = template.replacingOccurrences(of: #"a\s*\(?\s*n\s*\)?"#, with: "X", options: .regularExpression)
         guard !template.contains("a"), order == 2 || !template.contains("Y") else { return nil }
         var values = known

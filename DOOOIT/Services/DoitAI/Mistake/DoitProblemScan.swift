@@ -196,7 +196,11 @@ enum DoitProblemScan {
         let pattern = #"(?:^|\s)\(?([1-5])[)\.]\s*"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
         let ns = line as NSString
-        let matches = regex.matches(in: line, range: NSRange(location: 0, length: ns.length))
+        // 열린 괄호를 닫는 ")"는 번호가 아님 ("P(X = 1) = 1/4"의 "1)")
+        let matches = regex.matches(in: line, range: NSRange(location: 0, length: ns.length)).filter { m in
+            let before = ns.substring(to: m.range.location)
+            return before.filter({ $0 == "(" }).count <= before.filter({ $0 == ")" }).count
+        }
         guard !matches.isEmpty else { return [] }
         // 번호가 1부터 차례대로일 때만 선택지로 봄 ("3. 다음 중…" 같은 문제 번호는 아님)
         let numbers = matches.map { Int(ns.substring(with: $0.range(at: 1))) ?? 0 }
