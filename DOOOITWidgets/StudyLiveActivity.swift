@@ -6,11 +6,30 @@ import WidgetKit
 struct DOOOITWidgetsBundle: WidgetBundle {
     var body: some Widget {
         StudyLiveActivity()
-        // 홈 화면 위젯: App Group(group.com.donghyeon.moti)으로 앱이 저장한 오늘 정보를 읽음
+        // 홈 화면 · 잠금 화면 위젯: App Group(group.com.donghyeon.moti)으로 앱이 저장한 요약을 읽음
+        // (한 묶음에 10개까지라 둘로 나눔)
+        TodayWidgetsBundle().body
+        MoreWidgetsBundle().body
+    }
+}
+
+struct TodayWidgetsBundle: WidgetBundle {
+    var body: some Widget {
         TodayPlansWidget()
         DDayWidget()
         TodayWordsWidget()
         StudyProgressWidget()
+    }
+}
+
+struct MoreWidgetsBundle: WidgetBundle {
+    var body: some Widget {
+        MonthCalendarWidget()
+        WeekPlansWidget()
+        WeekChartWidget()
+        StreakWidget()
+        NextPlanWidget()
+        QuickTimerWidget()
     }
 }
 

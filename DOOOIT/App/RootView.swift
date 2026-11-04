@@ -1,4 +1,5 @@
 import Observation
+import SwiftData
 import SwiftUI
 
 struct RootView: View {
@@ -15,17 +16,15 @@ struct RootView: View {
     var body: some View {
         ZStack {
             Group {
-                if let user = auth.currentUser {
-                    if user.name.trimmingCharacters(in: .whitespaces).isEmpty {
-                        NameSetupView()
-                    } else {
-                        MainTabView()
-                            // 테마를 바꾸거나 계정이 바뀌면 탭 화면 전체를 다시 그림 (새 색, 그 계정의 저장소)
-                            .id("\(themeRaw)-\(user.id)")
-                    }
+                #if DEBUG
+                if let screen = UIShot.screen, screen.isWidgetGallery {
+                    WidgetGalleryView(page: screen)
                 } else {
-                    AuthView()
+                    accountContent
                 }
+                #else
+                accountContent
+                #endif
             }
             .animation(.smooth(duration: 0.4), value: auth.currentUser)
 
@@ -41,6 +40,21 @@ struct RootView: View {
         // 둥근 글꼴로 앱 전체를 부드럽게
         .fontDesign(.rounded)
         .preferredColorScheme(AppearanceMode(rawValue: appearanceRaw)?.colorScheme)
+    }
+
+    @ViewBuilder
+    private var accountContent: some View {
+        if let user = auth.currentUser {
+            if user.name.trimmingCharacters(in: .whitespaces).isEmpty {
+                NameSetupView()
+            } else {
+                MainTabView()
+                    // 테마를 바꾸거나 계정이 바뀌면 탭 화면 전체를 다시 그림 (새 색, 그 계정의 저장소)
+                    .id("\(themeRaw)-\(user.id)")
+            }
+        } else {
+            AuthView()
+        }
     }
 }
 
@@ -157,10 +171,23 @@ struct MainTabView: View {
         // 홈 화면 위젯을 누르면 해당 탭으로
         .onOpenURL { url in
             if AuthManager.handleGoogleURL(url) { return }
+            let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
             switch url.host() {
             case "planner":
-                plannerRouter.selectedDate = Date().startOfDay
+                // 달력 위젯에서 누른 날 (없으면 오늘)
+                let day = query.first { $0.name == "date" }?.value.flatMap { KoreanDate.dayKeyFormatter.date(from: $0) }
+                plannerRouter.selectedDate = (day ?? Date()).startOfDay
                 tab = .planner
+            case "timer":
+                // 바로 공부 위젯: start=분 (0이면 시간 제한 없이) · 이미 공부 중이면 그 타이머를 보여 줌
+                if !studyTimer.isActive, let value = query.first(where: { $0.name == "start" })?.value, let minutes = Int(value) {
+                    let study = ((try? context.fetch(FetchDescriptor<PlanCategory>())) ?? [])
+                        .filter(\.isStudy).sorted { $0.sortIndex < $1.sortIndex }
+                    studyTimer.start(title: "자유 공부", categoryName: study.first?.name ?? "공부",
+                                     symbol: study.first?.symbol ?? "book.fill",
+                                     targetMinutes: minutes > 0 ? min(minutes, 12 * 60) : nil)
+                }
+                studyTimer.isPresented = true
             case "words": tab = .study
             case "home": tab = .home
             case "weekly-report": router.showWeeklyReport = true

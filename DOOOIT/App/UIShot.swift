@@ -12,6 +12,12 @@ enum UIShotScreen: String, CaseIterable {
     case badges, badgeNew, mockExam, mockResult, soundMixer, voice
     /// 영어 문법 단원 학습 (중학교 영어 · 현재완료): 개념 · O/X · 문제
     case grammar, grammarOX, grammarProblem
+    /// 홈 화면 · 잠금 화면 위젯 미리보기 (WidgetGallery.swift)
+    case widgets, widgets2, widgets3, widgets4, widgetsLock
+
+    var isWidgetGallery: Bool {
+        [.widgets, .widgets2, .widgets3, .widgets4, .widgetsLock].contains(self)
+    }
 }
 
 @MainActor
