@@ -13,7 +13,7 @@ extension DoitMathBasic {
             travel, quadrant, diagonalCount, relativeFrequency, simplifyPolynomial, coins, powerEquation, budget,
             interceptsLine, axisTriangle, parallelPerpendicular, complementProbability, consecutiveProduct, yIntercept,
             symmetricSum, iPowerSum, circleEquation, tangentToCircle, reflectPoint, radiusThroughPoint, sqrtFunctionRange,
-            sufficientCondition, radicals, pythagoreanIdentity, limitConstants, numberSentence,
+            sufficientCondition, radicals, pythagoreanIdentity, limitConstants, numberSentence, sequenceTerm,
         ]
         for solve in solvers { if let s = solve(t) { return s } }
         return nil
@@ -511,6 +511,26 @@ extension DoitMathBasic {
         guard let v = eval(expr) else { return nil }
         return Solved(kind: .derivative, topic: "극한값으로 상수 구하기", concept: "(분모) → 0 이고 극한값이 있으면 (분자) → 0 이어야 해요. 분자를 인수분해(또는 미분계수)로 극한값을 구해요.",
                       steps: [step("x → \(show(p))일 때 (분자) → 0", "a = \(show(a)), b = \(show(b))"), step(ask[1].trimmingCharacters(in: .whitespaces), show(v))], answer: show(v))
+    }
+
+    // MARK: 등차·등비수열의 항 (a₁ = 5, 공차가 −2일 때 a₈)
+
+    static func sequenceTerm(_ raw: String) -> Solved? {
+        let t = DoitMathHigh.plainIndices(raw).replacingOccurrences(of: "{", with: " ").replacingOccurrences(of: "}", with: " ")
+        let arithmetic = t.contains("등차수열"), geometric = t.contains("등비수열")
+        guard arithmetic != geometric,
+              let first = match(t, #"(?<![a-z])a\s*_?1\s*=\s*("# + num + #")"#).flatMap({ rat($0[1]) }) ?? match(t, #"첫째항(?:이|은|가)?\s*("# + num + #")"#).flatMap({ rat($0[1]) }),
+              let d = match(t, (arithmetic ? "공차" : "공비") + #"(?:가|는|이)?\s*("# + num + #")\s*(?:일\s*때|인|이고|이다)"#).flatMap({ rat($0[1]) }),
+              let k = match(t, #"(?<![a-z])a\s*_?(\d+)\s*의\s*값"#).flatMap({ Int($0[1]) }) ?? match(t, #"제\s*(\d+)\s*항(?:은|을|의\s*값)"#).flatMap({ Int($0[1]) }),
+              k >= 1, k <= 200, numberCount(t.replacingOccurrences(of: #"a\s*_?\d+"#, with: " ", options: .regularExpression)) == 2 else { return nil }
+        if arithmetic {
+            guard let n1 = Rat(k - 1), let add = n1 * d, let v = first + add else { return nil }
+            return Solved(kind: .sequence, topic: "등차수열", concept: "첫째항 a, 공차 d인 등차수열: aₙ = a + (n − 1)d",
+                          steps: [step("aₙ = a + (n − 1)d", "a\(k) = \(show(first)) + \(k - 1) × (\(show(d))) = \(show(v))")], answer: show(v))
+        }
+        guard let p = d.power(k - 1), let v = first * p else { return nil }
+        return Solved(kind: .sequence, topic: "등비수열", concept: "첫째항 a, 공비 r인 등비수열: aₙ = a·rⁿ⁻¹",
+                      steps: [step("aₙ = a·rⁿ⁻¹", "a\(k) = \(show(first)) × (\(show(d)))^\(k - 1) = \(show(v))")], answer: show(v))
     }
 
     // MARK: 어떤 수의 2배에서 3을 뺀 수는 그 수에 5를 더한 수와 같다
