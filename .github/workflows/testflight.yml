@@ -200,6 +200,13 @@ jobs:
             [ -e "$app" ] || continue
             echo "== $(basename "$app")"
             codesign -d --entitlements :- "$app" 2>/dev/null | grep -o '<key>[^<]*</key>' | sed 's/<[^>]*>//g' | sed 's/^/   /'
+            # 함께 들어간 서명 파일(프로필)에 담긴 권한도 (Family Controls 배포용이 들어갔는지 확인)
+            if [ -f "$app/embedded.mobileprovision" ]; then
+              security cms -D -i "$app/embedded.mobileprovision" > "$RUNNER_TEMP/p.plist" 2>/dev/null
+              echo "   [프로필] $(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/p.plist" 2>/dev/null)"
+              /usr/libexec/PlistBuddy -c 'Print :Entitlements' "$RUNNER_TEMP/p.plist" 2>/dev/null | grep -E 'family|game-center|icloud-container-environment|aps' | sed 's/^/   [프로필]/'
+              rm -f "$RUNNER_TEMP/p.plist"
+            fi
           done
 
       - name: Upload to TestFlight
