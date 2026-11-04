@@ -30,6 +30,8 @@ extension DoitMind {
         let base = answer(raw)
         var t = dropEcho(base, question: question)
         t = dropForeign(t, question: question, strict: style == .casual)
+        if style == .casual { t = dropEnglishWords(t, question: question) }
+        t = dropRepeatedSentences(t)
         t = politeEnding(t)
         t = dropDisclaimer(t)
         t = dropRepeatedOpener(t, question: question, previous: previous)
@@ -42,6 +44,9 @@ extension DoitMind {
     static func isUsable(_ text: String, question: String) -> Bool {
         guard isUsable(text) else { return false }
         if text.contains("<think") || text.contains("</think") || text.contains("[질문]") || text.contains("[참고 자료]") { return false }
+        // 다른 글자 문장을 빼면 거의 남지 않던 답 (dropForeign이 그대로 둠): 한자·일본어가 남았으면 버림
+        if !question.unicodeScalars.contains(where: { isHan($0.value) || isKana($0.value) }),
+           withoutHanja(text).unicodeScalars.contains(where: { isHan($0.value) || isKana($0.value) }) { return false }
         let q = question.lowercased()
         let wantsEnglish = ["영어로", "영작", "영어 문장", "영어문장", "english", "번역", "예문"].contains { q.contains($0) }
         guard hasHangul(question), !wantsEnglish else { return true }
@@ -69,6 +74,11 @@ extension DoitMind {
     private static func isHan(_ v: UInt32) -> Bool { (0x4E00...0x9FFF).contains(v) || (0x3400...0x4DBF).contains(v) }
     private static func isKana(_ v: UInt32) -> Bool { (0x3040...0x30FF).contains(v) }
 
+    /// 괄호 속 한자 뜻풀이 "고진감래(苦盡甘來)"는 한국어 글에서 흔히 쓰니 빼고 봄
+    private static func withoutHanja(_ s: String) -> String {
+        s.replacingOccurrences(of: #"[(（][\p{Han}\s·,]+[)）]"#, with: "", options: .regularExpression)
+    }
+
     /// 다른 글자로 샌 문장 빼기: 한자·일본어가 섞인 문장 (질문에 없을 때), 일상 대화에서 한국어 질문에 영어로만 쓴 문장
     /// (빼고 나서 너무 많이 줄면 그대로 두고 isUsable이 판단)
     static func dropForeign(_ text: String, question: String, strict: Bool) -> String {
@@ -80,7 +90,7 @@ extension DoitMind {
         for line in text.components(separatedBy: "\n") {
             var kept = ""
             for sentence in sentences(line) {
-                let scalars = sentence.unicodeScalars
+                let scalars = withoutHanja(sentence).unicodeScalars
                 let foreign = !allowHan && scalars.contains { isHan($0.value) || isKana($0.value) }
                 let latin = scalars.filter { $0.isASCII && $0.properties.isAlphabetic }.count
                 let english = strict && koreanQuestion && !hasHangul(sentence) && latin >= 8 && sentence.split(separator: " ").count >= 3
@@ -91,7 +101,43 @@ extension DoitMind {
         }
         guard dropped > 0 else { return text }
         let result = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        // 절반 넘게 빼야 하면 답 자체가 이상한 것: 그대로 두고 isUsable이 버림 (남은 조각만 보여 주지 않게)
+        guard dropped * 2 <= text.count else { return text }
         return result.filter({ $0.isLetter }).count >= 4 ? result : text
+    }
+
+    /// 일상 대화의 한국어 문장에 끼어든 영어 낱말 빼기: "95분까지Wow!" → "95분까지!", "잘 자야Tomorrow 에너지" → "잘 자야 에너지"
+    /// (한국어로만 물었을 때만, 대문자 줄임말 "D-Day"·"OK"는 그대로)
+    static func dropEnglishWords(_ text: String, question: String) -> String {
+        guard hasHangul(question), !question.unicodeScalars.contains(where: { $0.isASCII && $0.properties.isAlphabetic }) else { return text }
+        var lines: [String] = []
+        for line in text.components(separatedBy: "\n") {
+            guard hasHangul(line) else { lines.append(line); continue }
+            var t = line.replacingOccurrences(of: #"(?<![A-Za-z0-9-])[A-Z]?[a-z]{2,}(?![A-Za-z0-9-])"#, with: "", options: .regularExpression)
+            t = t.replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
+                .replacingOccurrences(of: #" ([,.!?])"#, with: "$1", options: .regularExpression)
+            lines.append(t.trimmingCharacters(in: .whitespaces))
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// 같은 문장을 두 번 쓴 것 빼기 (작은 모델이 첫 문장을 끝에 되풀이할 때)
+    static func dropRepeatedSentences(_ text: String) -> String {
+        var seen = Set<String>()
+        var lines: [String] = []
+        var changed = false
+        for line in text.components(separatedBy: "\n") {
+            var kept = ""
+            for sentence in sentences(line) {
+                let key = sentence.filter { $0.isLetter || $0.isNumber }
+                if key.count >= 8, !seen.insert(key).inserted { changed = true; continue }
+                kept += sentence
+            }
+            if kept.trimmingCharacters(in: .whitespaces).isEmpty && !line.trimmingCharacters(in: .whitespaces).isEmpty { continue }
+            lines.append(kept)
+        }
+        guard changed else { return text }
+        return lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// 첫 줄에 질문을 그대로 되풀이했으면 빼기
@@ -117,6 +163,8 @@ extension DoitMind {
             ("아닙니다", "아니에요"), ("입니까", "인가요"), ("있습니까", "있나요"), ("없습니까", "없나요"), ("합니까", "하나요"), ("됩니까", "되나요"),
             ("했습니다", "했어요"), ("됐습니다", "됐어요"), ("였습니다", "였어요"), ("었습니다", "었어요"), ("았습니다", "았어요"), ("겠습니다", "겠어요"),
             ("있습니다", "있어요"), ("없습니다", "없어요"), ("같습니다", "같아요"), ("좋습니다", "좋아요"), ("많습니다", "많아요"), ("적습니다", "적어요"),
+            ("반갑습니다", "반가워요"), ("고맙습니다", "고마워요"), ("셨습니다", "셨어요"), ("쉽습니다", "쉬워요"), ("어렵습니다", "어려워요"),
+            ("춥습니다", "추워요"), ("덥습니다", "더워요"), ("옵니다", "와요"), ("씁니다", "써요"), ("큽니다", "커요"),
             ("높습니다", "높아요"), ("낮습니다", "낮아요"), ("작습니다", "작아요"), ("않습니다", "않아요"), ("싶습니다", "싶어요"),
             ("합니다", "해요"), ("됩니다", "돼요"), ("줍니다", "줘요"), ("드립니다", "드려요"), ("바랍니다", "바라요"), ("갑니다", "가요"),
             ("납니다", "나요"), ("냅니다", "내요"), ("봅니다", "봐요"), ("집니다", "져요"), ("킵니다", "켜요"), ("립니다", "려요"), ("십시오", "세요")
@@ -158,6 +206,8 @@ extension DoitMind {
         let greeted = ["안녕", "하이", "ㅎㅇ", "반가", "hello", "hi", "좋은아침", "굿모닝"].contains { q.contains($0) }
         let core = opening.trimmingCharacters(in: .whitespaces)
         if !greeted, core.hasPrefix("안녕"), core.count <= 16 { return rest }
+        // "고마워"에 "네, 반갑습니다!"처럼 인사하지 않았는데 반가워하는 첫마디
+        if !greeted, core.count <= 16, core.contains("반갑") || core.contains("반가워") { return rest }
         if let previous, let prevOpening = sentences(previous.components(separatedBy: "\n").first ?? "").first {
             let a = core.filter { $0.isLetter }, b = prevOpening.filter { $0.isLetter }
             if a.count >= 2, a == b { return rest }

@@ -138,6 +138,15 @@ enum DoitMind {
         return chat ? .advice : .study
     }
 
+    /// 모델에게 학생의 오늘 상황(공부 시간·일정·D-Day)을 줄지: 가벼운 일상 대화에는 주지 않음
+    /// (주면 "안녕"·"고마워"에도 "오늘 95분 공부했고 D-12…"를 끌어와서 어색해짐) · 공부·일정 이야기일 때만
+    static func wantsSituation(_ question: String, style: Style) -> Bool {
+        guard style != .casual else { return false }
+        let t = question.lowercased().replacingOccurrences(of: " ", with: "")
+        return ["공부", "시험", "일정", "계획", "플랜", "목표", "할일", "디데이", "d-day", "dday", "기말", "중간고사", "타이머", "진도", "복습", "뭐부터", "얼마나했", "몇분"]
+            .contains { t.contains($0) }
+    }
+
     /// 말투마다 답 길이 (토큰): 짧은 말에는 짧게
     static func maxTokens(for style: Style) -> Int {
         switch style {

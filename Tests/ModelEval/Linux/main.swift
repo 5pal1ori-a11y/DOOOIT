@@ -243,7 +243,7 @@ func dumpChat(_ path: String, variant: String) throws {
         let turns = scene.before.flatMap { [DoitMind.Turn(fromUser: true, text: $0.0), DoitMind.Turn(fromUser: false, text: $0.1)] }
         let history = DoitMind.budgetHistory(turns, maxTokens: 1100)
         let style = scene.topic == nil ? DoitMind.style(for: scene.question, chat: origin == .chat) : .study
-        var context = DoitMind.Context(draft: draft, app: origin == .chat ? "오늘 공부 95분 (목표 180분)\n남은 일정 2개\nD-Day 기말고사: D-12" : nil)
+        var context = DoitMind.Context(draft: draft, app: origin == .chat && (variant == "before" || DoitMind.wantsSituation(scene.question, style: style)) ? "오늘 공부 95분 (목표 180분)\n남은 일정 2개\nD-Day 기말고사: D-12" : nil)
         context.knowledge = DoitKnowledge.search(scene.question, limit: 3).filter { $0.score >= 0.42 }.map(\.entry)
         let prompt = DoitMind.answerPrompt(question: scene.question, context: context, history: [], summary: history.summary, topic: scene.topic, style: style)
         let temperature = style == .casual ? 0.7 : (origin == .chat || origin == .conversation ? 0.6 : 0.4)
@@ -267,9 +267,11 @@ func showChat(_ chatPath: String, _ logPaths: [String]) throws {
             results.append(try JSONDecoder().decode(ChatResult.self, from: Data(line[tab.upperBound...].utf8)))
         }
     }
-    func shown(_ item: ChatItem, _ raw: String) -> String {
+    func shown(_ item: ChatItem, _ raw: String, model: String) -> String {
         guard item.variant == "after" else { return DoitMind.answer(raw) }
         let style: DoitMind.Style = item.style == "casual" ? .casual : (item.style == "advice" ? .advice : .study)
+        // 앱처럼: 모티 1(작은 모델)은 가벼운 일상 대화에 엔진 답을 그대로 씀
+        if style == .casual, model.contains("1.7B"), item.id.hasPrefix("c") { return "(엔진 답) " + item.engine }
         let text = DoitMind.chatAnswer(raw, question: item.question, previous: item.history.last(where: { $0.first == "assistant" })?.last, style: style)
         return DoitMind.isUsable(text, question: item.question) ? text : "(버림 → 엔진 답) " + item.engine
     }
@@ -282,7 +284,7 @@ func showChat(_ chatPath: String, _ logPaths: [String]) throws {
             for variant in ["before", "after"] {
                 guard let item = items.first(where: { $0.id == id && $0.variant == variant }),
                       let r = results.first(where: { $0.model == model && $0.id == id && $0.variant == variant }) else { continue }
-                let text = shown(item, r.raw)
+                let text = shown(item, r.raw, model: model)
                 print("\(id) \(variant == "before" ? "전" : "후") [\(item.question)] (\(text.count)자, \(r.generatedTokens ?? -1)토큰, \(String(format: "%.1f", r.seconds))s) \(text.replacingOccurrences(of: "\n", with: "⏎"))")
                 var s = stats[variant] ?? (0, 0, 0, 0, 0)
                 s.count += 1

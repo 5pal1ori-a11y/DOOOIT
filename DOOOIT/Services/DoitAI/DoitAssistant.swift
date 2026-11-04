@@ -293,7 +293,10 @@ final class DoitAssistant {
         case .command, .math: return false
         // 과목 엔진의 계산(전압·전류 등)은 숫자가 정확해야 해서 그대로
         case .subject: return !question.contains(where: \.isNumber)
-        case .chat, .knowledge, .conversation: return true
+        // 가벼운 일상 대화("ㅋㅋ", "고마워")는 모티 1(작은 모델)보다 엔진이 고른 답이 더 자연스러워서 그대로
+        // (모델 비교: 작은 모델은 잡담에 엉뚱한 말·이상한 말투가 자주 나옴)
+        case .chat: return !(DoitBrain.shared.selected == .dooit1 && DoitMind.style(for: question, chat: true) == .casual)
+        case .knowledge, .conversation: return true
         }
     }
 
@@ -333,7 +336,8 @@ final class DoitAssistant {
         status = wantsWeb ? "자료를 찾아 읽는 중…" : "생각하는 중…"
         // "왜?"처럼 짧은 이어 말하기는 주제를 붙여서 자료를 찾음
         let searchQuestion = topicHint.map { DoitDialogue.continuesConversation(question) ? "\($0) \(question)" : question } ?? question
-        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: origin == .chat ? appSituation() : nil, allowWeb: wantsWeb)
+        let situation = origin == .chat && DoitMind.wantsSituation(question, style: style) ? appSituation() : nil
+        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: situation, allowWeb: wantsWeb)
         status = context.web.isEmpty ? "생각하는 중…" : "찾은 자료를 정리하는 중…"
         messages.append(Message(role: .assistant, text: "", isStreaming: true))
         let index = messages.count - 1

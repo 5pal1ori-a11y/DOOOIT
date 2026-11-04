@@ -134,4 +134,32 @@ func runChatNaturalCases() async {
     let studyPrompt = DoitMind.answerPrompt(question: "광합성이 뭐야?", context: DoitMind.Context(), history: [])
     check("프롬프트: 공부 질문은 그대로", studyPrompt.hasSuffix("짧고 간단하게 답해 주세요. 요약이나 결론은 붙이지 마세요."), studyPrompt)
     check("말투 지침: 해요체·되풀이 없음", DoitMind.persona.contains("~습니다") && DoitMind.persona.contains("되풀이하지 않아요"))
+
+    // 8) 모델 비교에서 나온 것들: 잡담에 오늘 상황 끌어오기, 끼어든 영어 낱말, 같은 문장 두 번, 뜬금없는 반가움, 한자가 대부분인 답
+    for q in ["안녕", "고마워", "ㅋㅋ", "잘자", "너 누구야?"] {
+        check("오늘 상황: '\(q)'에는 안 줌", !DoitMind.wantsSituation(q, style: DoitMind.style(for: q, chat: true)))
+    }
+    for q in ["오늘 공부 계획 짜줘", "시험까지 뭐부터 해야 돼?", "공부 어떻게 해야 할지 모르겠어"] {
+        check("오늘 상황: '\(q)'에는 줌", DoitMind.wantsSituation(q, style: DoitMind.style(for: q, chat: true)))
+    }
+    let more: [(String, String, String, String?, String)] = [
+        ("끼어든 영어 낱말", "오늘 95분까지Wow! 잘 자야Tomorrow 에너지가 채워져요.", "잘자", nil, "오늘 95분까지! 잘 자야 에너지가 채워져요."),
+        ("대문자 줄임말은 그대로", "D-Day까지 힘내요! OK?", "응원해줘", nil, "D-Day까지 힘내요! OK?"),
+        ("뜬금없는 반가움", "네, 반갑습니다! 도움이 됐다니 다행이에요.", "고마워", nil, "도움이 됐다니 다행이에요."),
+        ("같은 문장 두 번", "푹 쉬는 게 제일 좋아요. 물도 마셔요. 푹 쉬는 게 제일 좋아요.", "피곤해", nil, "푹 쉬는 게 제일 좋아요. 물도 마셔요."),
+    ]
+    for (name, raw, q, previous, expected) in more {
+        let got = casualAnswer(raw, q, previous: previous)
+        check("모델 답 다듬기: \(name)", got == expected, got)
+    }
+    let twice = "**간격 반복**이 최고예요.\n1일 → 3일 → 1주일 뒤에 다시 봐요.\n**간격 반복**이 최고예요."
+    check("모델 답 다듬기: 공부 답도 같은 문장 두 번은 빼기", DoitMind.chatAnswer(twice, question: "단어 외우는 법") == "**간격 반복**이 최고예요.\n1일 → 3일 → 1주일 뒤에 다시 봐요.", DoitMind.chatAnswer(twice, question: "단어 외우는 법"))
+    check("모델 답 다듬기: 공부 답 속 영어 낱말은 그대로", DoitMind.chatAnswer("who는 사람, which는 사물을 꾸며요.", question: "관계대명사 차이") == "who는 사람, which는 사물을 꾸며요.")
+    check("해요체: 반갑습니다·셨습니다·나옵니다", DoitMind.politeEnding("반갑습니다! 수고 많으셨습니다. 36이 나옵니다.") == "반가워요! 수고 많으셨어요. 36이 나와요.", DoitMind.politeEnding("반갑습니다! 수고 많으셨습니다. 36이 나옵니다."))
+    let hanja = "세종대왕은 1389년에 조선王朝을 세웠어요. 이 일은 조선의 시작이 되었어요."
+    check("쓸 만한 답: 한자 문장을 빼면 반도 안 남는 답은 버림 (엔진 답으로)",
+          !DoitMind.isUsable(DoitMind.chatAnswer("世宗大王은 朝鮮王朝의 第四代 王이에요. 한글을 만들었어요.", question: "세종대왕이 한 일 알려줘"), question: "세종대왕이 한 일 알려줘"))
+    check("쓸 만한 답: 한자 한 문장만 빼면 되는 답은 통과", DoitMind.isUsable(DoitMind.chatAnswer(hanja + " 한글을 만들고 측우기도 만들게 했어요. 집현전에서 학자들과 연구했어요.", question: "세종대왕이 한 일 알려줘"), question: "세종대왕이 한 일 알려줘"))
+    let idiom = "고진감래(苦盡甘來)는 고생 끝에 즐거움이 온다는 뜻이에요."
+    check("모델 답 다듬기: 괄호 속 한자 뜻풀이는 그대로", DoitMind.chatAnswer(idiom, question: "고진감래 뜻") == idiom && DoitMind.isUsable(idiom, question: "고진감래 뜻"), DoitMind.chatAnswer(idiom, question: "고진감래 뜻"))
 }
