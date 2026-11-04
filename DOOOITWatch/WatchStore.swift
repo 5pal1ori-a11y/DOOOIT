@@ -17,16 +17,22 @@ final class WatchStore: NSObject {
     private(set) var pending: [WatchCommand]
     /// 화면에 보이는 상태
     private(set) var snapshot: WatchSnapshot
+    /// 뽀모도로 · 휴식 (워치에서만)
+    private(set) var focus: WatchFocusCycle?
 
     @ObservationIgnored private var outbox: [WatchCommand] = []
     @ObservationIgnored private let pendingKey = "watch.pendingCommands"
-    @ObservationIgnored private var goalTask: Task<Void, Never>?
-    @ObservationIgnored private var cheeredGoal: Date?
+    @ObservationIgnored private let focusKey = "watch.focusCycle"
+    @ObservationIgnored private var eventTask: Task<Void, Never>?
+    /// 이미 진동한 일 (같은 일로 두 번 울리지 않게)
+    @ObservationIgnored private var cheered: Set<String> = []
+    @ObservationIgnored private var lastDigest: Data?
     @ObservationIgnored private var demo = false
 
     private override init() {
         received = WatchSnapshotStore.load(.received)
         pending = WatchLink.decode([WatchCommand].self, UserDefaults.standard.data(forKey: "watch.pendingCommands")) ?? []
+        focus = WatchLink.decode(WatchFocusCycle.self, UserDefaults.standard.data(forKey: "watch.focusCycle"))
         snapshot = WatchSnapshot()
         super.init()
         recompute()
@@ -37,7 +43,8 @@ final class WatchStore: NSObject {
         if let demo = WatchDemo.snapshot {
             self.demo = true
             received = demo
-            pending = []
+            pending = WatchDemo.pending
+            focus = WatchDemo.focus
             recompute()
             return
         }
@@ -68,25 +75,42 @@ final class WatchStore: NSObject {
         pending = received.stillPending(pending, now: now)
         UserDefaults.standard.set(WatchLink.encode(pending), forKey: pendingKey)
         let display = received.applying(pending).forToday(now)
-        let changedForWidget = display.savedSeconds != snapshot.savedSeconds || display.goalMinutes != snapshot.goalMinutes
-            || display.timer != snapshot.timer || display.accentHex != snapshot.accentHex || display.dayKey != snapshot.dayKey
         snapshot = display
+        tick(now: now)
         guard !demo else { return }
-        WatchSnapshotStore.save(display, .display)
-        if changedForWidget { WidgetCenter.shared.reloadAllTimelines() }
-        scheduleGoalCheer()
+        WatchSnapshotStore.save(snapshot, .display)
+        // 컴플리케이션에 보이는 것이 바뀔 때만 다시 그림
+        let digest = snapshot.complicationDigest
+        if digest != lastDigest {
+            lastDigest = digest
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        scheduleEvents()
     }
 
     // MARK: 명령 보내기
 
-    func send(_ action: WatchCommand.Action) {
-        let command = WatchCommand(action)
+    func send(_ action: WatchCommand.Action, at: Date? = nil) {
+        let command = WatchCommand(action, at: at)
         if action != .refresh {
             pending.append(command)
             recompute()
         }
         guard !demo else { return }
         deliver(command)
+    }
+
+    /// 보낸 명령이 아직 처리 중인지 (모티 답 기다리기 등)
+    func isPending(_ id: String) -> Bool { pending.contains { $0.id == id } }
+
+    /// 모티에게 묻기 (답은 다음 상태에 같이 옴). 보낸 명령 id
+    @discardableResult
+    func ask(_ text: String) -> String {
+        let command = WatchCommand(.ask(text: text))
+        pending.append(command)
+        recompute()
+        if !demo { deliver(command) }
+        return command.id
     }
 
     private func deliver(_ command: WatchCommand) {
@@ -125,29 +149,164 @@ final class WatchStore: NSObject {
         deliver(WatchCommand(.refresh))
     }
 
-    // MARK: 목표 달성 진동
+    // MARK: 타이머 시작 (자유 · 할 일 · 뽀모도로 · 휴식)
 
-    /// 화면이 켜져 있으면 바로 진동, 손목을 내려도 알림으로 진동
-    private func scheduleGoalCheer() {
-        goalTask?.cancel()
-        let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: ["watch.goal"])
-        guard let goal = snapshot.timer.goalDate, goal > Date() else { return }
-        goalTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(goal.timeIntervalSinceNow))
-            guard !Task.isCancelled, WatchStore.shared.snapshot.timer.goalDate == goal,
-                  WatchStore.shared.cheeredGoal != goal else { return }
-            WatchStore.shared.cheeredGoal = goal
-            WKInterfaceDevice.current().play(.success)
+    func start(minutes: Int?, plan: WatchPlanItem? = nil) {
+        if focus != nil { setFocus(nil) }
+        if minutes != nil { askNotificationIfNeeded() }
+        send(.startSession(WatchStart(targetMinutes: minutes, planID: plan?.planID, dayKey: plan?.dayKey, title: nil)))
+        WatchHaptics.play(.start)
+    }
+
+    func startPomodoro() {
+        var cycle = WatchFocusCycle()
+        cycle.focusMinutes = WatchPrefs.focusMinutes
+        cycle.restMinutes = WatchPrefs.restMinutes
+        cycle.longRestMinutes = max(WatchPrefs.restMinutes * 3, 15)
+        setFocus(cycle)
+        askNotificationIfNeeded()
+        send(.startSession(WatchStart(targetMinutes: cycle.focusMinutes, title: "뽀모도로")))
+        WatchHaptics.play(.start)
+    }
+
+    /// 쉬기만 (공부 기록 없음)
+    func startRest(minutes: Int) {
+        guard !snapshot.timer.isActive else { return }
+        setFocus(.rest(minutes: minutes, now: Date()))
+        askNotificationIfNeeded()
+        WatchHaptics.play(.start)
+    }
+
+    func nextFocus() {
+        guard var cycle = focus else { return }
+        cycle.nextFocus()
+        setFocus(cycle)
+        send(.startSession(WatchStart(targetMinutes: cycle.focusMinutes, title: "뽀모도로")))
+        WatchHaptics.play(.start)
+    }
+
+    func skipRest() {
+        guard var cycle = focus else { return }
+        if cycle.restOnly {
+            setFocus(nil)
+        } else {
+            cycle.skipRest()
+            setFocus(cycle)
         }
-        center.getNotificationSettings { settings in
-            guard settings.authorizationStatus == .authorized else { return }
-            let content = UNMutableNotificationContent()
-            content.title = "목표 달성!"
-            content.body = "오늘도 잘했어요"
-            content.sound = .default
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, goal.timeIntervalSinceNow), repeats: false)
-            center.add(UNNotificationRequest(identifier: "watch.goal", content: content, trigger: trigger))
+        WatchHaptics.play(.click)
+    }
+
+    /// 끝내고 기록 (뽀모도로도 같이 끝)
+    func stop() {
+        setFocus(nil)
+        if snapshot.timer.isActive { send(.stopTimer) }
+        WatchHaptics.play(.stop)
+    }
+
+    private func setFocus(_ cycle: WatchFocusCycle?) {
+        focus = cycle
+        guard !demo else { return }
+        UserDefaults.standard.set(cycle.flatMap { WatchLink.encode($0) }, forKey: focusKey)
+    }
+
+    // MARK: 시간에 따라 일어나는 일 (집중 끝 · 휴식 끝 · 목표 달성 · 30분마다)
+
+    /// 뽀모도로 단계 넘기기
+    private func tick(now: Date) {
+        guard var cycle = focus else { return }
+        let event = cycle.update(timer: snapshot.timer, now: now)
+        guard let event else { return }
+        switch event {
+        case .focusDone(let end):
+            setFocus(cycle)
+            cheer("watch.goal@\(Int(end.timeIntervalSince1970))", .success)
+            // 집중이 끝난 시각으로 기록 (늦게 열어도 정확히 집중한 만큼만)
+            send(.stopTimer, at: end)
+        case .restDone:
+            setFocus(cycle.restOnly ? nil : cycle)
+            cheer("watch.rest@\(Int((cycle.restUntil ?? now).timeIntervalSince1970))", .notification)
+        case .cancelled:
+            setFocus(nil)
+        }
+    }
+
+    private func cheer(_ key: String, _ type: WKHapticType) {
+        guard !demo, cheered.insert(key).inserted else { return }
+        WatchHaptics.play(type)
+    }
+
+    private struct Upcoming {
+        var id: String
+        var date: Date
+        var title: String
+        var body: String
+        var haptic: WKHapticType
+        /// 손목을 내려도 알림으로
+        var notify = true
+    }
+
+    private func upcomingEvents(now: Date) -> [Upcoming] {
+        let timer = snapshot.timer
+        var list: [Upcoming] = []
+        if let cycle = focus {
+            switch cycle.stage {
+            case .focus:
+                if let goal = timer.goalDate {
+                    list.append(Upcoming(id: "watch.goal", date: goal, title: "집중 끝!", body: "\(cycle.restLength)분 쉬어요", haptic: .success))
+                    let restEnd = goal.addingTimeInterval(Double(cycle.restLength) * 60)
+                    list.append(Upcoming(id: "watch.rest", date: restEnd, title: "휴식 끝", body: "다시 집중해요", haptic: .notification))
+                }
+            case .rest:
+                if let until = cycle.restUntil {
+                    list.append(Upcoming(id: "watch.rest", date: until, title: "휴식 끝",
+                                         body: cycle.restOnly ? "다시 공부해요" : "다시 집중해요", haptic: .notification))
+                }
+            case .ready:
+                break
+            }
+        } else if let goal = timer.goalDate {
+            list.append(Upcoming(id: "watch.goal", date: goal, title: "목표 달성!", body: "오늘도 잘했어요", haptic: .success))
+        }
+        if let daily = snapshot.dailyGoalDate(at: now), !list.contains(where: { abs($0.date.timeIntervalSince(daily)) < 60 }) {
+            list.append(Upcoming(id: "watch.daily", date: daily, title: "오늘 목표 달성!",
+                                 body: WatchFormat.duration(snapshot.goalMinutes * 60), haptic: .success))
+        }
+        // 30분마다 살짝 (화면이 켜져 있을 때만)
+        if WatchPrefs.milestones, timer.phase == .running, let since = timer.runningSince {
+            let next = (floor(now.timeIntervalSince(since) / 1_800) + 1) * 1_800
+            list.append(Upcoming(id: "watch.mile", date: since.addingTimeInterval(next), title: "", body: "", haptic: .directionUp, notify: false))
+        }
+        return list.filter { $0.date > now }
+    }
+
+    private func scheduleEvents() {
+        eventTask?.cancel()
+        let now = Date()
+        let events = upcomingEvents(now: now)
+        let center = UNUserNotificationCenter.current()
+        center.removePendingNotificationRequests(withIdentifiers: ["watch.goal", "watch.rest", "watch.daily"])
+        if WatchPrefs.haptics {
+            let alerts = events.filter(\.notify).map { ($0.id, $0.date, $0.title, $0.body) }
+            center.getNotificationSettings { settings in
+                guard settings.authorizationStatus == .authorized else { return }
+                for (id, date, title, body) in alerts {
+                    let content = UNMutableNotificationContent()
+                    content.title = title
+                    content.body = body
+                    content.sound = .default
+                    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: max(1, date.timeIntervalSinceNow), repeats: false)
+                    center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+                }
+            }
+        }
+        guard let first = events.min(by: { $0.date < $1.date }) else { return }
+        // 화면이 켜져 있으면 바로 진동
+        eventTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(max(0.2, first.date.timeIntervalSinceNow)))
+            guard !Task.isCancelled else { return }
+            let store = WatchStore.shared
+            store.cheer("\(first.id)@\(Int(first.date.timeIntervalSince1970))", first.haptic)
+            store.recompute()
         }
     }
 
@@ -155,7 +314,7 @@ final class WatchStore: NSObject {
     func askNotificationIfNeeded() {
         guard !demo else { return }
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in
-            Task { @MainActor in WatchStore.shared.scheduleGoalCheer() }
+            Task { @MainActor in WatchStore.shared.scheduleEvents() }
         }
     }
 }

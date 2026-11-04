@@ -188,7 +188,7 @@ private func runWatchMoreCases(now: Date, base: WatchSnapshot, snap: WatchSnapsh
     rich.week = [0, 600, 1_200, 0, 3_600, 60, 3_000]
     rich.streak = 4
     rich.ddays = [WatchDDay(id: "d", title: "수능", dayKey: WatchLink.dayKey(now.addingTimeInterval(86_400 * 3)))]
-    rich.tomorrow = [WatchPlanItem(id: "q_t", planID: "q", dayKey: WatchLink.dayKey(now.addingTimeInterval(86_400)), title: "영어",
+    rich.tomorrow = [WatchPlanItem(id: "q_\(WatchLink.dayKey(now.addingTimeInterval(86_400)))", planID: "q", dayKey: WatchLink.dayKey(now.addingTimeInterval(86_400)), title: "영어",
                                    time: "오전 9:00", colorHex: "#000000", isDone: false, isStudy: true, start: now.addingTimeInterval(86_400))]
     rich.words[0].choices = ["풍부한", "빠른", "느린", "작은"]
     rich.practice = [WatchWordItem(id: "p1", term: "calm", meaning: "고요한", choices: ["고요한", "a", "b", "c"])]
