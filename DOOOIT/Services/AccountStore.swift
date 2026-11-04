@@ -1,3 +1,4 @@
+import CloudKit
 import CoreData
 import CryptoKit
 import Foundation
@@ -40,7 +41,20 @@ enum AccountStore {
     static let syncReady = true
 
     /// iPhone에 iCloud 로그인이 되어 있는지
-    static var iCloudAvailable: Bool { FileManager.default.ubiquityIdentityToken != nil }
+    /// (CloudKit만 쓰는 앱은 ubiquityIdentityToken이 늘 비어 있을 수 있어서, CloudKit 계정 상태를 확인해 둔 값도 봄)
+    static var iCloudAvailable: Bool {
+        FileManager.default.ubiquityIdentityToken != nil || UserDefaults.standard.bool(forKey: cloudAccountKey)
+    }
+    private static let cloudAccountKey = "accounts.iCloudAccountAvailable"
+
+    /// CloudKit 계정 상태를 확인해 저장 (iCloud에 로그인돼 있으면 true)
+    @discardableResult
+    static func refreshCloudAccount() async -> Bool {
+        let status = try? await CKContainer(identifier: cloudContainer).accountStatus()
+        let available = status == .available
+        UserDefaults.standard.set(available, forKey: cloudAccountKey)
+        return available || FileManager.default.ubiquityIdentityToken != nil
+    }
 
     static func isSyncEnabled(for userID: String?) -> Bool {
         guard let userID else { return false }
@@ -84,8 +98,10 @@ enum AccountStore {
         if isSyncEnabled(for: userID), iCloudAvailable {
             // 네트워크를 쓰므로 화면이 멈추지 않게 뒤에서
             Task.detached(priority: .utility) { prepareCloudSchemaIfNeeded() }
-            if let synced = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer))) {
-                return synced
+            do {
+                return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer)))
+            } catch {
+                print("iCloud 저장소를 열 수 없어 기기 안에만 저장해요: \(error)")
             }
         }
         do {

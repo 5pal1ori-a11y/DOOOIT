@@ -26,6 +26,8 @@ struct AccountView: View {
     @State private var showResetRecords = false
     /// iCloud 동기화 (같은 Apple ID 기기끼리)
     @State private var syncOn = false
+    /// iCloud(CloudKit) 계정을 쓸 수 있는지 (화면이 뜰 때 다시 확인)
+    @State private var cloudAvailable = AccountStore.iCloudAvailable
     @State private var confirmSyncTakeover = false
     @State private var badges = BadgeCenter.shared
 
@@ -161,9 +163,9 @@ struct AccountView: View {
                 Toggle(isOn: Binding(get: { syncOn }, set: { changeSync($0) })) {
                     item("iCloud 동기화", "icloud", Palette.sky)
                 }
-                .disabled(!AccountStore.iCloudAvailable && !syncOn)
+                .disabled(!cloudAvailable && !syncOn)
             } footer: {
-                Text(AccountStore.iCloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
+                Text(cloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
             }
             }
             Section {
@@ -189,6 +191,7 @@ struct AccountView: View {
         .navigationTitle("계정 설정")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { syncOn = AccountStore.isSyncEnabled(for: auth.currentUser?.id) }
+        .task { cloudAvailable = await AccountStore.refreshCloudAccount() }
         .confirmationDialog("다른 계정이 이 기기에서 iCloud를 쓰고 있어요", isPresented: $confirmSyncTakeover, titleVisibility: .visible) {
             Button("이 계정으로 바꾸기") { applySync(true) }
         } message: {
