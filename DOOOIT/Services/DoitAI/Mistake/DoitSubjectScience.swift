@@ -324,6 +324,15 @@ extension DoitSubjectSolve {
             let sum = asked.reduce(0) { $0 + solution[$1]! }
             return answerValue(p, value: Double(sum), unit: "", dimension: nil, concept: "화학 반응식의 계수", steps: steps + [SolutionStep(hint: "합", work: asked.map { String(solution[$0]!) }.joined(separator: " + ") + " = \(sum)")])
         }
+        // "계수 a, b, c를 옳게 짝지은 것은?" — 선지의 수가 문자 차례와 같을 때
+        if p.isChoice, letters.count >= 2, stem.contains(letters.map(String.init).joined(separator: ",")) {
+            let hits = p.choices.indices.filter { i in
+                let nums = p.choices[i].matches(of: #/[0-9]+/#).compactMap { Int($0.output) }
+                return nums == letters.map { solution[$0]! }
+            }
+            guard hits.count == 1 else { return nil }
+            return pick(p, index: hits[0], concept: "화학 반응식의 계수", steps: steps)
+        }
         if let m = stem.firstMatch(of: #/([a-f])(와|과)([a-f])에?/#), stem.contains("차례"), p.isChoice {
             guard let x = m.1.first, let y = m.3.first, let vx = solution[x], let vy = solution[y] else { return nil }
             let hits = p.choices.indices.filter { i in

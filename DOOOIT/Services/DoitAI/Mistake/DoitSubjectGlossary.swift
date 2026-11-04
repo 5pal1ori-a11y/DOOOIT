@@ -275,7 +275,9 @@ extension DoitSubjectSolve {
     static func glossaryAnswer(_ p: Problem) -> Found? {
         guard p.box.isEmpty else { return nil }
         let c = p.compact
-        guard !matches(c, #"(옳은것|옳지않|설명으로|순서|나열|보기|모두고르|있는대로|공통점|차이점|반대|예로|예는|사례|아닌것)"#) else { return nil }
+        guard !matches(c, #"(옳지않|설명으로|순서|나열|보기|모두고르|있는대로|공통점|차이점|반대(말|개념|되는|인것|현상|의뜻)|예로|예는|사례|아닌것)"#) else { return nil }
+        // "~으로 옳은 것은?"은 선지가 짧은 말(용어)일 때만
+        if matches(c, #"옳은것"#), !p.isChoice || p.choices.contains(where: { $0.count > 12 || $0.hasSuffix(".") }) { return nil }
         let hits = glossary.filter { gl in gl.all.allSatisfy { matches(c, $0) } && !gl.none.contains { matches(c, $0) } }
         guard let first = hits.first, Set(hits.map { key($0.answers[0]) }).count == 1 else { return nil }
         // 꼴 밖에 '아닌·않는' 같은 말이 남으면 뒤집힌 물음일 수 있어요
@@ -309,6 +311,6 @@ extension DoitSubjectSolve {
               falsehoods: [#"속력이?.{0,4}(증가|감소|변)"#, #"알짜힘이?.{0,4}(일정하게)?작용"#, #"가속도가?.{0,4}일정하게?(증가|있)"#]),
         Claim(topics: ["수필"],
               truths: [#"형식이?.{0,4}자유"#, #"개성"#, #"(체험|경험)"#, #"비전문적"#, #"(고백적|자기고백)"#, #"제재가?.{0,4}다양"#],
-              falsehoods: [#"허구"#, #"(꾸며|지어)"#, #"(형식이?.{0,4}엄격|정해진형식)"#, #"전문적인글"#])
+              falsehoods: [#"허구"#, #"(꾸며|지어)"#, #"(형식이?.{0,4}엄격|정해진형식)"#, #"(?<!비)전문적인글"#])
     ]
 }

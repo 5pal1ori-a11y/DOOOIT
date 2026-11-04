@@ -94,7 +94,7 @@ extension DoitSubjectSolve {
     /// 정지 상태에서 출발한 등가속도 운동: 나중 속력 v = at, 이동 거리 s = ½at²
     static func kinematics(_ p: Problem) -> Found? {
         let c = p.compact
-        guard matches(c, #"정지(해있던|한|상태에서|상태로)"#), !matches(c, #"(던|떨어뜨|낙하|정지하였|정지했|멈추|브레이크|감속)"#) else { return nil }
+        guard matches(c, #"정지(해있던|한|상태에서|상태로)"#), !matches(c, #"(던지|던졌|던진|떨어뜨|낙하|정지하였|정지했|멈추|브레이크|감속)"#) else { return nil }
         let a = qs(p, "accel"), t = qs(p, "time")
         guard a.count == 1, t.count == 1, qs(p, "speed").isEmpty, qs(p, "length").isEmpty, qs(p, "force").isEmpty, qs(p, "mass").isEmpty else { return nil }
         let av = a[0].si, tv = t[0].si
@@ -557,8 +557,8 @@ extension DoitSubjectSolve {
         guard let g = groups(c, #"반감기가?는?([0-9.]+)(억|만|천)?년"#), let t = Double(g[1]) else { return nil }
         let unit = g[2] + "년"
         var fraction: Double?
-        if let f = groups(c, #"처음.{0,6}([0-9]+)/([0-9]+)"#), let a = Double(f[1]), let b = Double(f[2]), b > 0 { fraction = a / b }
-        else if let f = groups(c, #"처음.{0,8}([0-9.]+)%"#), let a = Double(f[1]) { fraction = a / 100 }
+        if let f = groups(c, #"처음.{0,6}?(?<![0-9])([0-9]+)/([0-9]+)"#), let a = Double(f[1]), let b = Double(f[2]), b > 0 { fraction = a / b }
+        else if let f = groups(c, #"처음.{0,8}?(?<![0-9.])([0-9.]+)%"#), let a = Double(f[1]) { fraction = a / 100 }
         else if let f = groups(c, #"([0-9.]+)%가?(남|로줄|만남)"#), let a = Double(f[1]), c.contains("처음") { fraction = a / 100 }
         guard let fr = fraction, fr > 0, fr < 1, matches(c, #"(걸리는시간|시간은|몇년|지나야)"#) else { return nil }
         let n = log2(1 / fr)

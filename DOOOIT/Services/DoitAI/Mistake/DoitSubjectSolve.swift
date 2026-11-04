@@ -410,8 +410,11 @@ enum DoitSubjectSolve {
     private static func askedCategory(_ p: Problem) -> Category? {
         let c = key(p.stem)
         var found: [(Category, Range<String.Index>)] = []
+        // 띄어쓰기를 빼면 낱말 경계를 넘어 붙는 이름("다음 중 성취" 속 "중성")은 빼요
+        let spaced = p.stem.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         for category in categories {
             for name in category.names {
+                guard spaced.contains(name) || spaced.contains(name.filter { !$0.isWhitespace }) else { continue }
                 let k = key(name)
                 var from = c.startIndex
                 while let r = c.range(of: k, range: from..<c.endIndex) {
@@ -426,8 +429,11 @@ enum DoitSubjectSolve {
             !found.contains { other in other.1 != item.1 && other.1.contains(item.1.lowerBound) && other.1.upperBound >= item.1.upperBound
                 && c.distance(from: other.1.lowerBound, to: other.1.upperBound) > c.distance(from: item.1.lowerBound, to: item.1.upperBound) }
         }
-        let distinct = Dictionary(grouping: kept, by: { $0.0.names[0] })
-        guard distinct.count == 1, let category = kept.first?.0 else { return nil }
+        // "알칼리 금속에 속하는 원소"처럼 넓은 분류(원소)와 좁은 분류가 함께 나오면 좁은 분류
+        var narrowed = kept
+        if Set(kept.map { $0.0.names[0] }).count > 1 { narrowed = kept.filter { $0.0.names[0] != "원소" } }
+        let distinct = Dictionary(grouping: narrowed, by: { $0.0.names[0] })
+        guard distinct.count == 1, let category = narrowed.first?.0 else { return nil }
         return category
     }
 
@@ -902,7 +908,7 @@ enum DoitSubjectSolve {
 
     static func koreanSpelling(_ p: Problem) -> Found? {
         let c = p.compact
-        guard matches(c, #"(맞춤법|표준어|띄어쓰기|바르게쓴|바르게고|옳게쓴|표기가|바르게고쳐)"#) else { return nil }
+        guard matches(c, #"(맞춤법|표준어|띄어쓰기|바르게쓴|바르게고|옳게쓴|표기가|바르게고쳐|두음법칙|표기한|표기된|사이시옷)"#) else { return nil }
         // "‘됬다’를 바르게 고쳐 쓰시오"
         if !p.isChoice, matches(c, #"고(쳐|치)"#),
            let m = p.stem.firstMatch(of: #/[‘'"“「]([^’'"”」]{1,20})[’'"”」]/#) {

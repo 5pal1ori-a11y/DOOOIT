@@ -421,7 +421,7 @@ extension DoitSubjectSolve {
         let ns = p.stem as NSString
         guard let regex = try? NSRegularExpression(pattern: #"(오전|오후)\s*([0-9]{1,2})\s*시"#),
               let m = regex.firstMatch(in: p.stem, range: NSRange(location: 0, length: ns.length)),
-              m.range.location > lons[0].position, m.range.location < lons[1].position, matches(c, #"몇시"#) else { return nil }
+              m.range.location > lons[0].position, m.range.location < lons[1].position, matches(c, #"(몇시|시각은|시각을|시각이)"#) else { return nil }
         guard let h = Int(ns.substring(with: m.range(at: 2))), h >= 1, h <= 12 else { return nil }
         let given = (ns.substring(with: m.range(at: 1)) == "오후" ? (h % 12) + 12 : h % 12)
         let target = given + Int(hours)
