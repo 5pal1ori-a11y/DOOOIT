@@ -337,7 +337,7 @@ final class DoitAssistant {
         // "왜?"처럼 짧은 이어 말하기는 주제를 붙여서 자료를 찾음
         let searchQuestion = topicHint.map { DoitDialogue.continuesConversation(question) ? "\($0) \(question)" : question } ?? question
         let situation = origin == .chat && DoitMind.wantsSituation(question, style: style) ? appSituation() : nil
-        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: situation, allowWeb: wantsWeb)
+        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: situation, allowWeb: wantsWeb, casual: style == .casual)
         status = context.web.isEmpty ? "생각하는 중…" : "찾은 자료를 정리하는 중…"
         messages.append(Message(role: .assistant, text: "", isStreaming: true))
         let index = messages.count - 1

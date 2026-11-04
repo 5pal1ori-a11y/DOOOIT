@@ -161,5 +161,6 @@ func runChatNaturalCases() async {
           !DoitMind.isUsable(DoitMind.chatAnswer("世宗大王은 朝鮮王朝의 第四代 王이에요. 한글을 만들었어요.", question: "세종대왕이 한 일 알려줘"), question: "세종대왕이 한 일 알려줘"))
     check("쓸 만한 답: 한자 한 문장만 빼면 되는 답은 통과", DoitMind.isUsable(DoitMind.chatAnswer(hanja + " 한글을 만들고 측우기도 만들게 했어요. 집현전에서 학자들과 연구했어요.", question: "세종대왕이 한 일 알려줘"), question: "세종대왕이 한 일 알려줘"))
     let idiom = "고진감래(苦盡甘來)는 고생 끝에 즐거움이 온다는 뜻이에요."
-    check("모델 답 다듬기: 괄호 속 한자 뜻풀이는 그대로", DoitMind.chatAnswer(idiom, question: "고진감래 뜻") == idiom && DoitMind.isUsable(idiom, question: "고진감래 뜻"), DoitMind.chatAnswer(idiom, question: "고진감래 뜻"))
+    check("모델 답 다듬기: 괄호 속 한자 뜻풀이는 그대로", DoitMind.chatAnswer(idiom, question: "고진감래 뜻") == idiom, DoitMind.chatAnswer(idiom, question: "고진감래 뜻"))
+    check("쓸 만한 답: 괄호 속 한자 뜻풀이는 통과", DoitMind.isUsable(idiom, question: "고진감래 뜻"))
 }

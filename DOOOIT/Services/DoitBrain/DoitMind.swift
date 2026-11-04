@@ -39,6 +39,7 @@ enum DoitMind {
     - "더 궁금한 게 있으면 물어보세요" 같은 끝인사를 붙이지 않아요.
     - 제목은 쓰지 않아요. 단계나 여러 가지를 나열할 때만 • 로 짧게 써요. 중요한 용어만 **굵게** 써요.
     - 항상 편한 한국어 해요체로 답해요. "~습니다", "~입니다"는 쓰지 않아요. 학생이 영어로 물으면 영어로 답해요.
+    - 학생을 "~하셨어요", "~시네요"처럼 높이지 않고 "~했어요", "~네요"처럼 친한 선배처럼 편하게 말해요.
     - 일상 대화는 친구처럼 한두 문장으로 답해요. 학생 말에 먼저 공감하거나 맞장구치고, 목록이나 설명은 늘어놓지 않아요.
     - 앞 대화를 이어서 말해요. 앞에서 한 인사나 같은 첫마디를 되풀이하지 않아요.
     - "저는 AI라서" 같은 말은 하지 않아요.
@@ -92,8 +93,9 @@ enum DoitMind {
         switch style {
         case .casual:
             // 일상 대화: 짧게, 공감·맞장구 먼저 (참고 답은 떠올릴 거리일 뿐)
-            parts.append("가벼운 일상 대화예요. 학생 말에 먼저 공감하거나 맞장구치고, 친구처럼 1~2문장으로 짧게 답해 주세요. 목록·제목·긴 설명은 쓰지 마세요."
-                         + (references.isEmpty ? "" : " 참고는 떠올릴 거리일 뿐이니 그대로 옮기지 마세요."))
+            // (고마워 → "별말을요", 힘들어 → 공감처럼 말 자체에 바로 반응하게)
+            parts.append("가벼운 일상 대화예요. 친한 친구처럼 학생 말에 바로 반응해 주세요 (고마우면 별말을요, 힘들면 먼저 공감). 1~2문장으로 짧게, 목록·제목·긴 설명은 쓰지 마세요."
+                         + (references.isEmpty ? "" : " 참고 답과 비슷한 느낌으로 하되 같은 말을 그대로 쓰지는 마세요."))
         case .advice:
             parts.append("학생 상황에 맞춰 2~4문장으로 다정하게 답해 주세요. 방법이 여러 개일 때만 • 로 3개까지 짧게 써요. 요약이나 결론은 붙이지 마세요.")
         case .study:
@@ -285,7 +287,8 @@ enum DoitMind {
     static func isUsable(_ text: String) -> Bool {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard t.count >= 4 else { return false }
-        let han = t.unicodeScalars.filter { (0x4E00...0x9FFF).contains($0.value) }.count
+        // 괄호 속 한자 뜻풀이 "고진감래(苦盡甘來)"는 세지 않음
+        let han = withoutHanja(t).unicodeScalars.filter { (0x4E00...0x9FFF).contains($0.value) }.count
         if Double(han) / Double(max(1, t.count)) > 0.04 { return false }
         // 같은 문장을 세 번 넘게 되풀이
         let sentences = t.components(separatedBy: CharacterSet(charactersIn: ".!?\n")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count >= 6 }
@@ -448,8 +451,10 @@ extension DoitMind {
     static var isAvailable: Bool { DoitBrain.shared.isAvailable }
 
     /// 질문에 필요한 근거 모으기 (필요하면 인터넷 검색)
-    static func gather(question: String, draft: String?, app: String? = nil, allowWeb: Bool = true) async -> Context {
+    /// casual: 가벼운 일상 대화 ("오늘 공부 하기 싫어"가 '용액의 진하기'에 걸리는 것처럼 엉뚱한 지식을 끌어오지 않게 지식·기억을 찾지 않음)
+    static func gather(question: String, draft: String?, app: String? = nil, allowWeb: Bool = true, casual: Bool = false) async -> Context {
         var context = Context(draft: draft, app: app)
+        guard !casual else { return context }
         let matches = DoitKnowledge.search(question, limit: 3)
         context.knowledge = matches.filter { $0.score >= 0.42 }.map(\.entry)
         context.memories = DoitMemory.shared.recall(question, limit: 3)

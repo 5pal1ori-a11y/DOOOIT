@@ -244,7 +244,9 @@ func dumpChat(_ path: String, variant: String) throws {
         let history = DoitMind.budgetHistory(turns, maxTokens: 1100)
         let style = scene.topic == nil ? DoitMind.style(for: scene.question, chat: origin == .chat) : .study
         var context = DoitMind.Context(draft: draft, app: origin == .chat && (variant == "before" || DoitMind.wantsSituation(scene.question, style: style)) ? "오늘 공부 95분 (목표 180분)\n남은 일정 2개\nD-Day 기말고사: D-12" : nil)
-        context.knowledge = DoitKnowledge.search(scene.question, limit: 3).filter { $0.score >= 0.42 }.map(\.entry)
+        if variant == "before" || style != .casual {
+            context.knowledge = DoitKnowledge.search(scene.question, limit: 3).filter { $0.score >= 0.42 }.map(\.entry)
+        }
         let prompt = DoitMind.answerPrompt(question: scene.question, context: context, history: [], summary: history.summary, topic: scene.topic, style: style)
         let temperature = style == .casual ? 0.7 : (origin == .chat || origin == .conversation ? 0.6 : 0.4)
         items.append(ChatItem(id: scene.id, variant: variant, question: scene.question, style: styleName(style), system: DoitMind.persona, prompt: prompt,

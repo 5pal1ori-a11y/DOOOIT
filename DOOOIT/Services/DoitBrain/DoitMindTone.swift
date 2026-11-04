@@ -8,7 +8,7 @@ extension DoitMind {
     /// 프롬프트에서 새어 나온 글 빼기: "[질문]" 같은 칸 이름, 시킨 말, 혼자 이어 쓴 다음 대화("학생: …")
     static func stripLeaks(_ text: String) -> String {
         let labels = #"^\s*\[(질문|참고 자료|학생의 오늘 상황|이전 대화|앞선 대화|지금 이야기 중인 주제)\]"#
-        let orders = ["짧고 간단하게 답해 주세요", "자기 말로 짧고 간단하게", "요약이나 결론은 붙이지 마세요", "친구처럼 1~2문장으로", "가벼운 일상 대화예요", "2~4문장으로 다정하게"]
+        let orders = ["짧고 간단하게 답해 주세요", "자기 말로 짧고 간단하게", "요약이나 결론은 붙이지 마세요", "친구처럼 1~2문장으로", "가벼운 일상 대화예요", "학생 말에 바로 반응해 주세요", "참고 답과 비슷한 느낌으로", "2~4문장으로 다정하게"]
         var kept: [String] = []
         for line in text.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -75,7 +75,7 @@ extension DoitMind {
     private static func isKana(_ v: UInt32) -> Bool { (0x3040...0x30FF).contains(v) }
 
     /// 괄호 속 한자 뜻풀이 "고진감래(苦盡甘來)"는 한국어 글에서 흔히 쓰니 빼고 봄
-    private static func withoutHanja(_ s: String) -> String {
+    static func withoutHanja(_ s: String) -> String {
         s.replacingOccurrences(of: #"[(（][\p{Han}\s·,]+[)）]"#, with: "", options: .regularExpression)
     }
 
@@ -87,6 +87,7 @@ extension DoitMind {
         let koreanQuestion = hasHangul(question) && !questionScalars.contains { $0.isASCII && $0.properties.isAlphabetic }
         var lines: [String] = []
         var dropped = 0
+        var droppedHan = 0
         for line in text.components(separatedBy: "\n") {
             var kept = ""
             for sentence in sentences(line) {
@@ -94,15 +95,15 @@ extension DoitMind {
                 let foreign = !allowHan && scalars.contains { isHan($0.value) || isKana($0.value) }
                 let latin = scalars.filter { $0.isASCII && $0.properties.isAlphabetic }.count
                 let english = strict && koreanQuestion && !hasHangul(sentence) && latin >= 8 && sentence.split(separator: " ").count >= 3
-                if foreign || english { dropped += sentence.count; continue }
+                if foreign || english { dropped += sentence.count; droppedHan += foreign ? sentence.count : 0; continue }
                 kept += sentence
             }
             if !kept.trimmingCharacters(in: .whitespaces).isEmpty || line.trimmingCharacters(in: .whitespaces).isEmpty { lines.append(kept) }
         }
         guard dropped > 0 else { return text }
         let result = lines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-        // 절반 넘게 빼야 하면 답 자체가 이상한 것: 그대로 두고 isUsable이 버림 (남은 조각만 보여 주지 않게)
-        guard dropped * 2 <= text.count else { return text }
+        // 한자·일본어 문장을 절반 넘게 빼야 하면 답 자체가 이상한 것: 그대로 두고 isUsable이 버림 (남은 조각만 보여 주지 않게)
+        guard droppedHan * 2 <= text.count else { return text }
         return result.filter({ $0.isLetter }).count >= 4 ? result : text
     }
 
@@ -113,7 +114,13 @@ extension DoitMind {
         var lines: [String] = []
         for line in text.components(separatedBy: "\n") {
             guard hasHangul(line) else { lines.append(line); continue }
-            var t = line.replacingOccurrences(of: #"(?<![A-Za-z0-9-])[A-Z]?[a-z]{2,}(?![A-Za-z0-9-])"#, with: "", options: .regularExpression)
+            var t = ""
+            for sentence in sentences(line) {
+                let cut = sentence.replacingOccurrences(of: #"(?<![A-Za-z0-9-])[A-Z]?[a-z]{2,}(?![A-Za-z0-9-])"#, with: "", options: .regularExpression)
+                // 낱말을 빼고 나니 한글이 없는 조각("'s a.")만 남으면 문장째 뺌
+                if cut != sentence, !hasHangul(cut) { continue }
+                t += cut
+            }
             t = t.replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
                 .replacingOccurrences(of: #" ([,.!?])"#, with: "$1", options: .regularExpression)
             lines.append(t.trimmingCharacters(in: .whitespaces))

@@ -553,7 +553,7 @@ enum DoitChat {
     }
 
     private static func motivation(_ c: Context) -> Answer {
-        let (base, offer) = pick([("하기 싫은 날도 있죠. 그럴 땐 딱 5분만 해 봐요. 시작만 하면 생각보다 계속하게 돼요.", "5분 타이머 시작해줘"),
+        let (base, offer) = pick([("하기 싫은 날도 있죠. 딱 5분만 해 봐요, 시작만 하면 생각보다 계속하게 돼요.", "5분 타이머 시작해줘"),
                                   ("의욕은 공부를 시작하면 따라와요. 일단 책상에 앉아 책만 펴 봐도 절반은 한 거예요!", nil),
                                   ("오늘은 조금만 해도 괜찮아요. 1%라도 0%보단 훨씬 나아요.", nil)])
         var text = base
