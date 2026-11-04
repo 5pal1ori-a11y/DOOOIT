@@ -192,6 +192,16 @@ jobs:
               exit 1
             }
 
+      # 서명된 앱에 들어간 권한 이름만 보여 줌 (App Store Connect가 Game Center 등 권한을 확인할 때 대조용, 비밀값 없음)
+      - name: Show signed entitlements
+        continue-on-error: true
+        run: |
+          for app in "$RUNNER_TEMP/DOOOIT.xcarchive/Products/Applications/"*.app "$RUNNER_TEMP/DOOOIT.xcarchive/Products/Applications/"*.app/PlugIns/*.appex "$RUNNER_TEMP/DOOOIT.xcarchive/Products/Applications/"*.app/Watch/*.app; do
+            [ -e "$app" ] || continue
+            echo "== $(basename "$app")"
+            codesign -d --entitlements :- "$app" 2>/dev/null | grep -o '<key>[^<]*</key>' | sed 's/<[^>]*>//g' | sed 's/^/   /'
+          done
+
       - name: Upload to TestFlight
         run: |
           PROFILES=$(python3 - "$RUNNER_TEMP/signing/profiles.json" <<'PY'
