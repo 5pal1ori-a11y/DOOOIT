@@ -256,7 +256,9 @@ struct WeekPlansWidgetView: View {
         return Text(item.title)
             .font(.system(size: 8.5, weight: .semibold))
             .lineLimit(1)
-            .padding(.horizontal, 3)
+            .truncationMode(.tail)
+            .padding(.leading, 4)
+            .padding(.trailing, 1)
             .padding(.vertical, 2)
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(item.isDone ? .secondary : .primary)
@@ -279,7 +281,7 @@ struct WeekPlansWidgetView: View {
                             .frame(width: 34)
                         let list = items(day)
                         if list.isEmpty {
-                            Text("일정 없음").font(.caption).foregroundStyle(.tertiary)
+                            Text("일정 없음").font(.caption).foregroundStyle(.secondary)
                             Spacer(minLength: 0)
                         } else {
                             VStack(alignment: .leading, spacing: 2) {
