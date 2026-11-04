@@ -133,6 +133,31 @@ jobs:
             build-${{ runner.os }}-xcode26-${{ hashFiles('DOOOIT.xcodeproj/project.pbxproj') }}-
             build-${{ runner.os }}-xcode26-
 
+      # 배포용(App Store) 수동 서명: 자동 서명은 archive 때 개발용 프로필을 만들려 하는데, 개발용은 등록된 기기가
+      # 있어야 만들어짐. 그래서 빌드마다 배포 인증서·App Store 프로필을 API로 만들어 임시 키체인에 넣고 그것으로 서명
+      - name: Prepare App Store signing
+        env:
+          ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          APP_ID: com.donghyeon.moti
+        run: |
+          set -e
+          SIGN="$RUNNER_TEMP/signing"
+          P12_PASS=$(openssl rand -hex 16); KC_PASS=$(openssl rand -hex 16)
+          echo "::add-mask::$P12_PASS"; echo "::add-mask::$KC_PASS"
+          export P12_PASS
+          python3 .github/scripts/asc_signing.py setup "$SIGN" "$APP_ID" "$APP_ID.widgets" "$APP_ID.watchkitapp" "$APP_ID.watchkitapp.widgets"
+          KC="$SIGN/ci.keychain-db"
+          security create-keychain -p "$KC_PASS" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PASS" "$KC"
+          curl -fsSL -o "$SIGN/wwdr.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer && security import "$SIGN/wwdr.cer" -k "$KC" >/dev/null || echo "::warning::WWDR 중간 인증서를 받지 못했어요 (시스템 것을 씀)"
+          security import "$SIGN/dist.p12" -k "$KC" -P "$P12_PASS" -T /usr/bin/codesign -T /usr/bin/security >/dev/null
+          rm -f "$SIGN/dist.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASS" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          echo "서명 인증서: $(security find-identity -v -p codesigning "$KC" | grep -c 'Apple Distribution')개"
+          python3 .github/scripts/asc_signing.py patch DOOOIT.xcodeproj/project.pbxproj "$SIGN" "$TEAM_ID"
+
       - name: Archive
         run: |
           set -o pipefail
@@ -154,12 +179,8 @@ jobs:
             COMPILER_INDEX_STORE_ENABLE=NO \
             COMPILATION_CACHE_ENABLE_CACHING=YES \
             DEBUG_INFORMATION_FORMAT=dwarf \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
-            CODE_SIGN_STYLE=Automatic \
-            CODE_SIGN_IDENTITY="Apple Distribution" 2>&1 | tee "$RUNNER_TEMP/archive.log"
+            DEVELOPMENT_TEAM="$TEAM_ID" 2>&1 | tee "$RUNNER_TEMP/archive.log"
           }
-          # 배포용(Apple Distribution) 서명으로 바로 archive: 개발용 프로필은 등록된 기기가 있어야 만들 수 있어서
-          # 기기를 등록하지 않은 팀에서는 실패함. 배포용(App Store) 프로필은 기기 없이 만들어짐
           # 빌드 시간을 줄이려고 dSYM(디버그 심볼)을 만들거나 올리지 않음 → TestFlight 충돌 기록에 함수 이름이 안 보임
           # 충돌 기록을 자세히 봐야 하면: DEBUG_INFORMATION_FORMAT=dwarf-with-dsym, uploadSymbols true 로 되돌리기
           # 처음 빌드 때는 Apple에서 프로비저닝 프로필을 새로 만들면서 실패할 수 있어 한 번 더 시도
@@ -173,6 +194,12 @@ jobs:
 
       - name: Upload to TestFlight
         run: |
+          PROFILES=$(python3 - "$RUNNER_TEMP/signing/profiles.json" <<'PY'
+          import json, sys
+          for bundle, p in json.load(open(sys.argv[1])).items():
+              print(f"<key>{bundle}</key><string>{p['uuid']}</string>")
+          PY
+          )
           cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -180,7 +207,12 @@ jobs:
           <dict>
             <key>method</key><string>app-store-connect</string>
             <key>destination</key><string>upload</string>
-            <key>signingStyle</key><string>automatic</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>signingCertificate</key><string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+          ${PROFILES}
+            </dict>
             <key>teamID</key><string>${TEAM_ID}</string>
             <key>manageAppVersionAndBuildNumber</key><false/>
             <key>uploadSymbols</key><false/>
@@ -210,10 +242,12 @@ jobs:
           ASC_KEY_FILE: ${{ runner.temp }}/keys/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
         run: |
           [ -f "$ASC_KEY_FILE" ] || exit 0
+          python3 .github/scripts/asc_signing.py cleanup "$RUNNER_TEMP/signing" || true
           python3 .github/scripts/asc_certs.py cleanup "$RUNNER_TEMP/certs-before.json"
+          security delete-keychain "$RUNNER_TEMP/signing/ci.keychain-db" 2>/dev/null || true
 
       # 개인 키 파일과 빌드 로그를 지움 (러너는 매번 새것이지만 남겨둘 이유가 없음)
       - name: Remove signing key
         if: always()
         run: |
-          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP/archive.log" "$RUNNER_TEMP/export.log"
+          rm -rf "$RUNNER_TEMP/keys" "$RUNNER_TEMP/signing" "$RUNNER_TEMP/archive.log" "$RUNNER_TEMP/export.log"
