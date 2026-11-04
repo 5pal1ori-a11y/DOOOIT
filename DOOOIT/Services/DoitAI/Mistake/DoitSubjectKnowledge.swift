@@ -228,7 +228,7 @@ extension DoitSubjectSolve {
     /// 문제가 묻는 개념 (하나만)
     static func askedClaim(_ stem: String) -> Claim? {
         let c = stem.filter { !$0.isWhitespace }
-        let hits = claims.filter { claim in
+        let hits = (claims + claims3).filter { claim in
             claim.topics.contains { topic in
                 let k = topic.filter { !$0.isWhitespace }
                 return matches(c, NSRegularExpression.escapedPattern(for: k) + #"(에대한|에관한|의특징|의성질|의공통|의공통적인|용액의|을설명|에서일어나는)"#)
