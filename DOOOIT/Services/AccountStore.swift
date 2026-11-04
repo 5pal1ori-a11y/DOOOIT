@@ -1,3 +1,4 @@
+import CoreData
 import CryptoKit
 import Foundation
 import SwiftData
@@ -80,9 +81,12 @@ enum AccountStore {
         let url = folder.appending(path: "DOOOIT.store")
         // iCloud 권한이 있으면 SwiftData가 저절로 동기화하므로, 켜지 않은 저장소는 꼭 .none으로 (계정끼리 섞이지 않게)
         // iCloud 동기화를 켠 계정: 같은 파일을 iCloud와 이어서 엶 (열 수 없으면 아래처럼 기기 안에만 — 자료는 그대로)
-        if isSyncEnabled(for: userID), iCloudAvailable,
-           let synced = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer))) {
-            return synced
+        if isSyncEnabled(for: userID), iCloudAvailable {
+            // 네트워크를 쓰므로 화면이 멈추지 않게 뒤에서
+            Task.detached(priority: .utility) { prepareCloudSchemaIfNeeded() }
+            if let synced = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer))) {
+                return synced
+            }
         }
         do {
             return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none))
@@ -97,6 +101,44 @@ enum AccountStore {
             }
             if let fresh = try? ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)) { return fresh }
             return memoryContainer()
+        }
+    }
+
+    // MARK: iCloud 표 모양 (CloudKit 스키마)
+
+    /// 지금 앱이 쓰는 CloudKit 환경 (Config/DOOOIT.entitlements의 icloud-container-environment와 같게)
+    /// - Development: TestFlight 시험용. 정식 출시 전 CloudKit 콘솔에서 표 모양을 Production으로 올린 뒤 Production으로 바꿈
+    nonisolated static let cloudUsesDevelopment = true
+    nonisolated private static let schemaPreparedKey = "accounts.cloudSchemaPrepared.v1"
+
+    /// 시험(Development) 환경에서 모든 모델의 표 모양을 iCloud에 한 번 만들어 둠
+    /// (기록이 없는 모델도 표가 생겨야 CloudKit 콘솔에서 Production으로 그대로 올릴 수 있어서)
+    nonisolated static func prepareCloudSchemaIfNeeded() {
+        guard cloudUsesDevelopment, !UserDefaults.standard.bool(forKey: schemaPreparedKey) else { return }
+        let types: [any PersistentModel.Type] = [
+            Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self,
+            ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self, WeakConcept.self
+        ]
+        guard let model = NSManagedObjectModel.makeManagedObjectModel(for: types) else { return }
+        let folder = FileManager.default.temporaryDirectory.appending(path: "cloud-schema-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let description = NSPersistentStoreDescription(url: folder.appending(path: "schema.sqlite"))
+        description.cloudKitContainerOptions = NSPersistentCloudKitContainerOptions(containerIdentifier: "iCloud.com.donghyeon.moti")
+        description.shouldAddStoreAsynchronously = false
+        let container = NSPersistentCloudKitContainer(name: "MOTISchema", managedObjectModel: model)
+        container.persistentStoreDescriptions = [description]
+        var loaded = true
+        container.loadPersistentStores { _, error in if error != nil { loaded = false } }
+        guard loaded else { return }
+        do {
+            try container.initializeCloudKitSchema()
+            UserDefaults.standard.set(true, forKey: schemaPreparedKey)
+        } catch {
+            print("iCloud 표 모양 만들기 실패: \(error)")
+        }
+        for store in container.persistentStoreCoordinator.persistentStores {
+            try? container.persistentStoreCoordinator.remove(store)
         }
     }
 
