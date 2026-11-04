@@ -77,6 +77,8 @@ enum MathSolver {
             case .pass: return DoitMathExact.blank(t)
             }
         }
+        // 고등 수학 (극한·급수·점화식·초월함수 미분·정적분·확률·확률분포·이차곡선·벡터 …): 모양이 분명하고 계산으로 확인되는 것만
+        if let s = DoitMathHigh.first(t) { return s }
         // 물은 값이 분명한 유형 (두 근으로 이차방정식, x + 1/x, 미분계수의 정의, 나머지 두 개, 지나는 점, 여사건, 몇 % …)
         if let s = DoitMathAsked.solve(t) { return s }
         // 새로 더한 유형 (조건제시법, 도수분포표, 상수 여러 개, 지수·로그·삼각방정식, 문장제, 꼭짓점 이름이 붙은 도형 …)

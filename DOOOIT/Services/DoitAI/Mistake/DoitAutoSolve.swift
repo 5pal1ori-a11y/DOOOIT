@@ -27,7 +27,10 @@ enum DoitAutoSolve {
         let full = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !full.isEmpty else { return nil }
         var best: (solved: MathSolver.Solved, key: String, matched: Bool, score: Int)?
+        let glued = Set([full, body].compactMap { $0 }.flatMap { stripNumber($0).glued })
         for candidate in candidates(full: full, body: body, choices: choices) {
+            // 번호가 붙어 소수처럼 읽힌 글("3.56÷□=8")은, 그대로 읽어 깔끔한 소수 답("2.5 × 1.4 = 3.5")이 나왔으면 쓰지 않음
+            if glued.contains(candidate), let b = best, !b.matched, let v = answerValue(of: b.key), abs(v * 100 - (v * 100).rounded()) < 1e-9 { continue }
             // 고쳐 쓴 글(식만 뗀 것 등)에는 물음이 빠져 있을 수 있어서, 물은 값인지는 원래 글로 다시 확인
             guard let solved = MathSolver.solve(candidate).flatMap({ DoitMathAsked.focus($0, full) }) else { continue }
             var key = solved.answer
