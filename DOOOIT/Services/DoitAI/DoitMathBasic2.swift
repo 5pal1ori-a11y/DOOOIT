@@ -629,7 +629,7 @@ extension DoitMathBasic {
         if squashedAnswer.count >= 3, squashedAnswer.contains(where: { ($0.isLetter && $0.isASCII) || "²³".contains($0) }), !squashedAnswer.contains("="),
            raw.replacingOccurrences(of: " ", with: "").contains(squashedAnswer), solved.kind != .counting { return nil }
         // 식의 값("x + 1/x 의 값")을 물었는데 근을 답함
-        if answer.range(of: #"^[a-z]\s*="#, options: .regularExpression) != nil,
+        if answer.range(of: #"^[a-z]\s*="#, options: .regularExpression) != nil, answer.range(of: #",\s*[a-z]\s*="#, options: .regularExpression) == nil,
            t.range(of: #"[a-z0-9)²]\s*[+\-*/]\s*[^가-힣=]*\s*의\s*값"#, options: .regularExpression) != nil, !has(t, ["해를", "해는", "근을", "근은"]) { return nil }
         // 직선의 식을 구했는데 y절편 · x절편 · 기울기를 물음 ("접선의 y절편은?")
         if let m = match(answer, #"^y\s*=\s*([^(=]+?)\s*(?:\(.*)?$"#), let (p, q) = linearParts(m[1].replacingOccurrences(of: "−", with: "-")) {
