@@ -201,8 +201,15 @@ extension DoitMathBasic {
         let e = m[1].trimmingCharacters(in: .whitespaces)
         guard e.contains("x") || e.contains("y"), e.contains("("), !e.contains("=") else { return nil }
         var result: DoitAlgebra.MPoly?
-        if let slash = e.range(of: "/", options: .backwards), e[..<slash.lowerBound].hasSuffix(")") || e[..<slash.lowerBound].trimmingCharacters(in: .whitespaces).hasSuffix(")") {
-            let left = String(e[..<slash.lowerBound]), right = String(e[slash.upperBound...]).trimmingCharacters(in: .whitespaces)
+        if let slash = e.range(of: "/", options: .backwards), e[..<slash.lowerBound].trimmingCharacters(in: .whitespaces).hasSuffix(")") {
+            let left = String(e[..<slash.lowerBound]).trimmingCharacters(in: .whitespaces), right = String(e[slash.upperBound...]).trimmingCharacters(in: .whitespaces)
+            // 나눗셈은 하나, 나뉘는 식은 괄호 한 덩어리일 때만 ("(x + 1)/2 + (x − 1)/3"은 아님)
+            guard e.filter({ $0 == "/" }).count == 1, left.hasPrefix("(") else { return nil }
+            var depth = 0
+            for (i, ch) in left.enumerated() {
+                if ch == "(" { depth += 1 } else if ch == ")" { depth -= 1 }
+                if depth == 0, i < left.count - 1 { return nil }
+            }
             guard right.range(of: #"^\(?\s*-?\d*\s*x?\s*(?:\^\s*\d+)?\s*y?\s*(?:\^\s*\d+)?\s*\)?$"#, options: .regularExpression) != nil,
                   let l = DoitAlgebra.parse(left), let r = DoitAlgebra.parse(right) else { return nil }
             let rt = r.cleaned.t
@@ -319,7 +326,8 @@ extension DoitMathBasic {
     // MARK: 확률 · 수
 
     static func complementProbability(_ t: String) -> Solved? {
-        guard numberCount(t) == 1, let m = match(t, #"확률이\s*(0\.\d+|\d+/\d+)\s*일\s*때\s*,?\s*(.+?)(?:않을|못할|아닐|지\s*않을)\s*확률"#), let p = rat(m[1]), p.value <= 1,
+        guard numberCount(t) == 1, !has(t, ["번", "모두", "적어도", "각각", "두 사람", "두 명", "세 사람", "동시", "연속", "둘 다", "둘 중"]),
+              let m = match(t, #"확률이\s*(0\.\d+|\d+/\d+)\s*일\s*때\s*,?\s*(.+?)(?:않을|못할|아닐|지\s*않을)\s*확률"#), let p = rat(m[1]), p.value <= 1,
               let q = Rat.one - p else { return nil }
         let decimal = m[1].contains(".")
         let ans = decimal ? (q.decimalText ?? show(q)) : show(q)
@@ -616,6 +624,28 @@ extension DoitMathBasic {
         }
         // 그래프·그림을 봐야 하는데 식이 없음
         if has(t, ["그래프에서", "다음 그래프", "위 그래프", "아래 그래프", "그림에서", "다음 그림", "위 그림", "그림과 같", "표와 같", "다음 표", "위 표"]), !t.contains("="), !raw.contains("|"), !raw.contains("\n"), DoitFigureFacts.split(raw).facts.isEmpty { return nil }
+        // 답이 문제에 주어진 값 그대로 ("넓이가 40cm²인 …의 세로의 길이" → "40cm²")
+        let squashedAnswer = answer.replacingOccurrences(of: " ", with: "")
+        if squashedAnswer.count >= 3, squashedAnswer.contains(where: { ($0.isLetter && $0.isASCII) || "²³".contains($0) }), !squashedAnswer.contains("="),
+           raw.replacingOccurrences(of: " ", with: "").contains(squashedAnswer), solved.kind != .counting { return nil }
+        // 식의 값("x + 1/x 의 값")을 물었는데 근을 답함
+        if answer.range(of: #"^[a-z]\s*="#, options: .regularExpression) != nil,
+           t.range(of: #"[a-z0-9)²]\s*[+\-*/]\s*[^가-힣=]*\s*의\s*값"#, options: .regularExpression) != nil, !has(t, ["해를", "해는", "근을", "근은"]) { return nil }
+        // 직선의 식을 구했는데 y절편 · x절편 · 기울기를 물음 ("접선의 y절편은?")
+        if let m = match(answer, #"^y\s*=\s*([^(=]+?)\s*(?:\(.*)?$"#), let (p, q) = linearParts(m[1].replacingOccurrences(of: "−", with: "-")) {
+            let asksY = t.range(of: #"y절편(?:은|을|의\s*값|\?)"#, options: .regularExpression) != nil
+            let asksX = t.range(of: #"x절편(?:은|을|의\s*값|\?)"#, options: .regularExpression) != nil
+            let asksSlope = t.range(of: #"기울기(?:는|를|의\s*값|\?)"#, options: .regularExpression) != nil && !t.contains("기울기가")
+            let asksLine = t.range(of: #"방정식(?:은|을|\?)|식(?:은|을)"#, options: .regularExpression) != nil
+            if !asksLine, [asksY, asksX, asksSlope].filter({ $0 }).count == 1 {
+                var out = solved
+                if asksY { out.steps.append(step("y절편 (x = 0)", show(q))); out.answer = show(q); return out }
+                if asksSlope { out.steps.append(step("기울기", show(p))); out.answer = show(p); return out }
+                if let r = (-q) / p { out.steps.append(step("x절편 (y = 0)", show(r))); out.answer = show(r); return out }
+            }
+        }
+        // 이동을 여러 번 했는데 (… 대칭이동한 후 … 대칭이동) 한 번만 셈
+        if solved.topic.contains("이동"), matches(t, #"이동"#).count >= 2 { return nil }
         // 이차함수의 식을 물었는데 일차식
         if has(t, ["이차함수의 식", "포물선을 그래프로 하는", "이차함수를 구"]), answer.hasPrefix("y ="), !answer.contains("²"), !answer.contains("^2") { return nil }
         // 넓이를 물었는데 변의 길이만 (피타고라스 정리)
@@ -625,8 +655,10 @@ extension DoitMathBasic {
         if solved.topic == "순열 (모두 나열)", has(t, ["맨 앞", "맨 뒤", "이웃", "양 끝", "사이에", "번째", "끼리", "않도록", "않는", "적어도", "포함"]) { return nil }
         // 대표 몇 명 뽑기를 순열로 셈
         if solved.topic.contains("순열 (모두 나열)"), t.range(of: #"\d+\s*명을\s*(?:뽑|선출)"#, options: .regularExpression) != nil { return nil }
-        // 부분집합의 개수인데 조건(반드시 포함 · 포함하지 않음)을 안 봄
-        if solved.topic == "부분집합의 개수", t.range(of: #"(?:반드시|포함하지|갖지|가지지)"#, options: .regularExpression) != nil { return nil }
+        // 부분집합의 개수인데 조건(반드시 포함 · 포함하지 않음 · 또는 …)을 안 봄
+        if solved.topic == "부분집합의 개수", t.range(of: #"반드시|포함하지|갖지|가지지|부분집합\s*중|또는|적어도|원소로\s*갖는|포함하는"#, options: .regularExpression) != nil { return nil }
+        // f(1) + f(2) + … + f(10) 을 함숫값 하나로 셈
+        if solved.topic == "함숫값", has(t, ["…", "⋯", "...", "∑"]) { return nil }
         // n(A ∪ B)를 답했는데 다른 것을 물음
         if answer.hasPrefix("n(A∪B)"), let target = match(t, #"n\(\s*([^)]*)\)\s*의\s*값"#)?[1], target.replacingOccurrences(of: " ", with: "") != "A∪B" { return nil }
         // 두 수 중 작은 수 · 큰 수

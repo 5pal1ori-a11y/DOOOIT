@@ -160,11 +160,21 @@ enum DoitMathWord {
             return Solved(kind: .counting, topic: "확률 (적어도)", concept: concept, steps: steps, answer: ratio(total - 1, total))
         }
         var k: Int?
-        if let m = match(t, #"(?:앞면|뒷면)(?:이|만)\s*"# + countWord + #"\s*(?:번|개|회)"#) { k = count(m[1]) }
+        var range = ""
+        if let m = match(t, #"(?:앞면|뒷면)(?:이|만)\s*"# + countWord + #"\s*(?:번|개|회)\s*(이상|이하|미만|초과|보다)?"#) { k = count(m[1]); range = m[2] }
         else if has(t, ["모두 앞면", "모두 뒷면"]) { k = tosses }
         guard let heads = k, heads <= tosses else { return nil }
-        let ways = Int(DoitMathTopics.combination(tosses, heads))
-        steps.append(SolutionStep(hint: "\(tosses)번 중 \(heads)번을 고르는 경우", work: "₍\(tosses)₎C₍\(heads)₎ = \(ways)"))
+        // "3개 이상", "2번 이하": 해당하는 k를 모두 더함
+        var picked = [heads]
+        switch range {
+        case "이상": picked = Array(heads...tosses)
+        case "이하": picked = Array(0...heads)
+        case "": break
+        default: return nil
+        }
+        let ways = picked.reduce(0) { $0 + Int(DoitMathTopics.combination(tosses, $1)) }
+        steps.append(SolutionStep(hint: picked.count == 1 ? "\(tosses)번 중 \(heads)번을 고르는 경우" : "\(picked.map(String.init).joined(separator: ", "))번인 경우를 모두 더하면",
+                                  work: picked.map { "₍\(tosses)₎C₍\($0)₎" }.joined(separator: " + ") + " = \(ways)"))
         steps.append(SolutionStep(hint: "확률 = \(ways) ÷ \(total)", work: ratio(ways, total)))
         return Solved(kind: .counting, topic: "동전 던지기의 확률", concept: concept, steps: steps, answer: ratio(ways, total))
     }

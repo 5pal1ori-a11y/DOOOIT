@@ -152,7 +152,8 @@ enum DoitMathBasic {
     // MARK: x = 2가 방정식 ax − 3 = 5의 해일 때 a
 
     static func constantFromSolution(_ t: String) -> Solved? {
-        guard has(t, ["해", "근"]), let asked = match(t, #"(?<![a-z])([a-wz])\s*의\s*값"#)?[1].first else { return nil }
+        guard has(t, ["해", "근"]), !has(t, ["다른 한 근", "다른 근", "나머지 근", "나머지 한 근", "와 b", "과 b", "a, b", "a와", "a + b"]),
+              let asked = match(t, #"(?<![a-z])([a-wz])\s*의\s*값"#)?[1].first else { return nil }
         let given = #"([xy])\s*=\s*("# + num + #")\s*(?:,\s*([xy])\s*=\s*("# + num + #"))?"#
         var eq: String?
         var values: [(Character, Rat)] = []
@@ -322,7 +323,7 @@ enum DoitMathBasic {
     // MARK: f(x) = (식)에 대하여 f(2) − f(−1), f(2) = 4일 때 f(−1)
 
     static func functionValues(_ t: String) -> Solved? {
-        guard !has(t, ["f'", "f′", "∫", "lim", "역함수", "f^-1", "f⁻¹", "∘", "g(", "h(", "{", "≤", "≥", "<", ">", "|", "정의역", "치역", "모든 실수", "f(x+", "f(x-", "f(2x", "그래프"]) else { return nil }
+        guard !has(t, ["…", "⋯", "...", "∑", "f'", "f′", "∫", "lim", "역함수", "f^-1", "f⁻¹", "∘", "g(", "h(", "{", "≤", "≥", "<", ">", "|", "정의역", "치역", "모든 실수", "f(x+", "f(x-", "f(2x", "그래프"]) else { return nil }
         guard let d = match(t, #"f\(x\)\s*=\s*([0-9a-z+\-*/^().√\s]+?)\s*(?:에\s*대하여|일\s*때|이고|,|이라|라\s*할)"#) else { return nil }
         let definition = d[1].trimmingCharacters(in: .whitespaces)
         guard definition.contains("x") else { return nil }
@@ -355,6 +356,8 @@ enum DoitMathBasic {
         guard let a = match(rest, #"((?:[\s\d+\-*/().]|f\()+)\s*의\s*값"#), a[1].contains("f(") else { return nil }
         var asked = a[1].trimmingCharacters(in: .whitespaces)
         while asked.hasPrefix(",") { asked.removeFirst() }
+        asked = asked.trimmingCharacters(in: .whitespaces)
+        guard let lead = asked.first, "f0123456789(-".contains(lead) else { return nil }
         let original = asked
         var guardCount = 0
         while asked.contains("f("), guardCount < 8 {
@@ -441,6 +444,9 @@ enum DoitMathBasic {
                           steps: [step("\(n)명 중 회장 1명, 부회장 1명", "\(n) × \(n - 1) = \(n * (n - 1))")], answer: "\(n * (n - 1))")
         }
         guard t.range(of: #"(?:한\s*줄로|일렬로)\s*(?:세울|배열할|나열할|늘어세울|앉힐|세우는|배열하는)"#, options: .regularExpression) != nil, let all = factorial(n), let less = factorial(n - 1) else { return nil }
+        // 조건이 둘 이상이면 (맨 앞에 서고 이웃하지 않고 …) 다른 계산이 필요
+        let conditionCount = matches(t, #"맨\s*(?:앞|뒤|처음|끝|왼쪽|오른쪽)|이웃|양\s*끝|사이에|번째|끼리|않도록|않는"#).count
+        guard conditionCount <= 1 || (conditionCount == 2 && t.range(of: #"이웃하지\s*않|이웃하지\s*않도록"#, options: .regularExpression) != nil && matches(t, #"이웃"#).count == 1) else { return nil }
         let concept = "n명을 한 줄로 세우는 경우의 수는 n! (이웃하는 것은 한 묶음으로 보고, 묶음 안에서 자리를 바꾸는 경우를 곱해요)"
         if match(t, #"([A-Za-z가-힣])\s*(?:가|이|는)\s*맨\s*(?:앞|뒤|처음|끝|왼쪽|오른쪽)(?:에|에서)?\s*(?:서는|오는|놓이는|앉는|서도록|오도록)"#) != nil {
             return Solved(kind: .counting, topic: "한 줄로 세우기", concept: concept,
@@ -619,7 +625,7 @@ enum DoitMathBasic {
     }
 
     static func constrainedSubsets(_ t: String) -> Solved? {
-        guard t.contains("부분집합"), has(t, ["개수", "몇 개"]), !has(t, ["진부분집합", "∪", "∩", "원소의 개수가", "개인 부분집합", "B ⊂", "⊂ X", "X ⊂"]),
+        guard t.contains("부분집합"), has(t, ["개수", "몇 개"]), !has(t, ["또는", "적어도", "중 하나", "하나 이상", "만을", "만 원소", "홀수", "짝수", "소수", "배수", "진부분집합", "∪", "∩", "원소의 개수가", "개인 부분집합", "B ⊂", "⊂ X", "X ⊂"]),
               let name = match(t, #"집합\s*([A-Z])\s*="#)?[1], let elements = setElements(t, name: name) else { return nil }
         var must = Set<String>(), never = Set<String>()
         for m in matches(t, #"((?:[0-9a-z]+\s*,\s*)*[0-9a-z]+)\s*(?:은|는|을|를|이|가|와|과)\s*(?:모두\s*)?(?:반드시\s*)?(?:원소로\s*)?(갖|가지|포함하)(지\s*않|고|는|며)"#) {
