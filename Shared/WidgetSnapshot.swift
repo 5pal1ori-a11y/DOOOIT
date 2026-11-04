@@ -163,8 +163,8 @@ struct WidgetSnapshot: Codable, Equatable {
     func streak(at date: Date) -> Int {
         let gap = dayKey.isEmpty ? Int.max : WidgetMath.daysBetween(WidgetMath.date(fromKey: dayKey) ?? date, date)
         switch gap {
-        case 0: return streak
-        case 1: return studyMinutes >= 1 ? streak : 0
+        case 0: return self.streak
+        case 1: return studyMinutes >= 1 ? self.streak : 0
         default: return 0
         }
     }

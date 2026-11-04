@@ -1,3 +1,4 @@
+import ActivityKit
 import AppIntents
 import Foundation
 import WidgetKit
@@ -5,7 +6,7 @@ import WidgetKit
 /// 앱 안에서만 채워지는 연결 (위젯 확장에서는 비어 있음)
 enum WidgetIntentBridge {
     /// 일정 이름표(플랜ID_날짜), 완료 상태 → 저장했으면 true
-    @MainActor static var setPlanDone: ((String, Bool) -> Bool)?
+    @MainActor static var setPlanDone: (@MainActor (String, Bool) -> Bool)?
 }
 
 /// 위젯의 체크 버튼: 플랜 완료 / 완료 취소
@@ -13,7 +14,6 @@ enum WidgetIntentBridge {
 /// - 위젯 확장에서 실행되면 App Group에 적어 두고, 앱이 다음에 켜질 때 저장 · 위젯은 바로 체크된 모양으로
 struct TogglePlanDoneIntent: AppIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "플랜 완료"
-    static let description = IntentDescription("위젯에서 오늘 플랜을 완료로 체크해요.")
     static let isDiscoverable = false
 
     @Parameter(title: "일정")
