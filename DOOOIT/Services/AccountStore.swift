@@ -95,13 +95,19 @@ enum AccountStore {
         let url = folder.appending(path: "DOOOIT.store")
         // iCloud 권한이 있으면 SwiftData가 저절로 동기화하므로, 켜지 않은 저장소는 꼭 .none으로 (계정끼리 섞이지 않게)
         // iCloud 동기화를 켠 계정: 같은 파일을 iCloud와 이어서 엶 (열 수 없으면 아래처럼 기기 안에만 — 자료는 그대로)
+        if isSyncEnabled(for: userID), !iCloudAvailable {
+            noteSync("iCloud 계정을 확인하지 못해 기기 안에만 저장 중")
+        }
         if isSyncEnabled(for: userID), iCloudAvailable {
+            watchCloudEvents()
             // 네트워크를 쓰므로 화면이 멈추지 않게 뒤에서
             Task.detached(priority: .utility) { prepareCloudSchemaIfNeeded() }
             do {
-                return try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer)))
+                let synced = try ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .private(cloudContainer)))
+                noteSync("iCloud 저장소 열림")
+                return synced
             } catch {
-                print("iCloud 저장소를 열 수 없어 기기 안에만 저장해요: \(error)")
+                noteSync("iCloud 저장소 열기 실패: \(describe(error))")
             }
         }
         do {
@@ -131,11 +137,15 @@ enum AccountStore {
     /// (기록이 없는 모델도 표가 생겨야 CloudKit 콘솔에서 Production으로 그대로 올릴 수 있어서)
     nonisolated static func prepareCloudSchemaIfNeeded() {
         guard cloudUsesDevelopment, !UserDefaults.standard.bool(forKey: schemaPreparedKey) else { return }
+        noteSync("표 모양 만들기 시작")
         let types: [any PersistentModel.Type] = [
             Plan.self, PlanCategory.self, Word.self, MathNote.self, Memo.self, StudySession.self,
             ExamPlan.self, StudyContent.self, QuizRecord.self, AIQuestion.self, WeakConcept.self
         ]
-        guard let model = NSManagedObjectModel.makeManagedObjectModel(for: types) else { return }
+        guard let model = NSManagedObjectModel.makeManagedObjectModel(for: types) else {
+            noteSync("표 모양: 모델을 만들지 못함")
+            return
+        }
         let folder = FileManager.default.temporaryDirectory.appending(path: "cloud-schema-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -144,17 +154,65 @@ enum AccountStore {
         description.shouldAddStoreAsynchronously = false
         let container = NSPersistentCloudKitContainer(name: "MOTISchema", managedObjectModel: model)
         container.persistentStoreDescriptions = [description]
-        var loaded = true
-        container.loadPersistentStores { _, error in if error != nil { loaded = false } }
-        guard loaded else { return }
+        var loadError: Error?
+        container.loadPersistentStores { _, error in loadError = error }
+        if let loadError {
+            noteSync("표 모양: 저장소 열기 실패 \(describe(loadError))")
+            return
+        }
         do {
             try container.initializeCloudKitSchema()
             UserDefaults.standard.set(true, forKey: schemaPreparedKey)
+            noteSync("표 모양 만들기 성공")
         } catch {
-            print("iCloud 표 모양 만들기 실패: \(error)")
+            noteSync("표 모양 만들기 실패: \(describe(error))")
         }
         for store in container.persistentStoreCoordinator.persistentStores {
             try? container.persistentStoreCoordinator.remove(store)
+        }
+    }
+
+    // MARK: 동기화 상태 (계정 설정 화면에 작게 보여 줌 · 문제를 찾기 위해)
+
+    nonisolated private static let syncStatusKey = "accounts.syncStatus"
+    /// 최근 동기화 기록 (최신이 위)
+    nonisolated static var syncStatus: [String] { UserDefaults.standard.stringArray(forKey: syncStatusKey) ?? [] }
+
+    nonisolated static func noteSync(_ message: String) {
+        let time = Date().formatted(date: .omitted, time: .standard)
+        var lines = UserDefaults.standard.stringArray(forKey: syncStatusKey) ?? []
+        lines.insert("\(time) \(message)", at: 0)
+        UserDefaults.standard.set(Array(lines.prefix(6)), forKey: syncStatusKey)
+    }
+
+    /// 오류를 짧게: 도메인·번호·설명 (+ CloudKit 세부 오류 하나)
+    nonisolated static func describe(_ error: Error) -> String {
+        let e = error as NSError
+        var text = "\(e.domain) \(e.code) \(e.localizedDescription)"
+        if let partial = e.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error], let first = partial.values.first {
+            let p = first as NSError
+            text += " / \(p.domain) \(p.code) \(p.localizedDescription)"
+        } else if let underlying = e.userInfo[NSUnderlyingErrorKey] as? NSError {
+            text += " / \(underlying.domain) \(underlying.code) \(underlying.localizedDescription)"
+        }
+        return String(text.prefix(300))
+    }
+
+    private static var watchingCloudEvents = false
+    /// SwiftData가 iCloud와 주고받는 일(준비·받기·보내기)의 결과를 기록
+    private static func watchCloudEvents() {
+        guard !watchingCloudEvents else { return }
+        watchingCloudEvents = true
+        NotificationCenter.default.addObserver(forName: NSPersistentCloudKitContainer.eventChangedNotification, object: nil, queue: nil) { note in
+            guard let event = note.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey] as? NSPersistentCloudKitContainer.Event,
+                  event.endDate != nil else { return }
+            let kind = switch event.type {
+            case .setup: "준비"
+            case .import: "받기"
+            case .export: "보내기"
+            @unknown default: "기타"
+            }
+            noteSync(event.succeeded ? "iCloud \(kind) 성공" : "iCloud \(kind) 실패: \(event.error.map(describe) ?? "알 수 없음")")
         }
     }
 

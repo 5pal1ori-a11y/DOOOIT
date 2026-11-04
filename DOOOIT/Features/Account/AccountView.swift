@@ -165,7 +165,18 @@ struct AccountView: View {
                 }
                 .disabled(!cloudAvailable && !syncOn)
             } footer: {
-                Text(cloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(cloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
+                    // 동기화 상태 (문제를 찾을 때 보려고, 2초마다 다시 읽음)
+                    if syncOn {
+                        TimelineView(.periodic(from: .now, by: 2)) { _ in
+                            Text(AccountStore.syncStatus.prefix(4).joined(separator: "\n"))
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
             }
             }
             Section {
