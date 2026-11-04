@@ -316,6 +316,8 @@ extension DoitSubjectSolve {
         guard ms.count == 2, let r1 = Range(ms[0].range(at: 1), in: c), let r2 = Range(ms[1].range(at: 1), in: c),
               let a = Double(c[r1]), let b = Double(c[r2]), (b - a).rounded() == b - a else { return nil }
         let value = pow(10, b - a)
+        // "pH 5인 용액은 pH 3인 용액보다 몇 배?"처럼 1배보다 작아지는 물음은 묻는 뜻이 갈려서 풀지 않아요
+        guard value >= 1 else { return nil }
         let steps = [SolutionStep(hint: "pH", work: "pH가 1 작아질 때마다 수소 이온 농도는 10배가 돼요."),
                      SolutionStep(hint: "계산", work: "pH \(DoitScience.fmt(a))와 pH \(DoitScience.fmt(b)): 10^(\(DoitScience.fmt(b)) − \(DoitScience.fmt(a))) = \(DoitScience.fmt(value))배")]
         return answerValue(p, value: value, unit: "배", dimension: nil, concept: "pH와 수소 이온 농도", steps: steps)
@@ -339,7 +341,8 @@ extension DoitSubjectSolve {
         if matches(c, #"압력이?일정"#), !matches(c, #"온도가?일정"#) {
             let temps = qs(p, "temperature")
             guard temps.count == 2, qs(p, "pressure").count <= 1 else { return nil }
-            let t1 = temps[0].si + 273, t2 = temps[1].si + 273
+            // 절대 온도: K로 주면 그대로, ℃면 + 273
+            let t1 = temps[0].unit == "K" ? temps[0].raw : temps[0].si + 273, t2 = temps[1].unit == "K" ? temps[1].raw : temps[1].si + 273
             guard t1 > 0, t2 > 0 else { return nil }
             let shown = vol[0].raw * t2 / t1
             let steps = [SolutionStep(hint: "샤를 법칙", work: "압력이 일정하면 기체의 부피는 절대 온도(℃ + 273)에 비례해요: V₁/T₁ = V₂/T₂"),

@@ -449,7 +449,7 @@ extension DoitSubjectSolve {
         let target = askOx ? ox : red
         let clean = target.replacingOccurrences(of: #"^[0-9]+"#, with: "", options: .regularExpression)
         guard let want = formulaAtoms(clean) else { return nil }
-        let hits = p.choices.indices.filter { formulaAtoms(p.choices[$0]) == want && !p.choices[$0].trimmingCharacters(in: .whitespaces).first!.isNumber }
+        let hits = p.choices.indices.filter { formulaAtoms(p.choices[$0]) == want && p.choices[$0].trimmingCharacters(in: .whitespaces).first?.isNumber == false }
         guard hits.count == 1 else { return nil }
         let steps = [SolutionStep(hint: "산화·환원", work: "산소를 얻은 물질은 산화되고, 산소를 잃은 물질은 환원돼요."),
                      SolutionStep(hint: "이 반응", work: "\(ox.replacingOccurrences(of: #"^[0-9]+"#, with: "", options: .regularExpression)): 산소를 얻음(산화) · \(red.replacingOccurrences(of: #"^[0-9]+"#, with: "", options: .regularExpression)): 산소를 잃음(환원)")]
