@@ -14,7 +14,7 @@ import datetime, json, os, sys, urllib.error, urllib.request
 sys.path.insert(0, os.path.dirname(__file__))
 from asc_certs import API, token  # noqa: E402
 
-BUNDLE_ID = os.environ.get("BUNDLE_ID", "com.bravekoon.dooit")
+BUNDLE_ID = os.environ.get("BUNDLE_ID", "com.donghyeon.moti")
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 

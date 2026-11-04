@@ -28,7 +28,7 @@ struct WidgetSnapshot: Codable {
     var streak = 0
     var accentHex = "#7B68EE"
 
-    static let appGroup = "group.com.bravekoon.dooit"
+    static let appGroup = "group.com.donghyeon.moti"
     private static let key = "widgetSnapshot.v1"
 
     static func load() -> WidgetSnapshot {

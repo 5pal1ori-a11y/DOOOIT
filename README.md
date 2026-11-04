@@ -93,7 +93,7 @@ Swift가 없으면 Docker(swift:6.1)로 실행돼요. iOS 전용 부분은 `Test
 앱 잠금은 Apple의 스크린 타임 API(FamilyControls · ManagedSettings · DeviceActivity)를 씁니다.
 이 권한은 **Apple 승인이 있어야 TestFlight/App Store 빌드에 넣을 수 있어서**, 기본값은 꺼져 있습니다(꺼져 있으면 토글을 켤 때 안내 문구가 나오고 나머지 기능은 정상 동작).
 
-1. https://developer.apple.com/contact/request/family-controls-distribution 에서 Family Controls (Distribution) 사용을 신청합니다. 앱(`com.bravekoon.dooit`)과 잠금 익스텐션(`com.bravekoon.dooit.activitymonitor`) 둘 다 필요합니다.
+1. https://developer.apple.com/contact/request/family-controls-distribution 에서 Family Controls (Distribution) 사용을 신청합니다. 앱(`com.donghyeon.moti`)과 잠금 익스텐션(`com.donghyeon.moti.activitymonitor`) 둘 다 필요합니다.
 2. 승인되면 Xcode → 프로젝트 → Build Settings에서 `DOOOIT_APPLOCK_SUFFIX` 값을 `-AppLock`으로 바꿉니다. (두 타깃이 `*-AppLock.entitlements`를 쓰게 됩니다)
    - 그리고 DOOOIT 타깃 → General → Frameworks, Libraries, and Embedded Content(또는 Build Phases → Embed Foundation Extensions)에 `DOOOITActivityMonitor.appex`를 다시 추가합니다. 승인 전에는 App Store Connect 경고(ITMS-90897)를 피하려고 빼두었습니다.
    - 승인 전에도 실기기 개발 빌드에서는 같은 방법으로 시험해볼 수 있습니다(Development 권한).
@@ -111,8 +111,8 @@ Swift가 없으면 Docker(swift:6.1)로 실행돼요. iOS 전용 부분은 `Test
    (열리지 않으면 `brew install xcodegen` 후 이 폴더에서 `xcodegen generate`)
 2. 프로젝트 → **DOOOIT** 타깃 → *Signing & Capabilities*
    - Team: 본인 개발자 계정 선택
-   - Bundle Identifier: `com.bravekoon.dooit` → 본인만의 값으로 변경 (예: `com.내이름.dooit`)
-3. **DOOOITWidgetsExtension**, **DOOOITActivityMonitor** 타깃도 같은 Team을 선택합니다. (Bundle ID는 `com.bravekoon.dooit.widgets`, `com.bravekoon.dooit.activitymonitor`)
+   - Bundle Identifier: `com.donghyeon.moti` → 본인만의 값으로 변경 (예: `com.내이름.dooit`)
+3. **DOOOITWidgetsExtension**, **DOOOITActivityMonitor** 타깃도 같은 Team을 선택합니다. (Bundle ID는 `com.donghyeon.moti.widgets`, `com.donghyeon.moti.activitymonitor`)
 4. 실제 iPhone을 연결해 실행합니다. (다이나믹 아일랜드, 문서 스캐너, Apple 로그인은 실기기에서 확인하는 것이 정확합니다)
 
 ## TestFlight 업로드

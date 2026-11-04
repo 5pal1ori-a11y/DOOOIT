@@ -10,7 +10,7 @@ enum WatchLink {
     static let version = 1
     static let snapshotKey = "snapshot"
     static let commandKey = "command"
-    static let appGroup = "group.com.bravekoon.dooit"
+    static let appGroup = "group.com.donghyeon.moti"
     /// 기본 강조색 (라벤더)
     static let defaultAccentHex = "#7B68EE"
 
