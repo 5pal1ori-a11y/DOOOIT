@@ -9,8 +9,10 @@ enum LegalText {
     static let version = 3
     static let effectiveDate = "2026년 11월 3일"
     static let service = "MOTI (모티)"
+    /// 운영자 · 개인정보 보호책임자
+    static let operatorName = "SHINYOUNG WHANG"
     /// 문의처
-    static let contact = "TestFlight 앱의 '베타 피드백 보내기' 또는 App Store 앱 정보의 개발자 문의"
+    static let contact = "5pal1ori@gmail.com"
 
     struct Section: Identifiable {
         let title: String
@@ -125,6 +127,7 @@ enum LegalText {
         광고 추적이나 분석 도구는 넣지 않았어요.
         """),
         Section(title: "9. 문의", body: """
+        운영자 · 개인정보 보호책임자: \(operatorName)
         개인정보에 관한 문의: \(contact)
         """),
         Section(title: "10. 시행일", body: """
