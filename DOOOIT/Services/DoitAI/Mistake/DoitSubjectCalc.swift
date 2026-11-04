@@ -459,7 +459,12 @@ extension DoitSubjectSolve {
             else { ordered = ph.values.sorted(by: >) }
             return answerRatio(p, ordered, ordered: pa.count == 1 && matches(ac, #"우성:열성"#), concept: "멘델의 유전", steps: [rule, table])
         }
-        // 유전자형 분리비
+        // 유전자형 분리비: 문제에 차례가 적혀 있으면 ("AA : Aa : aa") 그 차례로
+        if matches(ac, #"유전자형.{0,4}(분리)?비"#), pa.count == 1, let order = groups(ac, #"\(([A-Za-z]{2}(?::[A-Za-z]{2})+)\)"#) {
+            let names = order[1].components(separatedBy: ":")
+            guard names.allSatisfy({ genePairs($0) != nil }), Set(names).count == names.count, Set(names) == Set(dist.keys) || Set(dist.keys).isSubset(of: Set(names)) else { return nil }
+            return answerRatio(p, names.map { dist[$0] ?? 0 }, ordered: true, concept: "멘델의 유전", steps: [rule, table])
+        }
         if matches(ac, #"유전자형.{0,4}(분리)?비"#), pa.count == 1 {
             return answerRatio(p, dist.sorted { $0.key < $1.key }.map(\.value), ordered: false, concept: "멘델의 유전", steps: [rule, table])
         }
