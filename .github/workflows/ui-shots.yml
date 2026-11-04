@@ -26,7 +26,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 100
     env:
-      SCREENS_ALL: "home study words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem"
+      SCREENS_ALL: "home study words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem widgets widgets2 widgets3 widgets4 widgetsLock"
     steps:
       - uses: actions/checkout@v4
 
