@@ -361,7 +361,6 @@ extension WatchSnapshot {
         s.practice = []
         s.applied = []
         s.answer = nil
-        s.tomorrow = []
         return WatchLink.encode(s)
     }
 }
