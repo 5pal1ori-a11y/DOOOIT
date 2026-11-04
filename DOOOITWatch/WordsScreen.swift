@@ -40,21 +40,26 @@ struct WordsScreen: View {
         }
         .navigationTitle(quizMode ? "퀴즈" : "단어 카드")
         .onAppear { if WatchDemo.screen == "quiz" { quizMode = true } else if WatchDemo.screen?.hasPrefix("words") == true { quizMode = false } }
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    withAnimation(.snappy) {
-                        quizMode.toggle()
-                        picked = nil
-                        flipped = false
-                    }
-                    WatchHaptics.play(.click)
-                } label: {
-                    Image(systemName: quizMode ? "rectangle.on.rectangle" : "square.grid.2x2.fill")
-                }
-                .accessibilityLabel(quizMode ? "카드로" : "퀴즈로")
+    }
+
+    /// 카드 ↔ 퀴즈 (툴바 단추는 세로 페이지 안에서 워치가 멈춰서 화면 안에 둠)
+    private var modeButton: some View {
+        Button {
+            withAnimation(.snappy) {
+                quizMode.toggle()
+                picked = nil
+                flipped = false
             }
+            WatchHaptics.play(.click)
+        } label: {
+            Image(systemName: quizMode ? "rectangle.on.rectangle" : "square.grid.2x2.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(accent)
+                .frame(width: 28, height: 28)
+                .background(accent.opacity(0.18), in: .circle)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(quizMode ? "카드로" : "퀴즈로")
     }
 
     // MARK: 끝 · 빈 화면
@@ -82,7 +87,7 @@ struct WordsScreen: View {
                 .font(.footnote.weight(.semibold))
                 .tint(accent)
                 .buttonStyle(.bordered)
-            } else if quiz, asked > 0, !store.snapshot.practice.isEmpty {
+            } else if quiz, asked > 0, !store.snapshot.practice.isEmpty, words.isEmpty {
                 Button("다시") {
                     practiced = []
                     score = 0
@@ -91,6 +96,8 @@ struct WordsScreen: View {
                 .font(.footnote.weight(.semibold))
                 .tint(accent)
                 .buttonStyle(.bordered)
+            } else if quiz, !words.isEmpty {
+                modeButton
             }
         }
     }
@@ -136,6 +143,11 @@ struct WordsScreen: View {
                 }
             }
             .buttonStyle(.plain)
+            .overlay(alignment: .topTrailing) {
+                if !store.snapshot.practice.isEmpty || words.contains(where: { $0.choices?.count == 4 }) {
+                    modeButton.padding(4)
+                }
+            }
             .id(word.id)
             .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity), removal: .opacity))
 
@@ -172,6 +184,7 @@ struct WordsScreen: View {
                 Text("\(quizDeck.count)")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(.secondary)
+                modeButton
             }
             .padding(.horizontal, 4)
             .id(word.id)

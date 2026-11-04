@@ -79,33 +79,38 @@ struct TimerScreen: View {
                     .accessibilityLabel("뽀모도로 \(WatchPrefs.focusMinutes)분 집중")
             }
 
-            Button {
-                store.start(minutes: choices[index])
-            } label: {
-                Label("시작", systemImage: "play.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-            }
-            .tint(accent)
-            .buttonStyle(.borderedProminent)
-        }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
+            // (툴바 단추는 세로 페이지 안에서 워치가 멈춰서 화면 안에 둠)
+            HStack(spacing: 6) {
                 Button {
                     store.startRest(minutes: WatchPrefs.restMinutes)
                 } label: {
                     Image(systemName: "cup.and.saucer.fill")
+                        .frame(width: 22)
                 }
+                .tint(.mint)
                 .accessibilityLabel("\(WatchPrefs.restMinutes)분 휴식")
-            }
-            ToolbarItem(placement: .topBarTrailing) {
+
+                Button {
+                    store.start(minutes: choices[index])
+                } label: {
+                    Image(systemName: "play.fill")
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                }
+                .tint(accent)
+                .buttonStyle(.borderedProminent)
+                .accessibilityLabel("시작")
+
                 Button {
                     showTasks = true
                 } label: {
                     Image(systemName: "checklist")
+                        .frame(width: 22)
                 }
+                .tint(accent)
                 .accessibilityLabel("할 일 골라 시작")
             }
+            .buttonStyle(.bordered)
         }
     }
 

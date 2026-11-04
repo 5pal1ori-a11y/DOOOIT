@@ -21,21 +21,19 @@ struct SummaryScreen: View {
                         ddays(s.ddays, now: now)
                     }
                     stats(s)
+                    NavigationLink {
+                        SettingsScreen()
+                    } label: {
+                        Label("설정", systemImage: "gearshape.fill")
+                            .font(.footnote.weight(.semibold))
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .padding(.horizontal, 2)
             }
         }
         .navigationTitle("오늘")
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink {
-                    SettingsScreen()
-                } label: {
-                    Image(systemName: "gearshape.fill")
-                }
-                .accessibilityLabel("설정")
-            }
-        }
     }
 
     // MARK: 공부 시간 + 연속
