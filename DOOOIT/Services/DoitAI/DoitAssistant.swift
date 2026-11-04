@@ -71,6 +71,7 @@ final class DoitAssistant {
         quiz = nil
         dialogue = DoitDialogue.State()
         DoitEngine.conversationTopic = nil
+        DoitTone.reset()
     }
 
     /// 답 평가 (👍는 그 설명을 기억, 👎는 다음에 인터넷에서 다시 찾아봄)
@@ -83,10 +84,14 @@ final class DoitAssistant {
     }
 
     func send(_ text: String, image: UIImage? = nil) async {
-        let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !isResponding, !question.isEmpty || image != nil else { return }
+        // 바로 전 모티 답 (규칙형 엔진이 앞 이야기를 이어 받을 때 씀)
+        DoitTone.lastShown = messages.last(where: { $0.role == .assistant && !$0.isStreaming })?.text
         messages.append(Message(role: .user, text: question, image: image))
         isResponding = true
+        // 바로 전 답에서 제안한 일("퀴즈 한 판 할까요?")에 "응"이라고 하면 그 일을 그대로 (화면에는 학생 말 그대로)
+        if image == nil, let accepted = DoitTone.acceptedOffer(question) { question = accepted }
         turn = TurnNote(question: question, start: messages.count)
         defer { isResponding = false; status = "" }
         defer { rememberTurn() }
@@ -288,7 +293,10 @@ final class DoitAssistant {
         case .command, .math: return false
         // 과목 엔진의 계산(전압·전류 등)은 숫자가 정확해야 해서 그대로
         case .subject: return !question.contains(where: \.isNumber)
-        case .chat, .knowledge, .conversation: return true
+        // 가벼운 일상 대화("ㅋㅋ", "고마워")는 모티 1(작은 모델)보다 엔진이 고른 답이 더 자연스러워서 그대로
+        // (모델 비교: 작은 모델은 잡담에 엉뚱한 말·이상한 말투가 자주 나옴)
+        case .chat: return !(DoitBrain.shared.selected == .dooit1 && DoitMind.style(for: question, chat: true) == .casual)
+        case .knowledge, .conversation: return true
         }
     }
 
@@ -321,11 +329,15 @@ final class DoitAssistant {
         }
         let history = DoitMind.budgetHistory(Array(turns), maxTokens: DoitBrain.shared.historyBudget)
         let topicHint = hint ?? (DoitDialogue.continuesConversation(question) ? dialogue.topic : nil)
-        let wantsWeb = origin != .chat
+        // 말투: 가벼운 일상 대화는 1~2문장, 상담은 2~4문장, 공부 질문은 필요한 만큼 (짧은 말에는 짧게)
+        let style = topicHint == nil ? DoitMind.style(for: question, chat: origin == .chat) : .study
+        let previous = turns.last(where: { !$0.fromUser })?.text
+        let wantsWeb = origin != .chat && style != .casual
         status = wantsWeb ? "자료를 찾아 읽는 중…" : "생각하는 중…"
         // "왜?"처럼 짧은 이어 말하기는 주제를 붙여서 자료를 찾음
         let searchQuestion = topicHint.map { DoitDialogue.continuesConversation(question) ? "\($0) \(question)" : question } ?? question
-        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: origin == .chat ? appSituation() : nil, allowWeb: wantsWeb)
+        let situation = origin == .chat && DoitMind.wantsSituation(question, style: style) ? appSituation() : nil
+        let context = await DoitMind.gather(question: searchQuestion, draft: draft, app: situation, allowWeb: wantsWeb, casual: style == .casual)
         status = context.web.isEmpty ? "생각하는 중…" : "찾은 자료를 정리하는 중…"
         messages.append(Message(role: .assistant, text: "", isStreaming: true))
         let index = messages.count - 1
@@ -333,35 +345,39 @@ final class DoitAssistant {
         var raw = ""
         var shown = Date.distantPast
         // 이유·원리·계산 질문은 DOOOIT 2가 먼저 속으로 생각(추론)한 뒤 답함 (생각 과정은 안 보여 줌)
-        let reasoning = origin != .chat && DoitBrain.shared.selected == .dooit2 && DoitMind.needsReasoning(question)
+        let reasoning = origin != .chat && style != .casual && DoitBrain.shared.selected == .dooit2 && DoitMind.needsReasoning(question)
         if reasoning { status = "깊게 생각하는 중…" }
         do {
             for try await chunk in DoitBrain.shared.stream(system: DoitMind.persona,
                                                            prompt: DoitMind.answerPrompt(question: question, context: context, history: [],
-                                                                                         summary: history.summary, topic: topicHint),
+                                                                                         summary: history.summary, topic: topicHint, style: style),
                                                            history: history.recent,
-                                                           maxTokens: reasoning ? 1400 : 600,
-                                                           temperature: origin == .chat || origin == .conversation ? 0.6 : 0.4,
+                                                           maxTokens: reasoning ? 1400 : DoitMind.maxTokens(for: style),
+                                                           temperature: style == .casual ? 0.7 : (origin == .chat || origin == .conversation ? 0.6 : 0.4),
                                                            thinking: reasoning) {
                 raw += chunk
                 // 화면은 조금씩 모아서 고침 (낱말 조각마다 다시 그리면 말풍선이 흔들림)
                 guard Date().timeIntervalSince(shown) > 0.06 else { continue }
                 shown = Date()
-                if messages.indices.contains(index), messages[index].id == id { messages[index].text = DoitMind.answer(raw) }
+                if messages.indices.contains(index), messages[index].id == id {
+                    messages[index].text = DoitMind.chatAnswer(raw, question: question, previous: previous, style: style, final: false)
+                }
             }
         } catch {
             raw = ""
         }
         guard messages.indices.contains(index), messages[index].id == id else { return }
-        let text = DoitMind.answer(raw)
+        let text = DoitMind.chatAnswer(raw, question: question, previous: previous, style: style)
         messages[index].isStreaming = false
-        guard DoitMind.isUsable(text) else {
+        guard DoitMind.isUsable(text, question: question) else {
             // 모델 답이 비었거나 이상하면 엔진 답으로
             messages[index].text = fallback ?? draft ?? "답을 만들지 못했어요. 다시 한 번 물어봐 줄래요?"
             messages[index].suggestions = suggestions
             return
         }
         let topic = DoitMind.topic(for: question, context: context)
+        // 모델이 쓴 답도 말투 기록에 남김 (엔진이 만들어 둔 제안은 보이지 않았으니 지움)
+        DoitTone.remember(text, kind: origin == .chat ? "chat" : "study")
         turn.fromModel = true
         turn.kind = origin == .chat ? .chat : .model
         turn.topic = DoitDialogue.continuesConversation(question) ? (topicHint ?? topic) : topic

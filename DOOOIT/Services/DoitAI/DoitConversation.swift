@@ -237,16 +237,17 @@ enum DoitConversation {
         guard t.count <= 8 else { return nil }
         if ["왜", "왜요", "왜?", "어째서", "이유는"].contains(t) {
             if let topic = previousTopic {
-                return Answer(text: "'\(topic)' 이야기였죠! 더 정확한 이유가 궁금하면 \"\(topic) 설명해줘\"처럼 물어봐 주세요. 제가 아는 만큼 자세히 알려드릴게요.",
+                return Answer(text: DoitTone.pick(["'\(topic)' 말하는 거죠? \"\(topic) 설명해줘\"라고 하면 이유까지 자세히 알려줄게요.",
+                                                   "'\(topic)'에서 어떤 게 왜 궁금한지 조금만 더 말해 줄래요?"]),
                               suggestions: ["\(topic) 설명해줘"])
             }
-            return Answer(text: "어떤 게 궁금한지 조금만 더 자세히 말해줄래요? 그러면 이유를 찾아볼게요.")
+            return Answer(text: DoitTone.pick(["어떤 게 왜 궁금한지 조금만 더 말해 줄래요?", "음, 뭐가 왜 궁금한 거예요? 조금만 더 알려 줄래요?"]))
         }
         if ["진짜", "진짜?", "정말", "정말?", "레알", "ㄹㅇ", "헐", "대박"].contains(t) {
             return Answer(text: pick(["진짜예요! 😄", "정말이에요. 저도 신기했어요!", "그렇다니까요!"]))
         }
         if ["그래서", "그래서?", "그다음은", "그다음", "다음은"].contains(t) {
-            return Answer(text: "그다음엔 직접 해보는 게 제일이에요! 퀴즈로 확인해 볼까요?", suggestions: ["퀴즈 내줘"])
+            return Answer(text: DoitTone.pick(["그다음엔 직접 해 보는 게 제일이에요! 퀴즈로 확인해 볼까요?", "이제 문제로 한번 확인해 봐요. 퀴즈 내 줄까요?"]), suggestions: ["퀴즈 내줘"])
         }
         return nil
     }
@@ -261,20 +262,20 @@ enum DoitConversation {
 
     private static let talks: [Talk] = [
         Talk(patterns: ["좋아하는거있어", "뭐좋아해", "취미가뭐야", "너취미", "너는뭘좋아해"],
-             replies: ["저는 문제를 푸는 걸 제일 좋아해요! 특히 깔끔하게 인수분해되는 이차식을 보면 기분이 좋아요 😄 당신은 뭘 좋아해요?",
-                       "공부 계획 세우는 거랑 퀴즈 내는 걸 좋아해요. 당신이 좋아하는 것도 알려줘요!"]),
+             replies: ["저는 문제를 푸는 걸 제일 좋아해요! 특히 깔끔하게 인수분해되는 이차식을 보면 기분이 좋아요 😄 좋아하는 거 있어요?",
+                       "공부 계획 세우는 거랑 퀴즈 내는 걸 좋아해요. 좋아하는 것도 알려 줘요!"]),
         Talk(patterns: ["좋아하는음식", "무슨음식좋아", "뭐먹는거좋아해"],
-             replies: ["저는 먹을 순 없지만… 이름만 들어도 공부가 잘될 것 같은 '두뇌 비빔밥'이 좋아요 🍚 당신은요?"]),
+             replies: ["저는 먹을 순 없지만… 이름만 들어도 공부가 잘될 것 같은 '두뇌 비빔밥'이 좋아요 🍚 좋아하는 음식은 뭐예요?"]),
         Talk(patterns: ["좋아하는색", "무슨색좋아"],
              replies: ["앱 테마 색을 제일 좋아해요! 계정 화면에서 연보라·연하늘·연두 중에 바꿀 수 있어요 🎨"]),
         Talk(patterns: ["좋아하는과목", "무슨과목좋아", "제일좋은과목"],
-             replies: ["저는 수학이요! 답이 딱 떨어지는 게 좋아요. 당신은 어떤 과목이 제일 재밌어요?"]),
+             replies: ["저는 수학이요! 답이 딱 떨어지는 게 좋아요. 어떤 과목이 제일 재밌어요?"]),
         Talk(patterns: ["몇살이야", "나이가몇", "너몇살"],
              replies: ["저는 MOTI 앱이 나온 날 태어났어요. 아직 아기 AI지만 공부는 열심히 도울게요 👶"]),
         Talk(patterns: ["어디살아", "어디있어", "너어디야"],
-             replies: ["저는 당신의 휴대폰 안에 살아요! 그래서 대화도 밖으로 나가지 않아요 📱"]),
+             replies: ["저는 이 휴대폰 안에 살아요! 그래서 대화도 밖으로 나가지 않아요 📱"]),
         Talk(patterns: ["잠은자", "너도자", "안졸려", "피곤하지않아"],
-             replies: ["저는 잠을 안 자도 돼요. 대신 당신은 꼭 잘 자야 해요! 잠이 기억을 정리해 줘요 🌙"]),
+             replies: ["저는 잠을 안 자도 돼요. 대신 꼭 푹 자야 해요! 잠이 기억을 정리해 줘요 🌙"]),
         Talk(patterns: ["친구할래", "친구하자", "우리친구", "친구해줘"],
              replies: ["좋아요! 오늘부터 공부 친구예요 🤝 힘들 때나 심심할 때 언제든 말 걸어줘요."]),
         Talk(patterns: ["보고싶었어", "오랜만이야", "오랜만", "왔어"],
@@ -315,7 +316,7 @@ enum DoitConversation {
         Talk(patterns: ["뭐하고놀까", "놀고싶어", "놀자"],
              replies: ["딱 30분만 집중하고 신나게 노는 건 어때요? 타이머 켜 드릴게요! 아니면 저랑 퀴즈 놀이?"], chips: ["30분 타이머 시작해줘", "퀴즈 내줘"]),
         Talk(patterns: ["철학적인질문", "인생이뭐야", "왜살아", "삶의의미"],
-             replies: ["어려운 질문이네요. 저는 '오늘 어제보다 조금 나아지는 것'이 꽤 멋진 의미라고 생각해요. 당신은 어떻게 생각해요?"]),
+             replies: ["어려운 질문이네요. 저는 '오늘 어제보다 조금 나아지는 것'이 꽤 멋진 의미라고 생각해요. 어떻게 생각해요?"]),
         Talk(patterns: ["ai가뭐야", "인공지능이뭐야", "너는어떻게작동", "어떻게대답해"],
              replies: ["저는 MOTI 안에서 직접 만든 규칙과 사전으로 대답하는 AI예요. 문장을 분석해서 앱 기능을 실행하고, 수학은 직접 계산하고, 개념은 내장 사전에서 찾아요. 인터넷 없이도 동작해요!"]),
         Talk(patterns: ["똑똑해지고싶어", "머리좋아지는법", "공부잘하고싶어"],
@@ -325,13 +326,13 @@ enum DoitConversation {
         Talk(patterns: ["칭찬해줘", "나잘했지", "나대단하지"],
              replies: ["당연하죠! 여기까지 온 것만으로도 정말 대단해요 👏", "최고예요! 꾸준히 하는 사람이 결국 이겨요 💪"]),
         Talk(patterns: ["욕해줘", "나쁜말해줘"],
-             replies: ["저는 나쁜 말은 안 해요 😅 대신 좋은 말 해줄게요: 당신은 생각보다 훨씬 잘하고 있어요!"]),
+             replies: ["저는 나쁜 말은 안 해요 😅 대신 좋은 말 해 줄게요: 생각보다 훨씬 잘하고 있어요!"]),
         Talk(patterns: ["몰라", "모르겠어", "글쎄"],
              replies: ["괜찮아요. 천천히 생각해도 돼요. 무엇을 도와줄지 정하기 어렵다면 오늘 할 일부터 같이 봐요."], chips: ["오늘 할 일 알려줘"]),
         Talk(patterns: ["재미없어", "노잼이야", "너재미없어"],
              replies: ["앗, 제가 더 재밌어지도록 노력할게요 😂 퀴즈 한 판이나 신기한 사실 하나 어때요?"], chips: ["퀴즈 내줘", "재밌는 사실 알려줘"]),
         Talk(patterns: ["너천재야", "너똑똑하다", "너잘한다"],
-             replies: ["헤헤, 고마워요! 그래도 진짜 천재는 꾸준히 공부하는 당신이에요 ✨"]),
+             replies: ["헤헤, 고마워요! 그래도 꾸준히 공부하는 쪽이 진짜 천재예요 ✨"]),
         Talk(patterns: ["몇시에자", "몇시에일어나", "수면패턴", "생활패턴"],
              replies: ["공부에는 일정한 생활 리듬이 제일 중요해요. 자는 시간과 일어나는 시간을 매일 비슷하게 맞춰 보세요. 플래너에 기상·취침을 넣어 둬도 좋아요!"]),
         Talk(patterns: ["휴대폰중독", "폰을못놓겠어", "유튜브만봐", "쇼츠만봐", "sns"],
@@ -339,7 +340,7 @@ enum DoitConversation {
         Talk(patterns: ["고마운사람", "감동", "울컥"],
              replies: ["따뜻한 마음이 느껴져요. 고마운 마음은 표현할수록 커져요. 오늘 그 사람에게 짧게라도 말해보는 건 어때요?"]),
         Talk(patterns: ["오늘뭐했어", "오늘하루어땠어", "오늘어땠어"],
-             replies: ["저는 오늘도 여기서 당신을 기다렸어요! 당신의 하루는 어땠어요? 좋았던 일 하나만 들려줘요."]),
+             replies: ["저는 오늘도 여기서 기다리고 있었죠! 오늘 하루는 어땠어요? 좋았던 일 하나만 들려줘요."]),
         Talk(patterns: ["좋은아이디어", "아이디어줘", "뭐하면좋을까"],
              replies: ["오늘의 추천! ① 25분 집중 + 5분 휴식 3세트 ② 틀린 문제 3개 다시 풀기 ③ 단어 퀴즈 한 판. 이 중 하나부터 해볼까요?"], chips: ["25분 타이머 시작해줘", "내 단어로 퀴즈 내줘"])
     ]
@@ -390,24 +391,24 @@ enum DoitConversation {
             return Answer(text: guarded.text, suggestions: guarded.suggestions)
         }
         if has(t, positive) {
-            return Answer(text: personalize(pick(["좋은 일이 있었나 봐요! 저도 덩달아 기분이 좋아요 😊 더 이야기해 줄래요?", "와, 멋져요! 그 기분 그대로 오늘 공부도 신나게 해봐요!"])))
+            return Answer(text: personalize(pick(["좋은 일이 있었나 봐요! 저도 덩달아 기분이 좋아요 😊 더 이야기해 줄래요?", "와, 멋져요! 그 기분 그대로 오늘 공부도 신나게 해 봐요!", "오, 좋네요! 무슨 일인지 궁금해요."])))
         }
         if has(t, negative) {
-            return Answer(text: personalize(pick(["그랬군요… 많이 힘들었겠어요. 무슨 일인지 조금 더 이야기해 줄래요?", "마음이 무거운 날이네요. 제가 들을게요. 천천히 말해줘요."])))
+            return Answer(text: personalize(pick(["그랬군요… 많이 힘들었겠어요. 무슨 일인지 조금 더 이야기해 줄래요?", "마음이 무거운 날이네요. 제가 들을게요. 천천히 말해 줘요.", "괜찮아요, 그런 날도 있어요. 무슨 일 있었는지 이야기해 줄래요?"])))
         }
-        return Answer(text: personalize("제가 정확히 이해했는지 모르겠어요. 무엇을 도와줄지 조금 더 말해 줄래요?"), suggestions: ["뭐 할 수 있어?", "오늘 할 일 알려줘"])
+        return Answer(text: personalize(pick(["음, 무슨 말인지 잘 모르겠어요. 조금만 더 말해 줄래요?", "제가 잘 이해했는지 모르겠어요. 한 번만 더 자세히 말해 줄래요?", "앗, 무슨 뜻인지 헷갈려요. 조금 다르게 말해 줄래요?"])),
+                      suggestions: ["뭐 할 수 있어?", "오늘 할 일 알려줘"])
     }
 
 
     // MARK: - 도구
 
-    private static func personalize(_ text: String) -> String {
-        guard let name = userName, Bool.random() else { return text }
-        return "\(name)님, " + text
-    }
+    /// 이름은 가끔만 불러 줌 (연달아 부르면 어색해요)
+    private static func personalize(_ text: String) -> String { DoitTone.address(text) }
 
     private static func has(_ t: String, _ words: [String]) -> Bool { words.contains { t.contains($0) } }
-    private static func pick(_ list: [String]) -> String { list.randomElement() ?? "" }
+    /// 여러 말 중 하나 (최근에 한 말·바로 전 답과 같은 첫마디는 피함)
+    private static func pick(_ list: [String]) -> String { DoitTone.pick(list) }
 
     private static func bigrams(_ text: String) -> [String: Double] {
         let chars = Array(text)

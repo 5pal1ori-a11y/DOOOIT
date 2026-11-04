@@ -84,5 +84,8 @@ jobs:
       - name: 불러오기 · 답 만들기 · 문제 풀기
         env:
           LIMIT: ${{ github.event.inputs.limit || '0' }}
+          # 'model-eval-chat…' 가지: 대화 말투 비교만 (Tests/ModelEval/chat.json, 앱의 모티 1·2만)
+          CHAT_FILE: ${{ contains(github.ref_name, 'chat') && format('{0}/Tests/ModelEval/chat.json', github.workspace) || '' }}
         run: |
+          if [ -n "$CHAT_FILE" ] && [ "${{ matrix.label }}" = "new-dooit1-Qwen3.5-2B" ]; then echo "대화 비교는 앱 모델만"; exit 0; fi
           bash Tests/ModelEval/mac.sh "$RUNNER_TEMP/eval" "${{ matrix.repo }}" "${{ matrix.label }}" "$LIMIT"
