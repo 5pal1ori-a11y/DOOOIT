@@ -109,12 +109,23 @@ enum DoitMathBasic {
         if let s = expInequality(t) { return s }
         if let s = factoredGcd(t) { return s }
         if let s = discriminantCondition(t) { return s }
+        if let s = axisTriangle(t) { return s }
+        if let s = ages(t) { return s }
         return nil
     }
 
     // MARK: 어떤 수에 a를 곱했더니 b
 
     static func someNumber(_ t: String) -> Solved? {
+        // "어떤 수에 3을 곱했더니 처음 수보다 10만큼 커졌다": (a − 1)x = b
+        if t.contains("어떤 수"), !has(t, ["잘못", "바르게", "나머지"]), numberCount(t) == 2,
+           let m = match(t, #"어떤\s*수에\s*("# + num + #")\s*(?:을|를)\s*곱(?:했더니|하였더니|하면)\s*(?:처음\s*수|어떤\s*수|처음의\s*수)보다\s*("# + num + #")\s*만큼\s*(커|작아)"#),
+           let a = rat(m[1]), let b0 = rat(m[2]), let a1 = a - .one, !a1.isZero {
+            let b = m[3] == "커" ? b0 : -b0
+            guard let x = b / a1 else { return nil }
+            return Solved(kind: .linear, topic: "어떤 수 구하기", concept: "어떤 수를 x로 놓고 문장을 식으로 옮겨요.",
+                          steps: [step("어떤 수를 x라 하면", "\(show(a))x = x \(b.n >= 0 ? "+" : "−") \(show(b0))"), step("풀면", "x = \(show(x))")], answer: show(x))
+        }
         guard t.contains("어떤 수"), !has(t, ["잘못", "바르게", "나머지", "배", "보다", "몫"]), numberCount(t) == 2 else { return nil }
         guard t.range(of: #"어떤\s*수(?:는|를\s*구|의\s*값|를\s*쓰|은|를\s*찾)"#, options: .regularExpression) != nil else { return nil }
         let n = "(" + num + ")"
@@ -166,6 +177,27 @@ enum DoitMathBasic {
         let given1 = values.map { "\($0.0) = \(show($0.1))" }.joined(separator: ", ")
         return Solved(kind: .linear, topic: "해가 주어진 방정식의 상수", concept: "해를 방정식에 넣으면 등식이 참이 돼요. 넣은 식을 상수에 대한 방정식으로 풀어요.",
                       steps: [step("\(given1)을 넣으면", e.replacingOccurrences(of: "*", with: "×")), step("\(asked)에 대한 방정식을 풀면", "\(asked) = \(show(root))")], answer: show(root))
+    }
+
+    // MARK: 나이 (현재 A의 나이는 B의 나이의 3배, 10년 후에는 2배)
+
+    static func ages(_ t: String) -> Solved? {
+        guard let m = match(t, #"([가-힣]+?)의\s*나이(?:는|가)\s*([가-힣]+?)의\s*나이의\s*(\d+)\s*배(?:이고|이며|이다|인데)\s*,?\s*(\d+)\s*년\s*(후|뒤|전)에는\s*(?:[가-힣]+?의\s*나이(?:가|는)\s*[가-힣]+?의\s*나이의\s*)?(\d+)\s*배"#),
+              let k = Int(m[3]), let n = Int(m[4]), let r = Int(m[6]), k != r,
+              let ask = matches(t, #"([가-힣]+?)의\s*나이(?:는|를)\s*(?:몇|구|\?|얼마)"#).last?[1] else { return nil }
+        let a = m[1].replacingOccurrences(of: "현재", with: "").trimmingCharacters(in: .whitespaces), b = m[2]
+        let askName = ask.replacingOccurrences(of: "현재", with: "").trimmingCharacters(in: .whitespaces)
+        // A = kB, (kB ± n) = r(B ± n)
+        let sign = m[5] == "전" ? -1 : 1
+        let numer = sign * n * (r - 1), denom = k - r
+        guard denom != 0, numer % denom == 0 else { return nil }
+        let young = numer / denom
+        guard young > 0, young + sign * n > 0 else { return nil }
+        let old = k * young
+        let value: Int
+        if askName.hasSuffix(b) || b.hasSuffix(askName) { value = young } else if askName.hasSuffix(a) || a.hasSuffix(askName) { value = old } else { return nil }
+        return Solved(kind: .linear, topic: "나이 문제", concept: "현재 나이를 x로 놓고, n년 후에는 두 사람 모두 n살씩 많아져요.",
+                      steps: [step("\(b)의 나이를 x라 하면", "\(a): \(k)x"), step("\(n)년 \(m[5])", "\(k)x \(sign > 0 ? "+" : "−") \(n) = \(r)(x \(sign > 0 ? "+" : "−") \(n))"), step("풀면", "x = \(young), \(a) \(old)")], answer: "\(value)")
     }
 
     // MARK: 정비례 · 반비례
@@ -329,7 +361,7 @@ enum DoitMathBasic {
             guard Set(names).count == names.count else { return nil }
             n = names.count
         }
-        if let m = match(t, #"(?<![\d가-힣])(\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:명|개|사람)\s*(?:의\s*(?:학생|사람|문자|선수|후보))?\s*(?:을|를|이|가|중|의|에서)"#), let k = count(m[1]) {
+        if let m = match(t, #"(?<![\d가-힣a-z])(\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:명|개|사람)\s*(?:의\s*(?:학생|사람|문자|선수|후보))?\s*(?:중|(?:을|를)\s*(?:한\s*줄|일렬)|의\s*(?:학생|사람|문자|선수|후보)(?:을|를)\s*(?:한\s*줄|일렬))"#), let k = count(m[1]) {
             if let n0 = n, n0 != k { return nil }
             n = k
         }
@@ -365,6 +397,12 @@ enum DoitMathBasic {
             }
             return Solved(kind: .counting, topic: "한 줄로 세우기", concept: concept,
                           steps: [step("\(m[1]), \(m[2])를 한 묶음으로 보면", "\(n - 1)! = \(less)"), step("묶음 안에서 자리를 바꾸면", "\(less) × 2 = \(adjacent)")], answer: "\(adjacent)")
+        }
+        if let m = match(t, #"특정한\s*두\s*(?:사람|명|학생|문자)(?:이|가)\s*(?:서로\s*)?이웃하(지\s*않는|지\s*않도록|는|도록|여)"#) {
+            let adjacent = 2 * less
+            let answer = m[1].contains("않") ? all - adjacent : adjacent
+            return Solved(kind: .counting, topic: "한 줄로 세우기", concept: concept,
+                          steps: [step("두 사람을 한 묶음으로 보면", "\(n - 1)! × 2 = \(adjacent)")] + (m[1].contains("않") ? [step("전체에서 빼면", "\(all) − \(adjacent) = \(answer)")] : []), answer: "\(answer)")
         }
         if let m = match(t, #"([A-Za-z가-힣])\s*(?:와|과)\s*([A-Za-z가-힣])\s*(?:가|이)\s*양\s*끝에"#), m[1] != m[2], n >= 3, let middle = factorial(n - 2) {
             return Solved(kind: .counting, topic: "한 줄로 세우기", concept: concept,
@@ -754,6 +792,11 @@ enum DoitMathBasic {
                 relation = ["<": "≥", ">": "≤", "≥": "<"][relation] ?? relation
             }
         } else if let m = match(t, #"모든\s*실수\s*x\s*에\s*대하여\s*(?:이차부등식\s*)?"# + e + #"\s*(>|≥)\s*0\s*(?:이|가)\s*(?:항상\s*)?성립"#) {
+            poly = m[1]
+            relation = m[2] == ">" ? "<" : "≤"
+            leadingPositive = true
+        }
+        if poly == nil, let m = match(t, #"(?:이차부등식\s*)?"# + e + #"\s*(>|≥)\s*0\s*(?:이|가)\s*모든\s*실수\s*x\s*에\s*대하여\s*(?:항상\s*)?성립"#) {
             poly = m[1]
             relation = m[2] == ">" ? "<" : "≤"
             leadingPositive = true

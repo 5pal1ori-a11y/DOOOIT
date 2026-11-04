@@ -112,7 +112,7 @@ extension DoitMathBasic {
         if has(t, ["학생 수", "학생은 몇", "사람 수", "몇 명", "학생의 수", "사람은 몇"]) {
             return Solved(kind: .linear, topic: "과부족 문제", concept: concept, steps: steps, answer: "\(n)")
         }
-        if t.range(of: #"(?:사탕|연필|공책|귤|사과|구슬|과자|초콜릿|물건)(?:의\s*개수|은\s*몇|는\s*몇|의\s*수)|모두\s*몇\s*개"#, options: .regularExpression) != nil {
+        if t.range(of: #"(?:사탕|연필|공책|귤|사과|구슬|과자|초콜릿|물건|색종이|볼펜)(?:의\s*개수|은\s*(?:모두\s*)?몇|는\s*(?:모두\s*)?몇|의\s*수)|모두\s*몇\s*(?:개|자루|권|장)"#, options: .regularExpression) != nil {
             return Solved(kind: .linear, topic: "과부족 문제", concept: concept, steps: steps, answer: "\(total)")
         }
         return nil
@@ -565,6 +565,19 @@ extension DoitMathBasic {
             if plain.range(of: pattern, options: .regularExpression) != nil { return nil }
             // 다른 문자의 값을 물었는데 이 문자의 값을 답함 ("y의 값은?" → "x = …")
             if let asked = match(t, #"(?<![a-zA-Z'])([a-zA-Z])\s*의\s*값\s*(?:은|을|는|\?|$)"#)?[1], asked != m[1], t.range(of: "(?<![a-zA-Z])\(m[1])\\s*의\\s*값", options: .regularExpression) == nil { return nil }
+        }
+        // 함수의 식 없이 함숫값만 ("f(2)의 값은?")
+        if t.range(of: #"(?<![a-z])[fgh]\s*\("#, options: .regularExpression) != nil, !t.contains("="),
+           t.replacingOccurrences(of: #"(?<![a-z])[fgh]'?\s*\([^)]*\)"#, with: " ", options: .regularExpression).rangeOfCharacter(from: .decimalDigits) == nil { return nil }
+        // 식 속 상수(a, b, k)를 정할 조건이 없는데 값이 나옴 ("f(x) = ax + 3 에 대하여 f(5)")
+        if let d = match(t, #"f\(x\)\s*=\s*([0-9a-z+\-*/^().\s]+?)\s*(?:에\s*대하여|일\s*때|이고|,|이라)"#),
+           !Set(d[1].replacingOccurrences(of: #"sin|cos|tan|ln|log|sqrt|exp|e"#, with: " ", options: .regularExpression).filter { $0.isLetter && $0.isASCII && $0 != "x" }).isEmpty,
+           t.components(separatedBy: "=").count == 2,
+           !answer.contains(where: { $0.isLetter && $0.isASCII }) { return nil }
+        // 수 하나만 '계산'한 답 (문장 속 "10%", "f(2)"의 2만 떼어 읽음)
+        if solved.topic == "계산", let work = solved.steps.first?.work {
+            let core = work.replacingOccurrences(of: "를 계산하면", with: "").replacingOccurrences(of: " ", with: "")
+            if core.range(of: #"^[(]?[-−]?\d+(?:\.\d+)?%?[)]?$"#, options: .regularExpression) != nil { return nil }
         }
         // 이차함수의 식을 물었는데 일차식
         if has(t, ["이차함수의 식", "포물선을 그래프로 하는", "이차함수를 구"]), answer.hasPrefix("y ="), !answer.contains("²"), !answer.contains("^2") { return nil }
