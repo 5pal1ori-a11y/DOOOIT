@@ -31,6 +31,8 @@ struct DOOOITApp: App {
         _container = State(initialValue: container)
         // 애플 워치: 워치가 앱을 뒤에서 깨워도(화면 없이) 명령을 받아 기록할 수 있게 바로 연결
         WatchBridge.shared.start(container: container)
+        // 홈 화면 위젯의 체크 버튼: 앱을 뒤에서 깨워도 바로 저장되게
+        WidgetActions.attach(container)
     }
 
     /// 저장소를 쓰는 서비스들을 지금 계정 저장소에 연결
@@ -51,6 +53,7 @@ struct DOOOITApp: App {
         DoitActions.shared.context = context
         // 모티 AI가 배운 내용도 계정마다 따로 (로그인 전에는 저장하지 않음)
         DoitMemory.shared.attach(folder: auth.currentUser.map { AccountStore.folder(for: $0.id) })
+        WidgetActions.attach(container)
         WidgetSync.update(context: context)
         WatchBridge.shared.start(container: container)
     }
