@@ -160,6 +160,12 @@ enum DoitMathProb {
         let asksSD = t.range(of: #"σ\(\s*-?\d*(?:\.\d+)?(?:/\d+)?\s*X\s*[+-]?[^)]*\)\s*(?:의|값|은|는|\?)|의\s*표준편차(?:는|를|\?|의\s*값)"#, options: .regularExpression) != nil
         let concept = "E(aX + b) = aE(X) + b, V(aX + b) = a²V(X), σ(aX + b) = |a|σ(X), V(X) = E(X²) − {E(X)}²"
         let label = linear ? "\(a.text == "1" ? "" : a.text)X\(b.isZero ? "" : (b.n < 0 ? " − " + (-b).text : " + " + b.text))" : "X"
+        // E(X²) = V(X) + {E(X)}²
+        if t.range(of: #"E\(\s*X\s*(?:\^\s*2|²)\s*\)\s*(?:의\s*값|은|는|\?)"#, options: .regularExpression) != nil, e2 == nil, let e = e, let v = v, !linear,
+           let sq = e * e, let r = v + sq {
+            return Solved(kind: .statistics, topic: "확률변수의 평균과 분산", concept: concept,
+                          steps: steps + [step("E(X²) = V(X) + {E(X)}²", "\(v.text) + (\(e.text))² = \(r.text)")], answer: r.text)
+        }
         if asksMean && !asksVar && !asksSD {
             guard let e = e, let ae = a * e, let r = ae + b else { return nil }
             if linear { steps.append(step("E(\(label)) = \(a.text)E(X) + \(b.text)", r.text)) }
@@ -395,8 +401,10 @@ enum DoitMathProb {
     // MARK: - 공을 상자에 넣기
 
     static func ballsBoxes(_ t: String) -> Solved? {
-        guard let m = match(t, #"서로\s*다른\s*(\d+)\s*개의\s*(공|물건|구슬|사탕|편지)[^.?]*?서로\s*다른\s*(\d+)\s*개의\s*(상자|주머니|우체통|바구니)"#),
-              let balls = Int(m[1]), let boxes = Int(m[3]), balls <= 12, boxes <= 12, has(t, ["넣는", "넣을"]) else { return nil }
+        // "서로 다른 5개의 공 … 서로 다른 3개의 상자" 또는 "서로 다른 공 5개 … 서로 다른 상자 3개"
+        let m = match(t, #"서로\s*다른\s*(\d+)\s*개의\s*(공|물건|구슬|사탕|편지)[^.?]*?서로\s*다른\s*(\d+)\s*개의\s*(상자|주머니|우체통|바구니)"#)
+            ?? match(t, #"서로\s*다른\s*()(공|물건|구슬|사탕|편지)\s*(\d+)\s*개[^.?]*?서로\s*다른\s*(?:상자|주머니|우체통|바구니)\s*(\d+)\s*개"#).map { [$0[0], $0[3], $0[2], $0[4]] }
+        guard let m, let balls = Int(m[1]), let boxes = Int(m[3]), balls <= 12, boxes <= 12, has(t, ["넣는", "넣을"]) else { return nil }
         // 빈 상자가 있어도 될 때만 (없어야 하면 다른 계산이 필요해요)
         guard has(t, ["빈 상자가 있을 수", "빈 상자가 있어도", "빈 상자를 허용", "빈 상자가 생겨도"]) || !has(t, ["빈 상자", "적어도 한 개", "1개 이상", "한 개 이상"]) else { return nil }
         let v = pow(Double(boxes), Double(balls))

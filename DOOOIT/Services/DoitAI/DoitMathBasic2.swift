@@ -579,6 +579,23 @@ extension DoitMathBasic {
             let core = work.replacingOccurrences(of: "를 계산하면", with: "").replacingOccurrences(of: " ", with: "")
             if core.range(of: #"^[(]?[-−]?\d+(?:\.\d+)?%?[)]?$"#, options: .regularExpression) != nil { return nil }
         }
+        // 문제에 없는 문자로 답함 ("확률변수 X …"인데 "x = 2", 정적분·극한 문제인데 "x = 3")
+        if let m = match(answer, #"^([a-z])\s*=\s*[-−]?\d+(?:\.\d+)?(?:/\d+)?$"#), let v = m[1].first {
+            let rawPlain = DoitMathExact.splitChoices(raw)?.body ?? raw
+            if rawPlain.range(of: "(?<![a-zA-Z])\(v)(?![a-zA-Z])", options: .regularExpression) == nil { return nil }
+            if v == "x", has(t, ["∫", "lim"]), !t.contains("방정식") { return nil }
+        }
+        // 알 수 없는 글자가 섞인 답 ("3os"): 두 글자 이상 영문 덩어리가 문제에도 따로 있어야 함
+        let known: Set<String> = ["sin", "cos", "tan", "log", "ln", "lim", "xy", "ab", "bc", "ca", "abc", "xyz", "or", "cm", "mm", "km", "kg", "mg", "ml", "km/h", "m/s"]
+        for r in matches(answer, #"[a-zA-Z]{2,}"#) {
+            let word = r[0]
+            if known.contains(word.lowercased()) { continue }
+            if t.range(of: "(?<![a-zA-Z])" + NSRegularExpression.escapedPattern(for: word) + "(?![a-zA-Z])", options: [.regularExpression, .caseInsensitive]) != nil { continue }
+            if word.allSatisfy({ "xyzabcnkt".contains($0) }) { continue }
+            return nil
+        }
+        // 그래프·그림을 봐야 하는데 식이 없음
+        if has(t, ["그래프에서", "다음 그래프", "위 그래프", "아래 그래프", "그림에서", "다음 그림", "위 그림", "그림과 같", "표와 같", "다음 표", "위 표"]), !t.contains("="), !raw.contains("|"), !raw.contains("\n"), DoitFigureFacts.split(raw).facts.isEmpty { return nil }
         // 이차함수의 식을 물었는데 일차식
         if has(t, ["이차함수의 식", "포물선을 그래프로 하는", "이차함수를 구"]), answer.hasPrefix("y ="), !answer.contains("²"), !answer.contains("^2") { return nil }
         // 넓이를 물었는데 변의 길이만 (피타고라스 정리)

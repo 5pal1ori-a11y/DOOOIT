@@ -111,6 +111,9 @@ enum DoitMathBasic {
         if let s = discriminantCondition(t) { return s }
         if let s = axisTriangle(t) { return s }
         if let s = ages(t) { return s }
+        if let s = lawOfCosines(t) { return s }
+        if let s = linearity(t) { return s }
+        if let s = inverseValue(t) { return s }
         return nil
     }
 
@@ -177,6 +180,60 @@ enum DoitMathBasic {
         let given1 = values.map { "\($0.0) = \(show($0.1))" }.joined(separator: ", ")
         return Solved(kind: .linear, topic: "해가 주어진 방정식의 상수", concept: "해를 방정식에 넣으면 등식이 참이 돼요. 넣은 식을 상수에 대한 방정식으로 풀어요.",
                       steps: [step("\(given1)을 넣으면", e.replacingOccurrences(of: "*", with: "×")), step("\(asked)에 대한 방정식을 풀면", "\(asked) = \(show(root))")], answer: show(root))
+    }
+
+    // MARK: 코사인법칙 (세 변 → cos)
+
+    static func lawOfCosines(_ t: String) -> Solved? {
+        guard let m = match(t, #"(?:삼각형|△)\s*ABC\s*에서\s*a\s*=\s*("# + num + #")\s*,\s*b\s*=\s*("# + num + #")\s*,\s*c\s*=\s*("# + num + #")\s*일\s*때\s*,?\s*cos\s*([ABC])\s*의\s*값"#),
+              let a = rat(m[1]), let b = rat(m[2]), let c = rat(m[3]), a.n > 0, b.n > 0, c.n > 0 else { return nil }
+        let sides = [a, b, c].sorted { $0.value < $1.value }
+        guard let s2 = sides[0] + sides[1], s2.value > sides[2].value else { return nil }
+        let (x, y, z): (Rat, Rat, Rat) = m[4] == "A" ? (a, b, c) : m[4] == "B" ? (b, c, a) : (c, a, b)
+        guard let y2 = y * y, let z2 = z * z, let x2 = x * x, let s = y2 + z2, let n = s - x2, let yz = y * z, let d = yz * Rat(2)!, let r = n / d else { return nil }
+        let name = m[4].lowercased()
+        return Solved(kind: .geometry, topic: "코사인법칙", concept: "a² = b² + c² − 2bc cos A 이므로 cos A = (b² + c² − a²)/(2bc)",
+                      steps: [step("cos \(m[4]) = (두 변의 제곱의 합 − \(name)²)/(2 × 두 변의 곱)", "(\(show(y2)) + \(show(z2)) − \(show(x2)))/(2 × \(show(y)) × \(show(z))) = \(show(r))")], answer: show(r))
+    }
+
+    // MARK: 정적분 · 극한의 성질 (∫ f = 3 일 때 ∫ 2f, lim f = 3 일 때 lim (2f + 1))
+
+    static func linearity(_ t: String) -> Solved? {
+        let s = DoitMathCalc.prepare(t)
+        // 정적분: "∫₀¹ f(x) dx = 3 일 때, ∫₀¹ 2f(x) dx"
+        let pieces = t.components(separatedBy: "일 때")
+        if pieces.count == 2, let first = DoitMathHigh.integralParts(pieces[0]), let second = DoitMathHigh.integralParts(pieces[1]),
+           first.lo == second.lo, first.hi == second.hi, first.body.replacingOccurrences(of: " ", with: "") == "f(x)",
+           let given = match(pieces[0], #"d\s*x\s*=\s*("# + num + #")\s*$"#).flatMap({ rat($0[1]) }) ?? match(pieces[0].trimmingCharacters(in: .whitespaces), #"=\s*("# + num + #")$"#).flatMap({ rat($0[1]) }),
+           pieces[1].range(of: #"d\s*x\s*의\s*값"#, options: .regularExpression) != nil,
+           let m = match(second.body.replacingOccurrences(of: " ", with: ""), #"^\(?(-?\d*(?:/\d+)?)\*?f\(x\)([+-]\d+(?:/\d+)?)?\)?$"#),
+           let lo = DoitMathCalc.rat(first.lo), let hi = DoitMathCalc.rat(first.hi) {
+            let k: Rat = m[1].isEmpty ? .one : m[1] == "-" ? -Rat.one : (rat(m[1]) ?? .one)
+            let add = m[2].isEmpty ? Rat.zero : rat(m[2].replacingOccurrences(of: "+", with: "")) ?? .zero
+            guard let kc = k * given, let w = hi - lo, let aw = add * w, let r = kc + aw else { return nil }
+            return Solved(kind: .integral, topic: "정적분의 성질", concept: "∫(kf(x) + m)dx = k∫f(x)dx + m(b − a)",
+                          steps: [step("성질로 나누면", "\(show(k)) × \(show(given))\(add.isZero ? "" : " + \(show(add)) × \(show(w))") = \(show(r))")], answer: show(r))
+        }
+        // 극한
+        if let m = match(s, #"lim_?\(?x→(-?\d+|∞)\)?f\(x\)=(-?\d+(?:/\d+)?)일때,?lim_?\(?x→(-?\d+|∞)\)?\(?(-?\d*(?:/\d+)?)\*?f\(x\)([+-]\d+(?:/\d+)?)?\)?의값"#),
+           m[1] == m[3], let c = rat(m[2]) {
+            let k: Rat = m[4].isEmpty ? .one : m[4] == "-" ? -Rat.one : (rat(m[4]) ?? .one)
+            let add = m[5].isEmpty ? Rat.zero : rat(m[5].replacingOccurrences(of: "+", with: "")) ?? .zero
+            guard let kc = k * c, let r = kc + add else { return nil }
+            return Solved(kind: .derivative, topic: "극한의 성질", concept: "lim (kf(x) + m) = k lim f(x) + m (극한값이 있을 때)",
+                          steps: [step("성질로 나누면", "\(show(k)) × \(show(c)) + \(show(add)) = \(show(r))")], answer: show(r))
+        }
+        return nil
+    }
+
+    // MARK: 역함수의 값 (f(x) = 3x + 6 의 역함수 g에 대하여 g(3))
+
+    static func inverseValue(_ t: String) -> Solved? {
+        guard let m = match(t, #"f\(x\)\s*=\s*([0-9x+\-*/().\s]+?)\s*의\s*역함수를\s*g\(x\)\s*(?:라|이라)\s*할\s*때\s*,?\s*g\(\s*("# + num + #")\s*\)\s*의\s*값"#)
+                ?? match(t, #"f\(x\)\s*=\s*([0-9x+\-*/().\s]+?)\s*(?:에\s*대하여|일\s*때)\s*,?\s*f\^\(?-1\)?\(\s*("# + num + #")\s*\)\s*의\s*값"#),
+              let k = rat(m[2]), let (p, q) = linearParts(m[1]), let d = k - q, let x = d / p else { return nil }
+        return Solved(kind: .function, topic: "역함수", concept: "g(k) = a 이면 f(a) = k: f(x) = k 를 풀어요.",
+                      steps: [step("f(x) = \(show(k))", "\(m[1].trimmingCharacters(in: .whitespaces)) = \(show(k)) → x = \(show(x))")], answer: show(x))
     }
 
     // MARK: 나이 (현재 A의 나이는 B의 나이의 3배, 10년 후에는 2배)
