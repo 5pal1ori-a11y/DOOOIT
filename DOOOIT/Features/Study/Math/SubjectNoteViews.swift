@@ -108,15 +108,15 @@ struct SubjectMenuItems: View {
         }
         ForEach(DoitSubjectNote.subjectOptions, id: \.broad) { option in
             if option.details.isEmpty {
-                Button { onPick(option.broad) } label: { Label(option.broad, systemImage: DoitSubjectNote.symbol(broad: option.broad)) }
+                Button { onPick(option.broad) } label: { Label(option.broad.loc, systemImage: DoitSubjectNote.symbol(broad: option.broad)) }
             } else {
                 Menu {
-                    Button(option.broad) { onPick(option.broad) }
+                    Button(option.broad.loc) { onPick(option.broad) }
                     ForEach(option.details, id: \.self) { detail in
-                        Button(detail) { onPick(detail) }
+                        Button(detail.loc) { onPick(detail) }
                     }
                 } label: {
-                    Label(option.broad, systemImage: DoitSubjectNote.symbol(broad: option.broad))
+                    Label(option.broad.loc, systemImage: DoitSubjectNote.symbol(broad: option.broad))
                 }
             }
         }

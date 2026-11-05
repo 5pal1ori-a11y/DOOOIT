@@ -221,7 +221,7 @@ enum NoteStatus: String, CaseIterable, Identifiable {
         switch self {
         case .unsolved: return L("미채점")
         case .wrong: return L("오답")
-        case .correct: return L("정답")
+        case .correct: return L("정답(상태)")
         }
     }
 

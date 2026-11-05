@@ -63,7 +63,7 @@ struct WeeklyReportView: View {
                 Text("\(r.totalMinutes / 60)")
                     .font(.system(size: 46, weight: .heavy, design: .rounded))
                     .contentTransition(.numericText())
-                Text("시간").font(.title3.weight(.bold))
+                Text(L("시간(단위)")).font(.title3.weight(.bold))
                 Text("\(r.totalMinutes % 60)")
                     .font(.system(size: 46, weight: .heavy, design: .rounded))
                     .contentTransition(.numericText())

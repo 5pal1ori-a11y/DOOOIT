@@ -6,6 +6,8 @@ struct MathNoteListView: View {
     enum Filter: String, CaseIterable, Identifiable {
         case all = "전체", unsolved = "미채점", wrong = "오답", correct = "정답"
         var id: String { rawValue }
+        /// 화면 이름 ("정답"은 상태 뜻으로: Correct)
+        var title: String { self == .correct ? L("정답(상태)") : rawValue.loc }
     }
 
     @Environment(\.modelContext) private var context
@@ -36,7 +38,7 @@ struct MathNoteListView: View {
     private var isAutoSubject: Bool { addSubjectRaw == DoitSubjectNote.autoLabel }
     /// 새 문제의 과목 (자동이면 사진을 읽은 뒤 정함)
     private var addSubject: NoteSubject { isAutoSubject ? .math : NoteSubject.from(addSubjectRaw) }
-    private var addSubjectSpoken: String { isAutoSubject ? L("과목 자동") : L("과목 \(addSubjectRaw)") }
+    private var addSubjectSpoken: String { isAutoSubject ? L("과목 자동") : L("과목 \(addSubjectRaw.loc)") }
     private var addSubjectColor: Color {
         isAutoSubject ? Theme.accent : Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: addSubjectRaw)))
     }
@@ -208,7 +210,7 @@ struct MathNoteListView: View {
         Menu {
             SubjectMenuItems(includeAuto: true, onAuto: { addSubjectRaw = DoitSubjectNote.autoLabel }, onPick: { addSubjectRaw = $0 })
         } label: {
-            Label("과목: \(addSubjectRaw)", systemImage: isAutoSubject ? "sparkles" : DoitSubjectNote.symbol(broad: DoitSubjectDetector.broad(ofStored: addSubjectRaw)))
+            Label("과목: \(addSubjectRaw.loc)", systemImage: isAutoSubject ? "sparkles" : DoitSubjectNote.symbol(broad: DoitSubjectDetector.broad(ofStored: addSubjectRaw)))
         }
     }
 
@@ -219,7 +221,7 @@ struct MathNoteListView: View {
             } label: {
                 VStack(spacing: 1) {
                     if isAutoSubject { Image(systemName: "sparkles").font(.caption2.weight(.bold)) }
-                    Text(addSubjectRaw)
+                    Text(addSubjectRaw.loc)
                         .font(addSubjectRaw.count > 3 ? .caption2.weight(.bold) : .subheadline.weight(.bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -258,7 +260,7 @@ struct MathNoteListView: View {
                         addSubjectRaw = DoitSubjectNote.autoLabel
                     }
                     ForEach(groups, id: \.broad) { group in
-                        chip(title: group.broad, number: group.total, color: Color(hex: DoitSubjectNote.colorHex(broad: group.broad)),
+                        chip(title: group.broad.loc, number: group.total, color: Color(hex: DoitSubjectNote.colorHex(broad: group.broad)),
                              isOn: subjectFilter == group.broad) {
                             subjectFilter = group.broad
                             detailFilter = nil
@@ -281,7 +283,7 @@ struct MathNoteListView: View {
                                 }
                                 Haptics.tap()
                             } label: {
-                                Text("\(detail.label) \(detail.count)")
+                                Text("\(detail.label.loc) \(detail.count)")
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 10)
                                     .frame(height: 26)
@@ -336,7 +338,7 @@ struct MathNoteListView: View {
                     Haptics.tap()
                 } label: {
                     HStack(spacing: 4) {
-                        Text(item.rawValue.loc)
+                        Text(item.title)
                         Text("\(number)").monospacedDigit().opacity(0.7)
                     }
                     .font(.subheadline.weight(.semibold))
