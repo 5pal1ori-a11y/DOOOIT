@@ -65,10 +65,10 @@ struct DOOOITApp: App {
         if studyTimer.isActive { studyTimer.stop() }
         LiveActivityManager.shared.endAll()
         DoitAssistant.shared.reset()
-        // 둘러보기 → Apple 로그인: 둘러보기 저장소를 먼저 닫고, 쓰던 기록을 새 계정으로 옮김
-        if oldID == AuthManager.guestID, let userID, userID != AuthManager.guestID {
+        // Apple로 처음 로그인: 둘러보기나 예전 이메일 계정으로 쓰던 기록을 새 계정으로 옮김 (열린 저장소는 먼저 닫음)
+        if let userID, auth.currentUser?.provider == .apple {
             container = AccountStore.container(for: nil)
-            AccountStore.adoptGuestData(into: userID)
+            AccountStore.adoptData(from: [AuthManager.guestID] + auth.emailAccountIDs, into: userID)
         }
         AccountStore.switchSettings(to: userID)
         container = AccountStore.container(for: userID)

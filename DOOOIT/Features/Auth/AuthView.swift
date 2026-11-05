@@ -15,8 +15,6 @@ struct AuthView: View {
     @Environment(\.colorScheme) private var scheme
 
     @State private var mode: Mode = .signIn
-    /// 예전 이메일 계정으로 들어가기 (기기에 이메일 계정이 있을 때만 보임)
-    @State private var showEmailLogin = false
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -103,25 +101,6 @@ struct AuthView: View {
             }
             .buttonStyle(.pressable)
             .padding(.top, 12)
-
-            // 예전에 이 기기에서 만든 이메일 계정: 기록을 그대로 쓰도록 로그인만 남겨 둠 (새 가입은 없음)
-            if auth.hasEmailAccounts {
-                if showEmailLogin {
-                    orDivider
-                        .padding(.vertical, 14)
-                    fields
-                        .shake(trigger: shakeTrigger)
-                    primaryButton
-                        .padding(.top, 18)
-                } else {
-                    Button("예전 이메일 계정으로 로그인") {
-                        withAnimation(Motion.spring) { showEmailLogin = true }
-                    }
-                    .font(.pt(.footnote).weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 18)
-                }
-            }
         }
         .onAppear { agreed = agreedVersion >= LegalText.version }
         .onChange(of: agreed) { _, value in agreedVersion = value ? LegalText.version : 0 }
