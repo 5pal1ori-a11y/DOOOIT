@@ -734,7 +734,8 @@ enum OCRService {
     /// 여러 방법으로 읽은 결과 중 수식이 가장 자연스러운 쪽을 고름 (improved: 기본 결과보다 나은 걸 골랐는지)
     static func readMathProblem(_ image: CGImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
         // 미리 읽은 줄이 있으면 그 사진은 이미 바로 세운 것 (readMathProblemDetailed)
-        let image = precomputed == nil ? await deskewed(image) : image
+        // 학생 필기를 먼저 지우고 읽음 (미리 읽은 줄이 있으면 이미 지운 사진)
+        let image = precomputed == nil ? await printedOnly(await deskewed(image)) : image
         var lines = precomputed ?? []
         if precomputed == nil { lines = (try? await recognizeMath(image)) ?? [] }
         let base = MathOCRFixer.fix(printedText(from: lines))
@@ -744,8 +745,8 @@ enum OCRService {
     }
 
     /// 문제 읽기 + 자신 없이 읽은 줄 (인식 결과 확인 화면에서 표시)
-    static func readMathProblemDetailed(_ image: CGImage) async -> (text: String, improved: Bool, unsure: [String]) {
-        let trace = await readMathProblemTrace(image)
+    static func readMathProblemDetailed(_ image: CGImage, cleaned: Bool = false) async -> (text: String, improved: Bool, unsure: [String]) {
+        let trace = await readMathProblemTrace(image, cleaned: cleaned)
         return (trace.text, trace.improved, trace.unsure)
     }
 
@@ -759,12 +760,20 @@ enum OCRService {
         var lines: [OCRLine] = []
         var base = ""
         var readings: [String] = []
+        /// 학생 필기 지우기 기록 (원인 찾기용)
+        var handwriting: [String] = []
     }
 
-    static func readMathProblemTrace(_ image: CGImage) async -> MathTrace {
+    /// cleaned: 이미 필기를 지운 사진이면 true (정밀 인식에 먼저 넘긴 사진을 그대로 쓸 때)
+    static func readMathProblemTrace(_ image: CGImage, cleaned: Bool = false) async -> MathTrace {
         var trace = MathTrace()
-        let straight = await deskew(image)
+        var straight = await deskew(image)
         trace.skew = straight.angle
+        if !cleaned {
+            let clean = await printedOnlyDetailed(straight.image)
+            straight.image = clean.image
+            trace.handwriting = clean.report.lines
+        }
         trace.lines = (try? await recognizeMath(straight.image)) ?? []
         trace.unsure = unsureLines(trace.lines)
         trace.base = MathOCRFixer.fix(printedText(from: trace.lines))
@@ -779,8 +788,8 @@ enum OCRService {
 
     /// 국어·영어·과학·사회 문제 사진: 한글·영어 문장을 그대로 (수식 교정 없이), 보기 번호·영어 낱말·과학 기호만 정리.
     /// 바로 세운 뒤 펜 자국을 지운 사진과 원본 중 더 잘 읽힌 쪽
-    static func readSubjectProblem(_ image: CGImage) async -> (text: String, unsure: [String], lines: [OCRLine]) {
-        let trace = await readSubjectTrace(image)
+    static func readSubjectProblem(_ image: CGImage, cleaned: Bool = false) async -> (text: String, unsure: [String], lines: [OCRLine]) {
+        let trace = await readSubjectTrace(image, cleaned: cleaned)
         return (trace.text, trace.unsure, trace.lines)
     }
 
@@ -801,12 +810,19 @@ enum OCRService {
         var lines: [OCRLine] = []
         var text = ""
         var unsure: [String] = []
+        /// 학생 필기 지우기 기록 (원인 찾기용)
+        var handwriting: [String] = []
     }
 
-    static func readSubjectTrace(_ image: CGImage) async -> SubjectTrace {
+    static func readSubjectTrace(_ image: CGImage, cleaned: Bool = false) async -> SubjectTrace {
         var trace = SubjectTrace()
-        let straight = await deskew(image)
+        var straight = await deskew(image)
         trace.skew = straight.angle
+        if !cleaned {
+            let clean = await printedOnlyDetailed(straight.image)
+            straight.image = clean.image
+            trace.handwriting = clean.report.lines
+        }
         // 두 사진을 동시에 읽음
         async let plainRead = subjectReading(straight.image)
         if let ink = inkOnly(straight.image) { trace.readings.append(await subjectReading(ink)) }
@@ -927,6 +943,70 @@ enum OCRService {
     static func readHandwriting(_ image: CGImage) async -> [String] {
         let lines = (try? await recognize(image, languageCorrection: false, languages: ["en-US", "ko-KR"], preferMath: true)) ?? []
         return handwritingRows(lines)
+    }
+
+    // MARK: 학생 필기 지우기
+
+    /// 문제 사진에서 학생이 쓴 것(연필·펜 풀이, 보기에 친 동그라미, 써 넣은 답, 그은 줄)을 지운 사진.
+    /// 필기가 없으면 원래 사진 그대로 (같은 CGImage). 판단은 HandwritingFilter (색·기울기·크기·신뢰도·내용을 함께 봄)
+    static func printedOnly(_ image: CGImage, mode: HandwritingFilter.Mode = .text) async -> CGImage {
+        await printedOnlyDetailed(image, mode: mode).image
+    }
+
+    static func printedOnlyDetailed(_ image: CGImage, mode: HandwritingFilter.Mode = .text) async -> (image: CGImage, report: HandwritingFilter.Report) {
+        let cgImage = scaled(image, maxDimension: 3000)
+        guard let pixels = rgbaPixels(cgImage) else { return (image, HandwritingFilter.Report()) }
+        let observations = (try? await observe(cgImage, languages: ["ko-KR", "en-US"], correction: false)) ?? []
+        let lines = handwritingLines(observations, width: cgImage.width, height: cgImage.height)
+        let result = HandwritingFilter.clean(pixels, lines: lines, mode: mode)
+        guard result.report.erased > 0, let cleaned = makeImage(result.pixels) else { return (image, result.report) }
+        return (cleaned, result.report)
+    }
+
+    /// Vision 결과 → 필기 판정용 줄 (픽셀 좌표, 위가 0 · 글자마다 상자 · 줄 기울기)
+    static func handwritingLines(_ observations: [VNRecognizedTextObservation], width: Int, height: Int) -> [HandwritingFilter.Line] {
+        let W = CGFloat(width), H = CGFloat(height)
+        func pixel(_ r: CGRect) -> CGRect { CGRect(x: r.minX * W, y: (1 - r.maxY) * H, width: r.width * W, height: r.height * H) }
+        return observations.compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else { return nil }
+            let text = candidate.string
+            var glyphs: [HandwritingFilter.Glyph] = []
+            var index = text.startIndex
+            while index < text.endIndex {
+                let next = text.index(after: index)
+                let box = text[index].isWhitespace ? nil : (try? candidate.boundingBox(for: index..<next))?.boundingBox
+                glyphs.append(HandwritingFilter.Glyph(char: text[index], box: box.map(pixel), ink: nil))
+                index = next
+            }
+            let dx = Double((observation.topRight.x - observation.topLeft.x) * W)
+            let dy = Double((observation.topRight.y - observation.topLeft.y) * H)
+            let angle = atan2(dy, dx) * 180 / .pi
+            return HandwritingFilter.Line(text: text, confidence: candidate.confidence, box: pixel(observation.boundingBox), angle: angle, glyphs: glyphs)
+        }
+    }
+
+    /// CGImage → RGBA 픽셀 (흰 바탕, 첫 줄이 맨 위)
+    static func rgbaPixels(_ image: CGImage) -> HandwritingFilter.Pixels? {
+        let w = image.width, h = image.height
+        guard w > 0, h > 0 else { return nil }
+        var rgba = [UInt8](repeating: 255, count: w * h * 4)
+        let drawn: Bool = rgba.withUnsafeMutableBytes { buffer in
+            guard let context = CGContext(data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                          space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        return drawn ? HandwritingFilter.Pixels(width: w, height: h, rgba: rgba) : nil
+    }
+
+    static func makeImage(_ pixels: HandwritingFilter.Pixels) -> CGImage? {
+        var rgba = pixels.rgba
+        return rgba.withUnsafeMutableBytes { buffer in
+            CGContext(data: buffer.baseAddress, width: pixels.width, height: pixels.height, bitsPerComponent: 8, bytesPerRow: pixels.width * 4,
+                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)?.makeImage()
+        }
     }
 
     // MARK: 검은 인쇄 글자만 남기기

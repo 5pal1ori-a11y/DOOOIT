@@ -31,7 +31,8 @@ extension OCRService {
     static func readMathProblem(_ image: UIImage, thorough: Bool = true, lines precomputed: [OCRLine]? = nil) async -> (text: String, improved: Bool) {
         guard let cgImage = upright(image) else { return ("", false) }
         // 맨 앞 문제 번호는 "12번) " 모양으로
-        if precomputed == nil, let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .chatPhoto) {
+        // 정밀 인식도 학생 필기(풀이·동그라미·써 넣은 답)를 지운 사진으로 읽음
+        if precomputed == nil, let text = await PaddleOCRService.shared.problemText(image, cgImage: await printedOnly(cgImage), purpose: .chatPhoto) {
             return (DoitProblemScan.numbered(text), false)
         }
         let read = await readMathProblem(cgImage, thorough: thorough, lines: precomputed)
@@ -42,10 +43,12 @@ extension OCRService {
     /// 정밀 인식이 있으면 그걸로 (줄마다 확신도가 없어 흐린 줄은 비움), 안 되면 Vision
     static func readMathProblemDetailed(_ image: UIImage) async -> (text: String, improved: Bool, unsure: [String]) {
         guard let cgImage = upright(image) else { return ("", false, []) }
-        if let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .mathProblem) {
+        // 학생 필기(연필·펜 풀이, 보기 동그라미, 써 넣은 답)를 먼저 지운 사진으로 읽음 (오답노트에 그린 필기는 처음부터 넣지 않음)
+        let clean = await printedOnly(cgImage)
+        if let text = await PaddleOCRService.shared.problemText(image, cgImage: clean, purpose: .mathProblem) {
             return (DoitProblemScan.numbered(text), false, [])
         }
-        let read = await readMathProblemDetailed(cgImage)
+        let read = await readMathProblemDetailed(clean, cleaned: true)
         return (DoitProblemScan.numbered(read.text), read.improved, read.unsure)
     }
 
@@ -53,6 +56,13 @@ extension OCRService {
     static func readHandwriting(_ image: UIImage) async -> [String] {
         let lines = (try? await recognize(image, languageCorrection: false, languages: ["en-US", "ko-KR"], preferMath: true)) ?? []
         return handwritingRows(lines)
+    }
+
+    /// 학생 필기를 지운 사진 (필기가 없으면 그대로). figure: 그림 읽기용 (필기로 판정한 글자 자리만 지움)
+    static func printedOnly(_ image: UIImage, mode: HandwritingFilter.Mode = .text) async -> UIImage {
+        guard let cgImage = upright(image) else { return image }
+        let clean = await printedOnly(cgImage, mode: mode)
+        return clean === cgImage ? image : UIImage(cgImage: clean)
     }
 
     /// 검은색(채도가 낮고 어두운) 픽셀만 남기고 나머지는 흰색으로 지움
