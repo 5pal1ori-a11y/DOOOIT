@@ -8,7 +8,7 @@ import UIKit
 /// - 데모 계정 · 메모리 저장소(예시 데이터)로 바로 그 화면을 엶. 키체인·계정 저장소는 건드리지 않음
 /// - 설정값은 등록 기본값(registration domain)으로만 넣어서 저장되지 않음
 enum UIShotScreen: String, CaseIterable {
-    case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, timer, auth
+    case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, appSettings, timer, auth
     case badges, badgeNew, mockExam, mockResult, soundMixer, voice
     /// 영어 문법 단원 학습 (중학교 영어 · 현재완료): 개념 · O/X · 문제
     case grammar, grammarOX, grammarProblem
@@ -48,7 +48,7 @@ enum UIShot {
              .weeklyReport, .wordSession: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
-        case .account, .accountSettings, .badges: return .account
+        case .account, .accountSettings, .appSettings, .badges: return .account
         default: return .home
         }
     }

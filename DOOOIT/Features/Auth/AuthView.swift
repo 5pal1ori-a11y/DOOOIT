@@ -396,7 +396,7 @@ extension AuthField where Trailing == EmptyView {
 struct NameSetupView: View {
     @Environment(AuthManager.self) private var auth
     /// 테마를 고르면 이 화면의 강조 색도 바로 바뀌도록 구독
-    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
     @State private var name = ""
     @FocusState private var focused: Bool
 
@@ -443,7 +443,7 @@ struct NameSetupView: View {
                 ThemePicker()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
-                    .frame(height: 54)
+                    .padding(.vertical, 12)
                     .background(Palette.card, in: .rect(cornerRadius: 16, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.75))

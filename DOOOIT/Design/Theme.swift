@@ -93,43 +93,110 @@ extension Color {
 
 // MARK: - Background
 
-/// 포인트 색 테마 (연보라 / 연하늘 / 연두). 바탕은 눈부시지 않은 흰색으로 고정
+/// 테마: 색 세 가지씩 (진한 색 · 강조색 · 연한 색). 바탕은 눈부시지 않은 흰색으로 고정
+/// - 진한 색: 버튼 그라데이션의 어두운 쪽 · 강조색: 버튼·아이콘·그래프 · 연한 색: 바탕 빛 번짐·옅은 칸
 enum ThemeColor: String, CaseIterable, Identifiable {
+    case midnight, forest, twilight, ocean
+    /// 예전(한 가지 색) 테마 값: 지금 값을 지우지 않고 가장 비슷한 새 테마로 이어서 씀
     case lavender, sky, mint
 
-    var id: String { rawValue }
+    /// 고르는 화면에 보이는 테마 (예전 값은 제외)
+    static var allCases: [ThemeColor] { [.midnight, .forest, .twilight, .ocean] }
+    /// 처음 쓰는 테마 (앱 로고와 같은 보라 계열)
+    static let standard: ThemeColor = .twilight
 
-    var title: String {
+    var id: String { resolved.rawValue }
+
+    /// 예전 값을 새 테마로 바꾼 것
+    var resolved: ThemeColor {
         switch self {
-        case .lavender: return "연보라"
-        case .sky: return "연하늘"
-        case .mint: return "연두"
+        case .lavender: return .twilight
+        case .sky: return .ocean
+        case .mint: return .forest
+        default: return self
         }
     }
 
-    /// 버튼·강조에 쓰는 색 (흰 글자가 읽히도록 살짝 진하게)
-    var accent: Color {
-        switch self {
-        case .lavender: return Color(hex: "#7B68EE")
-        case .sky: return Color(hex: "#3D9BE0")
-        case .mint: return Color(hex: "#4CAF63")
+    /// 저장된 글자 → 테마 (모르는 값이면 기본)
+    static func from(_ raw: String) -> ThemeColor {
+        (ThemeColor(rawValue: raw) ?? .standard).resolved
+    }
+
+    var title: String {
+        switch resolved {
+        case .midnight: return "미드나잇"
+        case .forest: return "포레스트"
+        case .twilight: return "트와일라이트"
+        default: return "오션"
         }
+    }
+
+    /// 진한 색 (딥네이비 · 다크그린 · 차콜 · 네이비)
+    var deep: Color {
+        switch resolved {
+        case .midnight: return Color(hex: "#151B52")
+        case .forest: return Color(hex: "#14532D")
+        case .twilight: return Color(hex: "#2B2B3D")
+        default: return Color(hex: "#10306B")
+        }
+    }
+
+    /// 버튼·강조에 쓰는 색 (인디고 · 민트 · 퍼플 · 스카이블루, 흰 글자가 읽히도록 살짝 진하게)
+    var accent: Color {
+        switch resolved {
+        case .midnight: return Color(hex: "#4F5BD5")
+        case .forest: return Color(hex: "#1E9E74")
+        case .twilight: return Color(hex: "#7C4DDB")
+        default: return Color(hex: "#2E8FE6")
+        }
+    }
+
+    /// 연한 색 (라벤더 · 세이지 · 라이트 바이올렛 · 아이스)
+    var light: Color {
+        switch resolved {
+        case .midnight: return Color(hex: "#B8B5F5")
+        case .forest: return Color(hex: "#B7C9A8")
+        case .twilight: return Color(hex: "#CBB8F7")
+        default: return Color(hex: "#D4ECFF")
+        }
+    }
+
+    /// 세 색이 이어지는 그라데이션 (진한 → 강조 → 연한)
+    var spectrum: LinearGradient {
+        LinearGradient(colors: [deep, accent, light], startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    /// 꽉 찬 버튼 바탕 (진한 → 강조: 흰 글자가 늘 읽힘)
+    var fill: LinearGradient {
+        LinearGradient(colors: [deep, accent], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     /// 배경에 은은하게 깔리는 색
     var soft: Color {
-        switch self {
-        case .lavender: return Color(hex: "#ECE8FF")
-        case .sky: return Color(hex: "#E2F1FC")
-        case .mint: return Color(hex: "#E6F5E1")
+        switch resolved {
+        case .midnight: return Color(hex: "#E7E6FB")
+        case .forest: return Color(hex: "#E3EEDD")
+        case .twilight: return Color(hex: "#EEE8FC")
+        default: return Color(hex: "#E0F0FD")
         }
     }
 
     var softer: Color {
-        switch self {
-        case .lavender: return Color(hex: "#F4F1FF")
-        case .sky: return Color(hex: "#EEF7FD")
-        case .mint: return Color(hex: "#F0F9EC")
+        switch resolved {
+        case .midnight: return Color(hex: "#F1F0FD")
+        case .forest: return Color(hex: "#EEF5EA")
+        case .twilight: return Color(hex: "#F6F2FE")
+        default: return Color(hex: "#EDF7FE")
+        }
+    }
+
+    /// 위젯·워치에 넘기는 강조색
+    var accentHex: String {
+        switch resolved {
+        case .midnight: return "#4F5BD5"
+        case .forest: return "#1E9E74"
+        case .twilight: return "#7C4DDB"
+        default: return "#2E8FE6"
         }
     }
 }
@@ -139,7 +206,7 @@ enum Theme {
     static let base = Color(light: "#F5F6F8", dark: "#000000")
 
     static var current: ThemeColor {
-        ThemeColor(rawValue: UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "") ?? .lavender
+        ThemeColor.from(UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "")
     }
 
     static var accent: Color { current.accent }
@@ -147,21 +214,26 @@ enum Theme {
 
 /// 깔끔한 바탕: 차분한 회색 위에, 맨 위에만 테마 색이 아주 옅게 (카드가 또렷하게 보이도록)
 struct AppBackground: View {
-    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
 
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        let theme = ThemeColor(rawValue: themeRaw) ?? .lavender
+        let theme = ThemeColor.from(themeRaw)
         ZStack(alignment: .top) {
             Theme.base
             if scheme == .dark {
-                // 어두운 화면: 테마 색을 아주 살짝만
-                LinearGradient(colors: [theme.accent.opacity(0.16), theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 320)
+                // 어두운 화면: 테마 색을 아주 살짝만 (왼쪽 강조색 · 오른쪽 진한 색)
+                LinearGradient(colors: [theme.accent.opacity(0.18), theme.deep.opacity(0.22), theme.accent.opacity(0)],
+                               startPoint: .topLeading, endPoint: .bottom)
+                    .frame(height: 340)
             } else {
+                // 밝은 화면: 옅은 바탕 위에 연한 색 빛이 오른쪽 위에서 번짐
                 LinearGradient(colors: [theme.soft.opacity(0.9), theme.softer.opacity(0.5), Theme.base.opacity(0)],
                                startPoint: .top, endPoint: .bottom)
+                    .frame(height: 320)
+                RadialGradient(colors: [theme.light.opacity(0.45), theme.light.opacity(0)],
+                               center: .topTrailing, startRadius: 0, endRadius: 280)
                     .frame(height: 320)
             }
         }

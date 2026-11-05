@@ -4,7 +4,7 @@ import SwiftUI
 
 struct RootView: View {
     @Environment(AuthManager.self) private var auth
-    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
     @State private var showSplash: Bool = {
         #if DEBUG

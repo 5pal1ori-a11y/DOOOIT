@@ -6,13 +6,7 @@ import WidgetKit
 @MainActor
 enum WidgetSync {
     /// 지금 고른 강조색 (위젯 · 애플 워치)
-    static var accentHex: String {
-        switch UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "" {
-        case ThemeColor.sky.rawValue: return "#3D9BE0"
-        case ThemeColor.mint.rawValue: return "#4CAF63"
-        default: return "#7B68EE"
-        }
-    }
+    static var accentHex: String { Theme.current.accentHex }
 
     static func update(context: ModelContext) {
         // 위젯에서 누른 완료 체크를 먼저 저장 (위젯 확장은 앱 저장소를 못 열어서 적어만 둠)

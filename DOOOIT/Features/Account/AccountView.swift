@@ -92,6 +92,7 @@ struct AccountView: View {
             .navigationTitle("계정")
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
+            .uiShotPush(.appSettings) { appSettings }
             .uiShotPush(.badges) { BadgeShelfView() }
             #endif
             .onChange(of: notificationsEnabled) { _, enabled in

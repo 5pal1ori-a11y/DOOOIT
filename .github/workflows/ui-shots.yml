@@ -127,6 +127,22 @@ jobs:
               echo "$screen-$mode"
             done
           done
+          # 테마 사진: 브랜치 이름에 theme가 들어 있을 때만 (테마 넷 × 홈·앱 설정·오답노트·타이머, 밝게)
+          case "$GITHUB_REF_NAME" in
+            *theme*)
+              xcrun simctl ui "$UDID" appearance light || true
+              for theme in midnight forest twilight ocean; do
+                for screen in home appSettings study timer; do
+                  xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+                  xcrun simctl launch "$UDID" "$BUNDLE" -uiShot "$screen" -themeColor "$theme" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
+                  sleep 7
+                  xcrun simctl io "$UDID" screenshot --type=png "$OUT/theme-$theme-$screen.png" >/dev/null 2>&1 || echo "::warning::theme-$theme-$screen 사진 실패"
+                  sips -Z 1200 "$OUT/theme-$theme-$screen.png" >/dev/null 2>&1 || true
+                  echo "theme-$theme-$screen"
+                done
+              done
+              ;;
+          esac
           xcrun simctl spawn "$UDID" log show --last 15m --style compact --predicate 'process == "DOOOIT"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/app-log.txt" || true
           ls -la "$OUT"
 

@@ -50,13 +50,13 @@ struct BrandBackdrop: View {
     /// 빛 세기 (0...1)
     var intensity: Double = 1
 
-    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var drift = false
 
     var body: some View {
-        let theme = ThemeColor(rawValue: themeRaw) ?? .lavender
+        let theme = ThemeColor.from(themeRaw)
         let strength = (scheme == .dark ? 0.42 : 0.30) * intensity
 
         GeometryReader { geo in
@@ -65,7 +65,8 @@ struct BrandBackdrop: View {
                 Theme.base
                 glowBlob(theme.accent.opacity(strength), diameter: w * 1.25)
                     .offset(x: drift ? w * 0.22 : -w * 0.18, y: drift ? -geo.size.height * 0.30 : -geo.size.height * 0.22)
-                glowBlob((scheme == .dark ? theme.accent : theme.soft).opacity(strength * (scheme == .dark ? 0.6 : 2.2)),
+                // 두 번째 빛: 밝은 화면은 연한 색, 어두운 화면은 강조색
+                glowBlob((scheme == .dark ? theme.accent : theme.light).opacity(strength * (scheme == .dark ? 0.6 : 1.5)),
                          diameter: w * 1.1)
                     .offset(x: drift ? -w * 0.25 : w * 0.2, y: drift ? geo.size.height * 0.12 : geo.size.height * 0.2)
             }
