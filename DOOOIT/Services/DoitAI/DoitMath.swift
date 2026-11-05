@@ -77,7 +77,7 @@ enum DoitMath {
             return Result(title: "방정식", steps: steps, answer: answer)
         case 1:
             steps.append("\(format(b))x = \(format(-c))")
-            steps.append("양변을 \(format(b))(으)로 나누면")
+            steps.append("양변을 \(format(b))\(DoitRelevance.josa(format(b), "으로")) 나누면")
             return Result(title: "일차방정식", steps: steps, answer: "x = \(fraction(-c / b))")
         case 2:
             let d = b * b - 4 * a * c
