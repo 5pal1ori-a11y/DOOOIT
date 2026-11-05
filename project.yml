@@ -94,6 +94,8 @@ targets:
     sources:
       - DOOOITWidgets
       - Shared
+      # 번역 도우미(AppLocale) 같이 씀
+      - WatchShared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.donghyeon.moti.widgets

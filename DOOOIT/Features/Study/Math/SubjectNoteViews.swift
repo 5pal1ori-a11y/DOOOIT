@@ -78,13 +78,13 @@ struct SubjectTag: View {
         self.auto = auto
     }
 
-    private var spoken: String { auto ? "과목 \(label), 자동으로 정함" : "과목 \(label)" }
+    private var spoken: String { auto ? L("과목 \(label), 자동으로 정함") : L("과목 \(label)") }
 
     var body: some View {
         let color = Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: label)))
         HStack(spacing: 2) {
             if auto { Image(systemName: "sparkles").font(.pt(size: 8, weight: .bold)) }
-            Text(label).lineLimit(1)
+            Text(label.loc).lineLimit(1)
         }
         .font(.pt(.caption2).weight(.bold))
         .foregroundStyle(color)
@@ -108,15 +108,15 @@ struct SubjectMenuItems: View {
         }
         ForEach(DoitSubjectNote.subjectOptions, id: \.broad) { option in
             if option.details.isEmpty {
-                Button { onPick(option.broad) } label: { Label(option.broad, systemImage: DoitSubjectNote.symbol(broad: option.broad)) }
+                Button { onPick(option.broad) } label: { Label(option.broad.loc, systemImage: DoitSubjectNote.symbol(broad: option.broad)) }
             } else {
                 Menu {
-                    Button(option.broad) { onPick(option.broad) }
+                    Button(option.broad.loc) { onPick(option.broad) }
                     ForEach(option.details, id: \.self) { detail in
-                        Button(detail) { onPick(detail) }
+                        Button(detail.loc) { onPick(detail) }
                     }
                 } label: {
-                    Label(option.broad, systemImage: DoitSubjectNote.symbol(broad: option.broad))
+                    Label(option.broad.loc, systemImage: DoitSubjectNote.symbol(broad: option.broad))
                 }
             }
         }
@@ -149,9 +149,9 @@ struct ProblemTypeChip: View {
             .accessibilityHint(hint)
             if open {
                 VStack(alignment: .leading, spacing: 6) {
-                    line("묻는 것", summary.asks)
-                    line("푸는 법", summary.steps)
-                    if let trap = summary.trap { line("함정", trap) }
+                    line(L("묻는 것"), summary.asks)
+                    line(L("푸는 법"), summary.steps)
+                    if let trap = summary.trap { line(L("함정"), trap) }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -161,7 +161,7 @@ struct ProblemTypeChip: View {
         .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
     }
 
-    private var hint: String { open ? "설명 접기" : "푸는 법 보기" }
+    private var hint: String { open ? L("설명 접기") : L("푸는 법 보기") }
 
     private func line(_ title: String, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -190,7 +190,7 @@ struct SubjectCauseCard: View {
                     ForEach(subject.causes, id: \.self) { cause in
                         let isOn = analysis?.cause == cause
                         Button { choose(cause) } label: {
-                            Text(cause.label)
+                            Text(cause.label.loc)
                                 .font(.pt(.subheadline).weight(.semibold))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
@@ -217,8 +217,8 @@ struct SubjectCauseCard: View {
 
     private func certaintyText(_ analysis: MistakeAnalysis?) -> String? {
         switch analysis?.certainty {
-        case .estimated?: return "추정"
-        case .confirmed?: return "직접 고름"
+        case .estimated?: return L("추정")
+        case .confirmed?: return L("직접 고름")
         default: return nil
         }
     }
@@ -283,7 +283,7 @@ struct SubjectExplainCard: View {
         let concepts = self.concepts
         let hints = self.wordHints
         VStack(alignment: .leading, spacing: 14) {
-            FlowHeader(number: 4, title: "해설", symbol: "book")
+            FlowHeader(number: 4, title: L("해설"), symbol: "book")
             if !correctText.isEmpty {
                 HStack(spacing: 8) {
                     Text("정답").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
@@ -293,7 +293,7 @@ struct SubjectExplainCard: View {
             // AI 풀이 카드에서 이미 보여 준 풀이는 다시 쓰지 않음
             if let solution, solution.source == nil, !solution.steps.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    sectionTitle("풀이")
+                    sectionTitle(L("풀이"))
                     ForEach(Array(solution.steps.enumerated()), id: \.offset) { _, step in
                         Text(step.work).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
                     }
@@ -301,13 +301,13 @@ struct SubjectExplainCard: View {
             }
             if !concepts.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    sectionTitle("개념")
+                    sectionTitle(L("개념"))
                     ForEach(concepts, id: \.title) { conceptRow($0) }
                 }
             }
             if !hints.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
-                    sectionTitle("단어")
+                    sectionTitle(L("단어"))
                     ForEach(hints, id: \.self) { wordRow($0) }
                 }
             }
@@ -373,7 +373,7 @@ struct SubjectExplainCard: View {
                         .background(Theme.accent.opacity(0.12), in: .circle)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(done ? "추가됨" : "단어장에 추가")
+                .accessibilityLabel(done ? L("추가됨") : L("단어장에 추가"))
             }
         }
     }
@@ -446,7 +446,7 @@ struct SubjectRetryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            FlowHeader(number: 5, title: "다시 풀기", symbol: "arrow.counterclockwise", trailing: scheduleText,
+            FlowHeader(number: 5, title: L("다시 풀기"), symbol: "arrow.counterclockwise", trailing: scheduleText,
                        trailingColor: note.isReviewDue ? Palette.warning : Theme.accent)
             if note.correctAnswer.trimmingCharacters(in: .whitespaces).isEmpty {
                 Text("정답을 적으면 다시 풀 수 있어요").font(.pt(.subheadline)).foregroundStyle(.secondary)
@@ -455,7 +455,7 @@ struct SubjectRetryCard: View {
             } else {
                 if let result { feedback(result) }
                 Button(action: start) {
-                    Label(retries.isEmpty && result == nil ? "다시 풀기" : "한 번 더", systemImage: "arrow.counterclockwise")
+                    Label(retries.isEmpty && result == nil ? L("다시 풀기") : L("한 번 더"), systemImage: "arrow.counterclockwise")
                         .frame(maxWidth: .infinity).frame(height: 38)
                 }
                 .buttonStyle(.glassProminent)
@@ -466,7 +466,7 @@ struct SubjectRetryCard: View {
                         Image(systemName: attempt.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundStyle(attempt.correct ? Palette.success : Palette.danger)
                     }
-                    Text(retries.last.map { $0.date.kr("M월 d일") } ?? "").font(.pt(.caption)).foregroundStyle(.secondary)
+                    Text(retries.last.map { $0.date.ui("M월 d일") } ?? "").font(.pt(.caption)).foregroundStyle(.secondary)
                 }
                 .font(.pt(.subheadline))
             }
@@ -476,8 +476,8 @@ struct SubjectRetryCard: View {
 
     private var scheduleText: String? {
         guard let schedule = note.reviewSchedule else { return nil }
-        guard let next = schedule.next else { return "익힘" }
-        return "복습 · " + WordReview.describe(next)
+        guard let next = schedule.next else { return L("익힘") }
+        return L("복습 · \(WordReview.describeL(next))")
     }
 
     @ViewBuilder
@@ -539,10 +539,10 @@ struct SubjectRetryCard: View {
             case .wrong:
                 Label("오답 · 정답 \(correctShown)", systemImage: "xmark.circle.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.danger)
             case .partial, .needsReview:
-                Text(result.reasons.first ?? "확인이 필요해요").font(.pt(.subheadline))
+                Text(result.reasons.first ?? L("확인이 필요해요")).font(.pt(.subheadline))
                 HStack(spacing: 10) {
-                    confirm("맞았어요", correct: true)
-                    confirm("틀렸어요", correct: false)
+                    confirm(L("맞았어요"), correct: true)
+                    confirm(L("틀렸어요"), correct: false)
                 }
             }
         }

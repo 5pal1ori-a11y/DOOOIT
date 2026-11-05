@@ -45,8 +45,8 @@ struct ProblemReviewCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            FlowHeader(number: 1, title: "AI가 인식한 문제", symbol: "text.viewfinder",
-                       trailing: note.isRecognitionConfirmed ? "확인됨" : "확인 전",
+            FlowHeader(number: 1, title: L("AI가 인식한 문제"), symbol: "text.viewfinder",
+                       trailing: note.isRecognitionConfirmed ? L("확인됨") : L("확인 전"),
                        trailingColor: note.isRecognitionConfirmed ? Palette.success : Palette.warning)
 
             if note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -54,8 +54,8 @@ struct ProblemReviewCard: View {
                     .font(.pt(.subheadline)).foregroundStyle(.secondary)
             } else {
                 if scan.hasDoubts { doubtsBox }
-                if !scan.question.isEmpty { row("묻는 것", scan.question, symbol: "questionmark.circle", color: Theme.accent) }
-                if !scan.conditions.isEmpty { row("조건", scan.conditions.joined(separator: "\n"), symbol: "exclamationmark.triangle", color: Palette.warning) }
+                if !scan.question.isEmpty { row(L("묻는 것"), scan.question, symbol: "questionmark.circle", color: Theme.accent) }
+                if !scan.conditions.isEmpty { row(L("조건"), scan.conditions.joined(separator: "\n"), symbol: "exclamationmark.triangle", color: Palette.warning) }
                 if !scan.formulas.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("수식").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
@@ -71,7 +71,7 @@ struct ProblemReviewCard: View {
                     }
                 }
                 if !scan.table.isEmpty { tableView(scan.table) }
-                if let graph = scan.graphNote { row("그래프", graph, symbol: "chart.bar.fill", color: Theme.accent) }
+                if let graph = scan.graphNote { row(L("그래프"), graph, symbol: "chart.bar.fill", color: Theme.accent) }
                 if let lines = scan.figureLines, !lines.isEmpty { FigureFactsBox(note: note, lines: lines) }
                 kindPicker
             }
@@ -276,7 +276,7 @@ struct MistakeGradingCard: View {
                 Text(hint).font(.pt(.caption)).foregroundStyle(.secondary)
                 answerInputs
                 Button(action: grade) {
-                    Label(note.grade == nil ? "채점하기" : "다시 채점하기", systemImage: "checkmark").frame(maxWidth: .infinity).frame(height: 38)
+                    Label(note.grade == nil ? L("채점하기") : L("다시 채점하기"), systemImage: "checkmark").frame(maxWidth: .infinity).frame(height: 38)
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(note.myAnswer.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -289,16 +289,16 @@ struct MistakeGradingCard: View {
     private var hint: String {
         if !subject.isMath {
             switch kind {
-            case .multipleChoice: return "고른 번호로 채점해요"
-            case .essay: return "핵심 내용으로 부분 점수를 매겨요"
-            default: return isOX ? "O·X로 채점해요" : (subject == .english ? "대소문자·띄어쓰기·문장부호는 무시해요" : "띄어쓰기·기호는 무시해요")
+            case .multipleChoice: return L("고른 번호로 채점해요")
+            case .essay: return L("핵심 내용으로 부분 점수를 매겨요")
+            default: return isOX ? L("O·X로 채점해요") : (subject == .english ? L("대소문자·띄어쓰기·문장부호는 무시해요") : L("띄어쓰기·기호는 무시해요"))
             }
         }
         switch kind {
-        case .multipleChoice: return "고른 번호로 채점해요"
-        case .shortAnswer: return "띄어쓰기·기호는 무시해요"
-        case .math: return "0.5 = 1/2처럼 같은 값이면 정답이에요"
-        case .essay: return "핵심 내용으로 부분 점수를 매겨요"
+        case .multipleChoice: return L("고른 번호로 채점해요")
+        case .shortAnswer: return L("띄어쓰기·기호는 무시해요")
+        case .math: return L("0.5 = 1/2처럼 같은 값이면 정답이에요")
+        case .essay: return L("핵심 내용으로 부분 점수를 매겨요")
         }
     }
 
@@ -329,7 +329,7 @@ struct MistakeGradingCard: View {
                 }
             }
         } else if kind == .essay {
-            field("내 답", text: $note.myAnswer, axis: .vertical, placeholder: "내가 쓴 답")
+            field(L("내 답"), text: $note.myAnswer, axis: .vertical, placeholder: L("내가 쓴 답"))
         } else if isOX {
             HStack(spacing: 8) {
                 Text("내 답").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
@@ -346,10 +346,10 @@ struct MistakeGradingCard: View {
                 }
             }
         } else {
-            field("내 답", text: $note.myAnswer, placeholder: "풀이 후 답을 입력")
+            field(L("내 답"), text: $note.myAnswer, placeholder: L("풀이 후 답을 입력"))
         }
-        field(kind == .essay ? "모범 답안" : "정답", text: $note.correctAnswer, axis: kind == .essay ? .vertical : .horizontal,
-              placeholder: kind == .essay ? "모범 답안이나 채점 기준 (핵심 내용)" : (kind == .math ? "비우면 모티가 직접 풀어서 확인" : (isOX ? "O 또는 X" : "정답 (여러 개면 | 로 구분)")))
+        field(kind == .essay ? L("모범 답안") : L("정답"), text: $note.correctAnswer, axis: kind == .essay ? .vertical : .horizontal,
+              placeholder: kind == .essay ? L("모범 답안이나 채점 기준 (핵심 내용)") : (kind == .math ? L("비우면 모티가 직접 풀어서 확인") : (isOX ? L("O 또는 X") : L("정답 (여러 개면 | 로 구분)"))))
     }
 
     private func field(_ title: String, text: Binding<String>, axis: Axis = .horizontal, placeholder: String) -> some View {
@@ -377,14 +377,14 @@ struct MistakeGradingCard: View {
             ForEach(result.reasons, id: \.self) { reason in
                 Text(MathSymbolBar.pretty(reason)).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
             }
-            Text("채점 방법: \(result.method)" + (result.answerSource.isEmpty ? "" : " · 정답: \(result.answerSource)"))
+            Text(L("채점 방법: \(result.method)") + (result.answerSource.isEmpty ? "" : L(" · 정답: \(result.answerSource)")))
                 .font(.pt(.caption2)).foregroundStyle(.secondary)
             if result.verdict == .needsReview || result.verdict == .partial {
-                Text(result.verdict == .needsReview ? "모티가 확실하게 채점할 수 없었어요. 직접 골라 주세요." : "부분 정답이에요. 최종 결과를 골라 주세요.")
+                Text(result.verdict == .needsReview ? L("모티가 확실하게 채점할 수 없었어요. 직접 골라 주세요.") : L("부분 정답이에요. 최종 결과를 골라 주세요."))
                     .font(.pt(.caption).weight(.semibold))
                 HStack(spacing: 10) {
-                    confirmButton("맞았어요", correct: true)
-                    confirmButton("틀렸어요", correct: false)
+                    confirmButton(L("맞았어요"), correct: true)
+                    confirmButton(L("틀렸어요"), correct: false)
                 }
             }
         }
@@ -399,7 +399,7 @@ struct MistakeGradingCard: View {
             guard var result = note.grade else { return }
             result.verdict = correct ? .correct : .wrong
             result.score = correct ? 1 : result.score
-            result.method += " · 직접 확인"
+            result.method += L(" · 직접 확인")
             finish(result)
         } label: {
             Text(title).font(.pt(.subheadline).weight(.bold)).frame(maxWidth: .infinity).padding(.vertical, 10)
@@ -468,26 +468,26 @@ struct MistakeAnalysisCard: View {
     var body: some View {
         if let analysis = note.analysis {
             VStack(alignment: .leading, spacing: 12) {
-                FlowHeader(number: 3, title: "왜 틀렸을까?", symbol: "magnifyingglass", trailing: analysis.certainty.rawValue,
+                FlowHeader(number: 3, title: "왜 틀렸을까?", symbol: "magnifyingglass", trailing: analysis.certainty.rawValue.loc,
                            trailingColor: analysis.certainty == .confirmed ? Palette.success : (analysis.certainty == .estimated ? Palette.warning : .secondary))
                 HStack(spacing: 8) {
-                    Text(analysis.cause.rawValue)
+                    Text(analysis.cause.rawValue.loc)
                         .font(.pt(.title3).weight(.bold))
                         .foregroundStyle(analysis.cause == .unknown ? .secondary : Palette.danger)
                     if analysis.certainty == .estimated { Text("(추정)").font(.pt(.caption)).foregroundStyle(.secondary) }
                 }
                 Text(analysis.explanation).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
                 if !analysis.missedConcepts.isEmpty {
-                    section("놓친 개념", items: analysis.missedConcepts, symbol: "lightbulb")
+                    section(L("놓친 개념"), items: analysis.missedConcepts, symbol: "lightbulb")
                 }
                 // 근거·풀이 방향·복습은 펼쳐서
                 if !analysis.evidence.isEmpty || !analysis.direction.isEmpty || !analysis.review.isEmpty || !analysis.next.isEmpty {
-                    DisclosureGroup("자세히") {
+                    DisclosureGroup(L("자세히")) {
                         VStack(alignment: .leading, spacing: 10) {
-                            if !analysis.evidence.isEmpty { section("근거", items: analysis.evidence, symbol: "newspaper.fill") }
-                            if !analysis.direction.isEmpty { section("풀이 방향", items: [analysis.direction], symbol: "arrow.turn.up.right") }
-                            if !analysis.review.isEmpty { section("복습", items: analysis.review, symbol: "book") }
-                            if !analysis.next.isEmpty { section("다음 학습", items: analysis.next, symbol: "flag.checkered") }
+                            if !analysis.evidence.isEmpty { section(L("근거"), items: analysis.evidence, symbol: "newspaper.fill") }
+                            if !analysis.direction.isEmpty { section(L("풀이 방향"), items: [analysis.direction], symbol: "arrow.turn.up.right") }
+                            if !analysis.review.isEmpty { section(L("복습"), items: analysis.review, symbol: "book") }
+                            if !analysis.next.isEmpty { section(L("다음 학습"), items: analysis.next, symbol: "flag.checkered") }
                         }
                         .padding(.top, 6)
                     }
@@ -524,11 +524,11 @@ struct WeakConceptBadge: View {
                     HStack {
                         Label("이 문제의 개념: \(concept.concept)", systemImage: "target").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
                         Spacer()
-                        TagLabel(text: concept.state.rawValue, color: stateColor(concept.state))
+                        TagLabel(text: concept.state.rawValue.loc, color: stateColor(concept.state))
                     }
                     MasteryBar(value: concept.mastery)
-                    Text("오답 \(concept.wrongCount)회 · 풀이 \(concept.attemptCount)회 · 최근 \(concept.lastStudiedAt.kr("M월 d일"))"
-                         + (concept.mainCause.map { " · 주된 원인 \($0)" } ?? ""))
+                    Text("오답 \(concept.wrongCount)회 · 풀이 \(concept.attemptCount)회 · 최근 \(concept.lastStudiedAt.ui("M월 d일"))"
+                         + (concept.mainCause.map { L(" · 주된 원인 \($0)") } ?? ""))
                         .font(.pt(.caption)).foregroundStyle(.secondary)
                 }
                 .softCard()
@@ -577,7 +577,7 @@ struct WeakConceptListView: View {
                 }
                 .pickerStyle(.segmented)
                 if shown.isEmpty {
-                    EmptyStateView(symbol: "checkmark.seal", title: "연습할 개념이 없어요")
+                    EmptyStateView(symbol: "checkmark.seal", title: L("연습할 개념이 없어요"))
                         .softCard()
                 }
                 ForEach(shown) { concept in
@@ -589,14 +589,14 @@ struct WeakConceptListView: View {
                                     .font(.pt(.caption)).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            TagLabel(text: concept.state.rawValue, color: stateColor(concept.state))
+                            TagLabel(text: concept.state.rawValue.loc, color: stateColor(concept.state))
                         }
                         MasteryBar(value: concept.mastery)
-                        Text("숙련도 \(Int(concept.mastery * 100))% · 오답 \(concept.wrongCount)회 · 최근 \(concept.lastStudiedAt.kr("M월 d일"))"
+                        Text("숙련도 \(Int(concept.mastery * 100))% · 오답 \(concept.wrongCount)회 · 최근 \(concept.lastStudiedAt.ui("M월 d일"))"
                              + (concept.mainCause.map { " · \($0)" } ?? ""))
                             .font(.pt(.caption)).foregroundStyle(.secondary)
                         if let last = concept.records.last {
-                            Text("마지막 풀이: \(last.source) \(last.level)단계 \(last.correct ? "정답" : "오답")").font(.pt(.caption2)).foregroundStyle(.secondary)
+                            Text("마지막 풀이: \(last.source.loc) \(last.level)단계 \(last.correct ? L("정답") : L("오답"))").font(.pt(.caption2)).foregroundStyle(.secondary)
                         }
                         if DoitStudy.catalog.contains(where: { $0.subjectName == concept.subject && $0.unit == concept.unit }) {
                             NavigationLink {

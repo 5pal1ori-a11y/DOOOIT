@@ -30,7 +30,7 @@ struct GuidedSolveEntryCard: View {
                     .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
                     Text("AI와 함께 풀기").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
-                    Text(ready ? (note.guidedSolve?.summary ?? "힌트를 보며 직접 풀어요") : "문제를 먼저 확인해 주세요")
+                    Text(ready ? (note.guidedSolve?.summary ?? L("힌트를 보며 직접 풀어요")) : L("문제를 먼저 확인해 주세요"))
                         .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -117,7 +117,7 @@ struct GuidedSolveView: View {
             } label: {
                 HStack(spacing: 6) {
                     SubjectTag(label: note.subjectLabel)
-                    Text(showProblem ? "문제" : problemText.replacingOccurrences(of: "\n", with: " "))
+                    Text(showProblem ? L("문제") : problemText.replacingOccurrences(of: "\n", with: " "))
                         .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(showProblem ? Palette.ink : .secondary)
                         .lineLimit(1)
@@ -129,7 +129,7 @@ struct GuidedSolveView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(showProblem ? "문제 접기" : "문제 펼치기")
+            .accessibilityLabel(showProblem ? L("문제 접기") : L("문제 펼치기"))
 
             if showProblem {
                 Text(MathSymbolBar.pretty(problemText))
@@ -195,7 +195,7 @@ struct GuidedSolveView: View {
 
     private func explainCard(_ message: GuidedSolveSession.Message) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(message.label ?? "풀이", systemImage: "checkmark.seal.fill")
+            Label(message.label ?? L("풀이"), systemImage: "checkmark.seal.fill")
                 .font(.pt(.caption).weight(.bold))
                 .foregroundStyle(Theme.accent)
             if !message.text.isEmpty {
@@ -226,8 +226,8 @@ struct GuidedSolveView: View {
 
     private func toneLabel(_ tone: GuidedSolveSession.Message.Tone) -> String? {
         switch tone {
-        case .good: return "맞았어요"
-        case .retry: return "다시 생각해 봐요"
+        case .good: return L("맞았어요")
+        case .retry: return L("다시 생각해 봐요")
         default: return nil
         }
     }
@@ -266,9 +266,9 @@ struct GuidedSolveView: View {
     private var statusPill: some View {
         let text: String
         switch session.phase {
-        case .solved: text = "풀었어요"
-        case .revealed: text = "답 봄"
-        case .solving: text = "힌트 \(session.hintsUsed)"
+        case .solved: text = L("풀었어요")
+        case .revealed: text = L("답 봄")
+        case .solving: text = L("힌트 \(session.hintsUsed)")
         }
         let color = session.phase == .solved ? Palette.success : (session.phase == .revealed ? Palette.warning : Theme.accent)
         return Text(text)
@@ -358,14 +358,14 @@ struct GuidedSolveView: View {
     private var chips: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                chip("힌트 더", "lightbulb") { send(.hint) }
-                chip("이 단계 맞아?", "checkmark.circle") {
+                chip(L("힌트 더"), "lightbulb") { send(.hint) }
+                chip(L("이 단계 맞아?"), "checkmark.circle") {
                     let text = input
                     input = ""
                     send(.check(text))
                 }
-                chip("개념 설명", "book") { send(.concept) }
-                chip("답 보기", "eye") { send(.reveal) }
+                chip(L("개념 설명"), "book") { send(.concept) }
+                chip(L("답 보기"), "eye") { send(.reveal) }
             }
         }
         .scrollIndicators(.hidden)
@@ -387,7 +387,7 @@ struct GuidedSolveView: View {
 
     private func inputRow(_ plan: DoitGuidedSolve.Plan) -> some View {
         HStack(spacing: 8) {
-            TextField(plan.isMath ? "식이나 답, 질문을 적어요" : "답이나 질문을 적어요", text: $input, axis: .vertical)
+            TextField(plan.isMath ? L("식이나 답, 질문을 적어요") : L("답이나 질문을 적어요"), text: $input, axis: .vertical)
                 .lineLimit(1...4)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()

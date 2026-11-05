@@ -40,9 +40,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .system: return "시스템 설정"
-        case .light: return "밝게"
-        case .dark: return "어둡게"
+        case .system: return L("시스템 설정")
+        case .light: return L("밝게")
+        case .dark: return L("어둡게")
         }
     }
     var colorScheme: ColorScheme? {
@@ -124,10 +124,10 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
     var title: String {
         switch resolved {
-        case .midnight: return "미드나잇"
-        case .forest: return "포레스트"
-        case .twilight: return "트와일라이트"
-        default: return "오션"
+        case .midnight: return L("미드나잇")
+        case .forest: return L("포레스트")
+        case .twilight: return L("트와일라이트")
+        default: return L("오션")
         }
     }
 
@@ -267,9 +267,9 @@ extension View {
             .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
     }
 
-    func errorAlert(_ message: Binding<String?>, title: String = "알림") -> some View {
+    func errorAlert(_ message: Binding<String?>, title: String? = nil) -> some View {
         alert(
-            title,
+            title ?? L("알림"),
             isPresented: Binding(
                 get: { message.wrappedValue != nil },
                 set: { if !$0 { message.wrappedValue = nil } }

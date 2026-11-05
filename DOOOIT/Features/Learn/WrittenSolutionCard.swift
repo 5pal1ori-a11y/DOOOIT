@@ -29,7 +29,7 @@ struct WrittenSolutionCard: View {
             header
 
             if let solution {
-                PillSegmentedControl(items: Tab.allCases, selection: $tab) { $0.rawValue }
+                PillSegmentedControl(items: Tab.allCases, selection: $tab) { $0.rawValue.loc }
 
                 Group {
                     switch tab {
@@ -102,8 +102,8 @@ struct WrittenSolutionCard: View {
     private var emptyState: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(note.recognizedText.isEmpty
-                 ? "문제 탭에서 문제가 읽히면 단계별 풀이를 만들 수 있어요."
-                 : "생각할 점과 식을 단계별로 나눠서 정리해드려요. 먼저 직접 풀어보고 모범 답안과 비교해보세요.")
+                 ? L("문제 탭에서 문제가 읽히면 단계별 풀이를 만들 수 있어요.")
+                 : L("생각할 점과 식을 단계별로 나눠서 정리해드려요. 먼저 직접 풀어보고 모범 답안과 비교해보세요."))
                 .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button { Task { await generate() } } label: {
@@ -151,8 +151,8 @@ struct WrittenSolutionCard: View {
             .background(Palette.cardInset, in: .rect(cornerRadius: 14))
 
             VStack(alignment: .leading, spacing: 8) {
-                tip("textformat", "숫자·기호가 다르게 읽혔다면 고친 뒤 다시 시도해 주세요")
-                tip("chart.bar.fill", "그림·표가 필요한 문제는 필요한 값을 문제 글에 적어 주세요")
+                tip("textformat", L("숫자·기호가 다르게 읽혔다면 고친 뒤 다시 시도해 주세요"))
+                tip("chart.bar.fill", L("그림·표가 필요한 문제는 필요한 값을 문제 글에 적어 주세요"))
             }
 
             HStack(spacing: 10) {

@@ -37,13 +37,14 @@ struct StudyLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: StudyActivityAttributes.self) { context in
             StudyLockScreenView(context: context)
+                .environment(\.locale, AppLanguage.locale)
                 .activityBackgroundTint(Color.black.opacity(0.78))
                 .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     Label {
-                        Text(context.attributes.categoryName)
+                        Text(context.attributes.categoryName.loc)
                     } icon: {
                         Image(systemName: context.attributes.symbol)
                     }
@@ -61,7 +62,7 @@ struct StudyLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(context.attributes.title)
+                        Text(context.attributes.title.loc)
                             .font(.headline)
                             .foregroundStyle(.white)
                             .lineLimit(1)
@@ -91,9 +92,9 @@ struct StudyLiveActivity: Widget {
 
     private func statusText(for state: StudyActivityAttributes.ContentState) -> String {
         switch state.phase {
-        case .upcoming: return "시작까지 남은 시간 · 시간이 되면 타이머가 시작돼요"
-        case .studying: return "집중해서 공부하는 중"
-        case .paused: return "일시정지됨"
+        case .upcoming: return L("시작까지 남은 시간 · 시간이 되면 타이머가 시작돼요")
+        case .studying: return L("집중해서 공부하는 중")
+        case .paused: return L("일시정지됨")
         }
     }
 }
@@ -114,7 +115,7 @@ struct StudyLockScreenView: View {
                 Text(headline)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.7))
-                Text(context.attributes.title)
+                Text(context.attributes.title.loc)
                     .font(.headline)
                     .lineLimit(1)
             }
@@ -132,9 +133,9 @@ struct StudyLockScreenView: View {
 
     private var headline: String {
         switch context.state.phase {
-        case .upcoming: return "곧 시작해요 · MOTI"
-        case .studying: return "공부 중 · MOTI"
-        case .paused: return "일시정지 · MOTI"
+        case .upcoming: return L("곧 시작해요 · MOTI")
+        case .studying: return L("공부 중 · MOTI")
+        case .paused: return L("일시정지 · MOTI")
         }
     }
 }

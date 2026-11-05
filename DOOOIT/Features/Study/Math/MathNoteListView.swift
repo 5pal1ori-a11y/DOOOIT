@@ -6,6 +6,8 @@ struct MathNoteListView: View {
     enum Filter: String, CaseIterable, Identifiable {
         case all = "전체", unsolved = "미채점", wrong = "오답", correct = "정답"
         var id: String { rawValue }
+        /// 화면 이름 ("정답"은 상태 뜻으로: Correct)
+        var title: String { self == .correct ? L("정답(상태)") : rawValue.loc }
     }
 
     @Environment(\.modelContext) private var context
@@ -57,7 +59,7 @@ struct MathNoteListView: View {
                         .appearAnimation()
                     if !weakConcepts.isEmpty {
                         NavigationLink { WeakConceptListView() } label: {
-                            RowLabel(symbol: "target", color: Palette.pink, title: "취약 개념",
+                            RowLabel(symbol: "target", color: Palette.pink, title: L("취약 개념"),
                                      value: "\(weakConcepts.count)")
                                 .softCardBackground(cornerRadius: 20)
                         }
@@ -130,7 +132,7 @@ struct MathNoteListView: View {
             if isProcessing {
                 ProcessingOverlay(message: FigureReader.status)
             } else if isDetecting {
-                ProcessingOverlay(message: "문제 번호를 찾고 있어요")
+                ProcessingOverlay(message: L("문제 번호를 찾고 있어요"))
             }
         }
         .navigationDestination(item: $openedNote) { note in
@@ -156,7 +158,7 @@ struct MathNoteListView: View {
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(toReview > 0 ? "복습할 문제" : "모두 복습했어요")
+                    Text(toReview > 0 ? L("복습할 문제") : L("모두 복습했어요"))
                         .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text("\(toReview)개")
@@ -216,7 +218,7 @@ struct MathNoteListView: View {
                     Haptics.tap()
                 } label: {
                     HStack(spacing: 4) {
-                        Text(item.rawValue)
+                        Text(item.title)
                         Text("\(number)").monospacedDigit().opacity(0.7)
                     }
                     .font(.pt(.subheadline).weight(.semibold))
@@ -286,12 +288,12 @@ struct MathNoteListView: View {
         if DocumentScanner.isSupported {
             showScanner = true
         } else {
-            errorMessage = "이 기기에서는 카메라 스캔을 지원하지 않아요. 앨범에서 사진을 선택해주세요."
+            errorMessage = L("이 기기에서는 카메라 스캔을 지원하지 않아요. 앨범에서 사진을 선택해주세요.")
         }
     }
 
     private func createBlank() {
-        let note = MathNote(title: "오답 \(notes.count + 1)", imageData: nil, thumbnailData: nil, recognizedText: "")
+        let note = MathNote(title: L("오답 \(notes.count + 1)"), imageData: nil, thumbnailData: nil, recognizedText: "")
         if isAutoSubject {
             // 다 적은 뒤 글을 보고 과목을 정함 (그때까지는 수학)
             var scan = DoitProblemScan.scan("")
@@ -362,7 +364,7 @@ struct MathNoteListView: View {
             let graph = await VisionAnalyzer.analyze(pair.problem)
             let figure = await FigureReader.read(pair.problem, problemText: read.text, analysis: graph)
             let text = DoitFigureFacts.attach(figure, to: read.text)
-            let title = DoitProblemScan.titled(read.text, base: MathOCRFixer.title(from:)) ?? "오답 \(notes.count + i + 1)"
+            let title = DoitProblemScan.titled(read.text, base: MathOCRFixer.title(from:)) ?? L("오답 \(notes.count + i + 1)")
             let note = MathNote(
                 title: title,
                 imageData: pair.original.jpegForStorage(maxDimension: 2000),
@@ -397,7 +399,7 @@ struct MathNoteListView: View {
             read.text = DoitFigureFacts.attach(figure, to: read.text)
         }
         let note = MathNote(
-            title: DoitProblemScan.titled(read.text, base: DoitSubjectNote.title(from:)) ?? "오답 \(notes.count + index + 1)",
+            title: DoitProblemScan.titled(read.text, base: DoitSubjectNote.title(from:)) ?? L("오답 \(notes.count + index + 1)"),
             imageData: pair.original.jpegForStorage(maxDimension: 2000),
             thumbnailData: pair.problem.jpegForStorage(maxDimension: 400, quality: 0.6),
             recognizedText: read.text,
@@ -419,8 +421,8 @@ struct MathNoteListView: View {
 /// 그래프 분석 결과를 문제에 붙일 짧은 글 (식을 찾지 못하면 그렇다고만)
 @MainActor
 private func graphNote(_ analysis: ImageAnalysis) -> String {
-    if let equation = analysis.graph?.equation { return "그래프에서 찾은 식: \(equation) (눈으로 읽은 값이라 확인해 주세요)" }
-    return "그래프가 있지만 식을 읽지 못했어요. 필요한 값은 직접 적어 주세요."
+    if let equation = analysis.graph?.equation { return L("그래프에서 찾은 식: \(equation) (눈으로 읽은 값이라 확인해 주세요)") }
+    return L("그래프가 있지만 식을 읽지 못했어요. 필요한 값은 직접 적어 주세요.")
 }
 
 /// 오답노트 한 줄: 문제 사진 · 제목 · 유형·날짜 · 상태
@@ -478,7 +480,7 @@ private struct MathNoteRow: View {
         // 문제 유형 이름이 있으면 그것 (예: 빈칸 추론), 없으면 채점 방식 (객관식)
         if let type = note.scan?.problemType { parts.append(type.name) } else if let kind = note.kind { parts.append(kind.title) }
         if !note.unit.isEmpty { parts.append(note.unit) }
-        parts.append(note.createdAt.kr("M월 d일"))
+        parts.append(note.createdAt.ui("M월 d일"))
         return parts.joined(separator: " · ")
     }
 }

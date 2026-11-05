@@ -158,8 +158,8 @@ struct AISolutionCard: View {
 
     private var failedState: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(note.subjectKind.isMath ? "확실한 답을 찾지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요."
-                 : DoitMind.isAvailable ? "풀지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요." : "풀지 못했어요. 모티 AI 탭에서 모델을 받으면 더 많이 풀어요.")
+            Text(note.subjectKind.isMath ? L("확실한 답을 찾지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요.")
+                 : DoitMind.isAvailable ? L("풀지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요.") : L("풀지 못했어요. 모티 AI 탭에서 모델을 받으면 더 많이 풀어요."))
                 .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

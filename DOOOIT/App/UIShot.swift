@@ -8,7 +8,7 @@ import UIKit
 /// - 데모 계정 · 메모리 저장소(예시 데이터)로 바로 그 화면을 엶. 키체인·계정 저장소는 건드리지 않음
 /// - 설정값은 등록 기본값(registration domain)으로만 넣어서 저장되지 않음
 enum UIShotScreen: String, CaseIterable {
-    case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, appSettings, timer, auth
+    case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, timer, auth
     case badges, badgeNew, mockExam, mockResult, soundMixer, voice
     /// 영어 문법 단원 학습 (중학교 영어 · 현재완료): 개념 · O/X · 문제
     case grammar, grammarOX, grammarProblem
@@ -20,6 +20,10 @@ enum UIShotScreen: String, CaseIterable {
     }
     /// 앱스토어 사진용: 앱 잠금 켠 채 공부 중인 타이머 · 주간 AI 리포트 · 단어 카드 학습
     case timerLock, weeklyReport, wordSession
+    /// 계정 → 앱 (화면 모드 · 테마 · 언어)
+    case appSettings
+    /// 둘러보기(게스트) 상태의 계정 화면
+    case guestAccount
 }
 
 @MainActor
@@ -39,7 +43,11 @@ enum UIShot {
     }
 
     static var demoUser: UserAccount? {
-        screen == .auth ? nil : UserAccount(id: "uishot.demo", name: "김모티", email: "dooit@example.com", provider: .email, createdAt: Date())
+        switch screen {
+        case .auth: return nil
+        case .guestAccount: return UserAccount(id: AuthManager.guestID, name: "게스트", email: "", provider: .guest, createdAt: Date())
+        default: return UserAccount(id: "uishot.demo", name: "김모티", email: "dooit@example.com", provider: .email, createdAt: Date())
+        }
     }
 
     static var tab: AppTab {
@@ -48,13 +56,18 @@ enum UIShot {
              .weeklyReport, .wordSession: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
-        case .account, .accountSettings, .appSettings, .badges: return .account
+        case .account, .accountSettings, .appSettings, .badges, .guestAccount: return .account
         default: return .home
         }
     }
 
     /// 저장되지 않는 기본값으로만 (알림 권한 창·자동 타이머·라이브 액티비티 끔)
     static func prepareDefaults() {
+        // -uiLang en: 시스템 언어는 그대로 두고 앱 안에서 고른 것처럼 (다시 열지 않고 바로 바뀌는지 확인용)
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-uiLang"), i + 1 < args.count, let lang = AppLanguage(rawValue: args[i + 1]) {
+            AppLanguage.override = lang
+        }
         UserDefaults.standard.register(defaults: [
             "selectedTab": tab.rawValue,
             AppearanceMode.key: isDark ? AppearanceMode.dark.rawValue : AppearanceMode.light.rawValue,
@@ -79,6 +92,10 @@ enum UIShot {
 
     /// 화면이 뜬 뒤 할 일 (모티 AI 예시 대화, 타이머 열기)
     static func afterLaunch(timer: StudyTimer) async {
+        // 언어 확인용 (화면 사진 기록에 남김)
+        NSLog("uiShotLang code=%@ selected=%@ args=%@ preferred=%@", AppLanguage.code, AppLanguage.selected.rawValue,
+              UserDefaults.standard.stringArray(forKey: "AppleLanguages")?.joined(separator: ",") ?? "-",
+              Bundle.main.preferredLocalizations.joined(separator: ","))
         switch screen {
         case .ai:
             let assistant = DoitAssistant.shared

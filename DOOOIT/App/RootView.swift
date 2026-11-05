@@ -6,6 +6,8 @@ struct RootView: View {
     @Environment(AuthManager.self) private var auth
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
+    /// 고른 화면 언어 (바꾸면 화면 전체를 그 언어로 다시 그림)
+    @AppStorage(AppLanguage.storageKey) private var languageRaw = AppLanguage.system.rawValue
     @State private var showSplash: Bool = {
         #if DEBUG
         if UIShot.isActive { return false }
@@ -40,6 +42,9 @@ struct RootView: View {
         // 앱 전체 기본 글꼴: Pretendard
         .font(.pt(.body))
         .preferredColorScheme(AppearanceMode(rawValue: appearanceRaw)?.colorScheme)
+        // 고른 언어로 글자·날짜를 바로 바꿈 (다시 열면 시스템도 그 언어로 엶)
+        .environment(\.locale, AppLanguage.locale)
+        .id(languageRaw)
     }
 
     @ViewBuilder
@@ -104,27 +109,27 @@ struct MainTabView: View {
             Tab(value: AppTab.home) {
                 HomeView(selectedTab: $tab).tint(Theme.accent)
             } label: {
-                drawnIcon("홈", TabIcons.home())
+                drawnIcon(L("홈"), TabIcons.home())
             }
             Tab(value: AppTab.study) {
                 StudyView().tint(Theme.accent)
             } label: {
-                drawnIcon("학습", TabIcons.book())
+                drawnIcon(L("학습"), TabIcons.book())
             }
             Tab(value: AppTab.ai) {
                 DoitAIView().tint(Theme.accent)
             } label: {
-                tabIcon("모티 AI", "sparkles")
+                tabIcon(L("모티 AI"), "sparkles")
             }
             Tab(value: AppTab.planner) {
                 PlannerView().tint(Theme.accent)
             } label: {
-                drawnIcon("플래너", TabIcons.calendar(day: today))
+                drawnIcon(L("플래너"), TabIcons.calendar(day: today))
             }
             Tab(value: AppTab.account) {
                 AccountView().tint(Theme.accent)
             } label: {
-                tabIcon("계정", "person")
+                tabIcon(L("계정"), "person")
             }
         }
         // 탭 바의 고른 아이콘은 진한 글자색 (화면 안 버튼들은 각 탭에서 다시 보라색으로)

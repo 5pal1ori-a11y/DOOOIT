@@ -24,7 +24,7 @@ struct WeekChartWidgetView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Image(systemName: "chart.bar.fill")
-                    Text("이번 주 \(WidgetMath.compactHours(total))").fontWeight(.semibold)
+                    Text("이번 주 \(WidgetMath.compactHoursL(total))").fontWeight(.semibold)
                 }
                 .font(.caption)
                 .widgetAccentable()
@@ -35,13 +35,13 @@ struct WeekChartWidgetView: View {
         case .systemMedium:
             HStack(spacing: 16) {
                 VStack(alignment: .leading, spacing: 8) {
-                    WidgetHeader(title: "이번 주 공부", accent: snapshot.accent)
-                    Text(WidgetMath.compactHours(total))
+                    WidgetHeader(title: L("이번 주 공부"), accent: snapshot.accent)
+                    Text(WidgetMath.compactHoursL(total))
                         .font(.system(size: 28, weight: .black, design: .rounded))
                         .monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
                     Spacer(minLength: 0)
-                    stat("하루 평균", WidgetMath.durationText(average))
-                    stat("목표 달성", "\(goalDays)일")
+                    stat(L("하루 평균"), WidgetMath.durationTextL(average))
+                    stat(L("목표 달성"), L("\(goalDays)일"))
                 }
                 .frame(width: 104, alignment: .leading)
                 .accessibilityElement(children: .combine)
@@ -49,14 +49,14 @@ struct WeekChartWidgetView: View {
             }
         default:
             VStack(alignment: .leading, spacing: 6) {
-                WidgetHeader(title: "이번 주", trailing: WidgetMath.compactHours(total), accent: snapshot.accent)
+                WidgetHeader(title: L("이번 주"), trailing: WidgetMath.compactHoursL(total), accent: snapshot.accent)
                 bars(labels: true, values: false, goalLine: true, spacing: 5)
             }
         }
     }
 
     private var summaryLabel: String {
-        "이번 주 공부 \(WidgetMath.durationText(total)), 목표 달성 \(goalDays)일"
+        L("이번 주 공부 \(WidgetMath.durationTextL(total)), 목표 달성 \(goalDays)일")
     }
 
     private func stat(_ label: String, _ value: String) -> some View {
@@ -158,7 +158,7 @@ struct StreakWidgetView: View {
                     Text("\(streak)일 연속").font(.headline)
                 }
                 .widgetAccentable()
-                Text(studiedToday ? "오늘도 완료!" : "오늘 이어가요").font(.caption)
+                Text(studiedToday ? L("오늘도 완료!") : L("오늘 이어가요")).font(.caption)
                 weekDots(size: 9, on: .primary, off: .primary.opacity(0.25))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -178,7 +178,7 @@ struct StreakWidgetView: View {
                         .minimumScaleFactor(0.5).lineLimit(1)
                     Text("일").font(.title3.weight(.heavy))
                 }
-                Text(streak == 0 ? "오늘 시작해요" : (studiedToday ? "연속 공부 중" : "오늘 이어가요"))
+                Text(streak == 0 ? L("오늘 시작해요") : (studiedToday ? L("연속 공부 중") : L("오늘 이어가요")))
                     .font(.caption.weight(.semibold)).opacity(0.9)
                 weekDots(size: 12, on: .white, off: .white.opacity(0.3))
                     .padding(.top, 6)
@@ -270,7 +270,7 @@ struct NextPlanWidgetView: View {
     @ViewBuilder
     private func main(_ item: WidgetSnapshot.PlanItem?) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            WidgetHeader(title: "다음 일정", symbol: "clock.fill", accent: snapshot.accent)
+            WidgetHeader(title: L("다음 일정"), symbol: "clock.fill", accent: snapshot.accent)
             Spacer(minLength: 0)
             if let item {
                 let color = WidgetSnapshot.color(item.colorHex)
@@ -309,10 +309,10 @@ struct NextPlanWidgetView: View {
         let diff = WidgetMath.daysBetween(date, start)
         switch diff {
         case 0: return ""
-        case 1: return "내일 "
+        case 1: return L("내일 ")
         default:
             let weekday = Calendar.current.component(.weekday, from: start)
-            return "\(WidgetStyle.weekdays[weekday - 1]) "
+            return "\(AppDateFormat.shortWeekdaySymbols[weekday - 1]) "
         }
     }
 
@@ -349,7 +349,7 @@ struct QuickTimerWidgetView: View {
             .accessibilityLabel("25분 공부 시작")
         case .systemMedium:
             VStack(alignment: .leading, spacing: 10) {
-                WidgetHeader(title: "바로 공부", symbol: "timer", trailing: "오늘 \(WidgetMath.durationText(minutes))", accent: snapshot.accent)
+                WidgetHeader(title: L("바로 공부"), symbol: "timer", trailing: L("오늘 \(WidgetMath.durationTextL(minutes))"), accent: snapshot.accent)
                 HStack(spacing: 8) {
                     button(25, symbol: "leaf.fill")
                     button(50, symbol: "flame.fill")
@@ -376,11 +376,11 @@ struct QuickTimerWidgetView: View {
                 .frame(maxWidth: .infinity)
                 Spacer(minLength: 0)
                 Text("25분 집중").font(.headline.weight(.heavy))
-                Text("오늘 \(WidgetMath.durationText(minutes))").font(.caption2.weight(.semibold)).opacity(0.85)
+                Text("오늘 \(WidgetMath.durationTextL(minutes))").font(.caption2.weight(.semibold)).opacity(0.85)
             }
             .foregroundStyle(.white)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("25분 공부 시작, 오늘 \(WidgetMath.durationText(minutes)) 공부")
+            .accessibilityLabel("25분 공부 시작, 오늘 \(WidgetMath.durationTextL(minutes)) 공부")
         }
     }
 
@@ -389,12 +389,12 @@ struct QuickTimerWidgetView: View {
         Link(destination: WidgetLink.timer(minutes: target)) {
             VStack(spacing: 6) {
                 Image(systemName: symbol).font(.title3.weight(.bold))
-                Text(target == 0 ? "자유" : "\(target)분").font(.subheadline.weight(.heavy))
+                Text(target == 0 ? L("자유") : L("\(target)분")).font(.subheadline.weight(.heavy))
             }
             .foregroundStyle(target == 25 ? Color.white : snapshot.accent)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(target == 25 ? snapshot.accent : snapshot.accent.opacity(0.13), in: .rect(cornerRadius: 16))
         }
-        .accessibilityLabel(target == 0 ? "시간 제한 없이 공부 시작" : "\(target)분 공부 시작")
+        .accessibilityLabel(target == 0 ? L("시간 제한 없이 공부 시작") : L("\(target)분 공부 시작"))
     }
 }

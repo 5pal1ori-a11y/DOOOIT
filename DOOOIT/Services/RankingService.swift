@@ -16,9 +16,9 @@ final class RankingService {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .daily: return "일간"
-            case .weekly: return "주간"
-            case .monthly: return "월간"
+            case .daily: return L("일간")
+            case .weekly: return L("주간")
+            case .monthly: return L("월간")
             }
         }
         /// 한국 시간 ISO 달력 (월요일 시작 — App Store Connect에 만든 주간 리더보드와 같은 기준)
@@ -82,8 +82,8 @@ final class RankingService {
         case notSignedIn, notReady
         var errorDescription: String? {
             switch self {
-            case .notSignedIn: return "Game Center에 로그인하면 랭킹을 볼 수 있어요."
-            case .notReady: return "랭킹을 준비하고 있어요. 잠시 뒤에 다시 열어 주세요."
+            case .notSignedIn: return L("Game Center에 로그인하면 랭킹을 볼 수 있어요.")
+            case .notReady: return L("랭킹을 준비하고 있어요. 잠시 뒤에 다시 열어 주세요.")
             }
         }
     }
@@ -116,7 +116,7 @@ final class RankingService {
                 }
                 service.isAuthenticated = GKLocalPlayer.local.isAuthenticated
                 service.playerName = GKLocalPlayer.local.isAuthenticated ? GKLocalPlayer.local.displayName : ""
-                service.authMessage = error == nil ? nil : "Game Center에 로그인하지 못했어요. 설정 › Game Center에서 로그인해 주세요."
+                service.authMessage = error == nil ? nil : L("Game Center에 로그인하지 못했어요. 설정 › Game Center에서 로그인해 주세요.")
             }
         }
     }

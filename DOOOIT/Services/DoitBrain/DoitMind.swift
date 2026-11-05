@@ -53,6 +53,30 @@ enum DoitMind {
     - 인터넷 자료끼리 내용이 다르면 공공기관·백과사전·교과서에 가까운 쪽을 따르고, 엇갈린다고 짧게 말해요. 광고나 개인 의견은 사실처럼 말하지 않아요.
     """
 
+    // MARK: - 답하는 언어 (앱 화면 언어)
+
+    /// 모델이 대화에서 답할 언어 코드 ("ko" · "en" · "zh-Hans" · "ja"). 앱이 화면 언어로 정함, 기본 한국어 = 지금과 같음
+    /// (AI 풀이·채점·학습 자료처럼 한국어 형식을 읽는 곳은 그대로 한국어)
+    nonisolated(unsafe) static var replyLanguage = "ko"
+    static var repliesInKorean: Bool { replyLanguage == "ko" }
+
+    /// 다른 언어로 답하라는 한 줄 (한국어면 nil)
+    static var languageRule: String? {
+        switch replyLanguage {
+        case "en": return "Always answer in English."
+        case "zh-Hans": return "请始终用简体中文回答。"
+        case "ja": return "必ず日本語で答えてください。"
+        default: return nil
+        }
+    }
+
+    /// 대화용 성격: 화면 언어가 한국어가 아니면 한국어·해요체·한자 금지 줄을 빼고 그 언어로 답하게
+    static var chatPersona: String {
+        guard let rule = languageRule else { return persona }
+        let lines = persona.components(separatedBy: "\n").filter { !$0.contains("해요체") && !$0.contains("중국어나 한자로") }
+        return lines.joined(separator: "\n") + "\n- " + rule
+    }
+
     /// 깊게 생각(추론)하고 답하면 좋은 질문인지: 이유·원리·비교·계산·풀이
     static func needsReasoning(_ question: String) -> Bool {
         let t = question.lowercased().replacingOccurrences(of: " ", with: "")
@@ -104,6 +128,8 @@ enum DoitMind {
                 parts.append("짧고 간단하게 답해 주세요. 요약이나 결론은 붙이지 마세요.")
             }
         }
+        // 화면 언어가 한국어가 아니면 마지막에 한 번 더 (작은 모델은 마지막 지시를 잘 따름)
+        if let rule = languageRule { parts.append(rule) }
         return parts.joined(separator: "\n\n")
     }
 
@@ -481,7 +507,7 @@ extension DoitMind {
         guard isAvailable else { return nil }
         let context = await gather(question: question, draft: draft)
         let budget = budgetHistory(history, maxTokens: DoitBrain.shared.historyBudget)
-        guard let raw = try? await DoitBrain.shared.complete(system: persona, prompt: answerPrompt(question: question, context: context, history: [], summary: budget.summary),
+        guard let raw = try? await DoitBrain.shared.complete(system: chatPersona, prompt: answerPrompt(question: question, context: context, history: [], summary: budget.summary),
                                                              history: budget.recent) else { return nil }
         let text = chatAnswer(raw, question: question)
         guard isUsable(text, question: question) else { return nil }

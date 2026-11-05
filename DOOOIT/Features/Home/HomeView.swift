@@ -72,14 +72,14 @@ struct HomeView: View {
                 Image(systemName: Greeting.symbol(at: now))
                     .symbolRenderingMode(.multicolor)
                     .symbolEffect(.bounce, value: Greeting.symbol(at: now))
-                Text(now.kr("M월 d일 EEEE"))
+                Text(now.ui("M월 d일 EEEE"))
                 Spacer()
                 DDayChip()
             }
             .font(.pt(.subheadline).weight(.semibold))
             .foregroundStyle(.secondary)
 
-            Text(Greeting.text(name: auth.currentUser?.name ?? "유저", at: now))
+            Text(Greeting.textL(name: auth.currentUser?.name.loc ?? L("유저"), at: now))
                 .font(.pt(size: 28, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
@@ -129,17 +129,17 @@ struct HomeView: View {
                 .frame(width: 104, height: 104)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(studyTimer.isActive ? "집중하는 중" : "오늘 공부")
+                    Text(studyTimer.isActive ? L("집중하는 중") : L("오늘 공부"))
                         .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(studyTimer.isActive ? Palette.success : .secondary)
-                    Text(TimeText.duration(seconds: seconds))
+                    Text(TimeText.durationL(seconds: seconds))
                         .font(.pt(size: 30, weight: .bold))
                         .foregroundStyle(Palette.ink)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                         .contentTransition(.numericText())
                         .animation(Motion.spring, value: seconds / 60)
-                    Text(left == 0 ? "오늘 목표 달성! 🎉" : "목표까지 \(TimeText.duration(seconds: left))")
+                    Text(left == 0 ? L("오늘 목표 달성! 🎉") : L("목표까지 \(TimeText.durationL(seconds: left))"))
                         .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                 }
@@ -150,7 +150,7 @@ struct HomeView: View {
                 Button {
                     studyTimer.isPresented = true
                 } label: {
-                    Label(studyTimer.isActive ? "타이머 보기" : "집중 시작", systemImage: studyTimer.isActive ? "timer" : "play.fill")
+                    Label(studyTimer.isActive ? L("타이머 보기") : L("집중 시작"), systemImage: studyTimer.isActive ? "timer" : "play.fill")
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.primaryFill)
@@ -175,16 +175,16 @@ struct HomeView: View {
         let wordsLeft = doneToday ? 0 : min(wordGoal, unlearned)
         // 오늘 복습할 단어도 함께 셈
         let due = words.filter(\.isDueForReview).count
-        let wordValue = wordsLeft + due == 0 ? "완료" : "\(wordsLeft + due)개"
+        let wordValue = wordsLeft + due == 0 ? L("완료") : L("\(wordsLeft + due)개")
         let unsolved = mathNotes.filter { $0.status != .correct }.count
         return HStack(spacing: 10) {
-            tile(symbol: "flame.fill", color: Palette.peach, value: "\(streak(now: now))일", label: "연속 공부")
+            tile(symbol: "flame.fill", color: Palette.peach, value: L("\(streak(now: now))일"), label: L("연속 공부"))
             NavigationLink { WordHomeView() } label: {
-                tile(symbol: "book.closed.fill", color: Theme.accent, value: wordValue, label: "오늘 단어")
+                tile(symbol: "book.closed.fill", color: Theme.accent, value: wordValue, label: L("오늘 단어"))
             }
             .buttonStyle(.pressable)
             NavigationLink { MathNoteListView() } label: {
-                tile(symbol: "pencil", color: Palette.pink, value: "\(unsolved)개", label: "복습할 오답")
+                tile(symbol: "pencil", color: Palette.pink, value: L("\(unsolved)개"), label: L("복습할 오답"))
             }
             .buttonStyle(.pressable)
         }
@@ -217,7 +217,7 @@ struct HomeView: View {
     private func plansSection(now: Date) -> some View {
         let occurrences = plans.occurrences(on: now)
         return VStack(alignment: .leading, spacing: 6) {
-            SectionTitle(title: "오늘 할 일") {
+            SectionTitle(title: L("오늘 할 일")) {
                 HStack(spacing: 14) {
                     if occurrences.count > 4 {
                         Button("전체 \(occurrences.count)") { showAllPlans = true }
@@ -229,7 +229,7 @@ struct HomeView: View {
 
             if occurrences.isEmpty {
                 Button { showNewPlan = true } label: {
-                    RowLabel(symbol: "plus", title: "할 일 추가", chevron: false)
+                    RowLabel(symbol: "plus", title: L("할 일 추가"), chevron: false)
                         .softCardBackground(cornerRadius: 20)
                 }
                 .buttonStyle(.pressable)
@@ -258,17 +258,17 @@ struct HomeView: View {
             let seconds = offset == 0
                 ? todaySeconds(now: now)
                 : sessions.filter { $0.start.isSameDay(as: day) }.reduce(0) { $0 + $1.seconds }
-            return DayStat(id: day.dayKey, label: day.kr("E"), minutes: seconds / 60, isToday: offset == 0)
+            return DayStat(id: day.dayKey, label: day.ui("E"), minutes: seconds / 60, isToday: offset == 0)
         }
         let total = stats.reduce(0) { $0 + $1.minutes }
 
         return VStack(alignment: .leading, spacing: 8) {
-            SectionTitle(title: "이번 주") {
+            SectionTitle(title: L("이번 주")) {
                 NavigationLink("자세히") { StatsView() }
             }
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(TimeText.duration(minutes: total))
+                    Text(TimeText.durationL(minutes: total))
                         .font(.pt(.title2).weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .contentTransition(.numericText())
