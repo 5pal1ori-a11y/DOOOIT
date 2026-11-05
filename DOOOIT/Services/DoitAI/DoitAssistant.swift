@@ -465,7 +465,7 @@ final class DoitAssistant {
             }
         }
         guard let previous = lastAnswer else { return nil }
-        // "Qwen 더 자세히 알려줘"처럼 다른 주제를 직접 말했으면 바로 전 답을 이어 가지 않음
+        // "Zeta 더 자세히 알려줘"처럼 다른 주제를 직접 말했으면 바로 전 답을 이어 가지 않음
         if let own = DoitDialogue.ownTopic(question), DoitStudyCheck.norm(own) != DoitStudyCheck.norm(previous.topic),
            !DoitStudyCheck.norm(previous.topic).contains(DoitStudyCheck.norm(own)) { return nil }
         if q.contains("더자세히") || q.contains("자세히알려") || q.contains("더알려") || q == "더" || q.contains("계속") {

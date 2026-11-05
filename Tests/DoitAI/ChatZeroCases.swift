@@ -2,7 +2,7 @@ import Foundation
 
 // 모티 ZERO(모델 없이) 대화 회귀 검사: 학생이 실제로 이상하다고 한 답들과 점검에서 찾은 이상한 답들
 // - 욕·손가락 욕("ㅗ")에 "무슨 뜻인지 헷갈려요"가 아니라 짧고 차분하게, 연달아 해도 같은 말 되풀이 없이
-// - "너 qwen이야", "너 무슨 AI이야?" → 모티 ZERO 소개 (모델 이름은 말하지 않음)
+// - "너 ○○야"(영어 이름), "너 무슨 AI이야?" → 모티 ZERO 소개 (모델 이름은 말하지 않음)
 // - 모르는 낱말 "더 자세히" → 엉뚱한 개념을 붙이지 않고 없다고 짧게
 // - 답에 "은(는)", "과(와)" 같은 조사 자리표시가 남지 않음
 
@@ -28,9 +28,13 @@ func runChatZeroCases() async {
     check("ZERO: 욕이 섞인 감정 말은 감정 답", ["피곤", "쉬", "잠", "스트레칭"].contains { reply.contains($0) }, reply)
 
     // 2) 모티 자신
-    for input in ["너 qwen이야", "너 무슨 AI이야?", "너 GPT야?", "너 챗지피티야?", "무슨 모델 써?"] {
+    for input in ["너 zeta야", "너 무슨 AI이야?", "너 LLM이야?", "너 챗봇이야?", "넌 abc냐", "무슨 모델 써?", "너 AI 맞아?"] {
         (reply, _) = await last([input])
-        check("ZERO: '\(input)' → 모티 ZERO 소개", reply.contains("모티 ZERO") && reply.contains("AI 모델 없이") && !reply.lowercased().contains("qwen") && !reply.contains("GPT"), reply)
+        check("ZERO: '\(input)' → 모티 ZERO 소개", reply.contains("모티 ZERO") && reply.contains("AI 모델 없이") && !reply.lowercased().contains("zeta"), reply)
+    }
+    for input in ["너 바보야?", "너 천재야?"] {
+        (reply, _) = await last([input])
+        check("ZERO: '\(input)'는 소개가 아님", !reply.contains("AI 모델 없이"), reply)
     }
     (reply, _) = await last(["너 무슨 AI이야?"])
     check("ZERO: 모티 1·2는 오픈소스 AI 모델", reply.contains("오픈소스 AI 모델"), reply)
@@ -44,7 +48,7 @@ func runChatZeroCases() async {
     check("ZERO: 말이 이상하다는 말엔 사과와 설명", reply.contains("미안") && reply.contains("모티 ZERO"), reply)
 
     // 3) 모르는 낱말 "더 자세히": 엉뚱한 개념 없이 짧게
-    for inputs in [["Qwen 더 자세히 알려줘"], ["너 무슨 AI이야?", "Qwen 더 자세히 알려줘"], ["광합성이 뭐야?", "Qwen 더 자세히 알려줘"]] {
+    for inputs in [["Zeta 더 자세히 알려줘"], ["너 무슨 AI이야?", "Zeta 더 자세히 알려줘"], ["광합성이 뭐야?", "Zeta 더 자세히 알려줘"]] {
         (reply, _) = await last(inputs)
         check("ZERO: \(inputs) → 모른다고 짧게", reply.contains("몰라") && !reply.contains("함께 알아두면") && !reply.contains("더 알아보기") && !reply.contains("광합성")
               && !reply.contains("가정법") && reply.count <= 90, reply)
@@ -53,15 +57,15 @@ func runChatZeroCases() async {
     check("ZERO: 아는 주제 '더 자세히'에 빈 제목 없음", !reply.contains("더 알아보기") && !reply.contains("혈액 순환"), reply)
 
     // 4) 조사 자리표시 없음 (모르는 말·되묻기·도구 답)
-    let probes: [[String]] = [["너 무슨 AI이야?"], ["아인슈타인 누구야"], ["Qwen이 뭐야"], ["광합성이 뭐야?", "왜?"], ["기회비용이 뭐야?", "왜 중요해?"],
+    let probes: [[String]] = [["너 무슨 AI이야?"], ["아인슈타인 누구야"], ["Zeta가 뭐야"], ["광합성이 뭐야?", "왜?"], ["기회비용이 뭐야?", "왜 중요해?"],
                               ["주식 뭐 사?"], ["무지개는 왜 생겨?"], ["맞춤법 검사해줘: 어의없다"], ["임진왜란 언제야", "누가 이겼어?"], ["CPU가 뭐야"], ["피자랑 치킨 중에 골라줘"]]
     for inputs in probes {
         (reply, _) = await last(inputs)
         check("ZERO: \(inputs) 조사 자리표시 없음", !placeholders.contains { reply.contains($0) }, reply)
     }
-    check("조사 고르기", DoitRelevance.with("AI", "은") == "AI는" && DoitRelevance.with("Qwen", "은") == "Qwen은" && DoitRelevance.with("광합성", "이") == "광합성이"
+    check("조사 고르기", DoitRelevance.with("AI", "은") == "AI는" && DoitRelevance.with("Zen", "은") == "Zen은" && DoitRelevance.with("광합성", "이") == "광합성이"
           && DoitRelevance.with("수학", "으로") == "수학으로" && DoitRelevance.with("서울", "으로") == "서울로" && DoitRelevance.with("3", "을") == "3을" && DoitRelevance.with("2", "을") == "2를",
-          [DoitRelevance.with("AI", "은"), DoitRelevance.with("Qwen", "은"), DoitRelevance.with("서울", "으로"), DoitRelevance.with("2", "을")].joined(separator: ","))
+          [DoitRelevance.with("AI", "은"), DoitRelevance.with("Zen", "은"), DoitRelevance.with("서울", "으로"), DoitRelevance.with("2", "을")].joined(separator: ","))
 
     // 5) 점검에서 찾은 엉뚱한 답
     let fixes: [(inputs: [String], expect: [String], reject: [String])] = [

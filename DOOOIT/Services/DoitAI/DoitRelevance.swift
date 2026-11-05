@@ -282,7 +282,7 @@ enum DoitRelevance {
         return Guard(text: text + modelHint(), suggestions: ["뭐 할 수 있어?"], modelMayAnswer: true)
     }
 
-    /// 이름씨(명사)처럼 보이는 낱말인지 ("아인슈타인", "Qwen"은 되고 "중요해", "생겨", "이겼어"는 아님)
+    /// 이름씨(명사)처럼 보이는 낱말인지 ("아인슈타인", "CPU"는 되고 "중요해", "생겨", "이겼어"는 아님)
     static func isNounish(_ word: String) -> Bool {
         let chars = Array(word)
         guard let last = chars.last else { return false }

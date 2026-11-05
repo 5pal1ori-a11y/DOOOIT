@@ -97,7 +97,7 @@ enum DoitTutor {
     static func more(about topic: String, previous: String) -> String {
         let key = topic.lowercased().filter { !$0.isWhitespace }
         let exact = DoitKnowledge.entries.first { entry in entry.names.contains { $0.lowercased().filter { !$0.isWhitespace } == key } }
-        // (비슷한 개념은 이름에 주제가 들어 있을 때만: "Qwen" → 아무 영어 문법 개념이 아님)
+        // (비슷한 개념은 이름에 주제가 들어 있을 때만: 모르는 영어 낱말 → 아무 영어 문법 개념이 아님)
         let close = DoitKnowledge.search(topic, limit: 1).first.flatMap { match -> DoitKnowledge.Entry? in
             guard match.score >= 0.6 else { return nil }
             let names = match.entry.names.map { $0.lowercased().filter { !$0.isWhitespace } }
