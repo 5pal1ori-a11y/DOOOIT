@@ -108,7 +108,7 @@ enum DoitConversation {
         if has(t, ["골라줘", "골라", "뭐할까", "뭐먹을까", "선택해줘", "정해줘", "중에뭐", "중뭐", "중에하나"]),
            let options = choices(in: text), options.count >= 2 {
             let pick = options.randomElement()!
-            return Answer(text: "음… **\(pick)**(으)로 할게요! 🎯\n고민될 땐 일단 정하고 시작하는 게 제일 좋아요.", suggestions: ["다시 골라줘"])
+            return Answer(text: "음… **\(pick)**\(DoitRelevance.josa(pick, "으로")) 할게요! 🎯\n고민될 땐 일단 정하고 시작하는 게 제일 좋아요.", suggestions: ["다시 골라줘"])
         }
         // 메뉴 추천
         if has(t, ["메뉴추천", "뭐먹지", "점심추천", "저녁추천", "야식추천", "간식추천", "먹을거추천"]) {
@@ -174,7 +174,7 @@ enum DoitConversation {
             }
             if let target {
                 let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: target)).day ?? 0
-                return Answer(text: days == 0 ? "\(label)은(는) 바로 오늘이에요! 🎉" : "\(label)까지 **\(days)일** 남았어요. (D-\(days))",
+                return Answer(text: days == 0 ? "\(DoitRelevance.with(label, "은")) 바로 오늘이에요! 🎉" : "\(label)까지 **\(days)일** 남았어요. (D-\(days))",
                               suggestions: ["\(label) D-Day 설정해줘"])
             }
         }
@@ -278,7 +278,7 @@ enum DoitConversation {
              replies: ["저는 잠을 안 자도 돼요. 대신 꼭 푹 자야 해요! 잠이 기억을 정리해 줘요 🌙"]),
         Talk(patterns: ["친구할래", "친구하자", "우리친구", "친구해줘"],
              replies: ["좋아요! 오늘부터 공부 친구예요 🤝 힘들 때나 심심할 때 언제든 말 걸어줘요."]),
-        Talk(patterns: ["보고싶었어", "오랜만이야", "오랜만", "왔어"],
+        Talk(patterns: ["보고싶었어", "오랜만이야", "오랜만", "나왔어", "또왔어"],
              replies: ["저도 보고 싶었어요! 오늘은 어떤 공부를 해볼까요?", "반가워요! 다시 와줘서 고마워요 😊"], chips: ["오늘 할 일 알려줘"]),
         Talk(patterns: ["재밌는얘기해줘", "이야기해줘", "썰풀어줘", "재미있는사실", "재밌는사실", "신기한사실", "재밌는거알려", "신기한거알려", "tmi"],
              replies: ["신기한 사실! 문어는 심장이 3개예요 🐙", "꿀은 상하지 않아서 수천 년 된 꿀도 먹을 수 있대요 🍯", "번개는 태양 표면보다 약 5배 뜨거워요 ⚡",
@@ -303,7 +303,7 @@ enum DoitConversation {
              replies: ["할 일이 많을 땐 목록부터 써요! 마감이 가까운 것 → 오래 걸리는 것 순서로 플래너에 넣으면 훨씬 덜 막막해요."], chips: ["오늘 할 일 알려줘", "메모해줘: 해야 할 과제"]),
         Talk(patterns: ["선생님이싫어", "선생님무서워", "쌤싫어"],
              replies: ["선생님이랑 잘 안 맞을 때도 있어요. 그래도 수업 내용만큼은 내 것으로 만들어요! 모르는 건 저한테 물어봐도 돼요."]),
-        Talk(patterns: ["연애", "좋아하는사람", "짝사랑", "고백"],
+        Talk(patterns: ["연애", "좋아하는사람", "짝사랑", "고백", "여자친구", "남자친구", "여친", "남친", "썸타", "썸남", "썸녀"],
              replies: ["두근두근한 이야기네요 💗 마음을 표현할 땐 솔직하고 상대를 배려하는 게 제일 중요해요. 공부도 연애도 응원할게요!"]),
         Talk(patterns: ["엄마한테혼났", "아빠한테혼났", "혼났어"],
              replies: ["속상했겠어요. 혼날 땐 억울한 마음도 들죠. 마음이 조금 가라앉으면 내 생각을 차분히 이야기해 보는 건 어때요?"]),
@@ -327,6 +327,13 @@ enum DoitConversation {
              replies: ["당연하죠! 여기까지 온 것만으로도 정말 대단해요 👏", "최고예요! 꾸준히 하는 사람이 결국 이겨요 💪"]),
         Talk(patterns: ["욕해줘", "나쁜말해줘"],
              replies: ["저는 나쁜 말은 안 해요 😅 대신 좋은 말 해 줄게요: 생각보다 훨씬 잘하고 있어요!"]),
+        Talk(patterns: ["맛있었", "맛있다", "맛있어", "맛있는거먹", "급식맛있", "맛집갔"],
+             replies: ["맛있는 거 먹으면 기분 좋죠 😋 든든하게 먹었으니 공부도 힘내 봐요!", "오, 좋았겠다! 맛있게 먹은 날은 기분도 좋죠."]),
+        Talk(patterns: ["아무것도안했", "하나도안했", "공부안했", "공부를안했", "한게없어", "놀기만했", "아무것도못했", "하나도못했"],
+             replies: ["괜찮아요, 그런 날도 있어요. 지금 딱 10분만 해 볼까요?", "괜찮아요. 오늘 남은 시간에 하나만 해도 충분해요. 10분 타이머 켜 줄까요?"],
+             chips: ["10분 타이머 시작해줘", "오늘 할 일 알려줘"]),
+        Talk(patterns: ["학교다녀왔", "학원다녀왔", "집왔어", "집도착", "다녀왔어"],
+             replies: ["다녀왔어요? 수고 많았어요! 잠깐 쉬고 시작해요.", "어서 와요! 오늘 하루 어땠어요?"], chips: ["오늘 할 일 알려줘"]),
         Talk(patterns: ["몰라", "모르겠어", "글쎄"],
              replies: ["괜찮아요. 천천히 생각해도 돼요. 무엇을 도와줄지 정하기 어렵다면 오늘 할 일부터 같이 봐요."], chips: ["오늘 할 일 알려줘"]),
         Talk(patterns: ["재미없어", "노잼이야", "너재미없어"],
@@ -375,7 +382,7 @@ enum DoitConversation {
 
     // MARK: - 모를 때
 
-    private static let positive = ["좋아", "행복", "신나", "기뻐", "최고", "재밌", "설레", "뿌듯", "다행", "성공", "합격", "칭찬받"]
+    private static let positive = ["좋아", "행복", "신나", "기뻐", "최고", "재밌", "설레", "뿌듯", "다행", "성공", "합격", "칭찬받", "맛있", "좋았", "신났"]
     private static let negative = ["싫어", "짜증", "슬퍼", "우울", "힘들", "피곤", "아파", "속상", "걱정", "망했", "화나", "외로", "별로", "안좋", "최악", "꿀꿀", "답답", "안외워", "안돼", "못하겠"]
 
     private static func fallback(_ text: String, _ t: String, topic: String? = nil) -> Answer {
@@ -396,9 +403,16 @@ enum DoitConversation {
         if has(t, negative) {
             return Answer(text: personalize(pick(["그랬군요… 많이 힘들었겠어요. 무슨 일인지 조금 더 이야기해 줄래요?", "마음이 무거운 날이네요. 제가 들을게요. 천천히 말해 줘요.", "괜찮아요, 그런 날도 있어요. 무슨 일 있었는지 이야기해 줄래요?"])))
         }
-        return Answer(text: personalize(pick(["음, 무슨 말인지 잘 모르겠어요. 조금만 더 말해 줄래요?", "제가 잘 이해했는지 모르겠어요. 한 번만 더 자세히 말해 줄래요?", "앗, 무슨 뜻인지 헷갈려요. 조금 다르게 말해 줄래요?"])),
-                      suggestions: ["뭐 할 수 있어?", "오늘 할 일 알려줘"])
+        // 바로 전에도 못 알아들었으면 같은 말을 되풀이하지 않고, 이렇게 말해 달라고 예를 보여 줌
+        if let shown = DoitTone.lastShown, fallbackLines.contains(where: { shown.contains($0) }) {
+            return Answer(text: "제가 아직 못 알아듣는 말이에요. 이렇게 말해 주면 바로 할게요: \"광합성이 뭐야?\", \"25분 타이머\", \"오늘 할 일 알려줘\"",
+                          suggestions: ["뭐 할 수 있어?", "모티 1이랑 뭐가 달라?"])
+        }
+        return Answer(text: personalize(pick(fallbackLines)), suggestions: ["뭐 할 수 있어?", "오늘 할 일 알려줘"])
     }
+
+    /// 못 알아들었을 때 하는 말 (짧게)
+    static let fallbackLines = ["음, 무슨 말인지 잘 모르겠어요. 조금만 더 말해 줄래요?", "앗, 제가 못 알아들었어요. 다르게 한 번만 말해 줄래요?"]
 
 
     // MARK: - 도구

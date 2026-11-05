@@ -92,33 +92,46 @@ enum DoitTutor {
         return DoitConversation.reply(text).text
     }
 
-    /// 같은 주제를 더 자세히: 지식 사전의 전체 설명 + 함께 보면 좋은 개념
+    /// 같은 주제를 더 자세히: 지식 사전의 전체 설명 (앞에서 다 보여 줬으면 그렇다고 짧게) + 아주 가까운 개념 한두 개
+    /// 사전에 없는 주제는 짐작하지 않고 없다고 짧게 (엉뚱한 개념을 "함께 알아두면 좋은 개념"으로 붙이지 않음)
     static func more(about topic: String, previous: String) -> String {
         let key = topic.lowercased().filter { !$0.isWhitespace }
         let exact = DoitKnowledge.entries.first { entry in entry.names.contains { $0.lowercased().filter { !$0.isWhitespace } == key } }
-        let entry = exact ?? DoitKnowledge.search(topic, limit: 1).first.flatMap { $0.score >= 0.4 ? $0.entry : nil }
+        // (비슷한 개념은 이름에 주제가 들어 있을 때만: "Qwen" → 아무 영어 문법 개념이 아님)
+        let close = DoitKnowledge.search(topic, limit: 1).first.flatMap { match -> DoitKnowledge.Entry? in
+            guard match.score >= 0.6 else { return nil }
+            let names = match.entry.names.map { $0.lowercased().filter { !$0.isWhitespace } }
+            return names.contains { $0.contains(key) || key.contains($0) } ? match.entry : nil
+        }
+        guard let entry = exact ?? close else {
+            return "'\(topic)'\(DoitRelevance.josa(topic, "은")) 제가 가진 자료에 없어서 더 자세히는 몰라요."
+        }
         var lines: [String] = []
-        if let entry, !previous.contains(entry.body.prefix(30)) {
+        let rest = entry.body.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && !previous.contains($0) }
+        if !previous.contains(entry.body.prefix(30)) {
             lines.append("**\(entry.title)** 자세히")
             lines.append(entry.body)
-        } else if let entry, !previous.contains(entry.body) {
+        } else if !rest.isEmpty {
             // 앞에서 앞부분만 보여 줬으면 나머지 줄
-            let rest = entry.body.components(separatedBy: "\n").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty && !previous.contains($0) }
             lines.append("**\(entry.title)** 자세히")
-            lines.append(rest.isEmpty ? entry.body : rest.joined(separator: "\n"))
+            lines.append(rest.joined(separator: "\n"))
         } else {
-            lines.append("**\(topic)** 더 알아보기")
+            lines.append("'\(entry.title)'\(DoitRelevance.josa(entry.title, "은")) 앞에서 말한 게 제가 가진 내용 전부예요.")
         }
-        let related = DoitKnowledge.related(to: entry?.title ?? topic, limit: 3)
+        // 함께 보면 좋은 개념: 같은 과목에서 이름이나 설명에 주제가 나오는 것만, 두 개까지
+        let titleKey = entry.title.lowercased().filter { !$0.isWhitespace }
+        let related = DoitKnowledge.related(to: entry.title, limit: 4).filter { item in
+            let body = (item.names.joined(separator: " ") + " " + item.body).lowercased().filter { !$0.isWhitespace }
+            return body.contains(titleKey) || entry.body.lowercased().filter({ !$0.isWhitespace }).contains(item.title.lowercased().filter { !$0.isWhitespace })
+        }.prefix(2)
         if !related.isEmpty {
-            lines.append("\n함께 알아두면 좋은 개념")
+            lines.append("\n함께 보면 좋아요")
             for item in related {
                 let first = item.body.components(separatedBy: "\n").first ?? ""
-                lines.append("• **\(item.title)**: \(first)")
+                lines.append("• **\(item.title)**: \(DoitMemory.trimmed(first, max: 90))")
             }
-        }
-        if lines.count == 1 {
-            lines.append("이 주제는 제가 아는 내용을 이미 다 알려드렸어요. 퀴즈로 확인해 볼까요?")
+        } else if lines.count == 1 {
+            lines.append("퀴즈로 확인해 볼까요?")
         }
         return lines.joined(separator: "\n")
     }

@@ -26,6 +26,8 @@ enum DoitKnowledge {
         list += DoitScience.knowledgeEntries.map { Entry(subject: "과학", names: $0.names, body: $0.body) }
         list += DoitSocial.knowledgeEntries.map { Entry(subject: "사회", names: $0.names, body: $0.body) }
         list += DoitEnglish.knowledgeEntries.map { Entry(subject: "영어", names: $0.names, body: $0.body) }
+        // 자주 묻는 인물·현상·맞춤법 (모델 없이도 답할 수 있게 직접 정리한 것)
+        list += DoitZeroFacts.entries.map { Entry(subject: $0.subject, names: $0.names, body: $0.body) }
         // 초등 ~ 대학교 교육과정 사전 (같은 이름이 이미 있으면 앞의 설명을 남기고 건너뜀)
         // (같은 이름이면 다른 이름들은 앞 개념의 다른 이름으로 더함: "공리주의"의 "벤담과 밀")
         func squash(_ s: String) -> String { s.lowercased().filter { !$0.isWhitespace } }
@@ -195,6 +197,8 @@ enum DoitKnowledge {
                 let best = entries[i].names.map { tokenScore(query: queryWords, name: $0) }.max() ?? 0
                 score = max(score, best)
             }
+            // 이름이 질문 낱말과 똑같으면 조금 더 ("소수" → '복소수'가 아니라 '소수')
+            if queryWords.count == 1, item.names.contains(q) || item.names.contains(DoitRelevance.stripParticle(q)) { score = min(1, score + 0.06) }
             if score > 0.18 { results.append(Match(entry: entries[i], score: score)) }
         }
         return Array(results.sorted { $0.score > $1.score }.prefix(limit))
@@ -210,7 +214,16 @@ enum DoitKnowledge {
             return key.count >= 2 && asked.contains(key) && !best.entry.title.lowercased().filter({ !$0.isWhitespace }).contains(key)
         }
         var text = "**\(best.entry.title)** (\(alias.map { "\($0) · " } ?? "")\(best.entry.label))\n\(best.entry.body)"
-        let others = search(query, limit: 4).dropFirst().filter { $0.score >= 0.35 }.map(\.entry.title)
+        // 함께 보면 좋은 개념: 같은 과목이고 이름이 질문 낱말로 시작하거나 ("소수" → '소수와 합성수') 같은 갈래인 것 ("은유법" → '직유법')만
+        // ("빛의 분산"에 통계 '분산', "안 않 구분"에 '분류'처럼 낱말만 겹치는 개념은 붙이지 않음)
+        let asks = words(query).map { DoitRelevance.stripParticle($0) }.filter { $0.count >= 2 }
+        let bestTitle = best.entry.title.lowercased().filter { !$0.isWhitespace }
+        let others = search(query, limit: 4).dropFirst().filter { match in
+            guard match.score >= 0.35, match.entry.subject == best.entry.subject else { return false }
+            let title = match.entry.title.lowercased().filter { !$0.isWhitespace }
+            let sameKind = title.count >= 3 && bestTitle.count >= 3 && title.suffix(2) == bestTitle.suffix(2)
+            return asks.contains { title.hasPrefix($0) } || sameKind
+        }.map(\.entry.title)
         if !others.isEmpty { text += "\n\n함께 보면 좋아요: " + others.joined(separator: ", ") }
         return text
     }
