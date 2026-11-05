@@ -120,6 +120,19 @@ func runHandwritingCases() {
     let r8 = HandwritingFilter.clean(thin.p, lines: [line("다음 중 +일차방정", x: 20, y: 20, size: 30)], mode: .text)
     check("필기: 인쇄 줄 속 가는 기호는 필기 아님", r8.report.tokens.allSatisfy { !$0.hand } && r8.report.erased == 0, r8.report.lines.joined(separator: " / "))
 
+    // 6-4) 써 넣은 답 줄
+    check("필기 내용: 써 넣은 답 줄", HandwritingFilter.looksLikeAnswerNote("답: 3") && HandwritingFilter.looksLikeAnswerNote("정답 ④")
+          && !HandwritingFilter.looksLikeAnswerNote("답을 고르시오.") && !HandwritingFilter.looksLikeAnswerNote("정답과 가장 가까운 것은?"))
+
+    // 6-5) 파란 펜 메모의 한글이 인쇄 한글보다 많아도 기준은 검정 (인쇄를 지우지 않음)
+    var scarce = Paper(620, 240)
+    scarce.glyphs(20, 20, count: 7, size: 30, black)      // "0.3 × 0.4의 값은?" 처럼 한글이 적은 줄
+    scarce.glyphs(60, 150, count: 5, size: 30, blue)      // 파란 펜 메모 (한글 5자)
+    let scarceLines = [line("0.3 × 0.4의 값은?", x: 20, y: 20, size: 30), line("여기서 조심하기", x: 60, y: 150, size: 30, confidence: 0.6, angle: 3)]
+    let r9 = HandwritingFilter.clean(scarce.p, lines: scarceLines, mode: .text)
+    check("필기: 기준은 검정 유지", r9.report.reference?.hue == .neutral, "\(String(describing: r9.report.reference))")
+    check("필기: 검정 인쇄 줄은 남김", Paper(p: r9.pixels).color(20 + 30 / 5 + 1, 20 + 10).0 < 60, r9.report.lines.joined(separator: " / "))
+
     // 7) 내용 판정
     check("필기 내용: 답 쓰기", HandwritingFilter.looksLikeWork("답: 4") && HandwritingFilter.looksLikeWork("x=4") && HandwritingFilter.looksLikeWork("3×4=12"))
     check("필기 내용: 인쇄 문장은 아님", !HandwritingFilter.looksLikeWork("다음 중 옳은 것은?") && !HandwritingFilter.looksLikeWork("2018"))

@@ -189,8 +189,17 @@ enum FigureVision {
         // 적힌 값이 모자라면 그래프 판독의 절편·꼭짓점(정수·0.5 단위로 맞춘 것)을 더해 보고,
         // 그 식이 판독한 곡선과 거의 같을 때만 씀 (적힌 값과 그림이 서로 맞는지 확인)
         if let graph, !exact.isEmpty {
+            // 꼭짓점·절편이 정수·0.5 단위로 떨어진 것만 더함 (픽셀에서 잰 어중간한 값이 적힌 값을 덮지 않게)
+            let crisp = pixelLines.filter { !$0.hasPrefix("그래프의 식") }.filter { line in
+                let numbers = line.matches(of: #/-?\d+(?:\.\d+)?/#).compactMap { Double($0.0) }
+                return !numbers.isEmpty && numbers.allSatisfy { ($0 * 2).rounded() == $0 * 2 }
+            }
+            // 절편·점 먼저, 꼭짓점은 마지막에 (꼭짓점이 어긋나면 식 전체가 틀려서)
             var merged = exact
-            for line in pixelLines.dropFirst() where !merged.contains(where: { same($0, line) }) { merged.append(line) }
+            for line in crisp.sorted(by: { !$0.hasPrefix("꼭짓점") && $1.hasPrefix("꼭짓점") }) where !merged.contains(where: { same($0, line) }) {
+                merged.append(line)
+                if let eq = DoitFigureFacts.graphEquation(merged, hint: problem), agrees(eq, graph) { return merged }
+            }
             if let eq = DoitFigureFacts.graphEquation(merged, hint: problem), agrees(eq, graph) { return merged }
         }
         return pixelLines + exact
@@ -280,7 +289,10 @@ enum FigureVision {
     /// 그래프 판독 → 줄 (눈금이나 적힌 숫자로 좌표를 맞춘 직선·포물선만)
     static func graphLines(_ graph: GraphAnalysis) -> [String] {
         guard graph.calibrated, graph.kind == .linear || graph.kind == .quadratic, let equation = graph.equation else { return [] }
-        var lines = ["그래프의 식은 " + equation.replacingOccurrences(of: "−", with: "-")]
+        // 픽셀로 맞춘 계수가 정수·0.5 단위에서 멀면 (y = -1.3x² …) 식은 빼고 절편·꼭짓점만
+        // (어중간한 식을 그대로 믿고 풀지 않게: 확인 화면에서 학생이 볼 값만 남김)
+        let crisp = graph.coefficients.allSatisfy { abs($0 - ($0 * 2).rounded() / 2) < 0.13 }
+        var lines = crisp ? ["그래프의 식은 " + equation.replacingOccurrences(of: "−", with: "-")] : []
         // 픽셀에서 잰 값이라 정수·0.5 단위로 맞춰 보여 줌 (식과 같은 다듬기)
         func shown(_ v: Double) -> String { VisionMath.format(VisionMath.nice(v)).replacingOccurrences(of: "−", with: "-") }
         for point in graph.keyPoints {

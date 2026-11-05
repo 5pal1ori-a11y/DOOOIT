@@ -203,17 +203,24 @@ enum HandwritingFilter {
             glyphs = sure.flatMap { line in line.glyphs.filter { !$0.char.isWhitespace && ($0.ink?.count ?? 0) >= 6 } }
             refLines = sure
         }
-        guard glyphs.count >= 3, let contrast = median(glyphs.compactMap { $0.ink?.contrast }) else { return nil }
+        guard glyphs.count >= 3 else { return nil }
         var hues: [Hue: Int] = [:]
         for g in glyphs { if let h = g.ink?.hue { hues[h, default: 0] += 1 } }
-        let hue = hues.max { $0.value < $1.value }?.key ?? .neutral
-        let chroma = median(glyphs.compactMap { $0.ink?.chroma }) ?? 0
+        // 인쇄는 대부분 검정: 다른 색 글자가 검정의 2배(그리고 6자) 이상일 때만 색 인쇄 페이지로 봄
+        // (파란 펜 메모의 한글이 몇 자 많다고 파랑을 인쇄로 보지 않게)
+        let neutralCount = hues[.neutral] ?? 0
+        let top = hues.filter { $0.key != .neutral }.max { $0.value < $1.value }
+        let hue: Hue = (top.map { $0.value >= max(6, neutralCount * 2) } ?? false) ? top!.key : .neutral
+        // 대비·채도는 그 색 글자에서만 잼
+        let sameHue = glyphs.filter { $0.ink?.hue == hue }
+        guard let contrast = median((sameHue.isEmpty ? glyphs : sameHue).compactMap { $0.ink?.contrast }) else { return nil }
+        let chroma = median((sameHue.isEmpty ? glyphs : sameHue).compactMap { $0.ink?.chroma }) ?? 0
         // 줄 높이: 글자 상자 높이 (두 줄이 한 줄로 읽혀도 흔들리지 않게), 기울기: 글자 수만큼 무게
         let height = median(glyphs.compactMap { $0.box.map { Double($0.height) } }) ?? median(refLines.map { Double($0.box.height) }) ?? 20
         let angleLines = refLines.filter { $0.text.filter { !$0.isWhitespace }.count >= 4 }
         let weighted = angleLines.flatMap { line in Array(repeating: line.angle, count: line.text.filter { !$0.isWhitespace }.count) }
         let angle = median(weighted) ?? median(lines.map(\.angle)) ?? 0
-        let peak = median(glyphs.compactMap { $0.ink?.peak }) ?? contrast
+        let peak = median((sameHue.isEmpty ? glyphs : sameHue).compactMap { $0.ink?.peak }) ?? contrast
         return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle)
     }
 
@@ -251,6 +258,12 @@ enum HandwritingFilter {
         let mean = bottoms.reduce(0, +) / Double(bottoms.count)
         let sd = (bottoms.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(bottoms.count)).squareRoot()
         return sd / height
+    }
+
+    /// 줄 전체가 "답: 3", "정답 ④" 꼴 (문제 사진에서는 거의 늘 학생이 써 넣은 답)
+    static func looksLikeAnswerNote(_ text: String) -> Bool {
+        text.trimmingCharacters(in: .whitespaces)
+            .range(of: #"^(답|정답)\s*[:：=)]?\s*[①②③④⑤0-9a-zA-Z.\-−/]{1,6}$"#, options: .regularExpression) != nil
     }
 
     static func tokens(_ lines: [Line], reference ref: Reference, mode: Mode) -> [Token] {
@@ -302,7 +315,7 @@ enum HandwritingFilter {
                 }
                 if !known.isEmpty, light / n >= 0.6 {
                     let darkest = glyphs.compactMap { $0.ink?.peak }.max() ?? 0
-                    if darkest < max(ref.peak, ref.contrast) * 0.5 { score += 1.9; reasons.append("아주 연함") } else { score += 1.5; reasons.append("연함") }
+                    if darkest < max(ref.peak, ref.contrast) * 0.55 { score += 1.9; reasons.append("아주 연함") } else { score += 1.5; reasons.append("연함") }
                     if hangul >= 2 && printedShape { score -= 0.5; reasons.append("인쇄 모양") }
                 }
                 if score > 0, hangul == 0, core >= 2, !circled { score += 0.4; reasons.append("한글 없음") }
@@ -313,14 +326,21 @@ enum HandwritingFilter {
                     if line.confidence < 0.4 { score += 0.6; reasons.append("신뢰도 낮음") } else if line.confidence < 0.6 { score += 0.3; reasons.append("신뢰도 보통") }
                 }
                 if looksLikeWork(text) { score += 0.4; reasons.append("풀이 모양") }
+                // 줄 전체가 계산(2x=8)·써 넣은 답(답: 3)이면 조각마다 더함 (검정 펜 풀이는 색으로 못 가름)
+                let lineWork = looksLikeWork(line.text)
+                if lineWork, text != line.text { score += 0.6; reasons.append("풀이 줄") }
+                let answerNote = looksLikeAnswerNote(line.text)
+                if answerNote { score += 1.2; reasons.append("써 넣은 답") }
                 if let bottom = choiceBottom, Double(line.box.minY) > bottom + ref.lineHeight * 0.3, !circled {
-                    score += 0.8; reasons.append("보기 아래")
+                    score += lineWork || hangul == 0 ? 0.8 : 0.4; reasons.append("보기 아래")
                 }
                 if let w = wobble(glyphs, height: ref.lineHeight), w > 0.045 { score += w > 0.08 ? 0.9 : 0.6; reasons.append(String(format: "들쭉날쭉 %.2f", w)) }
                 // 인쇄 줄 안에 낀 한두 글자 조각(+, −, 괄호, ②)은 가는 획이라 연해 보일 뿐 (줄 대부분이 인쇄면 필기 아님)
                 let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
                 let lineNative = lineKnown.filter { tints[$0] == .native }.count
-                if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6 {
+                let belowChoices = choiceBottom.map { Double(line.box.minY) > $0 + ref.lineHeight * 0.3 } ?? false
+                if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
+                   !lineWork, !answerNote, !belowChoices {
                     score = 0; reasons = ["인쇄 줄 속 조각"]
                 }
                 let threshold = mode == .text ? 1.8 : 2.3
@@ -499,7 +519,7 @@ enum HandwritingFilter {
             let t = tint(bi, ref)
             let foreign = t == .colored || t == .light
             // 인쇄 자리 위에서도 지우는 큰 표시: 색 펜, 또는 아주 연한 연필 (흐린 인쇄 선을 연필로 보지 않게)
-            let strongForeign = t == .colored || (t == .light && bi.peak < max(ref.peak, ref.contrast) * 0.5)
+            let strongForeign = t == .colored || (t == .light && bi.peak < max(ref.peak, ref.contrast) * 0.55)
             let inHand = overlap(rect, handBoxes) >= 0.5
             let inPrinted = overlap(rect, printedBoxes) >= 0.5
             let isBig = Double(max(rect.width, rect.height)) > big
@@ -524,6 +544,13 @@ enum HandwritingFilter {
         }
         // 필기라고 볼 근거가 없으면 (인쇄만 있는 쪽: 잡티·흐린 가장자리뿐) 사진을 그대로 둠
         guard evidence else { return (pixels, report) }
+        // 지울 양이 페이지 잉크의 40%를 넘으면 판단이 잘못된 것 (색 인쇄 페이지 등) → 그대로 둠
+        let totalInk = max(1, isInk.reduce(0) { $0 + ($1 ? 1 : 0) })
+        let wipeTotal = wipes.reduce(0) { $0 + blobs[$1].count }
+        guard Double(wipeTotal) <= Double(totalInk) * 0.4 else {
+            report.tokens.append(Token(text: "(지울 양이 너무 많아 그대로 둠)", box: .zero, line: -1, score: 0, reasons: [], hand: false))
+            return (pixels, report)
+        }
         for index in wipes {
             report.marks += 1
             for i in blobs[index].pixels { erase(i) }
