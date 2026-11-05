@@ -29,6 +29,8 @@ struct ShapeAnalysis {
     var angleLabels: [Int: Double] = [:]
     /// 직각 표시(작은 네모)가 있는 꼭짓점
     var rightAngles: Set<Int> = []
+    /// 도형 안쪽 꼭짓점 가까이에 적힌 단위 없는 숫자 (각일 수 있음: 문제 글을 보고 판단)
+    var innerNumbers: [Int: Double] = [:]
 }
 
 enum ShapeReader {
@@ -175,6 +177,19 @@ enum ShapeReader {
         return parallel(dir(p[0], p[1]), dir(p[3], p[2])) || parallel(dir(p[1], p[2]), dir(p[0], p[3]))
     }
 
+    /// 점이 다각형 안에 있는지
+    static func inside(_ p: VPoint, _ polygon: [VPoint]) -> Bool {
+        guard polygon.count >= 3 else { return false }
+        var result = false
+        var j = polygon.count - 1
+        for i in 0..<polygon.count {
+            let a = polygon[i], b = polygon[j]
+            if (a.y > p.y) != (b.y > p.y), p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { result.toggle() }
+            j = i
+        }
+        return result
+    }
+
     // MARK: - 직각 표시
 
     /// 꼭짓점 바로 안쪽의 작은 네모 빈 곳 = 직각 표시 (각이 90°에 가까울 때만)
@@ -206,15 +221,21 @@ enum ShapeReader {
                 }
                 continue
             }
-            // 각 ("50°"): 가장 가까운 꼭짓점 (도형 안쪽에 적힌 것만)
-            if text.hasSuffix("°"), let value = Double(text.dropLast().replacingOccurrences(of: " ", with: "")), value > 0, value < 180 {
-                let inside = shape.bounds.insetBy(-4).contains(c.x, c.y)
-                if inside, let (i, d) = shape.vertices.enumerated().map({ ($0.offset, distance($0.element, c)) }).min(by: { $0.1 < $1.1 }), d < size * 0.4 {
-                    shape.angleLabels[i] = value
-                }
+            let nearest = shape.vertices.enumerated().map { ($0.offset, distance($0.element, c)) }.min { $0.1 < $1.1 }
+            // 각 ("50°", 글자 읽기가 °를 %·º·o로 읽은 것도): 도형 안쪽, 가장 가까운 꼭짓점
+            if let last = text.last, "°º˚%o".contains(last), let value = Double(text.dropLast().replacingOccurrences(of: " ", with: "")), value > 0, value < 180 {
+                if inside(c, shape.vertices), let (i, d) = nearest, d < size * 0.4 { shape.angleLabels[i] = value }
                 continue
             }
             guard let value = lengthValue(text) else { continue }
+            // 도형 안쪽에서 어느 변 가운데보다 꼭짓점에 더 가까운 숫자: 길이가 아니라 각일 수 있음 (° 를 못 읽은 "70")
+            if let (i, d) = nearest, inside(c, shape.vertices) {
+                let midDistance = (0..<n).map { k -> Double in
+                    let a = shape.vertices[k], b = shape.vertices[(k + 1) % n]
+                    return distance(VPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), c)
+                }.min() ?? .infinity
+                if d < midDistance, d < size * 0.4 { shape.innerNumbers[i] = value; continue }
+            }
             var best: (Int, Double)?
             for i in 0..<n {
                 let d = segmentDistance(c, shape.vertices[i], shape.vertices[(i + 1) % n])

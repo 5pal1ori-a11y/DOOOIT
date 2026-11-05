@@ -267,10 +267,31 @@ enum FigureVision {
         return points.count >= 1 ? ["지나는 점 " + points.joined(separator: ", ")] : []
     }
 
+    /// 문제 글에 적힌 꼭짓점 이름(△ABC, 삼각형 ABC, 사각형 ABCD) 중 그림에서 하나만 못 읽었으면 남은 이름으로
+    /// (나머지 이름이 모두 그 이름들 안에 있을 때만, 순서는 그림의 둘레 방향과 무관하게 남은 하나만 채움)
+    static func fillVertexName(_ shape: inout ShapeAnalysis, problem: String) {
+        let n = shape.vertices.count
+        guard n == 3 || n == 4, shape.vertexNames.count == n - 1 else { return }
+        let pattern = n == 3 ? #"(?:△|삼각형\s*)([A-Z]{3})(?![A-Za-z])"# : #"(?:□|사각형\s*|사다리꼴\s*|평행사변형\s*|직사각형\s*|정사각형\s*|마름모\s*)([A-Z]{4})(?![A-Za-z])"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let m = regex.firstMatch(in: problem, range: NSRange(problem.startIndex..., in: problem)),
+              let r = Range(m.range(at: 1), in: problem) else { return }
+        let names = problem[r].map(String.init)
+        let known = Set(shape.vertexNames.values)
+        guard known.isSubset(of: Set(names)), Set(names).count == n else { return }
+        let missing = names.filter { !known.contains($0) }
+        guard missing.count == 1, let slot = (0..<n).first(where: { shape.vertexNames[$0] == nil }) else { return }
+        shape.vertexNames[slot] = missing[0]
+    }
+
     /// 도형 판독 → 줄 (꼭짓점 이름이 붙은 삼각형의 변 길이, 원의 반지름)
-    static func shapeLines(_ shapes: [ShapeAnalysis]) -> [String] {
+    /// problem: 문제 글 ("삼각형 ABC"에서 못 읽은 꼭짓점 이름 하나를 채우고, 각을 묻는지 봄)
+    static func shapeLines(_ shapes: [ShapeAnalysis], problem: String = "") -> [String] {
         var lines: [String] = []
-        for shape in shapes.prefix(2) {
+        let asksAngle = problem.contains("∠") || problem.contains("각") || problem.contains("°")
+        for var shape in shapes.prefix(2) {
+            fillVertexName(&shape, problem: problem)
+            if asksAngle { for (i, v) in shape.innerNumbers where shape.angleLabels[i] == nil && v < 180 { shape.angleLabels[i] = v } }
             let n = shape.vertices.count
             if shape.kind == .circle {
                 if let r = shape.sideLabels[0] { lines.append("원의 반지름 = \(VisionMath.format(r))") }

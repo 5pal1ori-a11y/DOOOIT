@@ -9,6 +9,7 @@ enum OCRService {
     static func recognize(_ image: UIImage, languageCorrection: Bool = true, languages: [String] = ["ko-KR", "en-US"]) async throws -> [OCRLine] { [] }
     static func recognizeMath(_ image: UIImage) async throws -> [OCRLine] { [] }
     static func readMathProblem(_ image: UIImage, thorough: Bool = true) async -> (text: String, improved: Bool) { ("", false) }
+    static func printedOnly(_ image: UIImage, mode: HandwritingFilter.Mode = .text) async -> UIImage { image }
 }
 enum MathSymbolBar { static func pretty(_ s: String) -> String { s } }
 @MainActor final class DoitActions {

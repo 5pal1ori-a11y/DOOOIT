@@ -142,6 +142,13 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         let px = pixels(image)
         var graph: GraphAnalysis?
         if let px, GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: labels), g.kind != .unknown { graph = g }
+        // 원인 찾기: 글자, 축, 곡선 점 수, 적힌 값
+        print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " "))
+        if let px {
+            let axes = GraphReader.findAxes(px)
+            let curve = GraphReader.curvePixels(px, axes: axes, labels: labels).points.count
+            print("   축: \(axes.map { "x축 y=\(Int($0.xAxisY)) y축 x=\(Int($0.yAxisX))" } ?? "없음") · 곡선 점 \(curve) · 판독 \(graph?.equation ?? "-") · 적힌 값 \(FigureVision.axisLines(labels, pixels: px, problem: c.problem))")
+        }
         return FigureVision.graphFacts(labels, pixels: px, graph: graph, problem: c.problem)
     case .geometry, .none:
         guard let px = pixels(image) else { return [] }
@@ -149,7 +156,7 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         let labels = await appLabels(image)
         do { print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " ")) }
         let shapes = ShapeReader.analyze(px, labels: labels).filter { $0.bounds.w * $0.bounds.h >= minArea }
-        return FigureVision.shapeLines(shapes)
+        return FigureVision.shapeLines(shapes, problem: c.problem)
     }
 }
 

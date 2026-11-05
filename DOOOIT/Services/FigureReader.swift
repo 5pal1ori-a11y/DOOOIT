@@ -59,7 +59,7 @@ enum FigureReader {
                 }
                 if !lines.isEmpty { return .init(kind: .graph, lines: lines, source: "기본 판독") }
             }
-            let lines = FigureVision.shapeLines(analysis?.shapes ?? [])
+            let lines = FigureVision.shapeLines(analysis?.shapes ?? [], problem: problemText)
             return lines.isEmpty ? nil : .init(kind: .geometry, lines: lines, source: "기본 판독")
         case .none:
             return nil
