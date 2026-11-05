@@ -37,6 +37,66 @@ enum DoitRelevance {
         }
     }
 
+    /// 낱말 끝소리에 받침이 있는지 (has), 그 받침이 ㄹ인지 (rieul). 한글이 아니면 읽는 소리로 짐작
+    /// (숫자: 1 일·3 삼·6 육·7 칠·8 팔·0 영은 받침 / 영어 약자: L 엘·M 엠·N 엔·R 알은 받침 / 영어 낱말: m·n·ng·l·k·p·b로 끝나면 받침)
+    static func finalSound(_ word: String) -> (has: Bool, rieul: Bool) {
+        let core = word.trimmingCharacters(in: CharacterSet(charactersIn: "'\"“”‘’*()[] .,!?~"))
+        guard let last = core.last else { return (false, false) }
+        if let final = batchim(last) { return (final != 0, final == 8) }
+        if last.isNumber {
+            switch last {
+            case "1", "7", "8": return (true, true)
+            case "0", "3", "6": return (true, false)
+            default: return (false, false)
+            }
+        }
+        guard last.isASCII, last.isLetter else { return (false, false) }
+        let letters = core.reversed().prefix { $0.isASCII && $0.isLetter }.reversed()
+        let tail = String(letters)
+        // 대문자 약자 (AI, DNA, GPS): 마지막 글자 이름으로
+        if tail.count <= 5, tail == tail.uppercased() {
+            switch last {
+            case "L", "R": return (true, true)
+            case "M", "N": return (true, false)
+            default: return (false, false)
+            }
+        }
+        let lower = tail.lowercased()
+        if lower.hasSuffix("le") || lower.hasSuffix("l") { return (true, true) }
+        if lower.hasSuffix("m") || lower.hasSuffix("n") || lower.hasSuffix("ng") || lower.hasSuffix("k") || lower.hasSuffix("ck")
+            || lower.hasSuffix("b") || (lower.hasSuffix("p") && !lower.hasSuffix("ph")) {
+            return (true, false)
+        }
+        return (false, false)
+    }
+
+    /// 받침에 맞는 조사만 ("은" → 은/는, "이" → 이/가, "을" → 을/를, "과" → 과/와, "으로" → 으로/로, "이에요" → 이에요/예요, "이야", "이라고", "이랑", "이나")
+    static func josa(_ word: String, _ particle: String) -> String {
+        let sound = finalSound(word)
+        let pairs: [String: String] = ["은": "는", "이": "가", "을": "를", "과": "와", "이에요": "예요", "이야": "야", "이라고": "라고",
+                                       "이랑": "랑", "이나": "나", "이라는": "라는", "이란": "란"]
+        if particle == "으로" { return sound.has && !sound.rieul ? "으로" : "로" }
+        if let without = pairs[particle] { return sound.has ? particle : without }
+        if let with = pairs.first(where: { $0.value == particle })?.key { return sound.has ? with : particle }
+        return particle
+    }
+
+    /// 낱말 + 알맞은 조사 ("광합성" + "은" → "광합성은", "AI" + "은" → "AI는")
+    static func with(_ word: String, _ particle: String) -> String { word + josa(word, particle) }
+
+    /// 모델(모티 1·2)이 없을 때 "모티 1·2를 받으면 더 자세히 답해요"를 붙일지 (DoitAssistant가 말을 받을 때마다 알려 줌)
+    static var noModel = true
+    /// 모델 안내를 붙인 뒤 지난 답 수 (같은 안내를 연달아 붙이지 않게)
+    static var sinceHint = 99
+
+    /// 모르는 답 끝에 붙이는 짧은 모델 안내 (모델이 없을 때만, 여러 번 연달아 붙이지 않음)
+    static func modelHint() -> String {
+        sinceHint += 1
+        guard noModel, sinceHint >= 4 else { return "" }
+        sinceHint = 0
+        return " 모티 1·2를 받으면 더 자세히 답해요."
+    }
+
     static let particles = ["으로부터", "에서부터", "이라는", "이라고", "에서는", "으로는", "에게서", "이랑", "에서", "에게", "한테", "까지", "부터", "처럼", "보다",
                             "으로", "이란", "이야", "라는", "라고", "에는", "와", "과", "을", "를", "은", "는", "이", "가", "의", "에", "로", "도", "만", "랑", "란", "야"]
 
@@ -106,7 +166,7 @@ enum DoitRelevance {
             var line = "시험에 어떤 문제가 나올지는 저도 몰라요."
             var chips = ["시험 기간 계획 어떻게 세워?"]
             if let topic, !topic.isEmpty {
-                line += " 대신 '\(topic)'은(는) 핵심 개념이라 퀴즈로 한 번 확인해 두면 좋아요."
+                line += " 대신 '\(topic)'\(josa(topic, "은")) 핵심 개념이라 퀴즈로 한 번 확인해 두면 좋아요."
                 chips = ["이걸로 퀴즈 내줘"]
             } else {
                 line += " 교과서 핵심 개념과 학교 기출, 선생님이 강조한 부분을 먼저 보는 게 가장 확실해요."
@@ -118,19 +178,24 @@ enum DoitRelevance {
         let rain = t.range(of: #"(비|눈|소나기)(가|이)?(와|오|올|내리|내려|온대)"#, options: .regularExpression) != nil && !has(t, ["이유", "원리", "왜", "과정"])
         let president = t.contains("대통령") && has(t, ["누구", "지금", "현재", "이번", "요즘"])
         let match = has(t, ["축구", "야구", "농구", "배구", "경기", "월드컵", "올림픽", "리그", "시합"]) && has(t, ["이겼", "졌", "결과", "스코어", "몇대몇", "누가", "우승"])
-        let asksLive = text.contains("?") || has(t, ["알려", "어때", "뭐야", "얼마", "몇", "누구", "언제", "결과", "올까", "오나", "오니", "나와", "어떻게돼", "됐어", "줘", "궁금", "알아"])
+        let asksLive = text.contains("?") || has(t, ["알려", "어때", "뭐야", "얼마", "몇", "누구", "누가", "언제", "결과", "올까", "오나", "오니", "나와", "어떻게돼", "됐어", "줘", "궁금", "알아"])
             || liveWords.contains { t.hasSuffix($0) }
         if !isCalc, asksLive, !asksConcept || rain, rain || president || match || has(t, liveWords) {
             let word = liveWords.first { t.contains($0) } ?? (rain ? "날씨" : match ? "경기결과" : "그 소식")
             let shown = ["요즘핫한": "요즘 유행", "요즘뜨는": "요즘 유행", "유행하는": "요즘 유행", "요즘인기": "요즘 유행", "골넣었": "경기 결과", "경기결과": "경기 결과",
                          "몇대몇": "경기 결과", "실시간": "실시간 소식", "출시": "출시 소식", "개봉": "개봉 소식", "컴백": "컴백 소식", "신곡": "신곡 소식"][word] ?? word
-            var line = "\(shown)처럼 실시간으로 바뀌는 정보는 제가 몰라요. 뉴스나 검색 앱에서 확인해 주세요."
+            var line = president && liveWords.first(where: { t.contains($0) }) == nil
+                ? "현재 대통령 같은 최신 정보는 제가 몰라요. 뉴스나 검색 앱에서 확인해 주세요."
+                : "\(shown)처럼 실시간으로 바뀌는 정보는 제가 몰라요. 뉴스나 검색 앱에서 확인해 주세요."
             let concepts = ["환율": "환율", "주식": "주식", "주가": "주식", "인플레이션": "인플레이션", "노벨상": "노벨상"]
             if let (key, name) = concepts.first(where: { t.contains($0.key) }), !key.isEmpty {
-                line += " '\(name)'의 뜻이 궁금하면 \"\(name)이(가) 뭐야?\"라고 물어봐 주세요."
+                line += " '\(name)'의 뜻이 궁금하면 \"\(with(name, "이")) 뭐야?\"라고 물어봐 주세요."
             }
             return Guard(text: line, modelMayAnswer: true)
         }
+
+        // 제가 도와줄 수 없는 일 (코딩·게임 공략·맛집 추천·알람): 짧게 솔직하게, 대신 할 수 있는 일을 알려 줌
+        if let scope = outOfScope(t) { return scope }
 
         // 개인 정보 (내 생일·친구 전화번호·우리 학교 급식…)
         let owners = ["내", "나의", "제", "우리", "엄마", "아빠", "친구", "선생님", "쌤", "동생", "형", "누나", "언니", "오빠", "할머니", "할아버지"]
@@ -144,14 +209,39 @@ enum DoitRelevance {
             let mine = ["내", "나의", "제"].contains(owner)
             let shown = text.range(of: thing, options: .caseInsensitive).map { String(text[$0]) } ?? thing
             if mine {
-                let label = thing.hasPrefix("어디") || thing == "어딨" ? "그건" : "\(shown)은(는)"
-                return Guard(text: "\(label) 제가 몰라요. \"기억해줘: 내 \(thing.hasPrefix("어디") ? "정보" : shown)은(는) …\"처럼 알려 주면 기억해 둘게요.",
+                let label = thing.hasPrefix("어디") || thing == "어딨" ? "그건" : with(shown, "은")
+                let thingWord = thing.hasPrefix("어디") ? "정보" : shown
+                return Guard(text: "\(label) 제가 몰라요. \"기억해줘: 내 \(with(thingWord, "은")) …\"처럼 알려 주면 기억해 둘게요.",
                              suggestions: ["배운 거 보여줘"])
             }
             if owner == "우리" {
                 return Guard(text: "그런 주변 정보는 제가 몰라요. 학교 알림장이나 아는 사람에게 직접 확인해 주세요.")
             }
             return Guard(text: "\(owner)의 개인 정보나 있는 곳은 제가 몰라요. 직접 물어보거나 확인해 주세요.")
+        }
+        return nil
+    }
+
+    /// 앱이 도와줄 수 없는 부탁 (모델이 있으면 모델이 대신 답해도 됨)
+    private static func outOfScope(_ t: String) -> Guard? {
+        let coding = ["코딩", "파이썬", "python", "자바스크립트", "javascript", "c언어", "c++", "html", "css", "프로그래밍", "코드짜", "코드좀짜", "코드만들",
+                      "for문", "while문", "if문", "앱만드는법", "앱개발"]
+        if has(t, coding) {
+            return Guard(text: "코딩은 아직 제가 도와줄 수 없어요. 대신 수학·영어·과학·사회 공부랑 일정·타이머는 바로 도와줄게요.",
+                         suggestions: ["뭐 할 수 있어?"], modelMayAnswer: true)
+        }
+        let games = ["티어", "배그", "롤토체스", "마인크래프트", "발로란트", "오버워치", "게임공략", "현질", "랭크올리", "랭겜"]
+        if has(t, games) {
+            return Guard(text: "게임 공략은 잘 몰라요 😅 쉬는 시간에 할 거면 타이머로 시간을 정해 두는 건 어때요?",
+                         suggestions: ["10분 타이머 시작해줘"], modelMayAnswer: true)
+        }
+        let picks = ["맛집", "유튜브추천", "유튜버추천", "웹툰추천", "옷추천", "선물추천"]
+        if has(t, picks) {
+            return Guard(text: "그런 추천은 제가 잘 몰라요. 대신 점심 메뉴는 골라 줄 수 있어요!", suggestions: ["점심 메뉴 추천해줘"], modelMayAnswer: true)
+        }
+        if has(t, ["알람", "깨워줘", "깨워줄", "깨워주", "모닝콜"]), !has(t, ["알림"]) {
+            return Guard(text: "알람은 제가 직접 맞출 수 없어요. 대신 \"내일 오전 7시 기상 추가해줘\"처럼 플랜을 넣으면 시작하기 전에 알림을 보내요.",
+                         suggestions: ["내일 오전 7시 기상 추가해줘"])
         }
         return nil
     }
@@ -167,23 +257,41 @@ enum DoitRelevance {
             return Guard(text: "어떤 걸 말하는지 조금 더 알려줄래요? 궁금한 낱말이나 문제를 같이 적어 주세요.", suggestions: ["뭐 할 수 있어?"])
         }
         let words = DoitDialogue.keywords(question).prefix(2)
-        // 바로 전 주제가 있는데 질문에 새 주제가 없으면 ("임진왜란 언제야" → "누가 이겼어?") 그 주제로 되물음
+        // 바로 전 주제가 있는데 질문에 새 주제가 없으면 ("임진왜란 언제야" → "누가 이겼어?") 그 주제에서 모른다고 짧게
         if let topic, !topic.isEmpty, question.count <= 14, DoitKnowledge.search(question, limit: 1).first.map({ $0.score < 0.45 }) ?? true {
-            if let first = words.first, !topic.contains(first) {
+            if let first = words.first, !topic.contains(first), isNounish(first) {
                 let word = question.range(of: first, options: .caseInsensitive).map { String(question[$0]) } ?? first
-                return Guard(text: "'\(word)'은(는) 아직 잘 몰라요. '\(topic)'과(와) 관련된 거라면 조금 더 자세히 적어 줄래요?",
-                             suggestions: ["\(topic) 더 자세히 알려줘"], modelMayAnswer: true)
+                return Guard(text: "'\(word)'\(josa(word, "은")) 아직 잘 몰라요." + modelHint(),
+                             suggestions: ["\(topic) 설명해줘"], modelMayAnswer: true)
             }
-            return Guard(text: "'\(topic)'에서 그 부분은 아직 잘 몰라요. \"\(topic) 설명해줘\"처럼 물어보면 아는 만큼 알려줄게요.",
+            return Guard(text: DoitTone.pick(["'\(topic)'에서 그 부분은 아직 잘 몰라요.", "'\(topic)'에서 그 부분은 제 자료에 없어서 잘 몰라요."]) + modelHint(),
                          suggestions: ["\(topic) 설명해줘"], modelMayAnswer: true)
         }
         guard !words.isEmpty else {
             return Guard(text: "무엇이 궁금한지 조금 더 자세히 알려줄래요?", suggestions: ["뭐 할 수 있어?"])
         }
+        // 이름 하나만 물었으면 그 이름으로 ("아인슈타인 누구야" → '아인슈타인'은), 아니면 "그건" (뜻 없는 낱말 조각을 따옴표로 보여 주지 않게)
         // (영어 낱말은 원래 대소문자로: "CPU")
         let label = words.map { w in question.range(of: w, options: .caseInsensitive).map { String(question[$0]) } ?? w }.joined(separator: " ")
-        return Guard(text: "'\(label)'은(는) 아직 잘 몰라요. 어떤 점이 궁금한지 조금 더 자세히 적어 줄래요?",
-                     suggestions: ["\(words[words.startIndex]) 설명해줘", "뭐 할 수 있어?"], modelMayAnswer: true)
+        let text: String
+        if words.count == 1, isNounish(label) {
+            text = DoitTone.pick(["'\(label)'\(josa(label, "은")) 아직 잘 몰라요.", "'\(label)'\(josa(label, "은")) 제가 가진 자료에 없어서 잘 몰라요."])
+        } else {
+            text = DoitTone.pick(["그건 아직 잘 몰라요.", "그건 제가 가진 자료에 없어서 잘 몰라요."])
+        }
+        return Guard(text: text + modelHint(), suggestions: ["뭐 할 수 있어?"], modelMayAnswer: true)
+    }
+
+    /// 이름씨(명사)처럼 보이는 낱말인지 ("아인슈타인", "CPU"는 되고 "중요해", "생겨", "이겼어"는 아님)
+    static func isNounish(_ word: String) -> Bool {
+        let chars = Array(word)
+        guard let last = chars.last else { return false }
+        if last.isASCII { return last.isLetter || last.isNumber }
+        // 풀어 쓴 끝맺음 ("중요해", "생겨", "파래", "이겼어", "됐어")
+        let endings: Set<Character> = ["해", "겨", "져", "줘", "돼", "봐", "워", "래", "냐", "까", "죠", "했", "었", "았", "네", "임", "함", "됨", "냥", "듯"]
+        if endings.contains(last) { return false }
+        if ["어", "아", "요", "다"].contains(last), chars.count >= 2, let final = batchim(chars[chars.count - 2]), final == 20 { return false }
+        return true
     }
 
     // MARK: - 짧게

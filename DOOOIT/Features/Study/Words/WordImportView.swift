@@ -25,7 +25,7 @@ struct WordImportView: View {
                     VStack(spacing: 14) {
                         ProgressView().controlSize(.large)
                         Text("읽는 중 · \(images.count)장")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.pt(.subheadline).weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                 } else {
@@ -74,7 +74,7 @@ struct WordImportView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             TextField("영어 단어", text: $item.term)
-                                .font(.body.weight(.semibold))
+                                .font(.pt(.body).weight(.semibold))
                                 .textInputAutocapitalization(.never)
                                 .autocorrectionDisabled()
                                 .foregroundStyle(item.unsure ? Palette.warning : Palette.ink)
@@ -83,7 +83,7 @@ struct WordImportView: View {
                                     item.unsure = false
                                 } label: {
                                     Text("맞아요")
-                                        .font(.caption.weight(.semibold))
+                                        .font(.pt(.caption).weight(.semibold))
                                         .foregroundStyle(Palette.warning)
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 3)
@@ -97,7 +97,7 @@ struct WordImportView: View {
                             .foregroundStyle(.secondary)
                         if item.meaning.trimmingCharacters(in: .whitespaces).isEmpty {
                             Text("뜻 없음")
-                                .font(.caption2)
+                                .font(.pt(.caption2))
                                 .foregroundStyle(Palette.danger)
                         }
                     }

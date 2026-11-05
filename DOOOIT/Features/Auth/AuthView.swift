@@ -15,8 +15,6 @@ struct AuthView: View {
     @Environment(\.colorScheme) private var scheme
 
     @State private var mode: Mode = .signIn
-    /// 예전 이메일 계정으로 들어가기 (기기에 이메일 계정이 있을 때만 보임)
-    @State private var showEmailLogin = false
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -87,24 +85,22 @@ struct AuthView: View {
                 .padding(.top, 14)
                 .shake(trigger: consentNudge)
 
-            // 예전에 이 기기에서 만든 이메일 계정: 기록을 그대로 쓰도록 로그인만 남겨 둠 (새 가입은 없음)
-            if auth.hasEmailAccounts {
-                if showEmailLogin {
-                    orDivider
-                        .padding(.vertical, 14)
-                    fields
-                        .shake(trigger: shakeTrigger)
-                    primaryButton
-                        .padding(.top, 18)
-                } else {
-                    Button("예전 이메일 계정으로 로그인") {
-                        withAnimation(Motion.spring) { showEmailLogin = true }
-                    }
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 18)
-                }
+            // 로그인 없이 둘러보기 (이 기기에만 저장 · iCloud 동기화와 랭킹은 로그인 뒤에)
+            Button {
+                guard checkConsent() else { return }
+                Haptics.tap()
+                auth.startGuest()
+            } label: {
+                Text("로그인 없이 둘러보기")
+                    .font(.pt(.subheadline).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
             }
+            .buttonStyle(.pressable)
+            .padding(.top, 12)
         }
         .onAppear { agreed = agreedVersion >= LegalText.version }
         .onChange(of: agreed) { _, value in agreedVersion = value ? LegalText.version : 0 }
@@ -123,13 +119,13 @@ struct AuthView: View {
             BrandLogo(size: 72)
                 .padding(.bottom, 10)
             Text("MOTI 시작하기")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .font(.pt(.largeTitle).weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.opacity)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text("오늘 할 일, 끝까지 함께")
-                .font(.subheadline.weight(.medium))
+                .font(.pt(.subheadline).weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .multilineTextAlignment(.center)
@@ -214,7 +210,7 @@ struct AuthView: View {
             if let current { Task { @MainActor in focus = current } }
         } label: {
             Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.pt(size: 15, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 44)
@@ -248,7 +244,7 @@ struct AuthView: View {
         HStack(spacing: 12) {
             Capsule().fill(Color.primary.opacity(0.1)).frame(height: 1)
             Text("또는")
-                .font(.caption.weight(.medium))
+                .font(.pt(.caption).weight(.medium))
                 .foregroundStyle(.secondary)
             Capsule().fill(Color.primary.opacity(0.1)).frame(height: 1)
         }
@@ -358,12 +354,12 @@ private struct AuthField<Content: View, Trailing: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.pt(size: 16, weight: .semibold))
                     .foregroundStyle(message != nil ? Palette.danger : (isFocused ? Theme.accent : Color.secondary))
                     .frame(width: 22)
                     .accessibilityHidden(true)
                 content
-                    .font(.body)
+                    .font(.pt(.body))
                     .foregroundStyle(Palette.ink)
                 trailing
             }
@@ -377,7 +373,7 @@ private struct AuthField<Content: View, Trailing: View>: View {
 
             if let message {
                 Label(message, systemImage: "exclamationmark.circle.fill")
-                    .font(.caption.weight(.medium))
+                    .font(.pt(.caption).weight(.medium))
                     .foregroundStyle(Palette.danger)
                     .padding(.leading, 6)
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -419,10 +415,10 @@ struct NameSetupView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("어떻게 불러드릴까요?")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .font(.pt(.largeTitle).weight(.bold))
                         .foregroundStyle(Palette.ink)
                     Text("홈에서 이름으로 인사해 드려요")
-                        .font(.subheadline.weight(.medium))
+                        .font(.pt(.subheadline).weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 26)
@@ -438,7 +434,7 @@ struct NameSetupView: View {
                 .appearAnimation(delay: 0.1)
 
                 Text("테마 색")
-                    .font(.footnote.weight(.semibold))
+                    .font(.pt(.footnote).weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.top, 24)
                     .padding(.bottom, 8)

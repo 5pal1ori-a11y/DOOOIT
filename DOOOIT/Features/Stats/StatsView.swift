@@ -64,10 +64,10 @@ struct StatsView: View {
                 VStack(spacing: 16) {
                     VStack(spacing: 4) {
                         Text(label(for: range))
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                         Text("총 \(bigTime(total)) 집중했어요")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.pt(.subheadline).weight(.semibold))
                             .foregroundStyle(Palette.ink)
                     }
                     .frame(maxWidth: .infinity)
@@ -117,7 +117,7 @@ struct StatsView: View {
 
     private func bigTime(_ seconds: Int) -> Text {
         let minutes = Int((Double(seconds) / 60).rounded())
-        let big = Font.system(size: 36, weight: .black)
+        let big = Font.pt(size: 36, weight: .black)
         return Text("\(Text("\(minutes / 60)").font(big).foregroundStyle(Theme.accent))\(Text("시간 ").foregroundStyle(Theme.accent))\(Text("\(minutes % 60)").font(big).foregroundStyle(Theme.accent))\(Text("분").foregroundStyle(Theme.accent))")
     }
 
@@ -148,14 +148,14 @@ struct StatsView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(color(for: item.name))
                         .frame(width: 4, height: 22)
-                    Text(item.name.loc).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
+                    Text(item.name.loc).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
                     Spacer()
                     Text("\(Int((Double(item.seconds) / Double(total) * 100).rounded()))%")
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                     Text(TimeText.durationL(seconds: item.seconds))
-                        .font(.body.weight(.bold))
+                        .font(.pt(.body).weight(.bold))
                         .monospacedDigit()
                         .frame(minWidth: 90, alignment: .trailing)
                 }
@@ -177,13 +177,13 @@ struct StatsView: View {
 
         return VStack(spacing: 6) {
             Text("집중 시간이 \(period.previousName)보다")
-                .font(.subheadline)
+                .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             if diff == 0 {
-                Text("똑같아요").font(.title2.weight(.bold))
+                Text("똑같아요").font(.pt(.title2).weight(.bold))
             } else {
                 Text("\(bigTime(abs(diff))) \(diff > 0 ? L("늘었어요") : L("줄었어요"))")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
             }
 
             Chart(points) { point in
@@ -195,7 +195,7 @@ struct StatsView: View {
                     .foregroundStyle(point.isCurrent ? Theme.accent : Theme.accent.opacity(0.55))
                     .annotation(position: .top, spacing: 6) {
                         Text(String(format: "%02d:%02d", point.minutes / 60, point.minutes % 60))
-                            .font(.caption2.weight(point.isCurrent ? .heavy : .regular))
+                            .font(.pt(.caption2).weight(point.isCurrent ? .heavy : .regular))
                             .foregroundStyle(point.isCurrent ? Theme.accent : Color.secondary)
                     }
             }
@@ -213,10 +213,10 @@ struct StatsView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("언제 집중했나요").font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
+                Text("언제 집중했나요").font(.pt(.title3).weight(.bold)).foregroundStyle(Palette.ink)
                 Spacer()
                 Text("가장 많이 공부한 시간 \(best)시")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 2) {
@@ -232,7 +232,7 @@ struct StatsView: View {
                     if hour != 24 { Spacer() }
                 }
             }
-            .font(.caption2)
+            .font(.pt(.caption2))
             .foregroundStyle(.secondary)
         }
     }

@@ -43,6 +43,12 @@ enum DoitChat {
         // 0) 위기 신호는 가장 먼저, 진지하게
         if isCrisis(raw) { return crisis() }
 
+        // 1) 욕·무례한 말: 훈계하지 않고 짧게, 차분하게
+        if let rude = rude(t) { return rude }
+        // 2) 모티 자신에 대한 질문 (어떤 AI인지, 모티 1·2·ZERO 차이, 인터넷, 말이 이상하다는 말)
+        if let meta = meta(t) { return meta }
+        // 3) 짧은 줄임말·맞장구 ("ㅇㅈ", "헐", "바이", "그냥") — 낱말이 통째로 같을 때만
+        if let short = shortTalk(t, context) { return short }
         if let special = specialCases(text, t, context) { return special }
         for rule in rules where rule.matches(t, text) {
             return rule.make(text, t, context)
@@ -64,22 +70,26 @@ enum DoitChat {
         var exclude: [String] = []
         /// 이 말로 시작할 때만 (예: "이름이 뭐야" — "사장님 이름이 뭐야"는 아님)
         var prefixes: [String] = []
+        /// 말 전체가 이 말과 같을 때만 ("네"가 "개못하네" 속에서 맞장구로 잡히지 않게)
+        var exact: Set<String> = []
         var make: (String, String, Context) -> Answer
 
         func matches(_ t: String, _ original: String) -> Bool {
             guard t.count <= maxLength, !exclude.contains(where: { t.contains($0) }) else { return false }
+            if exact.contains(t.trimmingCharacters(in: CharacterSet(charactersIn: "ㅎㅋ~^"))) { return true }
             return words.contains { DoitChat.contains(t, original, $0) } || prefixes.contains { t.hasPrefix($0) }
         }
     }
 
     private static let rules: [Rule] = [
         // 인사
-        Rule(words: ["안녕", "하이", "ㅎㅇ", "반가워", "반갑", "hello", "hi", "hey", "좋은아침", "굿모닝", "goodmorning"], maxLength: 14,
+        Rule(words: ["안녕", "하이", "ㅎㅇ", "반가워", "반갑", "hello", "hi", "hey", "좋은아침", "굿모닝", "goodmorning", "안뇽", "안냥", "하잉", "하이루", "방가", "헬로", "좋은저녁", "굿이브닝", "좋은오후"], maxLength: 14,
              exclude: ["잘자", "안녕히", "잘있어"]) { _, t, c in
             // "좋은 아침"에는 시간과 상관없이 아침 인사로
-            greeting(c, morning: ["좋은아침", "굿모닝", "goodmorning"].contains(where: { t.contains($0) }))
+            greeting(c, morning: ["좋은아침", "굿모닝", "goodmorning"].contains(where: { t.contains($0) }),
+                     evening: ["좋은저녁", "굿이브닝"].contains(where: { t.contains($0) }))
         },
-        Rule(words: ["잘자", "굿나잇", "goodnight", "잘게", "자러갈", "자야겠", "이제잘"], maxLength: 20) { _, _, c in goodNight(c) },
+        Rule(words: ["잘자", "굿나잇", "goodnight", "잘게", "자러갈", "자야겠", "이제잘", "굿밤", "자러감", "자러가"], maxLength: 20) { _, _, c in goodNight(c) },
         Rule(words: ["안녕히", "잘있어", "바이바이", "bye", "내일봐", "다음에봐", "나갈게", "이만"], maxLength: 16) { _, _, _ in
             Answer(text: pick(["오늘도 수고 많았어요. 또 봐요!", "좋아요, 다음에 봐요. 계획한 건 제가 잘 챙겨 둘게요.", "수고했어요! 쉬는 것도 공부의 일부예요.", "다음에 또 와요! 기다릴게요 😊"]))
         },
@@ -96,7 +106,7 @@ enum DoitChat {
         Rule(words: ["미안", "죄송", "sorry"], maxLength: 20) { _, _, _ in
             Answer(text: pick(["괜찮아요! 신경 쓰지 마요.", "전혀 괜찮아요. 이어서 해 볼까요?", "괜찮아요, 그럴 수도 있죠 😊"]))
         },
-        Rule(words: ["잘했어", "똑똑하", "최고야", "최고다", "대박", "천재", "멋지다", "멋져", "짱이"], maxLength: 20,
+        Rule(words: ["잘했어", "똑똑하", "최고야", "최고다", "너대박", "천재", "멋지다", "멋져", "짱이"], maxLength: 20,
              exclude: ["기분", "오늘", "하루", "나", "내가", "날씨", "점수", "성적"]) { _, _, _ in
             Answer(text: pick(["칭찬 고마워요! 더 잘해 볼게요 😊", "헤헤, 고마워요. 그래도 꾸준히 공부하는 쪽이 진짜 대단한 거예요!", "앗, 칭찬받으니까 기분 좋네요 ㅎㅎ 고마워요!"]))
         },
@@ -109,15 +119,19 @@ enum DoitChat {
             Answer(text: pick(["저도요! 같이 공부하는 시간이 좋아요 😊", "고마워요 💛 그 마음으로 오늘 목표까지 같이 가 봐요!", "헤헤, 저도 좋아해요!"]))
         },
         // 모티 AI 자신
-        Rule(words: ["너누구", "넌누구", "너는누구", "너이름", "니이름", "네이름", "너의이름", "당신이름", "넌이름", "너는이름", "넌뭐야", "너뭐야", "자기소개", "너누가만", "넌누가만", "모티누가만", "whoareyou"], maxLength: 24,
-             exclude: ["내이름", "제이름", "나이름"], prefixes: ["이름이뭐", "이름뭐", "누가만들었", "누가만든", "누가널", "누가너"]) { _, _, _ in
-            Answer(text: "저는 **모티 AI**예요. 일정·타이머·단어·메모를 챙기고, 수학 풀이랑 영어·과학·사회 설명, 퀴즈를 도와줘요. 사진 속 문제·그래프·도형도 읽어요.\n앱 안에서 바로 답해서 대화가 휴대폰 밖으로 나가지 않아요.",
-                   suggestions: ["뭐 할 수 있어?", "퀴즈 내줘"])
+        Rule(words: ["누가널만", "누가너만", "너누가만", "넌누가만", "모티누가만", "너만든사람", "모티만든사람", "이앱누가", "앱누가만"], maxLength: 16,
+             prefixes: ["누가만들었어", "누가만든거야", "누가만들었냐", "누가만듦"]) { _, _, _ in
+            Answer(text: "저는 MOTI 앱에 들어 있는 도우미라 MOTI를 만든 사람들이 만들었어요. 그 이상 자세한 건 저도 몰라요.", suggestions: ["너 누구야?"], kind: "meta")
         },
-        Rule(words: ["사람이야", "ai야", "로봇이야", "진짜사람", "gpt야", "챗gpt"], maxLength: 20) { _, _, _ in
+        Rule(words: ["너누구", "넌누구", "너는누구", "너이름", "니이름", "네이름", "너의이름", "당신이름", "넌이름", "너는이름", "넌뭐야", "너뭐야", "자기소개", "whoareyou"], maxLength: 24,
+             exclude: ["내이름", "제이름", "나이름"], prefixes: ["이름이뭐", "이름뭐"]) { _, _, _ in
+            Answer(text: identity() + "\n일정·타이머·단어를 챙기고, 수학 풀이와 과목 질문, 퀴즈를 도와줘요.",
+                   suggestions: ["뭐 할 수 있어?", "모티 1이랑 뭐가 달라?"], kind: "meta")
+        },
+        Rule(words: ["사람이야", "로봇이야", "진짜사람"], maxLength: 20) { _, _, _ in
             Answer(text: "저는 사람은 아니고, MOTI에 들어 있는 AI 도우미예요. 대신 공부할 땐 누구보다 성실하게 옆에 있을게요!")
         },
-        Rule(words: ["뭐해", "뭐하고있", "모해"], maxLength: 12, exclude: ["뭐해야", "뭐해줄", "뭐해줘", "뭐해도"]) { _, _, c in
+        Rule(words: ["뭐해", "뭐하고있", "모해", "머해", "뭐하냐", "머하냐", "모하냐", "뭐함", "머함", "뭐하니"], maxLength: 12, exclude: ["뭐해야", "뭐해줄", "뭐해줘", "뭐해도"]) { _, _, c in
             let opener = pick(["불러 주기만 기다리고 있었어요!", "저야 늘 여기 있죠 ㅎㅎ", "마침 심심하던 참이었어요!"])
             let rest = c.remainingPlans > 0 ? pick(["오늘 남은 플랜이 \(c.remainingPlans)개 있는데, 하나 같이 해치울까요?", "남은 플랜 \(c.remainingPlans)개, 하나씩 해 볼까요?"])
                                             : pick(["뭐 하고 있었어요?", "오늘은 뭐 할 거예요?"])
@@ -134,7 +148,7 @@ enum DoitChat {
         Rule(words: ["스트레스", "짜증나", "짜증난", "화나", "열받", "빡쳐", "빡친"]) { _, t, _ in stressed(t) },
         Rule(words: ["우울", "슬퍼", "슬프", "외로", "눈물", "울고싶", "울었", "속상"]) { _, t, _ in sad(t) },
         Rule(words: ["불안", "긴장", "떨려", "걱정돼", "걱정된", "무서워"]) { _, t, _ in anxious(t) },
-        Rule(words: ["망했", "망쳤", "망함", "떨어졌", "못봤", "성적이안", "점수가안", "등급떨어", "점수떨어"], exclude: ["안망", "잘봤"]) { _, _, _ in exam_bad() },
+        Rule(words: ["망했", "망쳤", "망함", "망침", "망쳐", "조졌", "말아먹", "떨어졌", "못봤", "성적이안", "점수가안", "등급떨어", "점수떨어"], exclude: ["안망", "잘봤"]) { _, _, _ in exam_bad() },
         Rule(words: ["잘봤", "100점", "만점", "1등급", "올랐어", "성적올", "합격", "붙었"], exclude: ["어떻게", "방법"]) { _, _, _ in
             Answer(text: pick(["와, 정말 축하해요! 🎉 꾸준히 해 온 게 결과로 나온 거예요.", "대단해요! 오늘은 스스로를 마음껏 칭찬해 줘요.", "역시 잘했어요! 노력한 보람이 있네요 👏 이 기세로 다음 목표도 잡아 볼까요?"]),
                    suggestions: ["다음 시험 D-Day 설정해줘", "이번 주 공부 통계"])
@@ -148,7 +162,7 @@ enum DoitChat {
                                       ("심심하면 저랑 단어 퀴즈 한 판 해요! 시간 금방 가요.", "내 단어로 퀴즈 내줘")])
             return Answer(text: text, suggestions: ["수학 퀴즈 내줘", "영어 퀴즈 내줘", "재밌는 사실 알려줘"], offer: offer)
         },
-        Rule(words: ["배고파", "배고프", "출출", "뭐먹지", "뭐먹을까"], maxLength: 20) { _, _, _ in
+        Rule(words: ["배고파", "배고프", "출출"], maxLength: 20) { _, _, _ in
             Answer(text: pick(["밥은 꼭 챙겨 먹어요! 뇌도 에너지가 있어야 일해요.",
                                "출출하면 바나나나 견과류처럼 가벼운 간식 어때요? 먹고 다시 달려 봐요.",
                                "배고프면 집중이 안 되죠. 뭐라도 먹고 와요 ㅎㅎ"]))
@@ -205,7 +219,24 @@ enum DoitChat {
         Rule(words: ["과학공부법", "과학공부어떻게", "과학잘하", "과학어떻게공부", "과학이어려"]) { _, _, _ in studyMethod("과학") },
         Rule(words: ["사회공부법", "사회공부어떻게", "사회잘하", "역사공부법", "한국사공부", "사회어떻게공부", "암기과목"]) { _, _, _ in studyMethod("사회") },
         Rule(words: ["공부법", "공부방법", "공부어떻게해", "공부어떻게하", "공부잘하는법", "효율적으로공부", "공부팁"]) { _, _, _ in generalStudy() },
-        Rule(words: ["시험기간", "시험계획", "시험공부계획", "시험준비어떻게", "내신준비", "시험대비"]) { _, _, c in examPlan(c) },
+        Rule(words: ["시험기간", "시험계획", "시험공부계획", "시험준비어떻게", "내신준비", "시험대비", "중간고사준비", "기말고사준비", "중간고사어떻게", "기말고사어떻게",
+                     "시험준비는어떻게", "시험공부어떻게"]) { _, _, c in examPlan(c) },
+        Rule(words: ["공부왜해야", "왜공부해야", "공부하는이유", "공부를왜", "공부는왜", "왜공부를해", "공부해야하는이유"], maxLength: 24) { _, _, _ in
+            Answer(text: "공부는 나중에 고를 수 있는 길을 넓혀 줘요. 지금 배우는 건 생각하는 힘과 끈기도 길러 주고요. 너무 막막하면 오늘 할 공부 하나만 정해서 해 봐요.",
+                   suggestions: ["25분 타이머 시작해줘", "공부법 알려줘"])
+        },
+        Rule(words: ["문제어떻게풀", "문제푸는법", "문제잘푸는", "문제푸는방법", "문제어떻게접근"], maxLength: 24, exclude: ["추가", "일정"]) { _, _, _ in
+            Answer(text: "문제는 이렇게 풀어 봐요.\n• 구하는 것과 주어진 조건에 밑줄\n• 비슷한 예제의 풀이 방법 떠올리기\n• 식을 세워 계산하고, 답을 넣어 확인\n막히는 문제는 식이나 사진으로 보내 주면 단계별로 풀어 줄게요.",
+                   suggestions: ["x² − 5x + 6 = 0 풀어줘", "수학 퀴즈 내줘"])
+        },
+        Rule(words: ["수능공부언제", "수능준비언제", "수능언제부터", "수능공부는언제", "수능공부어떻게", "수능준비어떻게"], maxLength: 24) { _, _, _ in
+            Answer(text: "수능 공부는 따로 시작하기보다 지금 학교에서 배우는 개념을 탄탄히 하는 게 시작이에요. 학년이 올라가면 기출 문제를 조금씩 풀어 보며 계획을 세우면 돼요.",
+                   suggestions: ["수능 D-Day 설정해줘", "공부법 알려줘"])
+        },
+        Rule(words: ["공부순서", "과목순서", "뭐부터공부", "어떤과목부터", "무슨과목부터"], maxLength: 24) { _, _, _ in
+            Answer(text: "공부 순서는 이렇게 정해 봐요.\n• 시험·마감이 가까운 것 먼저\n• 어려운 과목은 집중이 잘 되는 시간에\n• 암기 과목은 자기 전에 짧게 복습",
+                   suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘"])
+        },
         Rule(words: ["벼락치기", "시험전날", "내일시험", "내일이시험", "시험하루전", "시험이내일"]) { _, _, _ in cramTips() },
         Rule(words: ["오답노트쓰는", "오답노트어떻게", "오답정리"]) { _, _, _ in
             Answer(text: "오답노트는 이렇게 써요.\n• 문제를 찍어 저장하고 틀린 이유(실수 / 개념 / 문제 잘못 읽음)를 한 줄로\n• 해설 보기 전에 한 번 더 혼자 풀기\n• 3일·1주일 뒤 다시 풀고, 비슷한 문제로 확인",
@@ -226,7 +257,7 @@ enum DoitChat {
         Rule(words: ["진로", "꿈이없", "뭐가되고싶", "하고싶은게없", "대학어디", "무슨과"]) { _, _, _ in
             Answer(text: "진로 고민은 누구나 해요. 아직 정하지 못한 게 늦은 게 아니에요.\n• 내가 시간 가는 줄 모르고 한 일 3가지를 적어보기\n• 관심 있는 직업 2~3개를 골라 실제로 하는 일을 찾아보기 (커리어넷 같은 진로 사이트)\n• 담임·진로 선생님과 한 번 이야기해 보기\n지금 성실하게 쌓는 공부 습관은 어떤 길을 가도 힘이 돼요.")
         },
-        Rule(words: ["친구랑싸", "친구가싫", "친구관계", "왕따", "따돌", "친구가없", "친구없어"]) { _, _, _ in
+        Rule(words: ["친구랑싸", "친구가싫", "친구관계", "왕따", "따돌", "친구가없", "친구없어", "친구가무시", "친구가나무시", "친구들이무시", "무시당", "친구가나를", "친구가날"]) { _, _, _ in
             Answer(text: "친구 문제로 마음이 많이 쓰이겠어요. 혼자 끙끙 앓지 않아도 돼요.\n• 감정이 가라앉은 뒤 '나는 ~해서 속상했어'처럼 내 마음을 중심으로 이야기해 보기\n• 괴롭힘이나 따돌림이라면 꼭 부모님·선생님께 알리기 (학교폭력 신고 117)\n• 털어놓을 곳이 필요하면 청소년상담 1388도 있어요.")
         },
         Rule(words: ["부모님이", "엄마가", "아빠가", "잔소리"], maxLength: 40, exclude: ["추가", "일정", "메모"]) { _, _, _ in
@@ -244,7 +275,7 @@ enum DoitChat {
              exclude: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "뒤", "후에", "전에", "까지"]) { _, _, c in
             Answer(text: "오늘은 \(format(c.now, "yyyy년 M월 d일 EEEE"))이에요." + (c.dDay.map { " (\($0))" } ?? ""))
         },
-        Rule(words: ["날씨"], maxLength: 20) { _, _, _ in
+        Rule(words: ["날씨"], maxLength: 20, exclude: ["좋다", "좋네", "좋아", "덥다", "덥네", "춥다", "춥네", "맑다", "맑네", "흐리다", "흐리네", "최고"]) { _, _, _ in
             Answer(text: "아쉽지만 저는 날씨 정보를 볼 수 없어요. 날씨 앱을 확인해 주세요! 비 오는 날엔 타이머의 빗소리를 켜고 공부해 보는 것도 좋아요.")
         },
 
@@ -287,14 +318,14 @@ enum DoitChat {
         Rule(words: ["ㅠㅠ", "ㅜㅜ", "흑흑"], maxLength: 8) { _, _, _ in
             Answer(text: pick(["무슨 일 있어요? 편하게 말해 줘요.", "왜요, 무슨 일이에요? 들을게요.", "토닥토닥… 무슨 일인지 말해 줄래요?"]))
         },
-        Rule(words: ["응", "ㅇㅇ", "ㅇㅋ", "그래", "좋아", "알겠어", "오케이", "ok", "okay", "넵", "네"], maxLength: 5, exclude: ["그래서", "그래도"]) { _, _, _ in
+        Rule(words: [], maxLength: 5, prefixes: [], exact: ["응", "응응", "웅", "엉", "어", "ㅇ", "ㅇㅇ", "ㅇㅇㅇ", "ㅇㅋ", "ㅇㅋㅇㅋ", "그래", "좋아", "알겠어", "오케이", "ok", "okay", "넵", "네", "네네", "예", "알겠습니다", "콜", "ㄱㄱ", "ㄱ", "고고", "가자"]) { _, _, _ in
             Answer(text: pick(["좋아요! 뭐부터 해 볼까요?", "좋아요 😊 하고 싶은 거 말해 줘요.", "오케이! 뭐 도와줄까요?"]),
                    suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘", "퀴즈 내줘"])
         },
         Rule(words: ["그만", "됐어", "괜찮아", "멈춰", "취소"], maxLength: 6) { _, _, _ in
             Answer(text: pick(["알겠어요. 필요할 때 언제든 불러 줘요!", "알겠어요! 쉬고 싶으면 쉬어요.", "네, 알겠어요. 또 봐요 😊"]))
         },
-        Rule(words: ["아니", "ㄴㄴ", "싫어", "별로"], maxLength: 5) { _, _, _ in
+        Rule(words: [], maxLength: 5, exact: ["아니", "아니요", "아니야", "ㄴㄴ", "ㄴ", "싫어", "별로", "놉", "노노"]) { _, _, _ in
             Answer(text: pick(["알겠어요. 다른 게 필요하면 말해 줘요.", "앗, 그럼 다른 거 해 볼까요?", "알겠어요! 그럼 편하게 있어요."]))
         },
         // "그래도 해야겠지?", "해 볼게" 같은 다짐
@@ -321,6 +352,19 @@ enum DoitChat {
         if has(t, ["풀어줘", "풀어줄래", "풀어봐", "풀어주세요"]), !t.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) }) {
             return Answer(text: "풀 문제를 보내주세요! 식으로 써도 되고, 아래 + 버튼으로 문제 사진을 찍어 보내도 돼요.\n예: \"x² − 5x + 6 = 0 풀어줘\", \"y = x² − 4x + 1 꼭짓점\"",
                           suggestions: ["x² − 5x + 6 = 0 풀어줘"])
+        }
+        // "숙제 도와줘", "과제 좀 도와줄래?" → 문제를 보내 달라고
+        if has(t, ["숙제", "과제", "문제집", "공부"]), has(t, ["도와줘", "도와줄래", "도와주세요", "도와줄수", "봐줘", "봐줄래"]), t.count <= 16,
+           !has(t, ["추가", "일정", "타이머"]) {
+            return Answer(text: "좋아요! 어떤 문제예요? 문제를 적어 주거나 + 버튼으로 사진을 보내 주면 같이 풀어 볼게요.",
+                          suggestions: ["x² − 5x + 6 = 0 풀어줘", "광합성이 뭐야?"])
+        }
+        // "공부 뭐부터 해?", "뭐부터 할까" → 오늘 남은 플랜부터
+        if has(t, ["뭐부터", "무엇부터", "뭘먼저", "뭐먼저", "어떤거부터", "어떤것부터", "뭐해야할지", "뭘해야할지"]), !has(t, ["시험", "남았", "추가", "일정"]), t.count <= 20 {
+            let text = c.remainingPlans > 0
+                ? "오늘 남은 플랜 \(c.remainingPlans)개 중 마감이 가까운 것부터 해요. 25분만 집중하고 쉬는 식으로 하나씩 끝내 봐요."
+                : "오늘 남은 플랜이 없으면, 어제 배운 걸 10분 복습하고 틀린 문제를 다시 풀어 보는 것부터 해요."
+            return Answer(text: text, suggestions: ["오늘 할 일 알려줘", "25분 타이머 시작해줘"])
         }
         // "이차함수 문제 풀어줄 수 있니?", "영어 문법 도와줄 수 있어?"
         if has(t, ["줄수있", "줄수있니", "줄래", "해줄수", "할수있니", "할수있어", "가능해", "가능하니", "되니", "돼?"]),
@@ -386,6 +430,142 @@ enum DoitChat {
         return nil
     }
 
+    // MARK: - 욕·무례한 말
+
+    /// 욕·손가락 욕 ("ㅗ", "ㅅㅂ", "씨발", "ㅂㅅ", "꺼져"…): 말 대부분이 욕일 때만 (욕을 빼고 남은 말이 거의 없을 때)
+    /// ("시발 피곤해", "아 짜증나" 같은 말은 감정 쪽 답으로)
+    static let rudeWords = ["ㅗ", "ㅅㅂ", "ㅆㅂ", "ㅅㅂㄹㅁ", "시발", "씨발", "씨바", "시바", "씹", "ㅂㅅ", "ㅄ", "병신", "븅신", "빙신", "꺼져", "닥쳐", "닥치", "미친놈", "미친년", "미친",
+                            "ㅁㅊ", "개새", "ㄱㅅㄲ", "새끼", "ㅅㄲ", "ㅈ같", "좆", "ㅈㄹ", "지랄", "엿먹", "fuck", "shit", "ㅗㅗ"]
+    /// 모티한테 하는 핀잔 ("개못하네", "쓰레기네", "노답")
+    private static let botInsults = ["못하네", "개못", "쓰레기", "구려", "노답", "쓸데없", "답답하네", "왜이래", "한심"]
+
+    /// 엔진이 과목 질문보다 먼저 볼 말 (욕, 모티 자신에 대한 질문)
+    static func earlyReply(_ raw: String) -> Answer? {
+        let t = squash(raw.trimmingCharacters(in: .whitespacesAndNewlines))
+        guard !t.isEmpty, !isCrisis(raw), let answer = rude(t) ?? meta(t) else { return nil }
+        DoitTone.remember(answer.text, kind: answer.kind, offer: answer.offer)
+        return answer
+    }
+
+    private static func rude(_ t: String) -> Answer? {
+        var rest = t
+        var swore = false
+        for word in rudeWords.sorted(by: { $0.count > $1.count }) where rest.contains(word) {
+            rest = rest.replacingOccurrences(of: word, with: "")
+            swore = true
+        }
+        let insult = botInsults.contains { t.contains($0) } && t.count <= 12
+        for filler in ["너", "넌", "니가", "아", "야", "진짜", "개", "존나", "졸라", "네", "냐", "같네", "같아", "같다", "ㅋ", "ㅎ", "ㅡ", "-", "!", "?"] {
+            rest = rest.replacingOccurrences(of: filler, with: "")
+        }
+        guard (swore && rest.count <= 2) || (insult && rest.count <= 6) else { return nil }
+        // 같은 말이 이어지면 짧게만 (훈계하지 않음)
+        if DoitTone.previousKind == "rude" {
+            return Answer(text: pick(["괜찮아요. 마음이 좀 풀리면 그때 말 걸어 줘요.", "알겠어요. 저는 여기 있을게요. 필요하면 불러 줘요."]),
+                          suggestions: ["재밌는 사실 알려줘", "오늘 할 일 알려줘"], kind: "rude")
+        }
+        if insult || t.contains("너") || t.contains("넌") {
+            return Answer(text: pick(["앗, 제가 답을 잘 못 했나 봐요. 미안해요. 한 번만 다르게 말해 주면 다시 해 볼게요.",
+                                      "미안해요, 제가 헛짚었나 봐요. 짧게 다시 말해 주면 제대로 해 볼게요."]),
+                          suggestions: ["뭐 할 수 있어?"], kind: "rude")
+        }
+        return Answer(text: pick(["앗, 기분 안 좋은 일 있었어요? 공부하다 막힌 거면 같이 풀어 봐요.",
+                                  "많이 짜증 났나 봐요. 무슨 일인지 말해 주면 들을게요.",
+                                  "화날 땐 잠깐 숨 고르고 와도 괜찮아요. 제가 잘못 답했으면 다시 말해 줘요."]),
+                      suggestions: ["5분 타이머 시작해줘", "재밌는 사실 알려줘"], kind: "rude")
+    }
+
+    // MARK: - 모티 자신
+
+    /// 지금 답하는 모드 ("모티 ZERO", "모티 1", "모티 2") — DoitAssistant가 말을 받을 때마다 알려 줌
+    static var modeName = "모티 ZERO"
+
+    /// "저는 모티 AI예요 …" (지금 모드에 맞게, 모델 이름은 쓰지 않음)
+    static func identity() -> String {
+        if modeName == "모티 ZERO" {
+            return "저는 **모티 AI**예요. 지금은 **모티 ZERO**라서 AI 모델 없이 앱 안의 규칙과 자료로 답해요."
+        }
+        return "저는 **모티 AI**예요. 지금은 **\(modeName)**로, 휴대폰 안에서 돌아가는 오픈소스 AI 모델이 답해요."
+    }
+
+    /// 모티 1·2·ZERO가 어떻게 다른지
+    static let modesText = "**모티 ZERO**는 AI 모델 없이 규칙과 앱 안 자료로 빠르게 답해요. 앱 기능·계산·정해진 개념은 정확하지만 대화는 조금 딱딱해요.\n**모티 1·2**는 휴대폰 안에서 돌아가는 오픈소스 AI 모델이에요. 설명과 대화가 더 자연스럽고, 모티 2가 더 커서 더 똑똑해요. 위쪽 모델 메뉴에서 받을 수 있어요."
+
+    /// 모티 자신에 대한 질문 (어떤 AI인지, 모드 차이, 인터넷, 말이 이상하다는 말)
+    private static func meta(_ t: String) -> Answer? {
+        let toBot = has(t, ["너", "넌", "니가", "네가", "당신", "모티", "여기", "이앱"]) || t.count <= 8
+        // (모델 이름은 적지 않음: "너 ○○야?"처럼 모티에게 영어 이름·챗봇 이름을 붙여 물으면 소개로)
+        let modelNames = ["llm", "언어모델", "ai모델", "인공지능모델", "무슨ai", "어떤ai", "무슨인공지능", "어떤인공지능", "무슨모델", "어떤모델", "모델뭐", "모델이뭐",
+                          "챗봇", "오픈소스모델",
+                          "ai야", "ai이야", "ai냐", "ai임", "ai맞", "ai지", "ai니", "인공지능이야", "인공지능이냐", "인공지능맞"]
+        let modes = ["모티1", "모티2", "모티zero", "모티제로", "제로모드", "zero모드", "모티원", "모티투", "모티영"]
+        let complaint = ["말이상", "이상하게말", "말을이상", "대답이이상", "답이이상", "제대로대답", "제대로답", "엉뚱", "동문서답", "말귀를", "못알아들", "말이안통", "왜이렇게말", "로봇같"]
+        if has(t, modes) || (has(t, ["모델받", "모델다운", "모델설치", "모델깔", "ai모델받"]) && !has(t, ["추가", "일정"])) {
+            return Answer(text: modesText, suggestions: ["뭐 할 수 있어?"], kind: "meta")
+        }
+        if has(t, complaint), t.count <= 24 {
+            let text = modeName == "모티 ZERO"
+                ? "미안해요. 모티 ZERO는 AI 모델 없이 정해진 규칙으로 답해서 엉뚱할 때가 있어요. 짧고 분명하게 물어보면 더 잘 알아들어요. 모티 1·2를 받으면 대화가 더 자연스러워요."
+                : "미안해요, 제가 잘못 알아들었나 봐요. 한 번만 다르게 말해 줄래요?"
+            return Answer(text: text, suggestions: ["모티 1이랑 뭐가 달라?", "뭐 할 수 있어?"], kind: "meta")
+        }
+        // ("○○이 뭐야", "○○ 더 자세히"처럼 그 낱말 자체를 물으면 소개가 아님: 모티를 부르거나 "~야?", "~써?"로 물을 때만)
+        let explicit = has(t, ["너", "넌", "니가", "네가", "당신", "모티"])
+        let asksIs = (t.hasSuffix("야") && !t.hasSuffix("뭐야")) || t.hasSuffix("냐") || t.hasSuffix("임") || has(t, ["맞아", "맞지", "써", "쓰는", "기반"])
+        // "너 ○○야?" — 모티에게 영어 이름(또는 '챗…')을 붙여 묻는 말 ("너 바보야?"처럼 한글 낱말은 아님)
+        let namedAsk = t.firstMatch(of: #/^(너|넌|너는|니|모티|모티는)([a-z][a-z0-9.\-]{1,15}|챗[가-힣]{1,6})(이야|야|이냐|냐|이지|지|맞아|맞지|임|이니|니|이에요|예요|이죠)$/#) != nil
+        if namedAsk || (has(t, modelNames) && (explicit || asksIs) && t.count <= 24 && (!has(t, ["자세히", "설명해", "알려줘"]) || explicit)) {
+            return Answer(text: identity() + (modeName == "모티 ZERO" ? " 모티 1·2를 받으면 오픈소스 AI 모델로 더 자연스럽게 대화해요." : ""),
+                          suggestions: ["모티 1이랑 뭐가 달라?", "뭐 할 수 있어?"], kind: "meta")
+        }
+        if has(t, ["인터넷돼", "인터넷되", "인터넷연결", "인터넷검색", "인터넷써", "검색돼", "검색할수있", "검색해줄수", "와이파이없"]), toBot || t.count <= 14 {
+            let text = modeName == "모티 ZERO"
+                ? "모티 ZERO는 인터넷 검색 없이 앱 안 자료로만 답해요. 그래서 날씨·뉴스 같은 최신 정보는 몰라요."
+                : "모르는 개념은 인터넷(위키백과)에서 찾아보기도 해요. 날씨·뉴스 같은 실시간 정보는 몰라요."
+            return Answer(text: text, suggestions: ["뭐 할 수 있어?"], kind: "meta")
+        }
+        if has(t, ["똑똑해", "똑똑하냐", "똑똑하니", "머리좋아", "얼마나똑똑"]), has(t, ["너", "넌", "니"]) || t.count <= 6, !has(t, ["나똑똑", "내가"]) {
+            return Answer(text: "앱 안 자료 안에서는 꽤 정확해요! 수학 계산과 앱 기능은 자신 있고, 모르는 건 모른다고 할게요.",
+                          suggestions: ["x^2-5x+6=0 풀어줘", "광합성이 뭐야?"], kind: "meta")
+        }
+        return nil
+    }
+
+    // MARK: - 짧은 줄임말 · 맞장구
+
+    /// 말 전체가 짧은 줄임말일 때 ("ㅇㅈ", "헐", "대박", "바이", "그냥", "음")
+    private static func shortTalk(_ t: String, _ c: Context) -> Answer? {
+        let core = t.trimmingCharacters(in: CharacterSet(charactersIn: "~^ㅋㅎ"))
+        let word = core.isEmpty ? t : core
+        switch word {
+        case "ㅇㅈ", "인정", "ㅇㅈㅇㅈ", "ㄹㅇㅇㅈ":
+            return Answer(text: pick(["그쵸? ㅎㅎ", "인정해 줘서 고마워요 ㅎㅎ", "역시 통했네요!"]))
+        case "헐", "헐ㄹ", "헉", "헐대박", "와", "우와", "와우", "오":
+            if DoitTone.previousKind == "fact" { return Answer(text: pick(["그쵸? 신기하죠!", "저도 처음 알았을 때 놀랐어요 ㅎㅎ"]), suggestions: ["하나 더"]) }
+            return Answer(text: pick(["헉, 무슨 일이에요?", "왜요, 놀랄 일 있었어요?", "오, 뭔데요? 궁금해요!"]))
+        case "대박", "대박이다", "대박사건":
+            if DoitTone.previousKind == "fact" { return Answer(text: pick(["그쵸? 신기하죠!", "대박이죠 ㅎㅎ 하나 더 알려 줄까요?"]), suggestions: ["하나 더"]) }
+            return Answer(text: pick(["오, 뭐가 대박이에요? 궁금해요!", "무슨 좋은 일 있어요?"]))
+        case "바이", "ㅂㅂ", "ㅂㅇ", "ㅃㅇ", "빠이", "빠빠이", "잘가", "잘있어", "ㅂㅂㅇ", "바이바이":
+            return Answer(text: pick(["오늘도 수고 많았어요. 또 봐요!", "좋아요, 다음에 봐요!", "다음에 또 와요! 기다릴게요 😊"]))
+        case "모티", "모티야", "모티아", "모티씨", "저기", "저기요", "있잖아":
+            return Answer(text: pick(["네, 불렀어요? 무엇을 도와줄까요?", "네! 여기 있어요. 뭐 할까요?"]), suggestions: ["오늘 할 일 알려줘", "뭐 할 수 있어?"])
+        case "아무거나", "아무거나해줘", "아무거나해", "아무말", "아무말이나":
+            return Answer(text: pick(["그럼 퀴즈 한 판 어때요? 과목은 제가 골라 볼게요.", "그럼 신기한 사실 하나 들려줄까요?"]),
+                          suggestions: ["퀴즈 내줘", "재밌는 사실 알려줘"], offer: "퀴즈 내줘")
+        case "그냥", "그냥요", "그냥ㅎ", "그냥그래":
+            return Answer(text: pick(["그럴 때도 있죠 ㅎㅎ 심심하면 퀴즈 한 판 어때요?", "그냥 들렀군요! 편하게 아무 말이나 해요."]),
+                          suggestions: ["퀴즈 내줘", "재밌는 사실 알려줘"], offer: "퀴즈 내줘")
+        case "음", "음음", "흠", "흠흠", "음…", "음..", "으음":
+            return Answer(text: pick(["천천히 생각해도 돼요. 궁금한 게 생기면 말해 줘요.", "고민 중이에요? 같이 정해 볼까요?"]),
+                          suggestions: ["오늘 할 일 알려줘", "뭐 할 수 있어?"])
+        case "뭐", "뭐?", "모", "머", "엥", "응?":
+            return Answer(text: pick(["네? 무엇이 궁금한지 말해 줄래요?", "음, 뭐가 궁금해요? 편하게 물어봐요."]), suggestions: ["뭐 할 수 있어?"])
+        default:
+            return nil
+        }
+    }
+
     /// "~할 수 있어?" 에 대한 답: 할 수 있다고 하고 바로 쓸 수 있는 예시를 보여줌
     private static func capability(_ t: String) -> Answer {
         if has(t, ["영어", "문법", "단어", "영단어"]) {
@@ -431,7 +611,7 @@ enum DoitChat {
 
     // MARK: - 답변 만들기
 
-    private static func greeting(_ c: Context, morning: Bool = false) -> Answer {
+    private static func greeting(_ c: Context, morning: Bool = false, evening: Bool = false) -> Answer {
         let chips = ["오늘 할 일 알려줘", "뭐 할 수 있어?", "퀴즈 내줘"]
         // 방금 인사했는데 또 인사하면 같은 인사를 되풀이하지 않음
         if DoitTone.previousKind == "greeting" {
@@ -440,8 +620,10 @@ enum DoitChat {
         let hour = Calendar.current.component(.hour, from: c.now)
         let hi = DoitTone.nameToCall().map { "안녕하세요, \($0)님!" } ?? "안녕하세요!"
         let line: String
-        if morning || (5..<11).contains(hour) {
-            line = pick(["\(hi) 좋은 아침이에요 ☀️", "좋은 아침이에요! 잘 잤어요?", "\(hi) 상쾌한 아침이에요."])
+        if evening {
+            line = pick(["\(hi) 좋은 저녁이에요.", "좋은 저녁이에요, 저녁은 먹었어요?"])
+        } else if morning || (5..<11).contains(hour) {
+            line = pick(["\(hi) 좋은 아침이에요 ☀️", "좋은 아침이에요, 잘 잤어요?", "\(hi) 상쾌한 아침이에요."])
         } else {
             switch hour {
             case 11..<14: line = pick(["\(hi) 점심은 챙겨 먹었어요?", "반가워요! 점심 먹고 나른하죠?"])
@@ -746,6 +928,6 @@ enum DoitChat {
         guard let answer = item.answers.first?.split(separator: ",").first.map(String.init)?.trimmingCharacters(in: .whitespaces), let first = answer.first else {
             return "힌트를 만들 수 없어요."
         }
-        return "힌트: '\(first)'(으)로 시작하고 \(answer.filter { !$0.isWhitespace }.count)글자예요."
+        return "힌트: '\(first)'\(DoitRelevance.josa(String(first), "으로")) 시작하고 \(answer.filter { !$0.isWhitespace }.count)글자예요."
     }
 }

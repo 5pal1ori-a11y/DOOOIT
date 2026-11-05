@@ -11,13 +11,13 @@ private struct GameResultView: View {
     var body: some View {
         VStack(spacing: 18) {
             Image(systemName: symbol)
-                .font(.system(size: 64, weight: .bold))
+                .font(.pt(size: 64, weight: .bold))
                 .foregroundStyle(Theme.accent)
                 .symbolEffect(.bounce, value: title)
-            Text(title).font(.title.weight(.bold))
+            Text(title).font(.pt(.title).weight(.bold))
             Button(action: again) {
                 Label("다시 하기", systemImage: "arrow.counterclockwise")
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
             }
@@ -46,11 +46,11 @@ struct SpeakPracticeView: View {
         Group {
             if let current {
                 VStack(spacing: 22) {
-                    Text("\(index + 1)/\(queue.count)").font(.subheadline.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                    Text("\(index + 1)/\(queue.count)").font(.pt(.subheadline).weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
 
                     VStack(spacing: 10) {
-                        Text(current.term).font(.system(size: 38, weight: .heavy))
-                        Text(current.meaning).font(.subheadline).foregroundStyle(.secondary)
+                        Text(current.term).font(.pt(size: 38, weight: .heavy))
+                        Text(current.meaning).font(.pt(.subheadline)).foregroundStyle(.secondary)
                         HStack(spacing: 12) {
                             Button { WordSpeaker.shared.speak(current.term) } label: {
                                 Label("듣기", systemImage: "speaker.wave.2.fill")
@@ -81,7 +81,7 @@ struct SpeakPracticeView: View {
                         }
                     } label: {
                         Image(systemName: checker.isListening ? "stop.fill" : "mic.fill")
-                            .font(.system(size: 34, weight: .bold))
+                            .font(.pt(size: 34, weight: .bold))
                             .foregroundStyle(.white)
                             .frame(width: 96, height: 96)
                             .background(checker.isListening ? Palette.danger : Theme.accent, in: .circle)
@@ -97,19 +97,19 @@ struct SpeakPracticeView: View {
                             VStack(spacing: 4) {
                                 Label(result ? L("정확해요!") : L("다시 해 봐요"),
                                       systemImage: result ? "checkmark.circle.fill" : "arrow.counterclockwise.circle.fill")
-                                    .font(.headline)
+                                    .font(.pt(.headline))
                                     .foregroundStyle(result ? Palette.success : Palette.warning)
                                 if !checker.transcript.isEmpty {
-                                    Text(checker.transcript).font(.caption).foregroundStyle(.secondary)
+                                    Text(checker.transcript).font(.pt(.caption)).foregroundStyle(.secondary)
                                 }
                             }
                         } else if let error = checker.errorMessage {
-                            Text(error).font(.caption).foregroundStyle(Palette.danger).multilineTextAlignment(.center)
+                            Text(error).font(.pt(.caption)).foregroundStyle(Palette.danger).multilineTextAlignment(.center)
                         } else {
                             Text("눌러서 말하기").foregroundStyle(.secondary)
                         }
                     }
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .frame(minHeight: 44)
 
                     Button {
@@ -117,7 +117,7 @@ struct SpeakPracticeView: View {
                         result = nil
                     } label: {
                         Text(result == true ? L("다음 단어") : L("건너뛰기"))
-                            .font(.headline)
+                            .font(.pt(.headline))
                             .frame(maxWidth: .infinity)
                             .frame(height: 40)
                     }

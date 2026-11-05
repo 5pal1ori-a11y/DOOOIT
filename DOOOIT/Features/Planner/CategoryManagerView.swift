@@ -58,9 +58,9 @@ struct CategoryManagerView: View {
         Button { editing = category } label: {
             HStack(spacing: 12) {
                 IconBadge(symbol: category.symbol, color: category.color, size: 36)
-                Text(category.name).font(.body.weight(.semibold))
+                Text(category.name).font(.pt(.body).weight(.semibold))
                 Spacer()
-                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
             }
         }
         .tint(.primary)
@@ -111,7 +111,7 @@ struct CategoryEditorView: View {
                     }
                     .listRowBackground(Color.clear)
                     TextField(isStudy ? L("과목 이름 (예: 한국사)") : L("카테고리 이름"), text: $name)
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .multilineTextAlignment(.center)
                 }
 
@@ -134,7 +134,7 @@ struct CategoryEditorView: View {
                                 .overlay {
                                     if hex == colorHex {
                                         Image(systemName: "checkmark")
-                                            .font(.caption.weight(.bold))
+                                            .font(.pt(.caption).weight(.bold))
                                             .foregroundStyle(.white)
                                     }
                                 }
@@ -148,7 +148,7 @@ struct CategoryEditorView: View {
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 5), spacing: 12) {
                         ForEach(symbols, id: \.self) { item in
                             Image(systemName: item)
-                                .font(.title3)
+                                .font(.pt(.title3))
                                 .frame(width: 44, height: 44)
                                 .foregroundStyle(item == symbol ? Color.white : Color.primary)
                                 .background(item == symbol ? Color(hex: colorHex) : Color.primary.opacity(0.06), in: .circle)

@@ -35,7 +35,7 @@ struct RankingView: View {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 } else if let message {
                     Label(message, systemImage: "info.circle")
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                         .softCard()
                 }
@@ -65,7 +65,7 @@ struct RankingView: View {
                 } label: {
                     VStack(spacing: 8) {
                         Text(item.title)
-                            .font(.body.weight(period == item ? .bold : .regular))
+                            .font(.pt(.body).weight(period == item ? .bold : .regular))
                             .foregroundStyle(period == item ? Palette.ink : .secondary)
                         Capsule()
                             .fill(period == item ? Palette.ink : .clear)
@@ -86,7 +86,7 @@ struct RankingView: View {
         return HStack {
             Button { back += 1 } label: { Image(systemName: "chevron.left").frame(width: 44, height: 40) }
             Spacer()
-            Text(dateText(range.0, range.1)).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
+            Text(dateText(range.0, range.1)).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
             Spacer()
             Button { back = max(0, back - 1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 40) }
                 .disabled(back == 0)
@@ -105,9 +105,9 @@ struct RankingView: View {
 
     private var signInCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Game Center에 로그인해 주세요", systemImage: "gamecontroller.fill").font(.headline)
+            Label("Game Center에 로그인해 주세요", systemImage: "gamecontroller.fill").font(.pt(.headline))
             Text(ranking.authMessage ?? L("모티 랭킹은 Apple Game Center로 순위를 모아요. 로그인하면 다른 학생들과 공부 시간을 겨룰 수 있어요."))
-                .font(.subheadline)
+                .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button("로그인") { ranking.authenticate() }
                 .buttonStyle(.primaryFill)
@@ -117,9 +117,9 @@ struct RankingView: View {
 
     private var joinCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("랭킹에 참여할까요?", systemImage: "trophy.fill").font(.headline)
+            Label("랭킹에 참여할까요?", systemImage: "trophy.fill").font(.pt(.headline))
             Text("참여하면 \(ranking.playerName.isEmpty ? L("내 Game Center 닉네임") : "'\(ranking.playerName)'")과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.")
-                .font(.subheadline)
+                .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button("참여하기") {
                 ranking.isJoined = true
@@ -134,13 +134,13 @@ struct RankingView: View {
 
     private func topThree(_ board: RankingService.Board) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("\(period.title) Top3").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+            Text("\(period.title) Top3").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
             HStack(alignment: .top, spacing: 0) {
                 ForEach(Array(board.entries.prefix(3))) { entry in
                     VStack(spacing: 6) {
                         Medal(rank: entry.rank)
-                        Text(entry.name).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
-                        Text(clock(entry.seconds)).font(.footnote).foregroundStyle(Theme.accent).monospacedDigit()
+                        Text(entry.name).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
+                        Text(clock(entry.seconds)).font(.pt(.footnote)).foregroundStyle(Theme.accent).monospacedDigit()
                     }
                     .frame(maxWidth: .infinity)
                 }
@@ -150,7 +150,7 @@ struct RankingView: View {
 
     private func summaryLine(_ board: RankingService.Board) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("참여 \(board.total.formatted())명").font(.subheadline).foregroundStyle(Palette.ink)
+            Text("참여 \(board.total.formatted())명").font(.pt(.subheadline)).foregroundStyle(Palette.ink)
             if let me = board.me {
                 HStack(spacing: 4) {
                     Text("내 등수").foregroundStyle(Palette.ink)
@@ -160,9 +160,9 @@ struct RankingView: View {
                         Text("\(percent)%").foregroundStyle(Theme.accent)
                     }
                 }
-                .font(.subheadline)
+                .font(.pt(.subheadline))
             } else if ranking.isJoined {
-                Text("이 기간에 공부하면 내 등수가 나와요").font(.subheadline).foregroundStyle(.secondary)
+                Text("이 기간에 공부하면 내 등수가 나와요").font(.pt(.subheadline)).foregroundStyle(.secondary)
             }
         }
     }
@@ -180,19 +180,19 @@ struct RankingView: View {
                         Circle()
                             .strokeBorder(Theme.accent, lineWidth: 1.5)
                             .frame(width: 40, height: 40)
-                            .overlay(Text("\(entry.rank)").font(.headline).foregroundStyle(Theme.accent))
+                            .overlay(Text("\(entry.rank)").font(.pt(.headline)).foregroundStyle(Theme.accent))
                         if entry.rank == 1 {
-                            Image(systemName: "crown.fill").font(.caption2).foregroundStyle(Theme.accent).offset(y: -10)
+                            Image(systemName: "crown.fill").font(.pt(.caption2)).foregroundStyle(Theme.accent).offset(y: -10)
                         }
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
                             Text(entry.isMe ? L("\(entry.name) (나)") : entry.name)
-                                .font(.body.weight(entry.isMe ? .bold : .regular))
+                                .font(.pt(.body).weight(entry.isMe ? .bold : .regular))
                                 .foregroundStyle(Palette.ink)
                                 .lineLimit(1)
                             Spacer()
-                            Text(clock(entry.seconds)).font(.body).foregroundStyle(Theme.accent).monospacedDigit()
+                            Text(clock(entry.seconds)).font(.pt(.body)).foregroundStyle(Theme.accent).monospacedDigit()
                         }
                         LinearProgressBar(value: Double(entry.seconds) / Double(best), height: 5)
                     }
@@ -250,7 +250,7 @@ private struct Medal: View {
             Circle()
                 .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
                 .frame(width: 60, height: 60)
-                .overlay(Text("\(rank)").font(.title2.weight(.semibold)).foregroundStyle(.white.opacity(0.9)))
+                .overlay(Text("\(rank)").font(.pt(.title2).weight(.semibold)).foregroundStyle(.white.opacity(0.9)))
                 .padding(.top, 16)
         }
         .frame(height: 80)

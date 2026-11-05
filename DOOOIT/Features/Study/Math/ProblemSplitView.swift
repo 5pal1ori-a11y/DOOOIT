@@ -38,7 +38,7 @@ struct ProblemSplitView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("문제 번호로 \(pairs.count)개를 찾았어요.\n빼고 싶은 문제는 눌러서 끌 수 있어요.")
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 4)
 
@@ -58,7 +58,7 @@ struct ProblemSplitView: View {
 
                     Button(action: onManual) {
                         Label("직접 자르기", systemImage: "crop")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.pt(.subheadline).weight(.semibold))
                             .foregroundStyle(Theme.accent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
@@ -149,11 +149,11 @@ struct ProblemSplitView: View {
                     .opacity(isOn ? 1 : 0.35)
                 HStack(spacing: 6) {
                     Text("\(region.number)번")
-                        .font(.subheadline.weight(.bold))
+                        .font(.pt(.subheadline).weight(.bold))
                         .foregroundStyle(isOn ? Palette.ink : Color.secondary)
                     Spacer(minLength: 4)
                     Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
+                        .font(.pt(.title3))
                         .foregroundStyle(isOn ? Theme.accent : Color.secondary)
                 }
             }
@@ -168,7 +168,7 @@ struct ProblemSplitView: View {
 
     private func numberBadge(_ number: Int, isOn: Bool) -> some View {
         Text("\(number)")
-            .font(.caption.weight(.bold))
+            .font(.pt(.caption).weight(.bold))
             .monospacedDigit()
             .foregroundStyle(.white)
             .padding(.horizontal, 7)

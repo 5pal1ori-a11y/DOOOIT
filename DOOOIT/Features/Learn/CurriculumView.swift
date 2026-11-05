@@ -231,7 +231,7 @@ struct CurriculumView: View {
                         Haptics.tap()
                     } label: {
                         Text(example)
-                            .font(.subheadline.weight(.medium))
+                            .font(.pt(.subheadline).weight(.medium))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
@@ -249,16 +249,16 @@ struct CurriculumView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass")
-                    .font(.title3.weight(.semibold))
+                    .font(.pt(.title3).weight(.semibold))
                     .foregroundStyle(Palette.warning)
                     .frame(width: 42, height: 42)
                     .background(Palette.warning.opacity(0.14), in: .rect(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 2) {
                     Text("딱 맞는 단원이 없어요")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(Palette.ink)
                     Text("교과서 자료에 없는 주제예요")
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -271,7 +271,7 @@ struct CurriculumView: View {
             if !options.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("혹시 이 단원인가요?")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(.secondary)
                     ForEach(options, id: \.key) { option in
                         Button {
@@ -280,15 +280,15 @@ struct CurriculumView: View {
                             HStack(spacing: 10) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(option.unit)
-                                        .font(.body.weight(.semibold))
+                                        .font(.pt(.body).weight(.semibold))
                                         .foregroundStyle(Palette.ink)
                                     Text(option.subjectName)
-                                        .font(.caption)
+                                        .font(.pt(.caption))
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
-                                    .font(.footnote.weight(.semibold))
+                                    .font(.pt(.footnote).weight(.semibold))
                                     .foregroundStyle(.tertiary)
                             }
                             .padding(.horizontal, 14)
@@ -302,7 +302,7 @@ struct CurriculumView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("이렇게 적어 보세요")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(.secondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
@@ -312,7 +312,7 @@ struct CurriculumView: View {
                                 startTyped()
                             } label: {
                                 Text(example)
-                                    .font(.subheadline.weight(.medium))
+                                    .font(.pt(.subheadline).weight(.medium))
                                     .foregroundStyle(Theme.accent)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
@@ -338,27 +338,27 @@ struct CurriculumView: View {
                 ZStack {
                     ProgressRing(progress: progress.ratio, lineWidth: 7, color: Theme.accent)
                     Text("\(progress.doneCount)/\(LearnStep.allCases.count)")
-                        .font(.caption.weight(.bold))
+                        .font(.pt(.caption).weight(.bold))
                         .monospacedDigit()
                         .foregroundStyle(Palette.ink)
                 }
                 .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("이어서 학습")
-                        .font(.caption.weight(.semibold))
+                        .font(.pt(.caption).weight(.semibold))
                         .foregroundStyle(Theme.accent)
                     Text(progress.unit)
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                     Text("\(progress.subject) · 다음: \(progress.nextStep?.longTitle ?? L("복습"))")
-                        .font(.footnote)
+                        .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "play.fill")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(Theme.accent, in: .circle)
@@ -400,8 +400,8 @@ struct CurriculumView: View {
                     Haptics.tap()
                 } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: item.symbol).font(.subheadline.weight(.semibold))
-                        Text(item.rawValue.loc).font(.caption.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                        Image(systemName: item.symbol).font(.pt(.subheadline).weight(.semibold))
+                        Text(item.rawValue.loc).font(.pt(.caption).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
@@ -435,14 +435,14 @@ struct CurriculumView: View {
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: subject.symbol)
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .foregroundStyle(tint)
                     .frame(width: 40, height: 40)
                     .background(tint.opacity(0.12), in: .rect(cornerRadius: 12))
                 Spacer(minLength: 0)
                 if LevelFilter.isCommon(subject) {
                     Text("고1 공통")
-                        .font(.caption2.weight(.bold))
+                        .font(.pt(.caption2).weight(.bold))
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
@@ -451,12 +451,12 @@ struct CurriculumView: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(level.shortName(subject))
-                    .font(.subheadline.weight(.bold))
+                    .font(.pt(.subheadline).weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Text(done > 0 ? L("\(subject.units.count)개 단원 · \(done)개 완료") : L("\(subject.units.count)개 단원"))
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
             }
             LinearProgressBar(value: ratio, color: tint, height: 4)
@@ -564,7 +564,7 @@ struct FreeStudyOption: View {
         } else if DoitBrain.isSupported {
             VStack(alignment: .leading, spacing: 8) {
                 Text("AI로 학습하려면 모델이 필요해요")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(.secondary)
                 ModelDownloadCard()
             }
@@ -592,7 +592,7 @@ struct UnitRow: View {
             ZStack {
                 if progress?.isComplete == true {
                     Image(systemName: "checkmark")
-                        .font(.caption.weight(.heavy))
+                        .font(.pt(.caption).weight(.heavy))
                         .foregroundStyle(.white)
                         .frame(width: 30, height: 30)
                         .background(Palette.success, in: .circle)
@@ -603,17 +603,17 @@ struct UnitRow: View {
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .multilineTextAlignment(.leading)
                 if let caption {
-                    Text(caption).font(.caption).foregroundStyle(.secondary)
+                    Text(caption).font(.pt(.caption)).foregroundStyle(.secondary)
                 }
             }
             Spacer(minLength: 8)
             if let accuracy {
                 Text("\(accuracy)%")
-                    .font(.caption.weight(.bold))
+                    .font(.pt(.caption).weight(.bold))
                     .monospacedDigit()
                     .foregroundStyle(accuracy >= 80 ? Palette.success : (accuracy >= 60 ? Theme.accent : Palette.danger))
                     .padding(.horizontal, 8)
@@ -621,7 +621,7 @@ struct UnitRow: View {
                     .background((accuracy >= 80 ? Palette.success : (accuracy >= 60 ? Theme.accent : Palette.danger)).opacity(0.12), in: .capsule)
             }
             Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
+                .font(.pt(.footnote).weight(.semibold))
                 .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -660,13 +660,13 @@ struct SubjectUnitsView: View {
                 HStack(spacing: 16) {
                     ZStack {
                         ProgressRing(progress: subject.units.isEmpty ? 0 : Double(done) / Double(subject.units.count), lineWidth: 8, color: Theme.accent)
-                        Image(systemName: subject.symbol).font(.title3).foregroundStyle(Theme.accent)
+                        Image(systemName: subject.symbol).font(.pt(.title3)).foregroundStyle(Theme.accent)
                     }
                     .frame(width: 64, height: 64)
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(subject.name).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
+                        Text(subject.name).font(.pt(.title3).weight(.bold)).foregroundStyle(Palette.ink)
                         Text("\(subject.units.count)개 단원 중 \(done)개 완료")
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                     }
                     Spacer(minLength: 0)

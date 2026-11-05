@@ -63,7 +63,7 @@ struct MemoListView: View {
                           color: memo.isPinned ? Palette.warning : Theme.accent, size: 38)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(memo.displayTitle)
-                        .font(.body.weight(.semibold))
+                        .font(.pt(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                     HStack(spacing: 6) {
@@ -72,7 +72,7 @@ struct MemoListView: View {
                         Text(memo.content.replacingOccurrences(of: "\n", with: " "))
                             .lineLimit(1)
                     }
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                 }
             }
@@ -111,7 +111,7 @@ struct MemoEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TextField("제목", text: $memo.title)
-                .font(.title2.weight(.bold))
+                .font(.pt(.title2).weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .focused($focus, equals: .title)
                 .submitLabel(.next)
@@ -120,13 +120,13 @@ struct MemoEditorView: View {
                 .padding(.top, 8)
 
             Text(memo.updatedAt.ui("yyyy년 M월 d일 a h:mm"))
-                .font(.caption)
+                .font(.pt(.caption))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 20)
                 .padding(.top, 4)
 
             TextEditor(text: $memo.content)
-                .font(.body)
+                .font(.pt(.body))
                 .lineSpacing(4)
                 .scrollContentBackground(.hidden)
                 .focused($focus, equals: .content)

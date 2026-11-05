@@ -101,7 +101,7 @@ struct MockExamView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     IconBadge(symbol: "doc.text", color: Palette.sky, size: 48)
                     Text("내 취약 개념으로 10문제")
-                        .font(.title3.weight(.bold))
+                        .font(.pt(.title3).weight(.bold))
                         .foregroundStyle(Palette.ink)
                     HStack(spacing: 6) {
                         TagLabel(text: L("\(DoitMockExam.size)문제"), symbol: "list.number", color: Palette.sky)
@@ -126,12 +126,12 @@ struct MockExamView: View {
                     .scrollIndicators(.hidden)
                     if inScope < DoitMockExam.minWeak {
                         Label(inScope == 0 ? L("취약 개념이 없어서 최근 단원으로 내요") : L("취약 개념이 적어서 최근 단원도 섞어요"), systemImage: "info.circle")
-                            .font(.footnote)
+                            .font(.pt(.footnote))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 4)
                     } else {
                         Label("취약 개념 \(inScope)개", systemImage: "target")
-                            .font(.footnote)
+                            .font(.pt(.footnote))
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 4)
                     }
@@ -165,7 +165,7 @@ struct MockExamView: View {
             Haptics.tap()
         } label: {
             Label(title, systemImage: symbol)
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(on ? .white : Palette.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
@@ -204,7 +204,7 @@ struct MockExamView: View {
                 Text((left >= 0 ? "" : "+") + Self.mmss(abs(left)))
                     .contentTransition(.numericText())
             }
-            .font(.subheadline.weight(.semibold).monospacedDigit())
+            .font(.pt(.subheadline).weight(.semibold).monospacedDigit())
             .foregroundStyle(left >= 0 ? Palette.ink : Palette.warning)
             .accessibilityLabel(left >= 0 ? L("남은 시간 \(Self.mmss(left))") : L("시간 지남"))
         }
@@ -232,7 +232,7 @@ struct MockExamView: View {
                     withAnimation(.snappy) { index = max(0, index - 1) }
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .frame(width: 54, height: 54)
                         .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
                 }
@@ -262,7 +262,7 @@ struct MockExamView: View {
                 let done = !(answers[q.id] ?? "").trimmingCharacters(in: .whitespaces).isEmpty
                 Button { withAnimation(.snappy) { index = i } } label: {
                     Text("\(i + 1)")
-                        .font(.caption.weight(.bold).monospacedDigit())
+                        .font(.pt(.caption).weight(.bold).monospacedDigit())
                         .foregroundStyle(i == index ? .white : (done ? Theme.accent : .secondary))
                         .frame(maxWidth: .infinity)
                         .frame(height: 28)
@@ -278,13 +278,13 @@ struct MockExamView: View {
     private func questionCard(_ q: MockExamQuestion, number: Int) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
-                Text("\(number)번").font(.headline).foregroundStyle(Theme.accent)
+                Text("\(number)번").font(.pt(.headline)).foregroundStyle(Theme.accent)
                 TagLabel(text: q.isChoice ? L("객관식") : L("단답"), color: .secondary)
                 Spacer()
-                Text(q.concept).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(q.concept).font(.pt(.caption)).foregroundStyle(.secondary).lineLimit(1)
             }
             Text(MathSymbolBar.pretty(q.item.question))
-                .font(.body.weight(.medium))
+                .font(.pt(.body).weight(.medium))
                 .foregroundStyle(Palette.ink)
                 .lineSpacing(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -296,7 +296,7 @@ struct MockExamView: View {
                 }
             } else {
                 TextField("답", text: Binding(get: { answers[q.id] ?? "" }, set: { answers[q.id] = $0 }))
-                    .font(.title3.weight(.semibold))
+                    .font(.pt(.title3).weight(.semibold))
                     .focused($typing)
                     .submitLabel(.next)
                     .onSubmit { if index < questions.count - 1 { withAnimation(.snappy) { index += 1 } } }
@@ -322,10 +322,10 @@ struct MockExamView: View {
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(number <= marks.count ? marks[number - 1] : "\(number)")
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .foregroundStyle(on ? .white : Theme.accent)
                 Text(MathSymbolBar.pretty(text))
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(on ? .white : Palette.ink)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -374,20 +374,20 @@ struct MockExamView: View {
                         ProgressRing(progress: Double(score) / Double(max(list.count, 1)), lineWidth: 12,
                                      color: score == list.count ? Palette.success : Theme.accent)
                         VStack(spacing: 0) {
-                            Text("\(score)").font(.system(size: 30, weight: .bold, design: .rounded)).foregroundStyle(Palette.ink)
-                            Text("/ \(list.count)").font(.caption).foregroundStyle(.secondary)
+                            Text("\(score)").font(.pt(size: 30, weight: .bold)).foregroundStyle(Palette.ink)
+                            Text("/ \(list.count)").font(.pt(.caption)).foregroundStyle(.secondary)
                         }
                     }
                     .frame(width: 96, height: 96)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(DoitMockExam.cheer(correct: score, total: list.count))
-                            .font(.title3.weight(.bold))
+                            .font(.pt(.title3).weight(.bold))
                             .foregroundStyle(Palette.ink)
                         Label(Self.mmss(Int(finishedAt.timeIntervalSince(startedAt))), systemImage: "timer")
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                         if exam?.usedFallback == true {
-                            Text("최근 단원도 섞었어요").font(.caption).foregroundStyle(.tertiary)
+                            Text("최근 단원도 섞었어요").font(.pt(.caption)).foregroundStyle(.tertiary)
                         }
                     }
                     Spacer(minLength: 0)
@@ -411,7 +411,7 @@ struct MockExamView: View {
                         dismiss()
                     } label: {
                         Text("닫기")
-                            .font(.body.weight(.bold))
+                            .font(.pt(.body).weight(.bold))
                             .foregroundStyle(Palette.ink)
                             .frame(width: 96, height: 54)
                             .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
@@ -438,21 +438,21 @@ struct MockExamView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: correct ? "checkmark" : "xmark")
-                        .font(.system(size: 14, weight: .bold))
+                        .font(.pt(size: 14, weight: .bold))
                         .foregroundStyle(correct ? Palette.success : Palette.danger)
                         .frame(width: 32, height: 32)
                         .background((correct ? Palette.success : Palette.danger).pastel, in: .rect(cornerRadius: 11, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("\(number)번 · \(q.concept)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        Text("\(number)번 · \(q.concept)").font(.pt(.caption)).foregroundStyle(.secondary).lineLimit(1)
                         Text(MathSymbolBar.pretty(q.item.question.components(separatedBy: "\n").last ?? q.item.question))
-                            .font(.subheadline.weight(.semibold))
+                            .font(.pt(.subheadline).weight(.semibold))
                             .foregroundStyle(Palette.ink)
                             .lineLimit(open ? nil : 1)
                             .multilineTextAlignment(.leading)
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.down")
-                        .font(.footnote.weight(.semibold))
+                        .font(.pt(.footnote).weight(.semibold))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(open ? 180 : 0))
                 }
@@ -461,12 +461,12 @@ struct MockExamView: View {
             if open {
                 VStack(alignment: .leading, spacing: 8) {
                     if q.item.question.contains("\n") {
-                        Text(MathSymbolBar.pretty(q.item.question)).font(.footnote).foregroundStyle(.secondary)
+                        Text(MathSymbolBar.pretty(q.item.question)).font(.pt(.footnote)).foregroundStyle(.secondary)
                     }
                     answerLine(L("내 답"), mine.isEmpty ? "—" : (q.isChoice ? choiceText(q, mine) : mine), color: correct ? Palette.success : Palette.danger)
                     answerLine(L("정답"), DoitMockExam.answerText(q.item), color: Palette.success)
                     ForEach(Array(q.item.explanation.prefix(4).enumerated()), id: \.offset) { _, line in
-                        Text(MathSymbolBar.pretty(line)).font(.footnote).foregroundStyle(Palette.ink.opacity(0.8))
+                        Text(MathSymbolBar.pretty(line)).font(.pt(.footnote)).foregroundStyle(Palette.ink.opacity(0.8))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -482,8 +482,8 @@ struct MockExamView: View {
 
     private func answerLine(_ title: String, _ value: String, color: Color) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title).font(.caption.weight(.bold)).foregroundStyle(color).frame(width: 34, alignment: .leading)
-            Text(MathSymbolBar.pretty(value)).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+            Text(title).font(.pt(.caption).weight(.bold)).foregroundStyle(color).frame(width: 34, alignment: .leading)
+            Text(MathSymbolBar.pretty(value)).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
         }
     }
 

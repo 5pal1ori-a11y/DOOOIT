@@ -39,8 +39,8 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
-        // 둥근 글꼴로 앱 전체를 부드럽게
-        .fontDesign(.rounded)
+        // 앱 전체 기본 글꼴: Pretendard
+        .font(.pt(.body))
         .preferredColorScheme(AppearanceMode(rawValue: appearanceRaw)?.colorScheme)
         // 고른 언어로 글자·날짜를 바로 바꿈 (다시 열면 시스템도 그 언어로 엶)
         .environment(\.locale, AppLanguage.locale)

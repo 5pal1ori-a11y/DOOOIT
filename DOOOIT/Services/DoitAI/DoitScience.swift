@@ -255,6 +255,13 @@ enum DoitScience {
             SciUnit(token: "μm", dim: .length, factor: 1e-6, show: "μm"), SciUnit(token: "m", dim: .length, factor: 1, show: "m"),
             SciUnit(token: "킬로미터", dim: .length, factor: 1000, show: "km"), SciUnit(token: "센티미터", dim: .length, factor: 0.01, show: "cm"),
             SciUnit(token: "밀리미터", dim: .length, factor: 0.001, show: "mm"), SciUnit(token: "미터", dim: .length, factor: 1, show: "m"),
+            // 야드파운드법 (정의값: 1 in = 2.54 cm, 1 ft = 30.48 cm, 1 yd = 91.44 cm, 1 mile = 1609.344 m, 1 lb = 453.59237 g, 1 oz = 28.349523125 g)
+            SciUnit(token: "인치", dim: .length, factor: 0.0254, show: "inch"), SciUnit(token: "inch", dim: .length, factor: 0.0254, show: "inch"),
+            SciUnit(token: "피트", dim: .length, factor: 0.3048, show: "ft"), SciUnit(token: "ft", dim: .length, factor: 0.3048, show: "ft"),
+            SciUnit(token: "야드", dim: .length, factor: 0.9144, show: "yd"), SciUnit(token: "마일", dim: .length, factor: 1609.344, show: "mile"),
+            SciUnit(token: "mile", dim: .length, factor: 1609.344, show: "mile"),
+            SciUnit(token: "파운드", dim: .mass, factor: 0.45359237, show: "lb"), SciUnit(token: "lb", dim: .mass, factor: 0.45359237, show: "lb"),
+            SciUnit(token: "온스", dim: .mass, factor: 0.028349523125, show: "oz"), SciUnit(token: "oz", dim: .mass, factor: 0.028349523125, show: "oz"),
             SciUnit(token: "시간", dim: .time, factor: 3600, show: "h"), SciUnit(token: "hr", dim: .time, factor: 3600, show: "h"),
             SciUnit(token: "h", dim: .time, factor: 3600, show: "h"), SciUnit(token: "분", dim: .time, factor: 60, show: "min"),
             SciUnit(token: "min", dim: .time, factor: 60, show: "min"), SciUnit(token: "초", dim: .time, factor: 1, show: "s"),
@@ -926,7 +933,7 @@ enum DoitScience {
     ]
 
     private static func conversion(_ c: SciContext) -> String? {
-        guard c.has(["몇", "바꿔", "변환", "환산", "나타내", "단위", "로 하면", "으로 하면"]), let q = c.quantities.first else { return nil }
+        guard c.has(["몇", "바꿔", "변환", "환산", "나타내", "단위", "로 하면", "으로 하면", "화씨로", "섭씨로", "켈빈으로", "로 바꾸", "으로 바꾸", "얼마야"]), let q = c.quantities.first else { return nil }
         guard q.end <= c.chars.count else { return nil }
         let after = String(c.chars[q.end...])
         var target: SciUnit?
@@ -1120,7 +1127,7 @@ enum DoitScience {
             lines.append("중성 원자에서는 양성자 수 = 전자 수 = \(e.z)개예요.")
         } else if compact.contains("원자량") {
             lines.append("**\(e.name)(\(e.symbol))의 원자량: 약 \(fmt(e.mass))**")
-            lines.append("계산 문제에서는 보통 \(fmt(schoolMass(e)))(으)로 써요.")
+            lines.append("계산 문제에서는 보통 \(fmt(schoolMass(e)))\(DoitRelevance.josa(fmt(schoolMass(e)), "으로")) 써요.")
         } else if compact.contains("족") || compact.contains("주기") {
             lines.append("**\(e.name)(\(e.symbol)): \(e.period)주기" + (e.group > 0 ? " \(e.group)족**" : "**"))
         } else if compact.contains("전자배치") || compact.contains("원자가전자") || compact.contains("전자껍질") {

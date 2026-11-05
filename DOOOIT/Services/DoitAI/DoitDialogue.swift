@@ -72,6 +72,8 @@ enum DoitDialogue {
         /// "x=3일 때는?", "x가 2면?"
         case variable(name: String, value: String)
         case why, again, simpler, steps, example, next, more
+        /// "그럼 반대는?", "반대 개념은?"
+        case opposite
         /// "그럼 독일은?" (앞 질문에서 대상만 바꿈)
         case ellipsis(String)
         /// "그거", "이거", "그 문제", "거기서"
@@ -142,6 +144,10 @@ enum DoitDialogue {
         if ["그다음은", "그다음", "다음은", "그다음엔", "그다음에는", "다음단계는", "다음단계", "그리고", "그리고는", "또있어", "또뭐있어", "그래서", "그래서요",
             "그다음은뭐야", "다음은뭐야", "그다음엔뭐해", "다음은"].contains(rest) {
             return .next
+        }
+        if ["반대는", "반대는뭐야", "반대개념은", "반대개념", "반대는뭔데", "반대로는", "그반대는", "반대도", "반대말은", "반대되는개념은", "반대되는건", "반대되는거"].contains(rest)
+            || ["반대는", "반대개념은", "그반대는"].contains(core) {
+            return .opposite
         }
         if (has(core, ["더자세히", "자세히알려", "자세히설명", "더알려", "더설명"]) && core.count <= 14 && !core.contains("하나더"))
             || ["더", "계속", "계속해", "계속해줘"].contains(core) {
@@ -232,7 +238,7 @@ enum DoitDialogue {
             if let problem = state.mathProblem, let checked = checkSubstitution(problem, name: name, value: value) {
                 return .answer(checked, ["비슷한 문제 내줘"])
             }
-            return .clarify("어떤 식에 \(name) = \(value)을(를) 넣을까요? 식을 같이 적어 주세요.", [])
+            return .clarify("어떤 식에 \(name) = \(value)\(DoitRelevance.josa(value, "을")) 넣을까요? 식을 같이 적어 주세요.", [])
 
         case .substitute(let value, let name, let unit):
             if focus == .math, name == nil, unit == nil, let fn = state.function {
@@ -241,14 +247,14 @@ enum DoitDialogue {
             if focus == .math, name == nil, unit == nil, let problem = state.mathProblem, problem.contains("=") {
                 var chips = ["x=\(value)이면?"]
                 if let replaced = replaceNumbers(in: problem, value: value, name: nil, unit: nil).last { chips.append(replaced) }
-                return .clarify("x = \(value)일 때를 볼까요, 아니면 식의 숫자를 \(value)(으)로 바꿀까요?", chips)
+                return .clarify("x = \(value)일 때를 볼까요, 아니면 식의 숫자를 \(value)\(DoitRelevance.josa(value, "으로")) 바꿀까요?", chips)
             }
             if focus == .math || focus == .calc || focus == .command, let question = focus == .math ? state.mathProblem : state.question {
                 let candidates = replaceNumbers(in: question, value: value, name: name, unit: unit)
                 if candidates.count == 1 { return .rewrite(candidates[0]) }
-                if candidates.count > 1 { return .clarify("어떤 값을 \(value)(으)로 바꿀까요?", Array(candidates.prefix(3))) }
+                if candidates.count > 1 { return .clarify("어떤 값을 \(value)\(DoitRelevance.josa(value, "으로")) 바꿀까요?", Array(candidates.prefix(3))) }
             }
-            return .clarify("무엇을 \(value)(으)로 바꿀지 문제와 같이 알려줄래요?", [])
+            return .clarify("무엇을 \(value)\(DoitRelevance.josa(value, "으로")) 바꿀지 문제와 같이 알려줄래요?", [])
 
         case .why:
             if focus == .math, let solved = state.mathProblem.flatMap(MathSolver.solve) {
@@ -256,7 +262,7 @@ enum DoitDialogue {
             }
             if let topic, let answer = state.answer, focus?.isExplainable == true, focus != .word {
                 if let reason = reasonText(answer: answer) { return .answer(reason, ["다시 설명해줘", "이걸로 퀴즈 내줘"]) }
-                return .clarify("'\(topic)'에서 어떤 점이 왜 궁금해요? 예: \"\(topic)은(는) 왜 중요해?\"", ["\(topic) 더 자세히 알려줘"])
+                return .clarify("'\(topic)'에서 무엇이 왜 궁금한지 조금만 더 알려줄래요?", ["\(topic) 다시 설명해줘", "이걸로 퀴즈 내줘"])
             }
             return .clarify("어떤 게 왜 궁금한지 알려줄래요?", [])
 
@@ -291,12 +297,12 @@ enum DoitDialogue {
             }
             if let topic, focus?.isExplainable == true {
                 if follow == .example {
-                    if let example = example(for: topic, answer: state.answer) { return .answer(example, ["이걸로 퀴즈 내줘"]) }
+                    if let example = example(for: topic, answer: state.answer, question: state.question) { return .answer(example, ["이걸로 퀴즈 내줘"]) }
                     return .answer("'\(topic)'의 다른 예시는 아직 준비된 게 없어요.", ["\(topic) 더 자세히 알려줘", "이걸로 퀴즈 내줘"])
                 }
                 if let next = DoitKnowledge.related(to: topic, limit: 2).first {
                     let line = next.body.components(separatedBy: "\n").first ?? ""
-                    return .answer("다음으로 **\(next.title)**을(를) 알아 두면 좋아요.\n\(DoitMemory.trimmed(line, max: 140))", ["\(next.title) 설명해줘", "이걸로 퀴즈 내줘"])
+                    return .answer("다음으로 **\(next.title)**\(DoitRelevance.josa(next.title, "을")) 알아 두면 좋아요.\n\(DoitMemory.trimmed(line, max: 140))", ["\(next.title) 설명해줘", "이걸로 퀴즈 내줘"])
                 }
                 return .answer("'\(topic)' 다음엔 퀴즈로 확인해 볼까요?", ["이걸로 퀴즈 내줘"])
             }
@@ -310,6 +316,11 @@ enum DoitDialogue {
                 return .answer(DoitTutor.more(about: topic, previous: state.answer ?? ""), ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
             }
             return .clarify("어떤 걸 더 자세히 알려줄까요?", [])
+
+        case .opposite:
+            guard let topic, focus?.isExplainable == true else { return .clarify("어떤 것의 반대가 궁금해요?", []) }
+            if let other = opposite(of: topic) { return .rewrite("\(DoitRelevance.with(other, "이")) 뭐야") }
+            return .answer("'\(topic)'의 반대 개념은 제 자료에 없어요.", ["\(topic) 다시 설명해줘", "이걸로 퀴즈 내줘"])
 
         case .ellipsis(let target):
             if let question = state.question, focus != nil, focus != .plan,
@@ -400,6 +411,22 @@ enum DoitDialogue {
         return Double(shared) / Double(qGrams.count) < 0.34
     }
 
+    /// 질문 속 한 글자 이름씨("빛의 분산"의 '빛', "물의 끓는점"의 '물')가 답에 없으면 다른 이야기 ('분산'만 맞춘 통계 설명)
+    static func missesShortNoun(question: String, reply: String) -> Bool {
+        let nouns: Set<String> = ["빛", "힘", "물", "불", "땅", "달", "별", "피", "뼈", "귀", "코", "손", "발", "열", "산", "강", "돌", "흙", "숲", "섬", "꽃", "잎", "씨", "혀", "뇌", "폐", "콩", "쌀", "철", "납", "공기"]
+        let words = question.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        let body = DoitRelevance.expanded(reply)
+        for word in words {
+            var noun = word
+            if word.count == 2, let last = word.last, ["의", "이", "가", "은", "는", "을", "를", "에", "과", "와", "도"].contains(String(last)),
+               let first = word.first, DoitRelevance.particleFits(String(last), after: first) {
+                noun = String(first)
+            }
+            if noun.count == 1, nouns.contains(noun), !body.contains(noun) { return true }
+        }
+        return false
+    }
+
     /// 질문의 핵심 낱말 (조사·물음말·부탁말은 뺌)
     static func keywords(_ raw: String) -> [String] {
         let stop: Set<String> = ["뭐", "뭐야", "뭐지", "무엇", "무엇인가요", "어떻게", "왜", "언제", "어디", "누구", "알려", "알려줘", "설명", "설명해", "설명해줘",
@@ -410,6 +437,7 @@ enum DoitDialogue {
                                  "다른", "들어줘", "보여줘", "줄래", "해줄래", "그럼요", "그러면", "그렇다면", "들면", "들어", "들어서", "보면", "해봐", "알려줄래", "주라", "볼래",
                                  // 무엇을 알고 싶은지 나타내는 말 (주제가 아님): "광합성 예시" → 광합성
                                  "예시", "예문", "예제", "특징", "종류", "장점", "단점", "차이점", "차이", "정의", "구하는", "방법", "하는법", "구하는법", "뭐임", "머임", "머야",
+                                 "년도", "연도", "몇년", "몇년도", "언제야", "언제임", "누구야", "누구임", "몇년이야",
                                  "the", "a", "an", "is", "are", "what", "how", "why", "to", "of", "in", "do", "does"]
         let endings = ["이란게", "이란", "란게", "에대해서", "에대해", "에관해", "이라는게", "라는게", "이라는", "라는", "에서는", "에서", "으로는", "으로", "까지는",
                        "까지", "부터", "에게", "한테", "이랑", "랑", "하고", "이에요", "예요", "이야", "인가", "이다", "은", "는", "이", "가", "을", "를", "의",
@@ -450,10 +478,31 @@ enum DoitDialogue {
     static func ownTopic(_ raw: String) -> String? {
         let triggers = ["예시", "예제", "예를", "쉽게", "간단", "짧게", "요약", "다시", "설명", "단계", "과정", "풀이", "자세히", "다음", "이유", "어째서",
                         "계속", "다른", "이해", "무슨말", "한줄", "차근", "어떻게"]
-        return keywords(raw).first { word in !triggers.contains { word.contains($0) } && !pronouns.contains(word) }
+        return keywords(raw).first { word in !triggers.contains { word.contains($0) } && !pronouns.contains(word) && DoitRelevance.isNounish(word) }
     }
 
     static func has(_ text: String, _ words: [String]) -> Bool { words.contains { text.contains($0) } }
+
+    /// 방금 한 일을 되돌리는 말 ("취소해줘", "방금 거 지워줘")
+    static func isCancel(_ raw: String) -> Bool {
+        let core = raw.replacingOccurrences(of: " ", with: "").trimmingCharacters(in: CharacterSet(charactersIn: "?!.~ㅠㅜ"))
+        return ["취소", "취소해", "취소해줘", "취소해주세요", "취소할래", "취소할게", "방금거취소", "그거취소", "아니취소", "취소취소", "방금거지워줘", "그거지워줘",
+                "방금거삭제해줘", "그거삭제해줘", "그거빼줘", "방금거빼줘", "다시빼줘", "없던걸로", "없던걸로해줘", "잘못넣었어"].contains(core)
+    }
+
+    /// 서로 반대인 개념 (교과서에서 짝으로 배우는 것만)
+    static func opposite(of topic: String) -> String? {
+        let pairs: [(String, String)] = [("광합성", "세포 호흡"), ("산화", "환원"), ("수요", "공급"), ("수요 법칙", "공급 법칙"), ("인플레이션", "디플레이션"), ("융해", "응고"),
+                                         ("기화", "액화"), ("흡열 반응", "발열 반응"), ("동화 작용", "이화 작용"), ("수출", "수입"), ("산", "염기"),
+                                         ("양이온", "음이온"), ("고기압", "저기압"), ("밀물", "썰물"), ("교감 신경", "부교감 신경"), ("귀납", "연역"),
+                                         ("능동태", "수동태"), ("호황", "불황"), ("흑자", "적자"), ("직렬연결", "병렬연결")]
+        let key = DoitStudyCheck.norm(topic)
+        for (a, b) in pairs {
+            if DoitStudyCheck.norm(a) == key { return b }
+            if DoitStudyCheck.norm(b) == key { return a }
+        }
+        return nil
+    }
 
     static func containsPronoun(_ text: String) -> Bool {
         let spaced = " " + text + " "
@@ -506,9 +555,9 @@ enum DoitDialogue {
         let l = DoitMath.value(left, at: v), r = DoitMath.value(right, at: v)
         let ls = DoitMath.format(l), rs = DoitMath.format(r)
         if abs(l - r) < 1e-9 {
-            return "x = \(value)을(를) 넣으면 좌변 \(ls), 우변 \(rs)로 같아요.\n그래서 **x = \(value)은(는) 해예요.**"
+            return "x = \(value)\(DoitRelevance.josa(value, "을")) 넣으면 좌변 \(ls), 우변 \(rs)로 같아요.\n그래서 **x = \(value)\(DoitRelevance.josa(value, "은")) 해예요.**"
         }
-        return "x = \(value)을(를) 넣으면 좌변 \(ls), 우변 \(rs)로 달라요.\n그래서 **x = \(value)은(는) 해가 아니에요.**"
+        return "x = \(value)\(DoitRelevance.josa(value, "을")) 넣으면 좌변 \(ls), 우변 \(rs)로 달라요.\n그래서 **x = \(value)\(DoitRelevance.josa(value, "은")) 해가 아니에요.**"
     }
 
     private static func number(_ s: String) -> Double? {
@@ -631,7 +680,7 @@ enum DoitDialogue {
     /// 앞 답에서 이유를 말한 문장 (없으면 nil → 무엇이 왜 궁금한지 되물음)
     static func reasonText(answer: String) -> String? {
         let sentences = bodySentences(answer)
-        let signals = ["때문", "이유", "그래서", "따라서", "므로", "원리", "덕분", "위해", "해서", "려고"]
+        let signals = ["때문", "이유", "그래서", "따라서", "므로", "덕분", "위해"]
         let reasons = sentences.filter { s in signals.contains { s.contains($0) } }
         return reasons.isEmpty ? nil : reasons.prefix(2).joined(separator: " ")
     }
@@ -649,12 +698,19 @@ enum DoitDialogue {
     }
 
     /// 주제의 예시 (앞 답이나 지식 사전의 "예:" 부분)
-    static func example(for topic: String, answer: String?) -> String? {
+    static func example(for topic: String, answer: String?, question: String? = nil) -> String? {
         var pool: [String] = []
-        for text in [answer ?? "", DoitKnowledge.entry(named: topic)?.body ?? ""] {
+        // (앞 답은 짧게 줄여 보여 줬을 수 있어서, 영어 문법 설명은 원래 답 전체의 "예문 1) …"도 봄)
+        let full = question.flatMap { DoitEnglish.answer($0) } ?? ""
+        for text in [answer ?? "", DoitKnowledge.entry(named: topic)?.body ?? "", full] {
             for part in text.components(separatedBy: "예:").dropFirst() {
                 let line = part.components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespaces) ?? ""
                 if line.count >= 4, !pool.contains(line) { pool.append(line) }
+            }
+            for line in text.components(separatedBy: "\n") {
+                guard let m = line.trimmingCharacters(in: .whitespaces).firstMatch(of: #/^\d\)\s*(.{6,})$/#) else { continue }
+                let sentence = String(m.1)
+                if !pool.contains(sentence) { pool.append(sentence) }
             }
         }
         guard !pool.isEmpty else { return nil }

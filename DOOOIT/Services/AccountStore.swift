@@ -233,6 +233,31 @@ enum AccountStore {
     }
 
     /// 계정 아이디를 그대로 폴더 이름으로 쓰지 않고 해시로 (특수문자·개인정보 방지)
+    /// 둘러보기나 예전 이메일 계정으로 쓴 기록을 처음 로그인한 Apple 계정이 이어받음
+    /// (그 계정에 기록이 아직 없을 때만, 후보 중 가장 최근에 쓴 기록 하나를 폴더째 옮김)
+    @discardableResult
+    static func adoptData(from candidates: [String], into userID: String) -> Bool {
+        let fm = FileManager.default
+        let target = folder(for: userID)
+        func store(_ id: String) -> URL { folder(for: id).appending(path: "DOOOIT.store") }
+        guard !fm.fileExists(atPath: target.appending(path: "DOOOIT.store").path(percentEncoded: false)) else { return false }
+        func modified(_ id: String) -> Date {
+            let path = store(id).path(percentEncoded: false)
+            return ((try? fm.attributesOfItem(atPath: path))?[.modificationDate] as? Date) ?? .distantPast
+        }
+        guard let source = candidates.filter({ $0 != userID && fm.fileExists(atPath: store($0).path(percentEncoded: false)) })
+            .max(by: { modified($0) < modified($1) }) else { return false }
+        let guest = folder(for: source)
+        try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fm.fileExists(atPath: target.path(percentEncoded: false)) { try? fm.removeItem(at: target) }
+        do {
+            try fm.moveItem(at: guest, to: target)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     static func folder(for userID: String) -> URL {
         let digest = SHA256.hash(data: Data(userID.utf8)).map { String(format: "%02x", $0) }.joined()
         return URL.applicationSupportDirectory.appending(path: "Accounts").appending(path: String(digest.prefix(32)))

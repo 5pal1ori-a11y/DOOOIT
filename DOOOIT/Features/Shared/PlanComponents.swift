@@ -34,7 +34,7 @@ struct DDayChip: View {
                     .fontWeight(.heavy)
                     .foregroundStyle(Theme.accent)
             }
-            .font(.caption.weight(.semibold))
+            .font(.pt(.caption).weight(.semibold))
             .lineLimit(1)
             .padding(.horizontal, 11)
             .frame(height: 28)
@@ -65,10 +65,10 @@ struct WeekStrip: View {
                 } label: {
                     VStack(spacing: 5) {
                         Text(day.ui("E"))
-                            .font(.caption2.weight(.semibold))
+                            .font(.pt(.caption2).weight(.semibold))
                             .foregroundStyle(i == 0 ? Palette.danger : (i == 6 ? Theme.accent : Color.secondary))
                         Text("\(cal.component(.day, from: day))")
-                            .font(.callout.weight(.bold))
+                            .font(.pt(.callout).weight(.bold))
                             .monospacedDigit()
                             .frame(width: 34, height: 34)
                             .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.accent : Palette.ink))
@@ -115,7 +115,7 @@ struct PlanTimelineRow: View {
                 Haptics.tap()
             } label: {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
+                    .font(.pt(.title2))
                     .foregroundStyle(done ? plan.color : Color.secondary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: done)
@@ -125,12 +125,12 @@ struct PlanTimelineRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(plan.title)
-                    .font(.body.weight(.medium))
+                    .font(.pt(.body).weight(.medium))
                     .strikethrough(done)
                     .foregroundStyle(done ? Color.secondary : Palette.ink)
                     .lineLimit(1)
                 subtitle
-                    .font(.footnote)
+                    .font(.pt(.footnote))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -191,7 +191,7 @@ struct PlanRow: View {
                 Haptics.tap()
             } label: {
                 Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
+                    .font(.pt(.title3))
                     .foregroundStyle(completed ? plan.color : Color.secondary)
                     .contentTransition(.symbolEffect(.replace))
                     .symbolEffect(.bounce, value: completed)
@@ -204,7 +204,7 @@ struct PlanRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(plan.title)
-                    .font(.body.weight(.semibold))
+                    .font(.pt(.body).weight(.semibold))
                     .strikethrough(completed)
                     .foregroundStyle(completed ? Color.secondary : Color.primary)
                     .lineLimit(1)
@@ -217,7 +217,7 @@ struct PlanRow: View {
                         Image(systemName: "repeat")
                     }
                 }
-                .font(.caption)
+                .font(.pt(.caption))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
@@ -226,7 +226,7 @@ struct PlanRow: View {
 
             if plan.isStudy {
                 Image(systemName: plan.lockApps ? "lock.fill" : "timer")
-                    .font(.caption.weight(.semibold))
+                    .font(.pt(.caption).weight(.semibold))
                     .foregroundStyle(plan.color)
             }
         }

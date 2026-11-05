@@ -93,6 +93,9 @@ final class DoitAssistant {
         // 바로 전 답에서 제안한 일("퀴즈 한 판 할까요?")에 "응"이라고 하면 그 일을 그대로 (화면에는 학생 말 그대로)
         if image == nil, let accepted = DoitTone.acceptedOffer(question) { question = accepted }
         turn = TurnNote(question: question, start: messages.count)
+        // 지금 모드 (모티 ZERO / 모티 1·2): 모를 때 "모티 1·2를 받으면…" 안내, "너 무슨 AI야?" 답에 씀
+        DoitRelevance.noModel = !DoitMind.isAvailable
+        DoitChat.modeName = DoitMind.isAvailable ? (DoitBrain.shared.selected?.title ?? "모티 ZERO") : "모티 ZERO"
         defer { isResponding = false; status = "" }
         defer { rememberTurn() }
 
@@ -137,7 +140,12 @@ final class DoitAssistant {
 
         // 4) 앞 대화로 풀리는 이어 말하기 ("그럼 3이면?", "왜?", "그거 단계별로", "x=3일 때는?", "그럼 독일은?")
         var routed = question
-        if image == nil, dialogue.last != .quiz {
+        // 방금 넣은 일정에 "취소해줘" → 그 일정 지우기
+        if image == nil, dialogue.last == .plan, let plan = dialogue.entities["plan"], DoitDialogue.isCancel(question) {
+            let date = DoitEngine.findDate(in: dialogue.question ?? "")
+            routed = (date.map { $0 + " " } ?? "") + "\(plan) 일정 삭제해줘"
+            turn.question = routed
+        } else if image == nil, dialogue.last != .quiz {
             switch DoitDialogue.resolve(question, state: dialogue) {
             case .none:
                 break
@@ -203,7 +211,7 @@ final class DoitAssistant {
             if let entry = await DoitEnglish.define(word) {
                 reply.text = reply.text.isEmpty ? entry : reply.text + "\n\n" + entry
             } else if reply.text.isEmpty {
-                reply.text = "'\(word)'을(를) 사전에서 찾지 못했어요. 철자를 확인하거나 인터넷 연결을 확인해 주세요."
+                reply.text = "'\(word)'\(DoitRelevance.josa(word, "을")) 사전에서 찾지 못했어요. 철자를 확인하거나 인터넷 연결을 확인해 주세요."
             }
             reply.suggestions = reply.suggestions.filter { !$0.contains("영어 뜻 자세히") }
         case .quiz, nil:
@@ -213,7 +221,8 @@ final class DoitAssistant {
         noteKind(of: reply, question: routed, actions: actions)
 
         // 다른 주제로 샌 답 막기 (질문의 핵심 낱말이 답에 하나도 없음): 모델이 있으면 모델이, 없으면 짐작하지 않고 되물음
-        if image == nil, actions.isEmpty, isGuardable(reply), DoitDialogue.isOffTopic(question: routed, reply: reply.text) {
+        if image == nil, actions.isEmpty, isGuardable(reply, question: routed),
+           DoitDialogue.isOffTopic(question: routed, reply: reply.text) || DoitDialogue.missesShortNoun(question: routed, reply: reply.text) {
             if DoitMind.isAvailable {
                 await think(question: routed, draft: nil, origin: .knowledge, suggestions: [], topic: dialogue.topic)
                 return
@@ -269,10 +278,12 @@ final class DoitAssistant {
     }
 
     /// 다른 주제로 샜는지 볼 답 (개념 설명·과목 설명·"혹시 …" 짐작). 앱 명령·수학 풀이·일상 대화는 보지 않음
-    private func isGuardable(_ reply: DoitEngine.Reply) -> Bool {
+    private func isGuardable(_ reply: DoitEngine.Reply, question: String) -> Bool {
         guard reply.deferred == nil, !reply.text.contains("**답:") else { return false }
         switch reply.origin {
-        case .knowledge, .subject: return true
+        case .knowledge: return true
+        // 과목 엔진의 계산·단위 바꾸기("3시간은 몇 분", "섭씨 30도는 화씨로")는 숫자로 답해서 질문 낱말이 답에 없어도 맞는 답
+        case .subject: return !question.contains(where: \.isNumber)
         case .conversation: return reply.text.hasPrefix("혹시")
         case .chat, .command, .math: return false
         }
@@ -454,6 +465,9 @@ final class DoitAssistant {
             }
         }
         guard let previous = lastAnswer else { return nil }
+        // "Zeta 더 자세히 알려줘"처럼 다른 주제를 직접 말했으면 바로 전 답을 이어 가지 않음
+        if let own = DoitDialogue.ownTopic(question), DoitStudyCheck.norm(own) != DoitStudyCheck.norm(previous.topic),
+           !DoitStudyCheck.norm(previous.topic).contains(DoitStudyCheck.norm(own)) { return nil }
         if q.contains("더자세히") || q.contains("자세히알려") || q.contains("더알려") || q == "더" || q.contains("계속") {
             return Message(role: .assistant, text: DoitTutor.more(about: previous.topic, previous: previous.text),
                            suggestions: ["이걸로 퀴즈 내줘", "메모로 저장해줘"])
@@ -585,7 +599,7 @@ final class DoitAssistant {
             if Bool.random() {
                 return DoitQuizItem(question: "'\(word.term)'의 뜻은?", answers: [word.meaning], explanation: "\(word.term): \(word.meaning)")
             }
-            return DoitQuizItem(question: "'\(word.meaning)'을(를) 영어로 쓰면?", answers: [word.term], explanation: "\(word.meaning): \(word.term)")
+            return DoitQuizItem(question: "'\(word.meaning)'\(DoitRelevance.josa(word.meaning, "을")) 영어로 쓰면?", answers: [word.term], explanation: "\(word.meaning): \(word.term)")
         case .english(let topic):
             if DoitActions.shared.wordCount >= 5, topic == nil, Bool.random(), let mine = await makeQuestion(.myWords) { return mine }
             return DoitEnglish.quiz(topic: topic)

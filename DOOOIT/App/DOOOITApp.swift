@@ -14,6 +14,7 @@ struct DOOOITApp: App {
     @State private var container: ModelContainer
 
     init() {
+        AppFont.register()
         let auth = AuthManager()
         #if DEBUG
         // 화면 사진 찍기 (-uiShot): 데모 계정 + 메모리 저장소 (실제 계정·저장소는 열지 않음)
@@ -64,10 +65,15 @@ struct DOOOITApp: App {
 
     /// 로그인·로그아웃·계정 바꾸기: 진행 중인 타이머를 정리하고 그 계정의 저장소와 설정으로 바꿈
     @MainActor
-    private func switchAccount(to userID: String?) {
+    private func switchAccount(to userID: String?, from oldID: String? = nil) {
         if studyTimer.isActive { studyTimer.stop() }
         LiveActivityManager.shared.endAll()
         DoitAssistant.shared.reset()
+        // Apple로 처음 로그인: 둘러보기나 예전 이메일 계정으로 쓰던 기록을 새 계정으로 옮김 (열린 저장소는 먼저 닫음)
+        if let userID, auth.currentUser?.provider == .apple {
+            container = AccountStore.container(for: nil)
+            AccountStore.adoptData(from: [AuthManager.guestID] + auth.emailAccountIDs, into: userID)
+        }
         AccountStore.switchSettings(to: userID)
         container = AccountStore.container(for: userID)
         AccountStore.removePendingIfNeeded()
@@ -92,8 +98,8 @@ struct DOOOITApp: App {
                     PaddleOCRService.shared.autoDownloadIfNeeded()
                     await auth.verifyAppleCredential()
                 }
-                .onChange(of: auth.currentUser?.id) { _, newID in
-                    switchAccount(to: newID)
+                .onChange(of: auth.currentUser?.id) { oldID, newID in
+                    switchAccount(to: newID, from: oldID)
                 }
                 // Google 로그인 화면에서 돌아온 주소
                 .onOpenURL { url in _ = AuthManager.handleGoogleURL(url) }

@@ -90,13 +90,13 @@ struct TimerView: View {
 
     private var topBar: some View {
         ZStack {
-            Text("타이머").font(.headline)
+            Text("타이머").font(.pt(.headline))
             HStack {
                 Button {
                     studyTimer.isPresented = false
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.title3.weight(.semibold))
+                        .font(.pt(.title3).weight(.semibold))
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -106,7 +106,7 @@ struct TimerView: View {
                     showSounds = true
                 } label: {
                     Image(systemName: sound.leadKind?.symbol ?? "speaker.wave.2")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(sound.isPlaying ? green : .white)
                         .symbolEffect(.variableColor.iterative, isActive: sound.isPlaying)
                         .frame(width: 44, height: 44)
@@ -140,7 +140,7 @@ struct TimerView: View {
 
             VStack(spacing: 6) {
                 Text("목표 시간")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(Color(white: 0.55))
                 targetWheel
             }
@@ -163,7 +163,7 @@ struct TimerView: View {
                                     Haptics.tap()
                                 } label: {
                                     Text(task.plan.title)
-                                        .font(.subheadline.weight(.semibold))
+                                        .font(.pt(.subheadline).weight(.semibold))
                                         .lineLimit(1)
                                         .padding(.horizontal, 14)
                                         .padding(.vertical, 9)
@@ -206,7 +206,7 @@ struct TimerView: View {
                     Haptics.success()
                 } label: {
                     Label("공부 시작", systemImage: "play.fill")
-                        .font(.body.weight(.bold))
+                        .font(.pt(.body).weight(.bold))
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
@@ -229,7 +229,7 @@ struct TimerView: View {
             }
         })) {
             Label("다른 앱 잠그기", systemImage: "lock.fill")
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(.white)
         }
         .tint(green)
@@ -250,7 +250,7 @@ struct TimerView: View {
             LazyVStack(spacing: 0) {
                 ForEach(Self.targetOptions, id: \.self) { minutes in
                     Text(minutes == 0 ? "∞" : Self.clockText(minutes))
-                        .font(.system(size: 72, weight: .light, design: .rounded))
+                        .font(.pt(size: 72, weight: .light))
                         .monospacedDigit()
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -277,7 +277,7 @@ struct TimerView: View {
         .sensoryFeedback(.selection, trigger: targetMinutes)
         .overlay(alignment: .bottom) {
             Text(targetMinutes.map(Self.shortText) ?? L("무제한"))
-                .font(.footnote.weight(.semibold))
+                .font(.pt(.footnote).weight(.semibold))
                 .foregroundStyle(Color(white: 0.55))
                 .offset(y: 18)
         }
@@ -303,11 +303,11 @@ struct TimerView: View {
             VStack(spacing: 22) {
                 if let lockUntil = studyTimer.lockUntil {
                     Label("다른 앱 잠금 중 · \(lockUntil.ui("a h:mm"))까지", systemImage: "lock.fill")
-                        .font(.footnote.weight(.bold))
+                        .font(.pt(.footnote).weight(.bold))
                         .foregroundStyle(Palette.danger)
                 }
                 Text(studyTimer.title.loc)
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
 
@@ -316,7 +316,7 @@ struct TimerView: View {
                     VStack(spacing: 14) {
                         Rectangle().fill(line).frame(height: 1)
                         Text(TimeText.clock(elapsed))
-                            .font(.system(size: 72, weight: .bold).monospacedDigit())
+                            .font(.pt(size: 72, weight: .bold).monospacedDigit())
                             .lineLimit(1)
                             .minimumScaleFactor(0.5)
                             .contentTransition(.numericText())
@@ -347,14 +347,14 @@ struct TimerView: View {
     private func statusText(elapsed: TimeInterval) -> some View {
         if let target = studyTimer.targetSeconds {
             if elapsed >= Double(target) {
-                Label("목표 달성!", systemImage: "checkmark.seal.fill").font(.subheadline.weight(.semibold)).foregroundStyle(green)
+                Label("목표 달성!", systemImage: "checkmark.seal.fill").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(green)
             } else {
                 Text("목표 \(TimeText.durationL(seconds: target)) · \(TimeText.durationL(seconds: target - Int(elapsed) + 59)) 남음")
-                    .font(.subheadline).foregroundStyle(Color(white: 0.55))
+                    .font(.pt(.subheadline)).foregroundStyle(Color(white: 0.55))
             }
         } else {
             Text(studyTimer.phase == .paused ? L("일시정지됨") : studyTimer.categoryName)
-                .font(.subheadline).foregroundStyle(Color(white: 0.55))
+                .font(.pt(.subheadline)).foregroundStyle(Color(white: 0.55))
         }
     }
 
@@ -363,13 +363,13 @@ struct TimerView: View {
         Button(action: action) {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
-                    .font(.system(size: 18, weight: .bold))
+                    .font(.pt(size: 18, weight: .bold))
                     .foregroundStyle(iconColor)
                     .frame(width: 46, height: 46)
                     .background(Color.black, in: .circle)
                     .contentTransition(.symbolEffect(.replace))
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.pt(.body).weight(.semibold))
                     .foregroundStyle(.white)
                 Spacer(minLength: 0)
             }
@@ -388,17 +388,17 @@ struct TimerView: View {
         VStack(spacing: 22) {
             Spacer()
             Image(systemName: seconds >= 10 ? "checkmark.seal.fill" : "clock.fill")
-                .font(.system(size: 64, weight: .bold))
+                .font(.pt(size: 64, weight: .bold))
                 .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
                 .symbolEffect(.bounce, value: seconds)
             VStack(spacing: 8) {
                 Text(seconds >= 10 ? L("수고했어요!") : L("기록이 너무 짧아요"))
-                    .font(.title.weight(.bold))
+                    .font(.pt(.title).weight(.bold))
                 Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : L("10초 이상 공부해야 기록돼요."))
-                    .font(seconds >= 10 ? .system(size: 44, weight: .bold).monospacedDigit() : .body)
+                    .font(seconds >= 10 ? .pt(size: 44, weight: .bold).monospacedDigit() : .body)
                     .foregroundStyle(seconds >= 10 ? Color.white : Color(white: 0.6))
                 if seconds >= 10, RankingService.shared.isJoined {
-                    Text("랭킹에도 반영했어요").font(.subheadline).foregroundStyle(Color(white: 0.6))
+                    Text("랭킹에도 반영했어요").font(.pt(.subheadline)).foregroundStyle(Color(white: 0.6))
                 }
             }
             Spacer()
@@ -407,7 +407,7 @@ struct TimerView: View {
                 studyTimer.isPresented = false
             } label: {
                 Text("닫기")
-                    .font(.body.weight(.bold))
+                    .font(.pt(.body).weight(.bold))
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
@@ -426,26 +426,26 @@ struct TimerAccessoryView: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: studyTimer.isActive ? studyTimer.symbol : "timer")
-                .font(.headline)
+                .font(.pt(.headline))
                 .foregroundStyle(Theme.accent)
                 .symbolEffect(.pulse, isActive: studyTimer.phase == .running)
 
             VStack(alignment: .leading, spacing: 1) {
                 if studyTimer.isActive {
                     Text(studyTimer.title.loc)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .lineLimit(1)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(TimeText.clock(studyTimer.elapsed(at: context.date)))
-                            .font(.caption.monospacedDigit())
+                            .font(.pt(.caption).monospacedDigit())
                             .foregroundStyle(.secondary)
                     }
                 } else {
                     Text("공부 시작")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                     if let nextPlanText {
                         Text(nextPlanText)
-                            .font(.caption)
+                            .font(.pt(.caption))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -459,14 +459,14 @@ struct TimerAccessoryView: View {
                     studyTimer.togglePause()
                 } label: {
                     Image(systemName: studyTimer.phase == .running ? "pause.fill" : "play.fill")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .frame(width: 36, height: 36)
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(.plain)
             } else {
                 Image(systemName: "play.fill")
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .frame(width: 36, height: 36)
             }
         }
@@ -517,7 +517,7 @@ struct AmbientSoundSheet: View {
                             .accessibilityLabel("전체 음량")
                         Image(systemName: "speaker.wave.3").foregroundStyle(.secondary)
                     }
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .padding(.horizontal, 4)
                 }
                 .padding(20)
@@ -551,7 +551,7 @@ struct AmbientSoundSheet: View {
             VStack(spacing: 6) {
                 Image(systemName: kind.symbol)
                     .environment(\.symbolVariants, .none)
-                    .font(.system(size: 19, weight: .regular))
+                    .font(.pt(size: 19, weight: .regular))
                     .foregroundStyle(isOn ? .white : color)
                     .symbolEffect(.bounce, value: isOn)
                     .frame(width: 52, height: 52)
@@ -562,7 +562,7 @@ struct AmbientSoundSheet: View {
                         }
                     }
                 Text(kind.title.loc)
-                    .font(.caption2.weight(.semibold))
+                    .font(.pt(.caption2).weight(.semibold))
                     .foregroundStyle(isOn ? Palette.ink : .secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -579,7 +579,7 @@ struct AmbientSoundSheet: View {
         return HStack(spacing: 12) {
             Image(systemName: kind.symbol)
                 .environment(\.symbolVariants, .none)
-                .font(.system(size: 14, weight: .regular))
+                .font(.pt(size: 14, weight: .regular))
                 .foregroundStyle(color)
                 .frame(width: 32, height: 32)
                 .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))

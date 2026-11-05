@@ -170,14 +170,14 @@ struct MathNoteEditorView: View {
                     if let data = note.thumbnailData, let thumb = UIImage(data: data) {
                         Image(uiImage: thumb).resizable().scaledToFill()
                     } else {
-                        Image(systemName: subject.symbol).font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: subject.symbol).font(.pt(.title3)).foregroundStyle(Palette.ink.opacity(0.3))
                     }
                 }
                 .clipShape(.rect(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06)))
             VStack(alignment: .leading, spacing: 4) {
                 TextField("제목", text: $note.title)
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(Palette.ink)
                 HStack(spacing: 6) {
                     // 과목: AI가 정한 과목이면 반짝이 표시. 직접 고르면 다시 자동으로 바꾸지 않음
@@ -193,12 +193,12 @@ struct MathNoteEditorView: View {
                         SubjectTag(label: note.subjectLabel, auto: note.isSubjectAuto)
                     }
                     TextField(subject.isMath ? L("단원 (예: 이차함수)") : L("단원"), text: $note.unit)
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                 }
             }
             Text(note.status.title)
-                .font(.caption.weight(.bold))
+                .font(.pt(.caption).weight(.bold))
                 .foregroundStyle(note.status.color)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
@@ -223,7 +223,7 @@ struct MathNoteEditorView: View {
                                 Circle().fill(Palette.warning).frame(width: 6, height: 6)
                             }
                         }
-                        .font(.subheadline.weight(isOn ? .bold : .medium))
+                        .font(.pt(.subheadline).weight(isOn ? .bold : .medium))
                         .foregroundStyle(isOn ? Palette.ink : Color.secondary)
                         Capsule()
                             .fill(isOn ? Palette.ink : Color.clear)
@@ -258,7 +258,7 @@ struct MathNoteEditorView: View {
                         .frame(height: 2)
                 }
                 Text("풀이")
-                    .font(.caption.weight(.bold))
+                    .font(.pt(.caption).weight(.bold))
                     .foregroundStyle(Palette.ink.opacity(0.4))
                     .padding(.horizontal, 14)
                     .padding(.top, 10)
@@ -300,7 +300,7 @@ struct MathNoteEditorView: View {
 
     private func annotationView(_ annotation: TextAnnotation) -> some View {
         Text(annotation.text)
-            .font(.system(size: 18, weight: .semibold))
+            .font(.pt(size: 18, weight: .semibold))
             .foregroundStyle(Color(hex: annotation.colorHex))
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -353,7 +353,7 @@ struct MathNoteEditorView: View {
                         }
                     } label: {
                         Image(systemName: "lineweight")
-                            .font(.headline)
+                            .font(.pt(.headline))
                             .frame(width: 30, height: 30)
                     }
                 }
@@ -369,9 +369,9 @@ struct MathNoteEditorView: View {
                         } label: {
                             VStack(spacing: 2) {
                                 Image(systemName: item.symbol)
-                                    .font(.system(size: 18, weight: .semibold))
+                                    .font(.pt(size: 18, weight: .semibold))
                                 Text(item.title)
-                                    .font(.system(size: 9, weight: .semibold))
+                                    .font(.pt(size: 9, weight: .semibold))
                             }
                             .frame(width: 46, height: 44)
                             .foregroundStyle(tool == item ? Color.white : Color.primary)
@@ -404,7 +404,7 @@ struct MathNoteEditorView: View {
 
             if let textMessage {
                 Label(textMessage, systemImage: isRecognizing ? "hourglass" : "info.circle")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
                     .transition(.opacity)
@@ -417,7 +417,7 @@ struct MathNoteEditorView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 8) {
                 Image(systemName: "doc.text.fill").foregroundStyle(Theme.accent)
-                Text("문제").font(.headline).foregroundStyle(Palette.ink)
+                Text("문제").font(.pt(.headline)).foregroundStyle(Palette.ink)
                 if isRecognizing { ProgressView().controlSize(.small) }
                 Spacer()
                 Menu {
@@ -445,7 +445,7 @@ struct MathNoteEditorView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.subheadline.weight(.bold))
+                        .font(.pt(.subheadline).weight(.bold))
                         .frame(width: 32, height: 32)
                         .background(Color.primary.opacity(0.06), in: .circle)
                         .foregroundStyle(Palette.ink)
@@ -455,7 +455,7 @@ struct MathNoteEditorView: View {
                     withAnimation(.snappy) { isEditingText.toggle() }
                 } label: {
                     Label(isEditingText ? L("완료") : L("고치기"), systemImage: isEditingText ? "checkmark" : "pencil")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(Theme.accent.opacity(0.12), in: .capsule)
@@ -466,7 +466,7 @@ struct MathNoteEditorView: View {
 
             if isEditingText {
                 TextEditor(text: $note.recognizedText, selection: $textSelection)
-                    .font(.system(size: 17))
+                    .font(.pt(size: 17))
                     .foregroundStyle(Palette.ink)
                     .frame(minHeight: 160)
                     .scrollContentBackground(.hidden)
@@ -475,12 +475,12 @@ struct MathNoteEditorView: View {
                 if subject.isMath {
                     MathSymbolBar { symbol in insertSymbol(symbol) }
                     Text("x² 는 ^2, 루트는 √( ) 로 써도 보기 좋게 바뀌어요.")
-                        .font(.caption2)
+                        .font(.pt(.caption2))
                         .foregroundStyle(.secondary)
                 }
             } else if note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 Text("아직 읽은 문제가 없어요. \"고치기\"를 눌러 직접 입력해주세요.")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
             } else {
                 Text(subject.isMath ? MathSymbolBar.pretty(note.recognizedText) : note.recognizedText)

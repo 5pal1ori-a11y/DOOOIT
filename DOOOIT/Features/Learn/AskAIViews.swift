@@ -23,9 +23,9 @@ struct AskAIListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
                                 TagLabel(text: item.subject.isEmpty ? L("질문") : item.subject)
-                                Text(item.createdAt.ui("M.d")).font(.caption).foregroundStyle(.secondary)
+                                Text(item.createdAt.ui("M.d")).font(.pt(.caption)).foregroundStyle(.secondary)
                             }
-                            Text(item.question).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
+                            Text(item.question).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
                         }
                     }
                     .padding(.vertical, 4)
@@ -149,9 +149,9 @@ struct AIQuestionDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         TagLabel(text: L("질문"))
-                        Text("\(item.subject) · \(item.createdAt.ui("yyyy.MM.dd"))").font(.caption).foregroundStyle(.secondary)
+                        Text("\(item.subject) · \(item.createdAt.ui("yyyy.MM.dd"))").font(.pt(.caption)).foregroundStyle(.secondary)
                     }
-                    Text(item.question).font(.body.weight(.semibold))
+                    Text(item.question).font(.pt(.body).weight(.semibold))
                     if let data = item.imageData, let image = UIImage(data: data) {
                         Image(uiImage: image)
                             .resizable()
@@ -164,9 +164,9 @@ struct AIQuestionDetailView: View {
                 .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
 
                 HStack {
-                    Label("AI 선생님 답변", systemImage: "sparkles").font(.headline).foregroundStyle(Theme.accent)
+                    Label("AI 선생님 답변", systemImage: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
                     Spacer()
-                    Text("도움 되었나요?").font(.caption).foregroundStyle(.secondary)
+                    Text("도움 되었나요?").font(.pt(.caption)).foregroundStyle(.secondary)
                     Button { item.helpful = item.helpful == 1 ? 0 : 1 } label: {
                         Image(systemName: item.helpful == 1 ? "hand.thumbsup.fill" : "hand.thumbsup")
                     }
@@ -177,7 +177,7 @@ struct AIQuestionDetailView: View {
 
                 ZStack(alignment: .topLeading) {
                     Text(item.answer)
-                        .font(.body)
+                        .font(.pt(.body))
                         .lineSpacing(5)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, minHeight: 300, alignment: .topLeading)
@@ -211,7 +211,7 @@ struct AIQuestionDetailView: View {
                 }
 
                 Text("AI 답은 틀릴 수 있어요")
-                    .font(.caption2)
+                    .font(.pt(.caption2))
                     .foregroundStyle(.secondary)
             }
             .padding(20)

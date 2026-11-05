@@ -26,7 +26,7 @@ struct DoitAIView: View {
                             // 모티 ZERO(모델 없이)는 한국어로만 답해요: 다른 화면 언어면 맨 위에 한 줄 안내
                             if !AppLanguage.isKorean && DoitBrain.shared.selected == nil {
                                 Label(L("모티 ZERO는 한국어로만 답해요. 모티 1·2를 받으면 이 언어로 대화해요."), systemImage: "globe")
-                                    .font(.footnote.weight(.semibold))
+                                    .font(.pt(.footnote).weight(.semibold))
                                     .foregroundStyle(Theme.accent)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
@@ -131,7 +131,7 @@ struct DoitAIView: View {
             AIOrb(size: 96)
             VStack(spacing: 8) {
                 Text("무엇을 도와드릴까요?")
-                    .font(.title2.weight(.bold))
+                    .font(.pt(.title2).weight(.bold))
                     .foregroundStyle(Palette.ink)
             }
             ModelDownloadCard()
@@ -158,7 +158,7 @@ struct DoitAIView: View {
                 }
                 if !message.text.isEmpty {
                     Text(message.text)
-                        .font(.body)
+                        .font(.pt(.body))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 10)
@@ -176,7 +176,7 @@ struct DoitAIView: View {
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(message.actions, id: \.self) { action in
                                     Label(action, systemImage: "checkmark.circle.fill")
-                                        .font(.caption.weight(.semibold))
+                                        .font(.pt(.caption).weight(.semibold))
                                         .foregroundStyle(Palette.success)
                                 }
                             }
@@ -186,12 +186,12 @@ struct DoitAIView: View {
                         }
                         if message.isStreaming && message.text.isEmpty {
                             Text(assistant.status.isEmpty ? L("생각하는 중…") : assistant.status.loc)
-                                .font(.footnote)
+                                .font(.pt(.footnote))
                                 .foregroundStyle(.secondary)
                         } else {
                             // 쓰는 중에는 글자마다 겹쳐 바뀌는 효과 없이 (흔들림 방지), 덜 닫힌 **도 닫아서 보여 줌
                             Text(Self.markdown(MathSymbolBar.pretty(message.isStreaming ? Self.closingMarkdown(message.text) : message.text)))
-                                .font(.body)
+                                .font(.pt(.body))
                                 .lineSpacing(3)
                                 .foregroundStyle(Palette.ink)
                                 .textSelection(.enabled)
@@ -199,7 +199,7 @@ struct DoitAIView: View {
                         }
                         if !message.sources.isEmpty && !message.isStreaming {
                             Label(message.sources.joined(separator: " · "), systemImage: "books.vertical")
-                                .font(.caption2)
+                                .font(.pt(.caption2))
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
                         }
@@ -221,7 +221,7 @@ struct DoitAIView: View {
             }
         case .notice:
             Label(message.text, systemImage: "info.circle")
-                .font(.caption)
+                .font(.pt(.caption))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
@@ -246,7 +246,7 @@ struct DoitAIView: View {
                     .transition(.scale.combined(with: .opacity))
             }
         }
-        .font(.footnote)
+        .font(.pt(.footnote))
         .foregroundStyle(.secondary)
         .buttonStyle(.plain)
         .animation(.snappy, value: message.rating)
@@ -263,7 +263,7 @@ struct DoitAIView: View {
                 ForEach(suggestions, id: \.self) { suggestion in
                     Button { Task { await assistant.send(suggestion) } } label: {
                         Text(suggestion)
-                            .font(.footnote.weight(.semibold))
+                            .font(.pt(.footnote).weight(.semibold))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 13)
                             .padding(.vertical, 8)
@@ -291,10 +291,10 @@ struct DoitAIView: View {
                         .scaledToFill()
                         .frame(width: 52, height: 52)
                         .clipShape(.rect(cornerRadius: 12))
-                    Text("사진 속 글자를 읽어서 정리해요").font(.caption).foregroundStyle(.secondary)
+                    Text("사진 속 글자를 읽어서 정리해요").font(.pt(.caption)).foregroundStyle(.secondary)
                     Spacer()
                     Button { self.attached = nil } label: {
-                        Image(systemName: "xmark.circle.fill").font(.title3).foregroundStyle(.secondary)
+                        Image(systemName: "xmark.circle.fill").font(.pt(.title3)).foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
@@ -309,7 +309,7 @@ struct DoitAIView: View {
                         focused = false
                     } label: {
                         Image(systemName: "keyboard.chevron.compact.down")
-                            .font(.headline)
+                            .font(.pt(.headline))
                             .foregroundStyle(Palette.ink)
                             .frame(width: 42, height: 42)
                     }
@@ -327,7 +327,7 @@ struct DoitAIView: View {
                     }
                 } label: {
                     Image(systemName: "plus")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(Palette.ink)
                         .frame(width: 42, height: 42)
                 }
@@ -350,7 +350,7 @@ struct DoitAIView: View {
 
                     Button { submit() } label: {
                         Image(systemName: "arrow.up")
-                            .font(.subheadline.weight(.bold))
+                            .font(.pt(.subheadline).weight(.bold))
                             .foregroundStyle(.white)
                             .symbolEffect(.bounce, value: assistant.messages.count)
                             .frame(width: 32, height: 32)
@@ -391,7 +391,7 @@ struct DoitAIView: View {
                         .animation(.easeOut(duration: 0.15), value: voice.level)
                 }
                 Image(systemName: voice.isListening ? "waveform" : "mic")
-                    .font(.subheadline.weight(voice.isListening ? .bold : .regular))
+                    .font(.pt(.subheadline).weight(voice.isListening ? .bold : .regular))
                     .foregroundStyle(voice.isListening ? .white : Palette.ink)
                     .symbolEffect(.variableColor.iterative, isActive: voice.isListening)
                     .contentTransition(.symbolEffect(.replace))
@@ -484,7 +484,7 @@ private struct TypingIndicator: View {
                     }
                 }
                 if !status.isEmpty {
-                    Text(status.loc).font(.footnote).foregroundStyle(.secondary)
+                    Text(status.loc).font(.pt(.footnote)).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 14)

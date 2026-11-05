@@ -92,7 +92,7 @@ private struct CalendarGlyph: View {
                 context.stroke(header, with: .foreground, style: lineStyle)
             }
             Text("\(day)")
-                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                .font(.pt(size: 9.5, weight: .semibold))
                 .monospacedDigit()
                 .offset(y: 3.4)
         }
