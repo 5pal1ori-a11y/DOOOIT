@@ -189,13 +189,21 @@ enum AccountStore {
     nonisolated static func describe(_ error: Error) -> String {
         let e = error as NSError
         var text = "\(e.domain) \(e.code) \(e.localizedDescription)"
-        if let partial = e.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error], let first = partial.values.first {
-            let p = first as NSError
-            text += " / \(p.domain) \(p.code) \(p.localizedDescription)"
+        // 일부 실패(CKError 2): 안쪽 오류 중 서로 다른 것 두 개까지 (서버가 알려 준 이유 포함)
+        if let partial = e.userInfo[CKPartialErrorsByItemIDKey] as? NSDictionary, partial.count > 0 {
+            var seen: [String] = []
+            for value in partial.allValues {
+                guard let p = value as? NSError else { continue }
+                let server = (p.userInfo["ServerErrorDescription"] as? String) ?? (p.userInfo[NSDebugDescriptionErrorKey] as? String) ?? p.localizedDescription
+                let line = "\(p.code) \(server)"
+                if !seen.contains(line) { seen.append(line) }
+                if seen.count == 2 { break }
+            }
+            text += " [\(partial.count)개] " + seen.joined(separator: " | ")
         } else if let underlying = e.userInfo[NSUnderlyingErrorKey] as? NSError {
             text += " / \(underlying.domain) \(underlying.code) \(underlying.localizedDescription)"
         }
-        return String(text.prefix(300))
+        return String(text.prefix(600))
     }
 
     private static var watchingCloudEvents = false
