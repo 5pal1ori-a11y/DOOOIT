@@ -43,6 +43,12 @@ func runProblem(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
     result.straightened = flat != nil
     let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
     let trace = await OCRService.readMathProblemTrace(source)
+    result.handwriting = trace.handwriting
+    if spec.expect.leaks != nil {
+        // 고치기 전: 필기를 지우지 않고 읽음
+        let old = await OCRService.readMathProblemTrace(source, cleaned: true)
+        result.before = beforeResult(spec, text: old.text, unsure: old.unsure)
+    }
     result.skew = trace.skew
     result.mathLines = debugLines(trace.lines)
     result.unsure = trace.unsure
@@ -58,12 +64,24 @@ func runSubject(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) asyn
     result.straightened = flat != nil
     let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
     let trace = await OCRService.readSubjectTrace(source)
+    result.handwriting = trace.handwriting
+    if spec.expect.leaks != nil {
+        let old = await OCRService.readSubjectTrace(source, cleaned: true)
+        result.before = beforeResult(spec, text: old.text, unsure: old.unsure)
+    }
     result.skew = trace.skew
     result.mathLines = debugLines(trace.lines)
     result.unsure = trace.unsure
     result.subjectReadings = trace.readings.map { SubjectReadingDump(korean: glyphDebug($0.korean), english: glyphDebug($0.english), circles: $0.circles.map(rounded)) }
     result.subjectChosen = trace.chosen
     evaluateProblem(spec, text: trace.text, unsure: trace.unsure, result: &result)
+}
+
+func beforeResult(_ spec: CaseSpec, text: String, unsure: [String]) -> BeforeResult {
+    var r = CaseResult(id: spec.id, category: spec.category, degrade: spec.degrade, passed: false, score: 0, seconds: 0, checks: [])
+    evaluateProblem(spec, text: text, unsure: unsure, result: &r)
+    finishScore(&r)
+    return BeforeResult(text: text, leaked: r.leaked ?? [], checks: r.checks, score: r.score, passed: r.passed)
 }
 
 /// 원인 찾기용: Vision이 읽은 그대로 (merge 전)
@@ -160,7 +178,7 @@ await withTaskGroup(of: CaseResult.self) { group in
 }
 results.sort { $0.id < $1.id }
 
-let summary = summarize(results, title: "사진 OCR 테스트")
+let summary = summarize(results.filter { !$0.category.hasPrefix("hw-") }, title: "사진 OCR 테스트") + "\n" + handwritingSummary(results)
 print("\n" + summary)
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

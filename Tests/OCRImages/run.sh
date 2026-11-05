@@ -20,7 +20,7 @@ echo "▶ 읽기 도구 빌드 (앱 코드 그대로)"
 SRC="$BUILD/src"
 mkdir -p "$SRC"
 cd "$ROOT/DOOOIT"
-for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Mistake/*.swift Services/DoitAI/ProblemTypes/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/GeometryText.swift Services/OCRText.swift Services/SubjectOCRText.swift Services/HandwritingFilter.swift Services/FractionFinder.swift Services/TextSkew.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
+for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Grammar/*.swift Services/DoitAI/Mistake/*.swift Services/DoitAI/ProblemTypes/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/GeometryText.swift Services/OCRText.swift Services/SubjectOCRText.swift Services/HandwritingFilter.swift Services/FractionFinder.swift Services/TextSkew.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
   case "$f" in *DoitActions.swift) continue;; esac
   sed 's/^import UIKit$/import Foundation/' "$f" > "$SRC/$(basename "$f")"
 done

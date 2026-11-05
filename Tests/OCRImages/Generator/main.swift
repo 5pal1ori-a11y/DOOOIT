@@ -61,6 +61,9 @@ for (k, content) in geometryContents.enumerated() {
     emit(content, style: style, degrades: [.clean, problemDegrades[(k + 2) % problemDegrades.count], problemDegrades[(k + 4) % problemDegrades.count]])
 }
 
+// 학생 필기가 있는 문제 (연필·펜 풀이, 동그라미, 써 넣은 답 …) — 앞 사진들의 손상 씨앗이 바뀌지 않게 맨 뒤에
+emitHandwriting(problemContents + moreSubjectContents + geometryContents, degrades: [.photo, .mild, .desk, .lowres, .tilted])
+
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 try encoder.encode(specs).write(to: outDir.appendingPathComponent("cases.json"))

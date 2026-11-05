@@ -301,6 +301,17 @@ func measureRun(_ segs: [Seg], style: Style) -> Measured {
     }
 }
 
+/// 마지막으로 그린 페이지에서 조각마다 놓인 자리 (위 원점 픽셀) — 학생 필기를 얹을 자리 찾기용
+struct RenderedItem {
+    var row: Int
+    /// 보기 칸이면 몇 번째 보기인지 (0부터)
+    var choice: Int?
+    var rect: CGRect
+}
+var renderedItems: [RenderedItem] = []
+/// 마지막 페이지의 글이 끝난 높이 (위 원점)
+var renderedBottom: CGFloat = 0
+
 /// 페이지 그리기 (위 원점 기준 배치, CoreGraphics는 아래 원점이라 뒤집어서 계산)
 func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> CGImage? {
     let size = style.size
@@ -312,6 +323,8 @@ func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> C
         var frameEnd = false
         /// 표 한 줄: 칸 경계 x (여백 기준)
         var cells: [CGFloat]? = nil
+        /// 보기 칸 줄: 이 줄 첫 칸이 몇 번째 보기인지
+        var gridBase: Int? = nil
     }
     var placed: [Placed] = []
     let usable = CGFloat(width) - margin * 2
@@ -327,7 +340,7 @@ func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> C
                 row.append((usable / CGFloat(cols) * CGFloat(k % cols), m))
                 if row.count == cols || k == items.count - 1 {
                     placed.append(Placed(ascent: max(row.map(\.1.ascent).max() ?? 0, size * 0.8),
-                                         descent: max(row.map(\.1.descent).max() ?? 0, size * 0.22), draws: row))
+                                         descent: max(row.map(\.1.descent).max() ?? 0, size * 0.22), draws: row, gridBase: k - row.count + 1))
                     row = []
                 }
             }
@@ -371,6 +384,8 @@ func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> C
     var top = margin
     var frame: (top: CGFloat, title: String?)?
     let stroke = max(1.5, size / 22)
+    var items: [RenderedItem] = []
+    var rowIndex = 0
     for p in placed {
         let baseline = CGFloat(h) - (top + p.ascent)
         if p.rule {
@@ -398,8 +413,14 @@ func renderPage(_ lines: [Line], style: Style, width: Int, margin: CGFloat) -> C
                 ctx.stroke(CGRect(x: margin + cells[k], y: rowBottom, width: cells[k + 1] - cells[k], height: rowTop - rowBottom))
             }
         }
-        for (x, m) in p.draws { m.draw(ctx, CGPoint(x: margin + x, y: baseline)) }
+        for (k, (x, m)) in p.draws.enumerated() {
+            m.draw(ctx, CGPoint(x: margin + x, y: baseline))
+            items.append(RenderedItem(row: rowIndex, choice: p.gridBase.map { $0 + k }, rect: CGRect(x: margin + x, y: top, width: m.width, height: p.ascent + p.descent)))
+        }
+        rowIndex += 1
         top += p.ascent + p.descent + p.extra + (p.draws.isEmpty && !p.rule ? 0 : gapBetween)
     }
+    renderedItems = items
+    renderedBottom = top
     return ctx.makeImage()
 }
