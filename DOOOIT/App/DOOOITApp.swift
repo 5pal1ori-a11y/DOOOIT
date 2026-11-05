@@ -33,6 +33,8 @@ struct DOOOITApp: App {
         WatchBridge.shared.start(container: container)
         // 홈 화면 위젯의 체크 버튼: 앱을 뒤에서 깨워도 바로 저장되게
         WidgetActions.attach(container)
+        // 고른 화면 언어를 위젯에 알려 줌 (iPhone 설정에서 앱 언어를 바꾼 경우도)
+        AppLanguage.syncToWidgets()
     }
 
     /// 저장소를 쓰는 서비스들을 지금 계정 저장소에 연결

@@ -33,6 +33,14 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
 
     /// 지금 고른 언어 (앱 설정에 저장된 AppleLanguages → 없으면 시스템)
     static var selected: AppLanguage {
+        lock.lock(); defer { lock.unlock() }
+        if let cachedSelected { return cachedSelected }
+        let value = readSelected()
+        cachedSelected = value
+        return value
+    }
+
+    private static func readSelected() -> AppLanguage {
         if let override { return override }
         #if os(watchOS)
         return .system
@@ -51,7 +59,20 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
     }
 
     /// 화면 사진(-uiLang)·미리보기에서만 쓰는 강제 언어
-    nonisolated(unsafe) static var override: AppLanguage?
+    nonisolated(unsafe) static var override: AppLanguage? {
+        didSet { clearCache() }
+    }
+
+    // 자주 불려서(글자마다) 한 번 읽은 값을 기억 (언어를 바꿀 때 지움)
+    nonisolated(unsafe) private static var cachedSelected: AppLanguage?
+    nonisolated(unsafe) private static var cachedCode: String?
+    nonisolated(unsafe) private static var cachedLocale: Locale?
+
+    private static func clearCache() {
+        lock.lock()
+        cachedSelected = nil; cachedCode = nil; cachedLocale = nil; bundles.removeAll()
+        lock.unlock()
+    }
 
     /// "en-US", "zh-Hans-CN", "ja-JP" → 지원하는 언어
     static func match(_ code: String) -> AppLanguage? {
@@ -65,8 +86,20 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
 
     /// 실제로 보이는 언어 코드 (ko · en · zh-Hans · ja)
     static var code: String {
+        lock.lock()
+        if let cachedCode { lock.unlock(); return cachedCode }
+        lock.unlock()
+        let value = readCode()
+        lock.lock(); cachedCode = value; lock.unlock()
+        return value
+    }
+
+    private static func readCode() -> String {
         let s = selected
         if s != .system { return s.rawValue }
+        // 시스템: 기기 언어 목록에서 지원하는 첫 언어 (앱에서 "시스템"으로 되돌린 직후에도 바로 맞게)
+        let list = UserDefaults.standard.stringArray(forKey: "AppleLanguages") ?? Locale.preferredLanguages
+        if let lang = list.lazy.compactMap(match).first { return lang.rawValue }
         let first = Bundle.main.preferredLocalizations.first ?? "ko"
         return match(first)?.rawValue ?? "ko"
     }
@@ -75,11 +108,14 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
 
     /// 날짜·숫자에 쓰는 지역 설정 (언어는 고른 것, 나라는 기기 그대로)
     static var locale: Locale {
+        let c = code
+        lock.lock()
+        if let cachedLocale { lock.unlock(); return cachedLocale }
+        lock.unlock()
         let region = Locale.current.region?.identifier ?? "KR"
-        switch code {
-        case "zh-Hans": return Locale(identifier: "zh_Hans_\(region)")
-        default: return Locale(identifier: "\(code)_\(region)")
-        }
+        let value = c == "zh-Hans" ? Locale(identifier: "zh_Hans_\(region)") : Locale(identifier: "\(c)_\(region)")
+        lock.lock(); cachedLocale = value; lock.unlock()
+        return value
     }
 
     /// 번역을 찾는 묶음: 고른 언어의 lproj (없으면 앱 묶음 그대로)
@@ -110,7 +146,7 @@ enum AppLanguage: String, CaseIterable, Identifiable, Sendable {
             defaults.set([language.rawValue], forKey: "AppleLanguages")
             group?.set(language.rawValue, forKey: groupKey)
         }
-        lock.lock(); bundles.removeAll(); lock.unlock()
+        clearCache()
         defaults.set(language.rawValue, forKey: storageKey)
     }
 

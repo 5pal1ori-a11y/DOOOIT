@@ -991,28 +991,6 @@
         }
       }
     },
-    "%lld 시작": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Start %lld"
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lldスタート"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "开始%lld"
-          }
-        }
-      }
-    },
     "%lld%% · 앱을 켜 둔 채로 기다려 주세요": {
       "localizations": {
         "en": {
@@ -1568,7 +1546,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld in %@ min"
+            "value": "%2$@ in %1$lld min"
           }
         },
         "ja": {
@@ -1977,6 +1955,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "，今天"
+          }
+        }
+      }
+    },
+    ", 완료": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": ", done"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "、完了"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "，已完成"
           }
         }
       }
@@ -6125,6 +6126,29 @@
         }
       }
     },
+    "내 Game Center 닉네임": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "your Game Center nickname"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたのGame Centerニックネーム"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "你的 Game Center 昵称"
+          }
+        }
+      }
+    },
     "내 단어장": {
       "localizations": {
         "en": {
@@ -6429,6 +6453,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "点击说话"
+          }
+        }
+      }
+    },
+    "늘었어요": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "more"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "増えました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "增加了"
           }
         }
       }
@@ -9615,6 +9662,29 @@
         }
       }
     },
+    "모의고사": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mock exam"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模試"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "模拟考"
+          }
+        }
+      }
+    },
     "모의고사 만점": {
       "extractionState": "manual",
       "localizations": {
@@ -11429,6 +11499,7 @@
       }
     },
     "복습": {
+      "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
@@ -16114,6 +16185,29 @@
         }
       }
     },
+    "유사 문제": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Similar problem"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "類題"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "相似题"
+          }
+        }
+      }
+    },
     "유사 문제 단계 학습": {
       "localizations": {
         "en": {
@@ -18074,6 +18168,29 @@
         }
       }
     },
+    "재도전": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retry"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再挑戦"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重做"
+          }
+        }
+      }
+    },
     "재도전 성공! 🎉": {
       "localizations": {
         "en": {
@@ -19154,6 +19271,29 @@
         }
       }
     },
+    "줄었어요": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "less"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "減りました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "减少了"
+          }
+        }
+      }
+    },
     "중학교": {
       "extractionState": "manual",
       "localizations": {
@@ -19791,6 +19931,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "加入"
+          }
+        }
+      }
+    },
+    "참여하면 %@과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Joining shows %@ and your study time to others. You can turn it off anytime."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "参加すると%@と学習時間が他の人に表示されます。いつでもオフにできます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加入后，%@和学习时长会对他人可见。可随时关闭。"
           }
         }
       }
