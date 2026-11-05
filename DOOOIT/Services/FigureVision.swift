@@ -164,7 +164,7 @@ enum FigureVision {
             }
         }
         return clusters.indices.compactMap { k in
-            let t = texts[k].trimmingCharacters(in: .whitespaces)
+            let t = DoitFigureFacts.cleanedLabel(texts[k])
             return t.isEmpty ? nil : TextLabel(text: t, box: clusters[k])
         }
     }
@@ -185,7 +185,43 @@ enum FigureVision {
         var exact = marked
         for line in points where !exact.contains(line) { exact.append(line) }
         if !exact.isEmpty, DoitFigureFacts.graphEquation(exact, hint: problem) != nil { return exact }
-        return (graph.map(graphLines) ?? []) + exact
+        let pixelLines = graph.map(graphLines) ?? []
+        // 적힌 값이 모자라면 그래프 판독의 절편·꼭짓점(정수·0.5 단위로 맞춘 것)을 더해 보고,
+        // 그 식이 판독한 곡선과 거의 같을 때만 씀 (적힌 값과 그림이 서로 맞는지 확인)
+        if let graph, !exact.isEmpty {
+            var merged = exact
+            for line in pixelLines.dropFirst() where !merged.contains(where: { same($0, line) }) { merged.append(line) }
+            if let eq = DoitFigureFacts.graphEquation(merged, hint: problem), agrees(eq, graph) { return merged }
+        }
+        return pixelLines + exact
+    }
+
+    /// 같은 사실 줄인지 ("y절편 −3" = "y절편 -3")
+    private static func same(_ a: String, _ b: String) -> Bool {
+        let na = a.replacingOccurrences(of: "−", with: "-"), nb = b.replacingOccurrences(of: "−", with: "-")
+        if na == nb { return true }
+        // 꼭짓점은 하나뿐
+        return na.hasPrefix("꼭짓점") && nb.hasPrefix("꼭짓점")
+    }
+
+    /// 식 글(y = x² - 2x - 3)의 계수가 판독한 곡선 계수와 가까운지
+    private static func agrees(_ equation: String, _ graph: GraphAnalysis) -> Bool {
+        guard graph.calibrated, graph.coefficients.count >= 2 else { return false }
+        let t = equation.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "y=", with: "")
+        var coef = [0.0, 0.0, 0.0]
+        for m in t.matches(of: #/([+-]?)(\(?\d*(?:\.\d+)?(?:/\d+)?\)?)(x²|x)?/#) where !m.0.isEmpty {
+            var body = String(m.2).replacingOccurrences(of: "(", with: "").replacingOccurrences(of: ")", with: "")
+            if body.isEmpty { body = "1" }
+            let parts = body.split(separator: "/")
+            guard let first = Double(parts[0]) else { continue }
+            var v = parts.count == 2 ? first / (Double(parts[1]) ?? 1) : first
+            if m.1 == "-" { v = -v }
+            let k = m.3 == "x²" ? 2 : (m.3 == "x" ? 1 : 0)
+            coef[k] += v
+        }
+        let fitted = graph.coefficients + [0, 0, 0]
+        let scale = max(1, coef.map(abs).max() ?? 1)
+        return (0..<3).allSatisfy { abs(coef[$0] - fitted[$0]) <= max(0.35, scale * 0.15) }
     }
 
     /// 축 옆에 적힌 숫자 중 그래프가 그 자리에서 축과 만나는 것 → "x절편 3", "y절편 6"
@@ -198,7 +234,9 @@ enum FigureVision {
         var lines: [String] = []
         func add(_ line: String) { if !lines.contains(line) { lines.append(line) } }
         for label in labels {
-            guard let value = label.number, value != 0 else { continue }
+            // 홀로 선 "1"을 l·I·|로 읽는 일이 많음 (축 옆 숫자만)
+            let digits = ["l": "1", "I": "1", "|": "1", "O": "0", "o": "0"][label.text] ?? label.text
+            guard let value = TextLabel(text: digits, box: label.box).number, value != 0 else { continue }
             let nearX = abs(label.box.midY - oy) < max(label.box.h * 2.2, 14) + axes.xAxisHalf
             let nearY = abs(label.box.midX - ox) < max(label.box.w * 1.6, 14) + axes.yAxisHalf + label.box.w / 2
             if nearX && !(nearY && abs(label.box.midX - ox) < label.box.w) {
@@ -216,12 +254,12 @@ enum FigureVision {
         let t = problem.replacingOccurrences(of: " ", with: "")
         if t.contains("이차함수") || t.contains("포물선"), let c = VisionMath.polyfit(curve, degree: 2), abs(c[2]) > 1e-9 {
             let vx = -c[1] / (2 * c[2]), vy = VisionMath.evaluate(c, vx)
-            let text = labels.map(\.text).joined(separator: " ").replacingOccurrences(of: "−", with: "-")
+            let text = DoitFigureFacts.normalizedPoints(labels.map(\.text).joined(separator: " "))
             var best: (String, Double)?
             for m in text.matches(of: #/\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/#) {
                 // 그 좌표 글자가 있는 자리 (여는 괄호 낱말)
                 let head = "(" + String(m.1)
-                guard let label = labels.first(where: { $0.text.replacingOccurrences(of: " ", with: "").hasPrefix(head) }) else { continue }
+                guard let label = labels.first(where: { DoitFigureFacts.normalizedPoints($0.text).replacingOccurrences(of: " ", with: "").hasPrefix(head) }) else { continue }
                 let d = hypot(label.box.midX - vx, label.box.midY - vy)
                 if d < Double(max(pixels.width, pixels.height)) * 0.16, d < (best?.1 ?? .infinity) { best = ("꼭짓점 (\(m.1), \(m.2))", d) }
             }
@@ -258,7 +296,7 @@ enum FigureVision {
 
     /// 그림에 적힌 좌표 "(0, 1)", "(2, 5)" → "지나는 점 …" 한 줄 (식은 확인한 뒤 풀이가 이 점들로 구함)
     static func pointLines(_ text: String) -> [String] {
-        let normalized = text.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: "，", with: ",")
+        let normalized = DoitFigureFacts.normalizedPoints(text)
         var points: [String] = []
         for m in normalized.matches(of: #/\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\)/#) {
             let p = "(\(m.1), \(m.2))"

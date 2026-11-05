@@ -127,7 +127,10 @@ func pixels(_ image: CGImage) -> PixelImage? {
 }
 
 func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
-    let route = DoitFigureFacts.route(c.problem)
+    var route = DoitFigureFacts.route(c.problem)
+    // 앱(FigureReader)과 같게: 글이 도형·없음이어도 그림에 좌표축과 곡선이 있으면 그래프로
+    if route == .none || route == .geometry, let px = pixels(image), GraphReader.findAxes(px) != nil,
+       let g = GraphReader.analyze(px, labels: visionLabels(image)), g.kind != .unknown { route = .graph }
     switch route {
     case .table, .chart:
         let tables = await FigureVision.tables(image)
@@ -155,7 +158,9 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         let minArea = Double(px.width * px.height) * 0.03
         let labels = await appLabels(image)
         do { print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " ")) }
-        let shapes = ShapeReader.analyze(px, labels: labels).filter { $0.bounds.w * $0.bounds.h >= minArea }
+        let all = ShapeReader.analyze(px, labels: labels)
+        let shapes = all.filter { $0.bounds.w * $0.bounds.h >= minArea }
+        print("   도형: " + all.prefix(4).map { "\($0.name) \(Int($0.bounds.w))x\(Int($0.bounds.h)) 이름\($0.vertexNames.sorted { $0.key < $1.key }.map(\.value).joined()) 변\($0.sideLabels.count) 각\($0.angleLabels.count) 안\($0.innerNumbers.count)" }.joined(separator: " · "))
         return FigureVision.shapeLines(shapes, problem: c.problem)
     }
 }

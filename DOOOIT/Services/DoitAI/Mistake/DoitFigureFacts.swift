@@ -77,6 +77,23 @@ enum DoitFigureFacts {
         return "그림"
     }
 
+    // MARK: - 그림 글자 정리 (기본 판독이 다시 읽은 글자)
+
+    /// 글자 읽기가 좌표의 쉼표를 마침표로 읽은 것 "(1.-2)", "(2. 5)" → "(1, -2)" (소수 "(1.5, 2)"는 그대로)
+    static func normalizedPoints(_ text: String) -> String {
+        text.replacingOccurrences(of: "−", with: "-").replacingOccurrences(of: "，", with: ",")
+            .replacingOccurrences(of: #"\((\s*-?\d+)\.(?:\s+|(?=-))(-?\d+\s*)\)"#, with: "($1, $2)", options: .regularExpression)
+    }
+
+    /// 다시 읽은 그림 글자 앞뒤에 붙은 점·따옴표 지우기 ("-1." → "-1")
+    static func cleanedLabel(_ text: String) -> String {
+        var t = text.trimmingCharacters(in: .whitespaces)
+        let junk: Set<Character> = [".", ",", "'", "\"", "`", "·", ":", ";"]
+        while let f = t.first, junk.contains(f) { t.removeFirst() }
+        while let l = t.last, junk.contains(l) { t.removeLast() }
+        return t
+    }
+
     // MARK: - 어떤 그림인지 (문제 글로)
 
     /// 그림을 어떻게 읽을지: 표 / 차트(막대·꺾은선·원그래프) / 좌표 그래프 / 도형 / 없음
@@ -91,6 +108,8 @@ enum DoitFigureFacts {
             || has(["도수분포표", "다음표", "아래표"]) { return .table }
         if has(["그래프", "좌표평면"]), has(["함수", "직선", "포물선", "좌표", "방정식", "기울기", "절편", "x축", "y축", "y=", "꼭짓점", "그래프의식"]) { return .graph }
         if has(["그래프"]) { return .chart }
+        // 그래프라는 말 없이 그림의 직선·포물선 식을 묻는 문제
+        if has(["그림"]), has(["직선의방정식", "포물선을그래프로", "함수의식", "기울기를", "절편을"]) { return .graph }
         if has(["그림", "도형", "삼각형", "사각형", "원O", "∠", "△", "∥", "평행", "부채꼴", "직각"]) { return .geometry }
         return .none
     }
