@@ -316,7 +316,7 @@ struct AccountView: View {
     private var profileHeader: some View {
         let user = auth.currentUser
         return HStack(spacing: 16) {
-            Text(String(user?.name.prefix(1) ?? "D"))
+            Text(String(user?.name.loc.prefix(1) ?? "D"))
                 .font(.pt(size: 26, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 60, height: 60)
