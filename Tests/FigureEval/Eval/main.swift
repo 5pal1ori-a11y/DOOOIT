@@ -129,7 +129,7 @@ func pixels(_ image: CGImage) -> PixelImage? {
 func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
     var route = DoitFigureFacts.route(c.problem)
     // 앱(FigureReader)과 같게: 글이 도형·없음이어도 그림에 좌표축과 곡선이 있으면 그래프로
-    if route == .none || route == .geometry, let px = pixels(image), GraphReader.findAxes(px) != nil,
+    if route == .none, let px = pixels(image), GraphReader.findAxes(px) != nil,
        let g = GraphReader.analyze(px, labels: visionLabels(image)), g.kind != .unknown { route = .graph }
     switch route {
     case .table, .chart:

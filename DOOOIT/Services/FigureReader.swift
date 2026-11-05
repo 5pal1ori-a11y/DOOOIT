@@ -20,7 +20,8 @@ enum FigureReader {
     /// - figures: false면 표·차트만 (수학이 아닌 과목의 과학 그림 등은 줄 모양이 맞지 않아서)
     static func read(_ image: UIImage, problemText: String, analysis: ImageAnalysis? = nil, figures: Bool = true) async -> DoitFigureFacts.Reading? {
         var route = DoitFigureFacts.route(problemText)
-        if route == .none || route == .geometry, analysis?.kind == .graph { route = .graph }
+        // 글에 도형 말이 있으면 좌표축처럼 보여도 도형 (직각삼각형의 두 변을 좌표축으로 보지 않게)
+        if route == .none, analysis?.kind == .graph { route = .graph }
         if route == .none, analysis?.kind == .figure { route = .geometry }
         guard route != .none else { return nil }
         if !figures, route == .graph || route == .geometry { return nil }
@@ -59,7 +60,14 @@ enum FigureReader {
                 }
                 if !lines.isEmpty { return .init(kind: .graph, lines: lines, source: "기본 판독") }
             }
-            let lines = FigureVision.shapeLines(analysis?.shapes ?? [], problem: problemText)
+            var shapes = analysis?.shapes ?? []
+            // 그래프로 판독한 그림(직각을 낀 두 변이 축처럼 보임)은 도형을 따로 찾음
+            if shapes.isEmpty, let analysis, analysis.kind == .graph, let pixels = analysis.pixels {
+                let minArea = Double(pixels.width * pixels.height) * 0.03
+                shapes = ShapeReader.analyze(pixels, labels: analysis.textLabels).filter { $0.bounds.w * $0.bounds.h >= minArea }
+                if shapes.count > 6 { shapes = [] }
+            }
+            let lines = FigureVision.shapeLines(shapes, problem: problemText)
             return lines.isEmpty ? nil : .init(kind: .geometry, lines: lines, source: "기본 판독")
         case .none:
             return nil
