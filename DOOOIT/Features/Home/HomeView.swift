@@ -76,11 +76,11 @@ struct HomeView: View {
                 Spacer()
                 DDayChip()
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.pt(.subheadline).weight(.semibold))
             .foregroundStyle(.secondary)
 
             Text(Greeting.text(name: auth.currentUser?.name ?? "유저", at: now))
-                .font(.system(size: 28, weight: .bold))
+                .font(.pt(size: 28, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -119,28 +119,28 @@ struct HomeView: View {
                     ProgressRing(progress: progress, lineWidth: 13, color: Theme.accent)
                     VStack(spacing: 0) {
                         Text("\(Int(min(progress, 9.99) * 100))%")
-                            .font(.title3.weight(.bold))
+                            .font(.pt(.title3).weight(.bold))
                             .foregroundStyle(Palette.ink)
                             .monospacedDigit()
                             .contentTransition(.numericText())
-                        Text("목표").font(.caption2).foregroundStyle(.secondary)
+                        Text("목표").font(.pt(.caption2)).foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: 104, height: 104)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(studyTimer.isActive ? "집중하는 중" : "오늘 공부")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(studyTimer.isActive ? Palette.success : .secondary)
                     Text(TimeText.duration(seconds: seconds))
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .font(.pt(size: 30, weight: .bold))
                         .foregroundStyle(Palette.ink)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                         .contentTransition(.numericText())
                         .animation(Motion.spring, value: seconds / 60)
                     Text(left == 0 ? "오늘 목표 달성! 🎉" : "목표까지 \(TimeText.duration(seconds: left))")
-                        .font(.footnote)
+                        .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
@@ -157,7 +157,7 @@ struct HomeView: View {
 
                 NavigationLink { RankingView() } label: {
                     Image(systemName: "trophy")
-                        .font(.title3.weight(.regular))
+                        .font(.pt(.title3).weight(.regular))
                         .foregroundStyle(Palette.butter)
                         .frame(width: 54, height: 54)
                         .background(Palette.butter.pastel, in: .rect(cornerRadius: 20, style: .continuous))
@@ -194,18 +194,18 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 10) {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
-                .font(.subheadline.weight(.regular))
+                .font(.pt(.subheadline).weight(.regular))
                 .foregroundStyle(color)
                 .frame(width: 34, height: 34)
                 .background(color.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
                 Text(value)
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                     .contentTransition(.numericText())
-                Text(label).font(.caption).foregroundStyle(.secondary)
+                Text(label).font(.pt(.caption)).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -269,11 +269,11 @@ struct HomeView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text(TimeText.duration(minutes: total))
-                        .font(.title2.weight(.bold))
+                        .font(.pt(.title2).weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .contentTransition(.numericText())
                     Text("최근 7일")
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                 }
                 Chart(stats) { stat in

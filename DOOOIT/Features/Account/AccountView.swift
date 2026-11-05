@@ -191,7 +191,7 @@ struct AccountView: View {
                     if syncOn {
                         TimelineView(.periodic(from: .now, by: 2)) { _ in
                             Text(AccountStore.syncStatus.prefix(4).joined(separator: "\n"))
-                                .font(.caption2)
+                                .font(.pt(.caption2))
                                 .foregroundStyle(.tertiary)
                                 .textSelection(.enabled)
                         }
@@ -258,10 +258,10 @@ struct AccountView: View {
     private var guestCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("로그인 없이 쓰는 중이에요")
-                .font(.subheadline.weight(.bold))
+                .font(.pt(.subheadline).weight(.bold))
                 .foregroundStyle(Palette.ink)
             Text("기록은 이 기기에만 저장돼요. Apple로 로그인하면 지금 기록 그대로 iCloud 동기화와 랭킹을 쓸 수 있어요.")
-                .font(.caption)
+                .font(.pt(.caption))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             SignInWithAppleButton(.signIn) { request in
@@ -282,7 +282,7 @@ struct AccountView: View {
         let user = auth.currentUser
         return HStack(spacing: 16) {
             Text(String(user?.name.prefix(1) ?? "D"))
-                .font(.system(size: 26, weight: .bold, design: .rounded))
+                .font(.pt(size: 26, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 60, height: 60)
                 .background(Theme.accent, in: .circle)
@@ -291,11 +291,11 @@ struct AccountView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(user?.name ?? "")
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(Palette.ink)
                 if let email = user?.email, !email.isEmpty {
                     Text(email)
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -309,7 +309,7 @@ struct AccountView: View {
                 showNameEdit = true
             } label: {
                 Text("편집")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
                     .background(Color.primary.opacity(0.06), in: .capsule)
@@ -336,13 +336,13 @@ struct AccountView: View {
     private func stat(value: String, label: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.headline.monospacedDigit())
+                .font(.pt(.headline).monospacedDigit())
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label)
-                .font(.caption2)
+                .font(.pt(.caption2))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
@@ -370,7 +370,7 @@ struct AccountView: View {
     private func icon(_ symbol: String, _ color: Color) -> some View {
         Image(systemName: symbol.outlineSymbol)
             .environment(\.symbolVariants, .none)
-            .font(.system(size: 14, weight: .regular))
+            .font(.pt(size: 14, weight: .regular))
             .foregroundStyle(color)
             .frame(width: 30, height: 30)
             .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))

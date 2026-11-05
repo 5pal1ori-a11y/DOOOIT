@@ -47,7 +47,7 @@ struct WordListView: View {
             Section {
                 if filtered.isEmpty {
                     Text(search.isEmpty ? "단어가 없어요" : "검색 결과가 없어요")
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 40)
@@ -72,12 +72,12 @@ struct WordListView: View {
                     Text("\(filtered.count)개")
                     Spacer()
                     Button { showAdd = true } label: {
-                        Image(systemName: "plus").font(.subheadline.weight(.bold))
+                        Image(systemName: "plus").font(.pt(.subheadline).weight(.bold))
                     }
                     .tint(Theme.accent)
                     .accessibilityLabel("단어 추가")
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(nil)
             }
@@ -109,7 +109,7 @@ struct WordListView: View {
                     .accessibilityLabel("지우기")
                 }
             }
-            .font(.subheadline)
+            .font(.pt(.subheadline))
             .padding(.horizontal, 14)
             .frame(height: 40)
             .background(Palette.cardInset, in: .capsule)
@@ -122,7 +122,7 @@ struct WordListView: View {
                             withAnimation(reduceMotion ? nil : .snappy) { filter = item }
                         } label: {
                             Text(item.rawValue)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.pt(.subheadline).weight(.semibold))
                                 .foregroundStyle(selected ? .white : Palette.ink.opacity(0.75))
                                 .padding(.horizontal, 14)
                                 .frame(height: 32)
@@ -141,18 +141,18 @@ struct WordListView: View {
             Button { editing = word } label: {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text(word.term).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
-                        Text(word.meaning).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                        Text(word.term).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
+                        Text(word.meaning).font(.pt(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
                     }
                     Spacer(minLength: 4)
                     if word.isMastered {
-                        Image(systemName: "checkmark.seal.fill").foregroundStyle(Palette.success).font(.subheadline)
+                        Image(systemName: "checkmark.seal.fill").foregroundStyle(Palette.success).font(.pt(.subheadline))
                     } else if word.isLearned {
-                        Image(systemName: "checkmark").foregroundStyle(Palette.success).font(.caption.weight(.bold))
+                        Image(systemName: "checkmark").foregroundStyle(Palette.success).font(.pt(.caption).weight(.bold))
                     }
                     if word.wrongCount > 0 {
                         Text("\(word.wrongCount)")
-                            .font(.caption2.weight(.bold).monospacedDigit())
+                            .font(.pt(.caption2).weight(.bold).monospacedDigit())
                             .foregroundStyle(Palette.danger)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 3)
@@ -181,7 +181,7 @@ struct WordListView: View {
     private func iconButton(symbol: String, color: Color, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(color)
                 .frame(width: 34, height: 34)
                 .contentShape(Rectangle())

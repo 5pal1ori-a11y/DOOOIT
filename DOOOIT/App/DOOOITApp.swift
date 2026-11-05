@@ -14,6 +14,7 @@ struct DOOOITApp: App {
     @State private var container: ModelContainer
 
     init() {
+        AppFont.register()
         let auth = AuthManager()
         #if DEBUG
         // 화면 사진 찍기 (-uiShot): 데모 계정 + 메모리 저장소 (실제 계정·저장소는 열지 않음)

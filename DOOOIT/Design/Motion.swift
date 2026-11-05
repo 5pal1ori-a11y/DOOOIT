@@ -141,7 +141,7 @@ struct PillSegmentedControl<Item: Hashable>: View {
                     Haptics.tap()
                 } label: {
                     Text(title(item))
-                        .font(.subheadline.weight(.bold))
+                        .font(.pt(.subheadline).weight(.bold))
                         .foregroundStyle(selected ? Color.white : Color.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 9)
@@ -188,12 +188,12 @@ struct StepProgressBar: View {
                     HStack(spacing: 3) {
                         if completed.contains(index) {
                             Image(systemName: "checkmark.circle.fill")
-                                .font(.caption2)
+                                .font(.pt(.caption2))
                                 .foregroundStyle(Palette.success)
                                 .transition(.scale.combined(with: .opacity))
                         }
                         Text(title)
-                            .font(.caption2.weight(index == current ? .heavy : .semibold))
+                            .font(.pt(.caption2).weight(index == current ? .heavy : .semibold))
                             .foregroundStyle(index == current ? Theme.accent : Color.secondary)
                     }
                     if index < titles.count - 1 { Spacer(minLength: 0) }

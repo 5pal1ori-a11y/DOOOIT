@@ -36,7 +36,7 @@ struct SplashView: View {
                     .padding(.bottom, 12)
 
                 Text("오늘 할 일, 끝까지 함께")
-                    .font(.footnote.weight(.medium))
+                    .font(.pt(.footnote).weight(.medium))
                     .tracking(1.2)
                     .foregroundStyle(.tertiary)
                     .opacity(showTagline ? 1 : 0)
@@ -51,7 +51,7 @@ struct SplashView: View {
     private var wordmark: some View {
         let o = Text("O").foregroundStyle(Theme.accent)
         return Text("M\(o)TI")
-            .font(.system(size: 30, weight: .semibold))
+            .font(.pt(size: 30, weight: .semibold))
             .tracking(reduceMotion || showWordmark ? 11 : 22)
             .foregroundStyle(Palette.ink)
             .fixedSize()

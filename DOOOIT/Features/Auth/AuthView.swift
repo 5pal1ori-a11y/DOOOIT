@@ -94,7 +94,7 @@ struct AuthView: View {
                 auth.startGuest()
             } label: {
                 Text("로그인 없이 둘러보기")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
@@ -117,7 +117,7 @@ struct AuthView: View {
                     Button("예전 이메일 계정으로 로그인") {
                         withAnimation(Motion.spring) { showEmailLogin = true }
                     }
-                    .font(.footnote.weight(.medium))
+                    .font(.pt(.footnote).weight(.medium))
                     .foregroundStyle(.secondary)
                     .padding(.top, 18)
                 }
@@ -140,13 +140,13 @@ struct AuthView: View {
             BrandLogo(size: 72)
                 .padding(.bottom, 10)
             Text("MOTI 시작하기")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .font(.pt(.largeTitle).weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.opacity)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text("오늘 할 일, 끝까지 함께")
-                .font(.subheadline.weight(.medium))
+                .font(.pt(.subheadline).weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .multilineTextAlignment(.center)
@@ -231,7 +231,7 @@ struct AuthView: View {
             if let current { Task { @MainActor in focus = current } }
         } label: {
             Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.pt(size: 15, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 44)
@@ -265,7 +265,7 @@ struct AuthView: View {
         HStack(spacing: 12) {
             Capsule().fill(Color.primary.opacity(0.1)).frame(height: 1)
             Text("또는")
-                .font(.caption.weight(.medium))
+                .font(.pt(.caption).weight(.medium))
                 .foregroundStyle(.secondary)
             Capsule().fill(Color.primary.opacity(0.1)).frame(height: 1)
         }
@@ -375,12 +375,12 @@ private struct AuthField<Content: View, Trailing: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.pt(size: 16, weight: .semibold))
                     .foregroundStyle(message != nil ? Palette.danger : (isFocused ? Theme.accent : Color.secondary))
                     .frame(width: 22)
                     .accessibilityHidden(true)
                 content
-                    .font(.body)
+                    .font(.pt(.body))
                     .foregroundStyle(Palette.ink)
                 trailing
             }
@@ -394,7 +394,7 @@ private struct AuthField<Content: View, Trailing: View>: View {
 
             if let message {
                 Label(message, systemImage: "exclamationmark.circle.fill")
-                    .font(.caption.weight(.medium))
+                    .font(.pt(.caption).weight(.medium))
                     .foregroundStyle(Palette.danger)
                     .padding(.leading, 6)
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -436,10 +436,10 @@ struct NameSetupView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("어떻게 불러드릴까요?")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .font(.pt(.largeTitle).weight(.bold))
                         .foregroundStyle(Palette.ink)
                     Text("홈에서 이름으로 인사해 드려요")
-                        .font(.subheadline.weight(.medium))
+                        .font(.pt(.subheadline).weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 26)
@@ -455,7 +455,7 @@ struct NameSetupView: View {
                 .appearAnimation(delay: 0.1)
 
                 Text("테마 색")
-                    .font(.footnote.weight(.semibold))
+                    .font(.pt(.footnote).weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.top, 24)
                     .padding(.bottom, 8)

@@ -121,11 +121,11 @@ struct WordHomeView: View {
         } label: {
             HStack(spacing: 4) {
                 Text(title)
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                 Image(systemName: "chevron.down")
-                    .font(.caption.weight(.bold))
+                    .font(.pt(.caption).weight(.bold))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: 220)
@@ -153,7 +153,7 @@ struct WordHomeView: View {
         } label: {
             VStack(spacing: 8) {
                 Text(label)
-                    .font(.body.weight(selected ? .bold : .medium))
+                    .font(.pt(.body).weight(selected ? .bold : .medium))
                     .foregroundStyle(selected ? Palette.ink : .secondary)
                 ZStack {
                     Capsule().fill(Color.clear).frame(height: 3)
@@ -199,14 +199,14 @@ struct WordHomeView: View {
     private var emptyHero: some View {
         VStack(spacing: 14) {
             Image(systemName: "character.book.closed")
-                .font(.system(size: 40, weight: .semibold))
+                .font(.pt(size: 40, weight: .semibold))
                 .foregroundStyle(Theme.accent)
             Text("단어가 없어요")
-                .font(.title3.weight(.bold))
+                .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(Palette.ink)
             addMenu {
                 Label("단어 추가", systemImage: "plus")
-                    .font(.body.weight(.bold))
+                    .font(.pt(.body).weight(.bold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
@@ -235,11 +235,11 @@ struct WordHomeView: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text("\(value)")
-                    .font(.system(size: 44, weight: .bold, design: .rounded).monospacedDigit())
+                    .font(.pt(size: 44, weight: .bold).monospacedDigit())
                     .foregroundStyle(highlighted ? Theme.accent : Palette.ink)
                     .contentTransition(.numericText())
                 Text(label)
-                    .font(.subheadline.weight(.medium))
+                    .font(.pt(.subheadline).weight(.medium))
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
@@ -261,7 +261,7 @@ struct WordHomeView: View {
             }
         } label: {
             Text("학습 시작")
-                .font(.title3.weight(.bold))
+                .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)

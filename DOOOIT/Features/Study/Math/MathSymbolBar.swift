@@ -45,7 +45,7 @@ struct MathSymbolBar: View {
                 ForEach(Self.symbols) { symbol in
                     Button { onInsert(symbol) } label: {
                         Text(symbol.label)
-                            .font(.body.weight(.semibold))
+                            .font(.pt(.body).weight(.semibold))
                             .frame(minWidth: 40, minHeight: 36)
                             .padding(.horizontal, 4)
                             .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 10))

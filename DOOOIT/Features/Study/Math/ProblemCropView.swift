@@ -18,7 +18,7 @@ struct ProblemCropView: View {
         NavigationStack {
             VStack(spacing: 14) {
                 Text("인쇄된 문제 부분만 네모 안에 넣어주세요.\n손글씨 풀이를 빼면 훨씬 정확하게 읽어요.")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
 
@@ -71,7 +71,7 @@ struct ProblemCropView: View {
                 Button {
                     onDone(Self.crop(image, to: CGRect(x: 0, y: 0, width: 1, height: 1)))
                 } label: {
-                    Text("사진 전체 읽기").font(.subheadline.weight(.semibold))
+                    Text("사진 전체 읽기").font(.pt(.subheadline).weight(.semibold))
                 }
             }
             .padding(16)
