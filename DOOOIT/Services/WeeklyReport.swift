@@ -169,6 +169,12 @@ enum WeeklyReportBuilder {
         var highlights: [String] = []
         if previous > 0, total > previous { highlights.append("지난주보다 \(WeeklyReport.duration(total - previous)) 더 공부했어요") }
         if streak >= 3 { highlights.append("\(streak)일 연속으로 공부하고 있어요") }
+        // AI 순공부 측정을 쓴 공부가 있으면 순공부 시간과 집중도
+        let measured = PresenceStore().totals(from: start, to: afterEnd)
+        if measured.count > 0, measured.measured >= 600 {
+            let focus = Int((Double(measured.net) / Double(measured.measured) * 100).rounded())
+            highlights.append("AI가 잰 순공부 \(WeeklyReport.duration(measured.net / 60)), 집중도 \(focus)%예요")
+        }
         if goalDays >= 3 { highlights.append("하루 목표를 \(goalDays)일이나 달성했어요") }
         if let best = strong.first { highlights.append("\(best.unit) 정답률 \(Int((best.rate * 100).rounded()))%로 탄탄해요") }
         if planTotal > 0, Double(planDone) / Double(planTotal) >= 0.8 { highlights.append("플랜을 \(Int(Double(planDone) / Double(planTotal) * 100))% 지켰어요") }
