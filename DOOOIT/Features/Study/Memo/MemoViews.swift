@@ -17,7 +17,7 @@ struct MemoListView: View {
     var body: some View {
         List {
             if memos.isEmpty {
-                EmptyStateView(symbol: "doc.text.fill", title: "메모가 없어요")
+                EmptyStateView(symbol: "doc.text.fill", title: L("메모가 없어요"))
                     .listRowBackground(Color.clear)
             }
 
@@ -30,7 +30,7 @@ struct MemoListView: View {
 
             let others = filtered.filter { !$0.isPinned }
             if !others.isEmpty {
-                Section(pinned.isEmpty ? "메모" : "기타") {
+                Section(pinned.isEmpty ? L("메모") : L("기타")) {
                     ForEach(others) { row($0) }
                 }
             }
@@ -67,7 +67,7 @@ struct MemoListView: View {
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                     HStack(spacing: 6) {
-                        Text(memo.updatedAt.kr("M월 d일"))
+                        Text(memo.updatedAt.ui("M월 d일"))
                             .foregroundStyle(Theme.accent)
                         Text(memo.content.replacingOccurrences(of: "\n", with: " "))
                             .lineLimit(1)
@@ -84,7 +84,7 @@ struct MemoListView: View {
                 memo.isPinned.toggle()
                 try? context.save()
             } label: {
-                Label(memo.isPinned ? "고정 해제" : "고정", systemImage: memo.isPinned ? "pin.slash" : "pin")
+                Label(memo.isPinned ? L("고정 해제") : L("고정"), systemImage: memo.isPinned ? "pin.slash" : "pin")
             }
             .tint(Palette.warning)
         }
@@ -119,7 +119,7 @@ struct MemoEditorView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 8)
 
-            Text(memo.updatedAt.kr("yyyy년 M월 d일 a h:mm"))
+            Text(memo.updatedAt.ui("yyyy년 M월 d일 a h:mm"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 20)

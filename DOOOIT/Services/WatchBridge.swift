@@ -127,7 +127,7 @@ final class WatchBridge: NSObject {
                     planID: occurrence.plan.id.uuidString,
                     dayKey: occurrence.day.dayKey,
                     title: String(occurrence.plan.title.prefix(40)),
-                    time: occurrence.plan.isAllDay ? "종일" : occurrence.start.kr("a h:mm"),
+                    time: occurrence.plan.isAllDay ? L("종일") : occurrence.start.ui("a h:mm"),
                     colorHex: occurrence.plan.category?.colorHex ?? accent,
                     isDone: occurrence.isCompleted,
                     isStudy: occurrence.plan.isStudy,

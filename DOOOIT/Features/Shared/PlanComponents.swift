@@ -6,7 +6,7 @@ import SwiftUI
 enum PlannerMode: String, CaseIterable, Identifiable {
     case month, day
     var id: String { rawValue }
-    var title: String { self == .month ? "월간" : "하루 타임라인" }
+    var title: String { self == .month ? L("월간") : L("하루 타임라인") }
     var symbol: String { self == .month ? "calendar" : "list.bullet" }
 }
 
@@ -64,7 +64,7 @@ struct WeekStrip: View {
                     onSelect(day)
                 } label: {
                     VStack(spacing: 5) {
-                        Text(day.kr("E"))
+                        Text(day.ui("E"))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(i == 0 ? Palette.danger : (i == 6 ? Theme.accent : Color.secondary))
                         Text("\(cal.component(.day, from: day))")
@@ -121,7 +121,7 @@ struct PlanTimelineRow: View {
                     .symbolEffect(.bounce, value: done)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(done ? "완료 취소" : "완료로 표시")
+            .accessibilityLabel(done ? L("완료 취소") : L("완료로 표시"))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(plan.title)
@@ -148,10 +148,10 @@ struct PlanTimelineRow: View {
 
     private var subtitle: Text {
         let plan = occurrence.plan
-        let name = plan.category?.name ?? (plan.isStudy ? "공부" : "일반")
-        let time = plan.isAllDay ? "종일" : "\(occurrence.start.kr("a h:mm")) – \(occurrence.end.kr("h:mm"))"
+        let name = plan.category?.name.loc ?? (plan.isStudy ? L("공부") : L("일반"))
+        let time = plan.isAllDay ? L("종일") : "\(occurrence.start.ui("a h:mm")) – \(occurrence.end.ui("h:mm"))"
         if plan.isStudy {
-            let base = Text("\(time) · \(name) · \(TimeText.duration(minutes: plan.durationMinutes))")
+            let base = Text("\(time) · \(name) · \(TimeText.durationL(minutes: plan.durationMinutes))")
             return plan.lockApps ? Text("\(base) · \(Image(systemName: "lock.fill"))") : base
         }
         return Text("\(time) · \(name)")

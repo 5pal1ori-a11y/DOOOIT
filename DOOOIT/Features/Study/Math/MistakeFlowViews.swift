@@ -527,7 +527,7 @@ struct WeakConceptBadge: View {
                         TagLabel(text: concept.state.rawValue, color: stateColor(concept.state))
                     }
                     MasteryBar(value: concept.mastery)
-                    Text("오답 \(concept.wrongCount)회 · 풀이 \(concept.attemptCount)회 · 최근 \(concept.lastStudiedAt.kr("M월 d일"))"
+                    Text("오답 \(concept.wrongCount)회 · 풀이 \(concept.attemptCount)회 · 최근 \(concept.lastStudiedAt.ui("M월 d일"))"
                          + (concept.mainCause.map { " · 주된 원인 \($0)" } ?? ""))
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -592,7 +592,7 @@ struct WeakConceptListView: View {
                             TagLabel(text: concept.state.rawValue, color: stateColor(concept.state))
                         }
                         MasteryBar(value: concept.mastery)
-                        Text("숙련도 \(Int(concept.mastery * 100))% · 오답 \(concept.wrongCount)회 · 최근 \(concept.lastStudiedAt.kr("M월 d일"))"
+                        Text("숙련도 \(Int(concept.mastery * 100))% · 오답 \(concept.wrongCount)회 · 최근 \(concept.lastStudiedAt.ui("M월 d일"))"
                              + (concept.mainCause.map { " · \($0)" } ?? ""))
                             .font(.caption).foregroundStyle(.secondary)
                         if let last = concept.records.last {

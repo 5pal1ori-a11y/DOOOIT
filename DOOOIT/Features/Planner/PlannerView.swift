@@ -95,12 +95,12 @@ struct PlannerView: View {
         HStack(alignment: .bottom) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text(month.kr("yyyy년"))
+                    Text(month.ui("yyyy년"))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                     DDayChip()
                 }
-                Text(month.kr("M월"))
+                Text(month.ui("M월"))
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundStyle(Palette.ink)
                     .contentTransition(.numericText())
@@ -234,7 +234,7 @@ struct PlannerView: View {
                                 try? context.save()
                                 PlanScheduler.shared.rescheduleNotifications()
                             } label: {
-                                Label(occurrence.plan.repeatRule == .none ? "삭제" : "반복 일정 전체 삭제", systemImage: "trash")
+                                Label(occurrence.plan.repeatRule == .none ? L("삭제") : L("반복 일정 전체 삭제"), systemImage: "trash")
                             }
                         }
                 }
@@ -353,7 +353,7 @@ struct DayTimelineView: View {
                         TimelineView(.everyMinute) { context in
                             let y = CGFloat(Self.minutes(of: context.date)) / 60 * hourHeight
                             HStack(spacing: 0) {
-                                Text(context.date.kr("HH:mm"))
+                                Text(context.date.ui("HH:mm"))
                                     .font(.system(size: 10, weight: .heavy))
                                     .monospacedDigit()
                                     .foregroundStyle(.white)
@@ -384,10 +384,10 @@ struct DayTimelineView: View {
 
     static func hourLabel(_ hour: Int) -> String {
         switch hour {
-        case 0, 24: return "자정"
-        case 12: return "정오"
-        case 1..<12: return "오전 \(hour)시"
-        default: return "오후 \(hour - 12)시"
+        case 0, 24: return L("자정")
+        case 12: return L("정오")
+        case 1..<12: return L("오전 \(hour)시")
+        default: return L("오후 \(hour - 12)시")
         }
     }
 
@@ -414,7 +414,7 @@ struct TimelineBlock: View {
 
     var body: some View {
         let plan = occurrence.plan
-        let time = "\(occurrence.start.kr("HH:mm"))–\(occurrence.end.kr("HH:mm"))"
+        let time = "\(occurrence.start.ui("HH:mm"))–\(occurrence.end.ui("HH:mm"))"
         Group {
             if compact {
                 HStack(spacing: 6) {
@@ -424,7 +424,7 @@ struct TimelineBlock: View {
             } else {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(plan.title).font(.footnote.weight(.bold)).lineLimit(1)
-                    Text(plan.isStudy ? "\(time) · \(TimeText.duration(minutes: plan.durationMinutes))" : time)
+                    Text(plan.isStudy ? "\(time) · \(TimeText.durationL(minutes: plan.durationMinutes))" : time)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -458,7 +458,7 @@ struct CalendarGrid: View {
     @Binding var selected: Date
     let plans: [Plan]
 
-    private let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    private let weekdays = AppDateFormat.weekdaySymbols
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
 
     private var days: [Date] {
@@ -583,7 +583,7 @@ private struct DaySummaryHeader<Trailing: View>: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Text(day.kr("M월 d일 EEEE"))
+                        Text(day.ui("M월 d일 EEEE"))
                             .font(.title3.weight(.bold))
                             .foregroundStyle(Palette.ink)
                         if day.isSameDay(as: Date()) {
@@ -612,7 +612,7 @@ private struct DaySummaryHeader<Trailing: View>: View {
     }
 
     private func summary(done: Int, studyMinutes: Int) -> String {
-        if done == occurrences.count { return "\(occurrences.count)개 모두 완료" }
-        return "\(done) / \(occurrences.count) 완료"
+        if done == occurrences.count { return L("\(occurrences.count)개 모두 완료") }
+        return L("\(done) / \(occurrences.count) 완료")
     }
 }

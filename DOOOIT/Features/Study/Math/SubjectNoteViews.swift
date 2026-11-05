@@ -466,7 +466,7 @@ struct SubjectRetryCard: View {
                         Image(systemName: attempt.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundStyle(attempt.correct ? Palette.success : Palette.danger)
                     }
-                    Text(retries.last.map { $0.date.kr("M월 d일") } ?? "").font(.caption).foregroundStyle(.secondary)
+                    Text(retries.last.map { $0.date.ui("M월 d일") } ?? "").font(.caption).foregroundStyle(.secondary)
                 }
                 .font(.subheadline)
             }

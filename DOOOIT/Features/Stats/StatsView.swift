@@ -7,16 +7,16 @@ enum StatPeriod: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .day: return "일간"
-        case .week: return "주간"
-        case .month: return "월간"
+        case .day: return L("일간")
+        case .week: return L("주간")
+        case .month: return L("월간")
         }
     }
     var previousName: String {
         switch self {
-        case .day: return "어제"
-        case .week: return "지난주"
-        case .month: return "지난달"
+        case .day: return L("어제")
+        case .week: return L("지난주")
+        case .month: return L("지난달")
         }
     }
 }
@@ -74,7 +74,7 @@ struct StatsView: View {
                     .contentTransition(.numericText())
 
                     if total == 0 {
-                        EmptyStateView(symbol: "chart.pie", title: "아직 공부 기록이 없어요")
+                        EmptyStateView(symbol: "chart.pie", title: L("아직 공부 기록이 없어요"))
                     } else {
                         subjectBar(bySubject, total: total)
                     }
@@ -148,13 +148,13 @@ struct StatsView: View {
                     RoundedRectangle(cornerRadius: 2)
                         .fill(color(for: item.name))
                         .frame(width: 4, height: 22)
-                    Text(item.name).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
+                    Text(item.name.loc).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
                     Spacer()
                     Text("\(Int((Double(item.seconds) / Double(total) * 100).rounded()))%")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
-                    Text(TimeText.duration(seconds: item.seconds))
+                    Text(TimeText.durationL(seconds: item.seconds))
                         .font(.body.weight(.bold))
                         .monospacedDigit()
                         .frame(minWidth: 90, alignment: .trailing)
@@ -227,9 +227,9 @@ struct StatsView: View {
             }
             .frame(height: 34)
             HStack {
-                ForEach(["0시", "6시", "12시", "18시", "24시"], id: \.self) { label in
-                    Text(label)
-                    if label != "24시" { Spacer() }
+                ForEach([0, 6, 12, 18, 24], id: \.self) { hour in
+                    Text(L("\(hour)시"))
+                    if hour != 24 { Spacer() }
                 }
             }
             .font(.caption2)
@@ -267,13 +267,13 @@ struct StatsView: View {
 
     private func label(for range: (Date, Date)) -> String {
         switch period {
-        case .day: return range.0.kr("M월 d일 EEEE")
-        case .week: return "\(range.0.kr("M월 d일")) – \(range.1.adding(days: -1).kr("M월 d일"))"
-        case .month: return range.0.kr("yyyy년 M월")
+        case .day: return range.0.ui("M월 d일 EEEE")
+        case .week: return L("\(range.0.ui("M월 d일")) – \(range.1.adding(days: -1).ui("M월 d일"))")
+        case .month: return range.0.ui("yyyy년 M월")
         }
     }
 
     private func shortLabel(_ date: Date) -> String {
-        period == .month ? date.kr("M월") : date.kr("M/d")
+        period == .month ? date.ui("M월") : date.ui("M/d")
     }
 }

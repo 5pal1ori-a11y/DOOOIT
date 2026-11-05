@@ -598,7 +598,7 @@ private struct MathNoteRow: View {
         // 문제 유형 이름이 있으면 그것 (예: 빈칸 추론), 없으면 채점 방식 (객관식)
         if let type = note.scan?.problemType { parts.append(type.name) } else if let kind = note.kind { parts.append(kind.title) }
         if !note.unit.isEmpty { parts.append(note.unit) }
-        parts.append(note.createdAt.kr("M월 d일"))
+        parts.append(note.createdAt.ui("M월 d일"))
         return parts.joined(separator: " · ")
     }
 }

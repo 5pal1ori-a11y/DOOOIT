@@ -93,7 +93,7 @@ struct BadgeTile: View {
                 .minimumScaleFactor(0.8)
             Group {
                 if let unlockedAt {
-                    Text(unlockedAt.kr("M.d"))
+                    Text(unlockedAt.ui("M.d"))
                 } else {
                     Text(badge.progressText(stats))
                 }
@@ -147,7 +147,7 @@ struct BadgeDetailSheet: View {
             Text(badge.title).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
             Text(badge.detail).font(.subheadline).foregroundStyle(.secondary)
             if let unlockedAt {
-                TagLabel(text: unlockedAt.kr("yyyy년 M월 d일"), symbol: "checkmark", color: badge.color)
+                TagLabel(text: unlockedAt.ui("yyyy년 M월 d일"), symbol: "checkmark", color: badge.color)
             } else {
                 VStack(spacing: 6) {
                     LinearProgressBar(value: badge.progress(stats), color: badge.color, height: 8)

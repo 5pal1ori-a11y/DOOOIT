@@ -59,7 +59,7 @@ struct CramListView: View {
                 Text(exam.dDay > 0 ? "D-\(exam.dDay)" : (exam.dDay == 0 ? "D-DAY" : "끝"))
                     .font(.title3.weight(.bold))
                     .foregroundStyle(exam.dDay <= 3 ? Palette.danger : Theme.accent)
-                Text(exam.examDate.kr("M.d")).font(.caption2).foregroundStyle(.secondary)
+                Text(exam.examDate.ui("M.d")).font(.caption2).foregroundStyle(.secondary)
             }
             .frame(width: 64)
             VStack(alignment: .leading, spacing: 6) {
@@ -157,7 +157,7 @@ struct CramDetailView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(exam.name).font(.title2.weight(.bold))
-                Text("\(exam.examDate.kr("M월 d일 (E)")) 시험").font(.subheadline).foregroundStyle(.secondary)
+                Text("\(exam.examDate.ui("M월 d일 (E)")) 시험").font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "bolt.fill")

@@ -206,7 +206,7 @@ struct SimilarProblemsCard: View {
             }
             if let retries = ladder?.retries, !retries.isEmpty {
                 ForEach(Array(retries.suffix(5).enumerated()), id: \.offset) { _, attempt in
-                    Text("\(attempt.date.kr("M월 d일")) · \(attempt.given) · \(attempt.correct ? "정답" : "오답")").font(.caption).foregroundStyle(.secondary)
+                    Text("\(attempt.date.ui("M월 d일")) · \(attempt.given) · \(attempt.correct ? "정답" : "오답")").font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

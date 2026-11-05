@@ -15,9 +15,9 @@ struct UserAccount: Codable, Equatable {
 
         var title: String {
             switch self {
-            case .apple: return "Apple로 로그인"
-            case .google: return "Google로 로그인"
-            case .email: return "이메일 계정"
+            case .apple: return L("Apple로 로그인")
+            case .google: return L("Google로 로그인")
+            case .email: return L("이메일 계정")
             }
         }
         var symbol: String {
@@ -49,17 +49,17 @@ enum AuthError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidName: return "이름을 입력해주세요."
-        case .invalidEmail: return "올바른 이메일 주소를 입력해주세요."
-        case .weakPassword: return "비밀번호는 8자 이상이어야 해요."
-        case .passwordMismatch: return "비밀번호가 서로 달라요."
-        case .emailExists: return "이미 가입된 이메일이에요. 로그인해주세요."
-        case .wrongCredentials: return "이메일 또는 비밀번호가 올바르지 않아요."
+        case .invalidName: return L("이름을 입력해주세요.")
+        case .invalidEmail: return L("올바른 이메일 주소를 입력해주세요.")
+        case .weakPassword: return L("비밀번호는 8자 이상이어야 해요.")
+        case .passwordMismatch: return L("비밀번호가 서로 달라요.")
+        case .emailExists: return L("이미 가입된 이메일이에요. 로그인해주세요.")
+        case .wrongCredentials: return L("이메일 또는 비밀번호가 올바르지 않아요.")
         case .locked(let seconds):
-            return seconds >= 60 ? "로그인 시도가 너무 많아요. \((seconds + 59) / 60)분 뒤에 다시 시도해주세요."
-                                 : "로그인 시도가 너무 많아요. \(seconds)초 뒤에 다시 시도해주세요."
-        case .apple(let message): return "Apple 로그인에 실패했어요. \(message)"
-        case .google(let message): return "Google 로그인에 실패했어요. \(message)"
+            return seconds >= 60 ? L("로그인 시도가 너무 많아요. \((seconds + 59) / 60)분 뒤에 다시 시도해주세요.")
+                                 : L("로그인 시도가 너무 많아요. \(seconds)초 뒤에 다시 시도해주세요.")
+        case .apple(let message): return L("Apple 로그인에 실패했어요. \(message)")
+        case .google(let message): return L("Google 로그인에 실패했어요. \(message)")
         }
     }
 }
@@ -124,7 +124,7 @@ final class AuthManager {
 
         case .success(let authorization):
             guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                throw AuthError.apple("인증 정보를 확인할 수 없어요.")
+                throw AuthError.apple(L("인증 정보를 확인할 수 없어요."))
             }
             let userID = credential.user
             let profileKey = "apple.\(userID)"
@@ -148,11 +148,11 @@ final class AuthManager {
     /// Google 계정으로 로그인 (같은 Google 계정이면 같은 모티 계정 → 저장소가 이어짐)
     func signInWithGoogle() async throws {
         #if canImport(GoogleSignIn)
-        guard let presenter = Self.topViewController() else { throw AuthError.google("화면을 찾을 수 없어요.") }
+        guard let presenter = Self.topViewController() else { throw AuthError.google(L("화면을 찾을 수 없어요.")) }
         do {
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
             let user = result.user
-            guard let googleID = user.userID else { throw AuthError.google("계정 정보를 확인할 수 없어요.") }
+            guard let googleID = user.userID else { throw AuthError.google(L("계정 정보를 확인할 수 없어요.")) }
             let id = "google.\(googleID)"
             let saved = Keychain.get("google.name.\(id)").flatMap { String(data: $0, encoding: .utf8) }
             let name = saved ?? user.profile?.name ?? ""
@@ -166,7 +166,7 @@ final class AuthManager {
             throw AuthError.google(error.localizedDescription)
         }
         #else
-        throw AuthError.google("이 빌드에서는 사용할 수 없어요.")
+        throw AuthError.google(L("이 빌드에서는 사용할 수 없어요."))
         #endif
     }
 

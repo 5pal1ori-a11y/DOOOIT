@@ -132,7 +132,7 @@ struct WeaknessView: View {
                 .font(.title3.weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("맞춤 학습 예상 시간 \(TimeText.duration(minutes: item.minutes))")
+            Text("맞춤 학습 예상 시간 \(TimeText.durationL(minutes: item.minutes))")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

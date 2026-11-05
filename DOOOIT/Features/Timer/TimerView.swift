@@ -64,7 +64,7 @@ struct TimerView: View {
         .animation(.smooth(duration: 0.35), value: studyTimer.phase)
         .animation(.smooth(duration: 0.35), value: savedSeconds)
         .confirmationDialog("공부를 마칠까요?", isPresented: $showStopConfirm, titleVisibility: .visible) {
-            Button(studyTimer.lockUntil != nil ? "완료하고 잠금 해제" : "완료하고 기록 저장", role: .destructive) {
+            Button(studyTimer.lockUntil != nil ? L("완료하고 잠금 해제") : L("완료하고 기록 저장"), role: .destructive) {
                 savedSeconds = studyTimer.stop()
                 submitRanking()
             }
@@ -263,7 +263,7 @@ struct TimerView: View {
                                 .scaleEffect(phase.isIdentity ? 1 : 0.62)
                         }
                         .id(minutes)
-                        .accessibilityLabel(minutes == 0 ? "무제한" : Self.shortText(minutes))
+                        .accessibilityLabel(minutes == 0 ? L("무제한") : Self.shortText(minutes))
                 }
             }
             .scrollTargetLayout()
@@ -276,7 +276,7 @@ struct TimerView: View {
         .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
         .sensoryFeedback(.selection, trigger: targetMinutes)
         .overlay(alignment: .bottom) {
-            Text(targetMinutes.map(Self.shortText) ?? "무제한")
+            Text(targetMinutes.map(Self.shortText) ?? L("무제한"))
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Color(white: 0.55))
                 .offset(y: 18)
@@ -291,8 +291,8 @@ struct TimerView: View {
 
     /// 칩에 쓰는 짧은 글: 40 → "40분", 70 → "1시간 10분"
     static func shortText(_ minutes: Int) -> String {
-        if minutes < 60 { return "\(minutes)분" }
-        return minutes % 60 == 0 ? "\(minutes / 60)시간" : "\(minutes / 60)시간 \(minutes % 60)분"
+        if minutes < 60 { return L("\(minutes)분") }
+        return minutes % 60 == 0 ? L("\(minutes / 60)시간") : L("\(minutes / 60)시간 \(minutes % 60)분")
     }
 
     // MARK: Running (가운데 제목 · 선 · 큰 숫자 · 선 / 아래 두 버튼)
@@ -302,7 +302,7 @@ struct TimerView: View {
             Spacer()
             VStack(spacing: 22) {
                 if let lockUntil = studyTimer.lockUntil {
-                    Label("다른 앱 잠금 중 · \(lockUntil.kr("a h:mm"))까지", systemImage: "lock.fill")
+                    Label("다른 앱 잠금 중 · \(lockUntil.ui("a h:mm"))까지", systemImage: "lock.fill")
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(Palette.danger)
                 }
@@ -329,13 +329,13 @@ struct TimerView: View {
             }
             Spacer()
             HStack(spacing: 12) {
-                pillButton(title: studyTimer.phase == .running ? "진행 중" : "일시정지",
+                pillButton(title: studyTimer.phase == .running ? L("진행 중") : L("일시정지"),
                            symbol: studyTimer.phase == .running ? "pause.fill" : "play.fill",
                            iconColor: green) {
                     studyTimer.togglePause()
                     Haptics.tap()
                 }
-                pillButton(title: "완료하기", symbol: "stop.fill", iconColor: .white) {
+                pillButton(title: L("완료하기"), symbol: "stop.fill", iconColor: .white) {
                     showStopConfirm = true
                 }
             }
@@ -349,11 +349,11 @@ struct TimerView: View {
             if elapsed >= Double(target) {
                 Label("목표 달성!", systemImage: "checkmark.seal.fill").font(.subheadline.weight(.semibold)).foregroundStyle(green)
             } else {
-                Text("목표 \(TimeText.duration(seconds: target)) · \(TimeText.duration(seconds: target - Int(elapsed) + 59)) 남음")
+                Text("목표 \(TimeText.durationL(seconds: target)) · \(TimeText.durationL(seconds: target - Int(elapsed) + 59)) 남음")
                     .font(.subheadline).foregroundStyle(Color(white: 0.55))
             }
         } else {
-            Text(studyTimer.phase == .paused ? "일시정지됨" : studyTimer.categoryName)
+            Text(studyTimer.phase == .paused ? L("일시정지됨") : studyTimer.categoryName)
                 .font(.subheadline).foregroundStyle(Color(white: 0.55))
         }
     }
@@ -392,9 +392,9 @@ struct TimerView: View {
                 .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
                 .symbolEffect(.bounce, value: seconds)
             VStack(spacing: 8) {
-                Text(seconds >= 10 ? "수고했어요!" : "기록이 너무 짧아요")
+                Text(seconds >= 10 ? L("수고했어요!") : L("기록이 너무 짧아요"))
                     .font(.title.weight(.bold))
-                Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : "10초 이상 공부해야 기록돼요.")
+                Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : L("10초 이상 공부해야 기록돼요."))
                     .font(seconds >= 10 ? .system(size: 44, weight: .bold).monospacedDigit() : .body)
                     .foregroundStyle(seconds >= 10 ? Color.white : Color(white: 0.6))
                 if seconds >= 10, RankingService.shared.isJoined {
@@ -479,7 +479,7 @@ struct TimerAccessoryView: View {
     private var nextPlanText: String? {
         let now = Date()
         guard let next = plans.occurrences(on: now).first(where: { $0.plan.isStudy && !$0.plan.isAllDay && $0.start > now }) else { return nil }
-        return "\(next.start.kr("a h:mm")) · \(next.plan.title)"
+        return "\(next.start.ui("a h:mm")) · \(next.plan.title)"
     }
 }
 

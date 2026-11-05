@@ -62,9 +62,9 @@ struct AuthView: View {
                     }
                 }
             }
-            .errorAlert($errorMessage, title: mode.rawValue)
+            .errorAlert($errorMessage, title: mode.rawValue.loc)
         }
-        .errorAlert($appleErrorMessage, title: "로그인 실패")
+        .errorAlert($appleErrorMessage, title: L("로그인 실패"))
         .onChange(of: mode) {
             // 사라지는 칸에 커서가 있었으면 이메일 칸으로
             if focus == .name || focus == .confirm { focus = .email }
@@ -163,7 +163,7 @@ struct AuthView: View {
             .id(Field.email)
 
             AuthField(symbol: "lock.fill", isFocused: focus == .password, message: passwordMessage) {
-                passwordInput(mode == .signUp ? "비밀번호 (8자 이상)" : "비밀번호", text: $password, field: .password,
+                passwordInput(mode == .signUp ? L("비밀번호 (8자 이상)") : L("비밀번호"), text: $password, field: .password,
                               contentType: mode == .signUp ? .newPassword : .password)
                     .submitLabel(mode == .signUp ? .next : .go)
                     .onSubmit {
@@ -176,7 +176,7 @@ struct AuthView: View {
 
             if mode == .signUp {
                 AuthField(symbol: "lock.fill", isFocused: focus == .confirm, message: confirmMessage) {
-                    passwordInput("비밀번호 확인", text: $confirm, field: .confirm, contentType: .newPassword)
+                    passwordInput(L("비밀번호 확인"), text: $confirm, field: .confirm, contentType: .newPassword)
                         .submitLabel(.go)
                         .onSubmit { submit() }
                 }
@@ -221,13 +221,13 @@ struct AuthView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(showPassword ? "비밀번호 숨기기" : "비밀번호 보기")
+        .accessibilityLabel(showPassword ? L("비밀번호 숨기기") : L("비밀번호 보기"))
     }
 
     private var primaryButton: some View {
         Button(action: submit) {
             ZStack {
-                Text(mode == .signUp ? "가입하고 시작하기" : "로그인")
+                Text(mode == .signUp ? L("가입하고 시작하기") : L("로그인"))
                     .contentTransition(.opacity)
                     .opacity(isSubmitting ? 0 : 1)
                 if isSubmitting {
@@ -241,7 +241,7 @@ struct AuthView: View {
         .buttonStyle(.primaryFill)
         .shadow(color: Theme.accent.opacity(0.32), radius: 14, y: 6)
         .disabled(isSubmitting)
-        .accessibilityLabel(mode == .signUp ? "가입하고 시작하기" : "로그인")
+        .accessibilityLabel(mode == .signUp ? L("가입하고 시작하기") : L("로그인"))
     }
 
     private var orDivider: some View {
@@ -287,18 +287,18 @@ struct AuthView: View {
     private var emailMessage: String? {
         let trimmed = email.trimmingCharacters(in: .whitespaces).lowercased()
         guard !trimmed.isEmpty, focus != .email, !AuthManager.isValidEmail(trimmed) else { return nil }
-        return "이메일 형식을 확인해 주세요"
+        return L("이메일 형식을 확인해 주세요")
     }
 
     private var passwordMessage: String? {
         guard mode == .signUp, !password.isEmpty, focus != .password, password.count < 8 else { return nil }
-        return "8자 이상 입력해 주세요"
+        return L("8자 이상 입력해 주세요")
     }
 
     private var confirmMessage: String? {
         guard mode == .signUp, !confirm.isEmpty, confirm != password,
               focus != .confirm || confirm.count >= password.count else { return nil }
-        return "비밀번호가 달라요"
+        return L("비밀번호가 달라요")
     }
 
     // MARK: 동작

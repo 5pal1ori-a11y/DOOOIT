@@ -23,7 +23,7 @@ struct AskAIListView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
                                 TagLabel(text: item.subject.isEmpty ? "질문" : item.subject)
-                                Text(item.createdAt.kr("M.d")).font(.caption).foregroundStyle(.secondary)
+                                Text(item.createdAt.ui("M.d")).font(.caption).foregroundStyle(.secondary)
                             }
                             Text(item.question).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
                         }
@@ -149,7 +149,7 @@ struct AIQuestionDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
                         TagLabel(text: "질문")
-                        Text("\(item.subject) · \(item.createdAt.kr("yyyy.MM.dd"))").font(.caption).foregroundStyle(.secondary)
+                        Text("\(item.subject) · \(item.createdAt.ui("yyyy.MM.dd"))").font(.caption).foregroundStyle(.secondary)
                     }
                     Text(item.question).font(.body.weight(.semibold))
                     if let data = item.imageData, let image = UIImage(data: data) {

@@ -110,7 +110,7 @@ struct CategoryEditorView: View {
                         Spacer()
                     }
                     .listRowBackground(Color.clear)
-                    TextField(isStudy ? "과목 이름 (예: 한국사)" : "카테고리 이름", text: $name)
+                    TextField(isStudy ? L("과목 이름 (예: 한국사)") : L("카테고리 이름"), text: $name)
                         .font(.headline)
                         .multilineTextAlignment(.center)
                 }
@@ -122,7 +122,7 @@ struct CategoryEditorView: View {
                     }
                     .pickerStyle(.segmented)
                 } footer: {
-                    Text(isStudy ? "공부 플랜에서 고를 수 있고, 시간이 되면 공부 타이머가 자동으로 시작돼요." : "일반 플랜에서 고를 수 있고, 알림만 보내요.")
+                    Text(isStudy ? L("공부 플랜에서 고를 수 있고, 시간이 되면 공부 타이머가 자동으로 시작돼요.") : L("일반 플랜에서 고를 수 있고, 알림만 보내요."))
                 }
 
                 Section("색상") {
@@ -158,7 +158,7 @@ struct CategoryEditorView: View {
                     .padding(.vertical, 6)
                 }
             }
-            .navigationTitle(category == nil ? (isStudy ? "새 과목" : "새 카테고리") : "카테고리 수정")
+            .navigationTitle(category == nil ? (isStudy ? L("새 과목") : L("새 카테고리")) : L("카테고리 수정"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

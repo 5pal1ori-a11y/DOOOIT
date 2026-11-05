@@ -25,7 +25,7 @@ enum WidgetSync {
     private static func item(_ occurrence: PlanOccurrence, themeHex: String) -> WidgetSnapshot.PlanItem {
         WidgetSnapshot.PlanItem(
             title: occurrence.plan.title,
-            time: occurrence.plan.isAllDay ? "종일" : occurrence.start.kr("a h:mm"),
+            time: occurrence.plan.isAllDay ? L("종일") : occurrence.start.ui("a h:mm"),
             colorHex: occurrence.plan.category?.colorHex ?? themeHex,
             isDone: occurrence.isCompleted,
             isStudy: occurrence.plan.isStudy,

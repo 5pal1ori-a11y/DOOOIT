@@ -55,12 +55,12 @@ struct PlanEditorView: View {
                 }
 
                 Section {
-                    TextField(kind == .study ? "공부할 내용 (예: 수학 문제집 3단원)" : "할 일 (예: 친구랑 점심)", text: $title)
+                    TextField(kind == .study ? L("공부할 내용 (예: 수학 문제집 3단원)") : L("할 일 (예: 친구랑 점심)"), text: $title)
                         .font(.headline)
                         .focused($titleFocused)
                 }
 
-                Section(kind == .study ? "과목" : "카테고리") {
+                Section(kind == .study ? L("과목") : L("카테고리")) {
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {
                             ForEach(kindCategories) { item in
@@ -76,7 +76,7 @@ struct PlanEditorView: View {
                                 .buttonStyle(.plain)
                             }
                             Button { showNewCategory = true } label: {
-                                Label(kind == .study ? "과목 추가" : "추가", systemImage: "plus")
+                                Label(kind == .study ? L("과목 추가") : L("추가"), systemImage: "plus")
                                     .font(.subheadline.weight(.semibold))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
@@ -99,10 +99,10 @@ struct PlanEditorView: View {
                         }
                     }
                     if kind == .study || !isAllDay {
-                        timeRow("시작", symbol: "clock", value: startTime) { timeField = .start }
-                        timeRow("종료", symbol: "clock.fill", value: endTime) { timeField = .end }
-                        LabeledContent(kind == .study ? "공부 시간" : "소요 시간") {
-                            Text(TimeText.duration(minutes: durationMinutes))
+                        timeRow(L("시작"), symbol: "clock", value: startTime) { timeField = .start }
+                        timeRow(L("종료"), symbol: "clock.fill", value: endTime) { timeField = .end }
+                        LabeledContent(kind == .study ? L("공부 시간") : L("소요 시간")) {
+                            Text(TimeText.durationL(minutes: durationMinutes))
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Theme.accent)
                         }
@@ -130,7 +130,7 @@ struct PlanEditorView: View {
                 if kind == .study {
                     Section {
                         LabeledContent {
-                            Text(autoStartTimer ? "켜짐" : "꺼짐 (계정 설정)").foregroundStyle(.secondary)
+                            Text(autoStartTimer ? L("켜짐") : L("꺼짐 (계정 설정)")).foregroundStyle(.secondary)
                         } label: {
                             Label("시작 시간에 타이머 자동 실행", systemImage: "timer")
                         }
@@ -145,7 +145,7 @@ struct PlanEditorView: View {
                         Text("공부 설정")
                     } footer: {
                         if lockApps {
-                            Text("\(startTime.kr("a h:mm")) ~ \(endTime.kr("a h:mm")) 잠금")
+                            Text("\(startTime.ui("a h:mm")) ~ \(endTime.ui("a h:mm")) 잠금")
                         } else {
                             Text("\(leadMinutes)분 전 알림 · 타이머 자동 시작")
                         }
@@ -176,7 +176,7 @@ struct PlanEditorView: View {
                     }
                 }
             }
-            .navigationTitle(editingPlan == nil ? "새 플랜" : "플랜 수정")
+            .navigationTitle(editingPlan == nil ? L("새 플랜") : L("플랜 수정"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -188,7 +188,7 @@ struct PlanEditorView: View {
                 }
             }
             .sheet(item: $timeField) { field in
-                TimePickerSheet(title: field == .start ? "시작 시간" : "종료 시간",
+                TimePickerSheet(title: field == .start ? L("시작 시간") : L("종료 시간"),
                                 initial: field == .start ? startTime : endTime) { picked in
                     apply(picked, to: field)
                 }
@@ -204,7 +204,7 @@ struct PlanEditorView: View {
                     Text("반복되는 모든 일정이 함께 삭제돼요.")
                 }
             }
-            .errorAlert($lockError, title: "앱 잠금")
+            .errorAlert($lockError, title: L("앱 잠금"))
             .onAppear(perform: load)
             .onChange(of: categories.count) { oldCount, newCount in
                 // 방금 추가한 과목/카테고리를 바로 선택
@@ -250,7 +250,7 @@ struct PlanEditorView: View {
                 Label(title, systemImage: symbol)
                     .foregroundStyle(Color.primary)
                 Spacer()
-                Text(value.kr("a h:mm"))
+                Text(value.ui("a h:mm"))
                     .monospacedDigit()
                     .fontWeight(.semibold)
                     .padding(.horizontal, 12)
@@ -269,7 +269,7 @@ struct PlanEditorView: View {
                     if await AppLockManager.shared.requestAuthorization() {
                         lockApps = true
                     } else {
-                        lockError = "앱 잠금을 쓰려면 스크린 타임 권한이 필요해요. 설정 > 스크린 타임에서 MOTI를 허용해주세요. (개발자: README의 '앱 잠금 켜기' 참고)"
+                        lockError = L("앱 잠금을 쓰려면 스크린 타임 권한이 필요해요. 설정 > 스크린 타임에서 MOTI를 허용해주세요. (개발자: README의 '앱 잠금 켜기' 참고)")
                     }
                 }
             }
@@ -393,7 +393,7 @@ struct TimePickerSheet: View {
                 DatePicker("", selection: $value, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.wheel)
                     .labelsHidden()
-                    .environment(\.locale, Locale(identifier: "ko_KR"))
+                    .environment(\.locale, AppLanguage.locale)
             }
             .padding(.horizontal)
             .navigationTitle(title)

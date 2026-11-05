@@ -18,16 +18,16 @@ struct StudyView: View {
                 VStack(alignment: .leading, spacing: 26) {
                     LazyVGrid(columns: columns, spacing: 12) {
                         NavigationLink { WordHomeView() } label: {
-                            tile(symbol: "book.closed.fill", color: Theme.accent, title: "영어 단어", detail: wordDetail)
+                            tile(symbol: "book.closed.fill", color: Theme.accent, title: L("영어 단어"), detail: wordDetail)
                         }
                         NavigationLink { MathNoteListView() } label: {
-                            tile(symbol: "pencil", color: Palette.mint, title: "오답노트", detail: noteDetail)
+                            tile(symbol: "pencil", color: Palette.mint, title: L("오답노트"), detail: noteDetail)
                         }
                         NavigationLink { MemoListView() } label: {
-                            tile(symbol: "doc.text.fill", color: Palette.butter, title: "메모장", detail: memos.isEmpty ? "새 메모" : "\(memos.count)개")
+                            tile(symbol: "doc.text.fill", color: Palette.butter, title: L("메모장"), detail: memos.isEmpty ? L("새 메모") : L("\(memos.count)개"))
                         }
                         NavigationLink { RankingView() } label: {
-                            tile(symbol: "trophy.fill", color: Palette.peach, title: "공부 랭킹", detail: "오늘 순위")
+                            tile(symbol: "trophy.fill", color: Palette.peach, title: L("공부 랭킹"), detail: L("오늘 순위"))
                         }
                     }
                     .buttonStyle(.pressable)
@@ -37,7 +37,7 @@ struct StudyView: View {
                         .appearAnimation(delay: 0.08)
 
                     NavigationLink { StatsView() } label: {
-                        RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: "공부 통계")
+                        RowLabel(symbol: "chart.bar.fill", color: Theme.accent, title: L("공부 통계"))
                             .softCardBackground(cornerRadius: 20)
                     }
                     .buttonStyle(.pressable)
@@ -64,16 +64,16 @@ struct StudyView: View {
     }
 
     private var wordDetail: String {
-        if words.isEmpty { return "단어 추가" }
-        if wordGoalDoneKey == Date().dayKey { return "오늘 완료" }
+        if words.isEmpty { return L("단어 추가") }
+        if wordGoalDoneKey == Date().dayKey { return L("오늘 완료") }
         let left = min(wordGoal, words.filter { !$0.isLearned }.count)
-        return left == 0 ? "모두 외움" : "오늘 \(left)개"
+        return left == 0 ? L("모두 외움") : L("오늘 \(left)개")
     }
 
     private var noteDetail: String {
         let unsolved = mathNotes.filter { $0.status != .correct }.count
-        if mathNotes.isEmpty { return "문제 찍기" }
-        return unsolved > 0 ? "복습 \(unsolved)개" : "복습 완료"
+        if mathNotes.isEmpty { return L("문제 찍기") }
+        return unsolved > 0 ? L("복습 \(unsolved)개") : L("복습 완료")
     }
 
     /// 큰 정사각 타일: 위 아이콘 · 아래 제목과 한 줄 설명
