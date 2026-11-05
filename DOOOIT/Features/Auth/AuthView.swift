@@ -87,6 +87,23 @@ struct AuthView: View {
                 .padding(.top, 14)
                 .shake(trigger: consentNudge)
 
+            // 로그인 없이 둘러보기 (이 기기에만 저장 · iCloud 동기화와 랭킹은 로그인 뒤에)
+            Button {
+                guard checkConsent() else { return }
+                Haptics.tap()
+                auth.startGuest()
+            } label: {
+                Text("로그인 없이 둘러보기")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
+            }
+            .buttonStyle(.pressable)
+            .padding(.top, 12)
+
             // 예전에 이 기기에서 만든 이메일 계정: 기록을 그대로 쓰도록 로그인만 남겨 둠 (새 가입은 없음)
             if auth.hasEmailAccounts {
                 if showEmailLogin {

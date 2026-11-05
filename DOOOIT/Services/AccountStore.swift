@@ -233,6 +233,25 @@ enum AccountStore {
     }
 
     /// 계정 아이디를 그대로 폴더 이름으로 쓰지 않고 해시로 (특수문자·개인정보 방지)
+    /// 둘러보기로 쓴 기록을 처음 로그인한 Apple 계정이 이어받음 (그 계정에 기록이 아직 없을 때만, 폴더째 옮김)
+    @discardableResult
+    static func adoptGuestData(into userID: String) -> Bool {
+        let fm = FileManager.default
+        let guest = folder(for: AuthManager.guestID)
+        let target = folder(for: userID)
+        guard userID != AuthManager.guestID,
+              fm.fileExists(atPath: guest.appending(path: "DOOOIT.store").path(percentEncoded: false)),
+              !fm.fileExists(atPath: target.appending(path: "DOOOIT.store").path(percentEncoded: false)) else { return false }
+        try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if fm.fileExists(atPath: target.path(percentEncoded: false)) { try? fm.removeItem(at: target) }
+        do {
+            try fm.moveItem(at: guest, to: target)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     static func folder(for userID: String) -> URL {
         let digest = SHA256.hash(data: Data(userID.utf8)).map { String(format: "%02x", $0) }.joined()
         return URL.applicationSupportDirectory.appending(path: "Accounts").appending(path: String(digest.prefix(32)))

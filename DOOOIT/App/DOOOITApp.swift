@@ -60,10 +60,15 @@ struct DOOOITApp: App {
 
     /// 로그인·로그아웃·계정 바꾸기: 진행 중인 타이머를 정리하고 그 계정의 저장소와 설정으로 바꿈
     @MainActor
-    private func switchAccount(to userID: String?) {
+    private func switchAccount(to userID: String?, from oldID: String? = nil) {
         if studyTimer.isActive { studyTimer.stop() }
         LiveActivityManager.shared.endAll()
         DoitAssistant.shared.reset()
+        // 둘러보기 → Apple 로그인: 둘러보기 저장소를 먼저 닫고, 쓰던 기록을 새 계정으로 옮김
+        if oldID == AuthManager.guestID, let userID, userID != AuthManager.guestID {
+            container = AccountStore.container(for: nil)
+            AccountStore.adoptGuestData(into: userID)
+        }
         AccountStore.switchSettings(to: userID)
         container = AccountStore.container(for: userID)
         AccountStore.removePendingIfNeeded()
@@ -88,8 +93,8 @@ struct DOOOITApp: App {
                     PaddleOCRService.shared.autoDownloadIfNeeded()
                     await auth.verifyAppleCredential()
                 }
-                .onChange(of: auth.currentUser?.id) { _, newID in
-                    switchAccount(to: newID)
+                .onChange(of: auth.currentUser?.id) { oldID, newID in
+                    switchAccount(to: newID, from: oldID)
                 }
                 // Google 로그인 화면에서 돌아온 주소
                 .onOpenURL { url in _ = AuthManager.handleGoogleURL(url) }

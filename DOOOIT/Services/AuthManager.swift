@@ -12,9 +12,12 @@ import UIKit
 struct UserAccount: Codable, Equatable {
     enum Provider: String, Codable {
         case apple, email, google
+        /// 로그인 없이 둘러보기 (이 기기에만 저장, iCloud 동기화·랭킹은 막힘)
+        case guest
 
         var title: String {
             switch self {
+            case .guest: return "둘러보기 중"
             case .apple: return "Apple로 로그인"
             case .google: return "Google로 로그인"
             case .email: return "이메일 계정"
@@ -22,6 +25,7 @@ struct UserAccount: Codable, Equatable {
         }
         var symbol: String {
             switch self {
+            case .guest: return "eye"
             case .apple: return "applelogo"
             case .google: return "g.circle.fill"
             case .email: return "envelope.fill"
@@ -280,6 +284,8 @@ final class AuthManager {
             let key = "apple.\(user.id)"
             let profile = AppleProfile(name: trimmed, email: user.email)
             if let data = try? JSONEncoder().encode(profile) { Keychain.set(data, for: key) }
+        case .guest:
+            break
         }
     }
 
@@ -299,6 +305,8 @@ final class AuthManager {
             var accounts = loadAccounts()
             accounts[user.email] = nil
             saveAccounts(accounts)
+        case .guest:
+            break
         case .apple:
             Keychain.delete("apple.\(user.id)")
         case .google:
@@ -339,6 +347,17 @@ final class AuthManager {
         } else if let data = try? JSONEncoder().encode(failures) {
             Keychain.set(data, for: failureKey)
         }
+    }
+
+    // MARK: 둘러보기
+
+    /// 둘러보기 계정 (기기마다 하나)
+    static let guestID = "guest.local"
+    var isGuest: Bool { currentUser?.provider == .guest }
+
+    /// 로그인 없이 시작
+    func startGuest() {
+        setUser(UserAccount(id: Self.guestID, name: "게스트", email: "", provider: .guest, createdAt: Date()))
     }
 
     /// 이 기기에 예전에 만든 이메일 계정이 있는지 (Apple 로그인만 쓰게 바뀐 뒤에도 그 기록에 들어갈 수 있게)

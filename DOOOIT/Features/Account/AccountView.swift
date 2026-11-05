@@ -1,3 +1,4 @@
+import AuthenticationServices
 import SwiftData
 import SwiftUI
 import UserNotifications
@@ -26,6 +27,8 @@ struct AccountView: View {
     @State private var showResetRecords = false
     /// iCloud 동기화 (같은 Apple ID 기기끼리)
     @State private var syncOn = false
+    /// 둘러보기에서 Apple 로그인 실패 안내
+    @State private var guestSignInError: String?
     /// iCloud(CloudKit) 계정을 쓸 수 있는지 (화면이 뜰 때 다시 확인)
     @State private var cloudAvailable = AccountStore.iCloudAvailable
     @State private var confirmSyncTakeover = false
@@ -37,6 +40,7 @@ struct AccountView: View {
                 Section {
                     profileHeader
                         .appearAnimation()
+                    if auth.isGuest { guestCard }
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -145,7 +149,14 @@ struct AccountView: View {
             Section {
                 NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Palette.pink) }
                 NavigationLink { StatsView() } label: { item("공부 통계", "chart.bar.fill", Theme.accent) }
-                NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Palette.peach) }
+                if auth.isGuest {
+                    // 둘러보기: 랭킹은 로그인 뒤에
+                    LabeledContent { Image(systemName: "lock.fill").foregroundStyle(.tertiary) } label: {
+                        item("공부 랭킹 (로그인 필요)", "trophy.fill", Palette.peach)
+                    }
+                } else {
+                    NavigationLink { RankingView() } label: { item("공부 랭킹", "trophy.fill", Palette.peach) }
+                }
             }
         }
         .scrollContentBackground(.hidden)
@@ -158,7 +169,16 @@ struct AccountView: View {
     /// 계정 설정: 버전 · 공부 기록 초기화 · 로그아웃 · 계정 삭제
     private var accountSettings: some View {
         List {
-            if AccountStore.syncReady {
+            if AccountStore.syncReady, auth.isGuest {
+                Section {
+                    LabeledContent { Image(systemName: "lock.fill").foregroundStyle(.tertiary) } label: {
+                        item("iCloud 동기화", "icloud", Palette.sky)
+                    }
+                } footer: {
+                    Text("Apple로 로그인하면 쓸 수 있어요")
+                }
+            }
+            if AccountStore.syncReady, !auth.isGuest {
             Section {
                 Toggle(isOn: Binding(get: { syncOn }, set: { changeSync($0) })) {
                     item("iCloud 동기화", "icloud", Palette.sky)
@@ -187,7 +207,9 @@ struct AccountView: View {
             Section {
                 Button { showResetRecords = true } label: { item("공부 기록 초기화", "arrow.counterclockwise", Color.gray) }
                     .tint(.primary)
-                Button { showSignOut = true } label: { item("로그아웃", "rectangle.portrait.and.arrow.right", Color.gray) }
+                Button { showSignOut = true } label: {
+                    item(auth.isGuest ? "둘러보기 끝내기" : "로그아웃", "rectangle.portrait.and.arrow.right", Color.gray)
+                }
                     .tint(.primary)
             }
             Section {
@@ -231,6 +253,29 @@ struct AccountView: View {
     }
 
     // MARK: Profile
+
+    /// 둘러보기 중: Apple로 로그인하면 지금까지 쓴 기록을 그대로 이어받음
+    private var guestCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("로그인 없이 쓰는 중이에요")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(Palette.ink)
+            Text("기록은 이 기기에만 저장돼요. Apple로 로그인하면 지금 기록 그대로 iCloud 동기화와 랭킹을 쓸 수 있어요.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            SignInWithAppleButton(.signIn) { request in
+                request.requestedScopes = [.fullName, .email]
+            } onCompletion: { result in
+                do { try auth.handleAppleSignIn(result) } catch { guestSignInError = error.localizedDescription }
+            }
+            .signInWithAppleButtonStyle(.black)
+            .frame(height: 46)
+            .clipShape(.rect(cornerRadius: 16, style: .continuous))
+        }
+        .softCard(cornerRadius: 22, padding: 18)
+        .errorAlert($guestSignInError, title: "로그인 실패")
+    }
 
     /// 프로필 카드 (흰 카드 · 동그란 이니셜 · 이름 · 로그인 방식)
     private var profileHeader: some View {
