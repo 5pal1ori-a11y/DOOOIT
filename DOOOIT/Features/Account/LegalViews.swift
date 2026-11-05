@@ -7,6 +7,12 @@ struct LegalDocumentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                // 약관 본문은 한국어로만 (한국어 원문이 기준)
+                if !AppLanguage.isKorean {
+                    Label(L("이 문서는 한국어로 제공돼요. 한국어 원문이 기준이에요."), systemImage: "globe")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                }
                 Text("시행일 \(LegalText.effectiveDate)")
                     .font(.caption)
                     .foregroundStyle(.secondary)

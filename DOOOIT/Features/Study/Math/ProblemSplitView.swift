@@ -44,7 +44,7 @@ struct ProblemSplitView: View {
 
                     pagePreview
 
-                    SectionTitle(title: "나눈 문제") {
+                    SectionTitle(title: L("나눈 문제")) {
                         Text("\(selectedCrops.count)/\(pairs.count)개")
                             .monospacedDigit()
                             .contentTransition(.numericText())
@@ -77,7 +77,7 @@ struct ProblemSplitView: View {
                 Button {
                     onDone(selectedCrops)
                 } label: {
-                    Text(selectedCrops.isEmpty ? "만들 문제를 골라주세요" : "\(selectedCrops.count)개 문제로 만들기")
+                    Text(selectedCrops.isEmpty ? L("만들 문제를 골라주세요") : L("\(selectedCrops.count)개 문제로 만들기"))
                 }
                 .buttonStyle(.primaryFill)
                 .disabled(selectedCrops.isEmpty)
@@ -163,7 +163,7 @@ struct ProblemSplitView: View {
         }
         .buttonStyle(.pressable)
         .accessibilityLabel("\(region.number)번 문제")
-        .accessibilityValue(isOn ? "포함" : "제외")
+        .accessibilityValue(isOn ? L("포함") : L("제외"))
     }
 
     private func numberBadge(_ number: Int, isOn: Bool) -> some View {

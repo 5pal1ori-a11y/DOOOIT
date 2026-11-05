@@ -32,8 +32,8 @@ struct SimilarProblemsCard: View {
 
     private var ladderBody: some View {
         VStack(alignment: .leading, spacing: 14) {
-            FlowHeader(number: 5, title: "유사 문제 단계 학습", symbol: "stairs",
-                       trailing: ladder.map { $0.finished ? "완료" : "\($0.level)단계" })
+            FlowHeader(number: 5, title: L("유사 문제 단계 학습"), symbol: "stairs",
+                       trailing: ladder.map { $0.finished ? L("완료") : L("\($0.level)단계") })
             if let ladder {
                 levelDots(ladder)
                 if let lastResult { feedback(lastResult.item, lastResult.result, reminder: ladder.reminder) }
@@ -47,7 +47,7 @@ struct SimilarProblemsCard: View {
                     ProgressView("다음 문제를 만드는 중…").font(.caption)
                 } else {
                     Button { Task { await nextItem() } } label: {
-                        Label(lastResult == nil ? "\(PracticeLadder.levelTitle(ladder.level)) 시작" : "다음 문제", systemImage: "arrow.right")
+                        Label(lastResult == nil ? L("\(PracticeLadder.levelTitle(ladder.level)) 시작") : L("다음 문제"), systemImage: "arrow.right")
                             .frame(maxWidth: .infinity).frame(height: 38)
                     }
                     .buttonStyle(.glassProminent)
@@ -121,7 +121,7 @@ struct SimilarProblemsCard: View {
 
     private func feedback(_ item: PracticeItem, _ result: GradeResult, reminder: String?) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label(result.verdict == .correct ? "정답이에요! 한 단계 올라가요" : (result.verdict == .needsReview ? "확인이 필요해요" : "아쉬워요. 개념을 다시 보고 쉬운 문제로 가요"),
+            Label(result.verdict == .correct ? L("정답이에요! 한 단계 올라가요") : (result.verdict == .needsReview ? L("확인이 필요해요") : L("아쉬워요. 개념을 다시 보고 쉬운 문제로 가요")),
                   systemImage: result.verdict == .correct ? "checkmark.circle.fill" : "arrow.down.circle.fill")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(result.verdict == .correct ? Palette.success : Palette.warning)
@@ -157,9 +157,9 @@ struct SimilarProblemsCard: View {
             message = nil
         } else if let item = await DoitPractice.makeItem(level: max(2, current.level - 1), basis: basis, avoid: asked) {
             current.current = item
-            message = "이 단계 문제를 만들 수 없어 한 단계 쉬운 문제로 냈어요."
+            message = L("이 단계 문제를 만들 수 없어 한 단계 쉬운 문제로 냈어요.")
         } else {
-            message = "이 문제의 유형으로는 검증된 유사 문제를 만들 수 없어요. 문제 글이 정확한지 확인하거나, 단원(개념 이름)을 적어 주세요."
+            message = L("이 문제의 유형으로는 검증된 유사 문제를 만들 수 없어요. 문제 글이 정확한지 확인하거나, 단원(개념 이름)을 적어 주세요.")
         }
         answer = ""
         ladder = current
@@ -187,8 +187,8 @@ struct SimilarProblemsCard: View {
 
     private var retrySection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            FlowHeader(number: retryOnly ? 4 : 6, title: "원래 문제 재도전", symbol: "arrow.counterclockwise")
-            Text(retryOnly ? "정답을 보지 않고 다시 풀어 봐요." : "유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.").font(.caption).foregroundStyle(.secondary)
+            FlowHeader(number: retryOnly ? 4 : 6, title: L("원래 문제 재도전"), symbol: "arrow.counterclockwise")
+            Text(retryOnly ? L("정답을 보지 않고 다시 풀어 봐요.") : L("유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.")).font(.caption).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 TextField("다시 푼 답", text: $retryAnswer)
                     .textInputAutocapitalization(.never)
@@ -200,7 +200,7 @@ struct SimilarProblemsCard: View {
                     .disabled(retryAnswer.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             if let retryResult {
-                Text(retryResult.verdict == .correct ? "재도전 성공! 🎉" : (retryResult.verdict == .needsReview ? (retryResult.reasons.first ?? "확인이 필요해요") : "아직 틀렸어요. 풀이와 원인 분석을 다시 확인해요."))
+                Text(retryResult.verdict == .correct ? L("재도전 성공! 🎉") : (retryResult.verdict == .needsReview ? (retryResult.reasons.first ?? L("확인이 필요해요")) : L("아직 틀렸어요. 풀이와 원인 분석을 다시 확인해요.")))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(retryResult.verdict == .correct ? Palette.success : Palette.danger)
             }

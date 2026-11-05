@@ -62,9 +62,9 @@ struct BadgeShelfView: View {
                     IconBadge(symbol: next.symbol, color: next.color, size: 40)
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("다음 · \(next.title)").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("다음 · \(next.title.loc)").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
                             Spacer()
-                            Text(next.progressText(center.stats)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                            Text(next.progressTextL(center.stats)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
                         }
                         LinearProgressBar(value: next.progress(center.stats), color: next.color, height: 7)
                     }
@@ -86,7 +86,7 @@ struct BadgeTile: View {
         let isOn = unlockedAt != nil
         VStack(spacing: 7) {
             BadgeMedal(badge: badge, isOn: isOn, size: size)
-            Text(badge.title)
+            Text(badge.title.loc)
                 .font(.caption.weight(.bold))
                 .foregroundStyle(isOn ? Palette.ink : .secondary)
                 .lineLimit(1)
@@ -95,7 +95,7 @@ struct BadgeTile: View {
                 if let unlockedAt {
                     Text(unlockedAt.ui("M.d"))
                 } else {
-                    Text(badge.progressText(stats))
+                    Text(badge.progressTextL(stats))
                 }
             }
             .font(.caption2)
@@ -144,14 +144,14 @@ struct BadgeDetailSheet: View {
         VStack(spacing: 14) {
             BadgeMedal(badge: badge, isOn: unlockedAt != nil, size: 96, bounce: bounce)
                 .padding(.top, 28)
-            Text(badge.title).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
-            Text(badge.detail).font(.subheadline).foregroundStyle(.secondary)
+            Text(badge.title.loc).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
+            Text(badge.detail.loc).font(.subheadline).foregroundStyle(.secondary)
             if let unlockedAt {
                 TagLabel(text: unlockedAt.ui("yyyy년 M월 d일"), symbol: "checkmark", color: badge.color)
             } else {
                 VStack(spacing: 6) {
                     LinearProgressBar(value: badge.progress(stats), color: badge.color, height: 8)
-                    Text(badge.progressText(stats)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                    Text(badge.progressTextL(stats)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
                 }
                 .frame(width: 200)
             }
@@ -176,7 +176,7 @@ struct BadgeToastHost: View {
                         BadgeMedal(badge: toast.badge, isOn: true, size: 46, bounce: bounce)
                         VStack(alignment: .leading, spacing: 2) {
                             Text("새 배지!").font(.caption.weight(.semibold)).foregroundStyle(toast.badge.color)
-                            Text(toast.badge.title).font(.headline).foregroundStyle(Palette.ink)
+                            Text(toast.badge.title.loc).font(.headline).foregroundStyle(Palette.ink)
                         }
                         Spacer(minLength: 0)
                         if toast.more > 0 {
@@ -196,7 +196,7 @@ struct BadgeToastHost: View {
                     try? await Task.sleep(for: .milliseconds(900))
                     bounce += 1
                 }
-                .accessibilityLabel("새 배지 \(toast.badge.title)")
+                .accessibilityLabel("새 배지 \(toast.badge.title.loc)")
             }
         }
         .animation(Motion.bouncy, value: center.toast)
@@ -213,7 +213,7 @@ struct RecentBadgeChip: View {
                 HStack(spacing: 10) {
                     BadgeMedal(badge: badge, isOn: true, size: 30)
                     Text("최근 배지").font(.subheadline).foregroundStyle(.secondary)
-                    Text(badge.title).font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                    Text(badge.title.loc).font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
                     Spacer(minLength: 0)
                     Text("\(center.unlocked.count)/\(BadgeBook.all.count)")
                         .font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()

@@ -32,7 +32,7 @@ struct DoitAIView: View {
                                     .transition(.opacity)
                             }
                             if assistant.isResponding && !isStreamingText {
-                                TypingIndicator(status: assistant.status).id("typing")
+                                TypingIndicator(status: assistant.status.loc).id("typing")
                             }
                             Color.clear.frame(height: 1).id(Self.bottomID)
                         }
@@ -94,7 +94,7 @@ struct DoitAIView: View {
                 if voice.isListening { input = text }
             }
             .onDisappear { voice.cancel() }
-            .alert(voice.problem == .denied ? "마이크를 켜 주세요" : "지금은 들을 수 없어요", isPresented: Binding(
+            .alert(voice.problem == .denied ? L("마이크를 켜 주세요") : L("지금은 들을 수 없어요"), isPresented: Binding(
                 get: { voice.problem != nil }, set: { if !$0 { voice.problem = nil } })) {
                 if voice.problem == .denied {
                     Button("설정 열기") {
@@ -103,7 +103,7 @@ struct DoitAIView: View {
                 }
                 Button("닫기", role: .cancel) {}
             } message: {
-                Text(voice.problem == .denied ? "설정에서 마이크와 음성 인식을 허용하면 말로 물어볼 수 있어요." : "잠시 후 다시 해 주세요.")
+                Text(voice.problem == .denied ? L("설정에서 마이크와 음성 인식을 허용하면 말로 물어볼 수 있어요.") : L("잠시 후 다시 해 주세요."))
             }
             #if DEBUG
             .task {
@@ -175,7 +175,7 @@ struct DoitAIView: View {
                             .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 12))
                         }
                         if message.isStreaming && message.text.isEmpty {
-                            Text(assistant.status.isEmpty ? "생각하는 중…" : assistant.status)
+                            Text(assistant.status.isEmpty ? L("생각하는 중…") : assistant.status.loc)
                                 .font(.footnote)
                                 .foregroundStyle(.secondary)
                         } else {
@@ -231,7 +231,7 @@ struct DoitAIView: View {
                 }
                 .accessibilityLabel("별로예요")
             } else {
-                Label(message.rating > 0 ? "기억해 둘게요" : "다음엔 더 잘 찾아볼게요",
+                Label(message.rating > 0 ? L("기억해 둘게요") : L("다음엔 더 잘 찾아볼게요"),
                       systemImage: message.rating > 0 ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
                     .transition(.scale.combined(with: .opacity))
             }
@@ -326,7 +326,7 @@ struct DoitAIView: View {
                 }
 
                 HStack(alignment: .bottom, spacing: 6) {
-                    TextField(voice.isListening ? "듣고 있어요…" : "모티 AI에게 물어보기", text: $input, axis: .vertical)
+                    TextField(voice.isListening ? L("듣고 있어요…") : L("모티 AI에게 물어보기"), text: $input, axis: .vertical)
                         .submitLabel(.send)
                         .onSubmit { submit() }
                         .lineLimit(1...5)
@@ -392,7 +392,7 @@ struct DoitAIView: View {
         }
         .buttonStyle(.plain)
         .disabled(assistant.isResponding)
-        .accessibilityLabel(voice.isListening ? "말하기 끝내기" : "말로 질문하기")
+        .accessibilityLabel(voice.isListening ? L("말하기 끝내기") : L("말로 질문하기"))
     }
 
     /// **굵게** 같은 간단한 마크다운만 적용
@@ -474,7 +474,7 @@ private struct TypingIndicator: View {
                     }
                 }
                 if !status.isEmpty {
-                    Text(status).font(.footnote).foregroundStyle(.secondary)
+                    Text(status.loc).font(.footnote).foregroundStyle(.secondary)
                 }
             }
             .padding(.horizontal, 14)

@@ -106,17 +106,17 @@ struct WorkCheckCard: View {
     private var sourceButtons: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
-                sourceButton("풀이 사진 찍기", symbol: "camera.fill") {
+                sourceButton(L("풀이 사진 찍기"), symbol: "camera.fill") {
                     showScanner = DocumentScanner.isSupported
                     showPhotoPicker = !DocumentScanner.isSupported
                 }
-                sourceButton("앨범", symbol: "photo.on.rectangle") { showPhotoPicker = true }
+                sourceButton(L("앨범"), symbol: "photo.on.rectangle") { showPhotoPicker = true }
                 if note.drawingData != nil {
-                    sourceButton("내 필기 읽기", symbol: "pencil") {
+                    sourceButton(L("내 필기 읽기"), symbol: "pencil") {
                         Task { await readDrawing() }
                     }
                 }
-                sourceButton("직접 쓰기", symbol: "keyboard") {
+                sourceButton(L("직접 쓰기"), symbol: "keyboard") {
                     withAnimation(Motion.spring) { isEditing = true }
                 }
             }
@@ -187,7 +187,7 @@ struct WorkCheckCard: View {
     /// 오답노트에 펜으로 쓴 필기를 흰 바탕 그림으로 만들어서 읽음
     private func readDrawing() async {
         guard let data = note.drawingData, let drawing = try? PKDrawing(data: data), !drawing.bounds.isEmpty else {
-            message = "필기가 없어요. '필기' 탭에서 풀이를 써주세요."
+            message = L("필기가 없어요. '필기' 탭에서 풀이를 써주세요.")
             return
         }
         reading = true
@@ -206,13 +206,13 @@ struct WorkCheckCard: View {
 
     private func apply(_ lines: [String]) {
         guard !lines.isEmpty else {
-            message = "글씨를 찾지 못했어요. 밝은 곳에서 풀이가 잘 보이게 다시 찍어주세요."
+            message = L("글씨를 찾지 못했어요. 밝은 곳에서 풀이가 잘 보이게 다시 찍어주세요.")
             return
         }
         note.workText = lines.joined(separator: "\n")
         note.workCheckData = nil
         explanation = nil
-        message = "읽은 풀이를 확인하고 틀린 글자가 있으면 고친 뒤 채점하세요."
+        message = L("읽은 풀이를 확인하고 틀린 글자가 있으면 고친 뒤 채점하세요.")
         withAnimation(Motion.spring) { isEditing = true }
         try? context.save()
     }

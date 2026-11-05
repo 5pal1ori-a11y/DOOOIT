@@ -16,6 +16,32 @@ extension TimeText {
     }
 }
 
+extension WordReview {
+    /// 화면용 "내일", "3일 뒤", "11월 9일" (고른 언어로)
+    static func describeL(_ date: Date, now: Date = Date(), calendar: Calendar = .current) -> String {
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: now), to: calendar.startOfDay(for: date)).day ?? 0
+        switch days {
+        case ...0: return L("오늘")
+        case 1: return L("내일")
+        case 2...6: return L("\(days)일 뒤")
+        default: return date.ui("M월 d일")
+        }
+    }
+}
+
+extension BadgeBook.Badge {
+    /// 화면용 "3 / 7일" (고른 언어로)
+    func progressTextL(_ stats: BadgeBook.Stats) -> String {
+        let v = min(value(stats), target), t = target
+        switch metric {
+        case .streak: return L("\(v) / \(t)일")
+        case .hours, .bestDay: return L("\(v) / \(t)시간")
+        case .words, .fixed, .notes: return L("\(v) / \(t)개")
+        case .ai, .mock, .perfect, .focus: return L("\(v) / \(t)번")
+        }
+    }
+}
+
 extension Greeting {
     /// 화면용 시간대 인사 (고른 언어로)
     static func textL(name: String, at date: Date) -> String {

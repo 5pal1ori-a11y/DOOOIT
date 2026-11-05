@@ -8,11 +8,11 @@ enum DrawTool: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .pen: return "펜"
-        case .highlighter: return "형광펜"
-        case .eraser: return "지우개"
-        case .lasso: return "올가미"
-        case .text: return "텍스트"
+        case .pen: return L("펜")
+        case .highlighter: return L("형광펜")
+        case .eraser: return L("지우개")
+        case .lasso: return L("올가미")
+        case .text: return L("텍스트")
         }
     }
 

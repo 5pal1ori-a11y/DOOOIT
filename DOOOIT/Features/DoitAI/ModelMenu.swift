@@ -13,7 +13,7 @@ struct ModelMenu: View {
                 Button {
                     brain.select(nil)
                 } label: {
-                    row(title: "모티 ZERO", detail: "간단한 명령이 필요할 때", selected: brain.selected == nil)
+                    row(title: L("모티 ZERO"), detail: L("간단한 명령이 필요할 때"), selected: brain.selected == nil)
                 }
                 ForEach(DoitBrain.Model.allCases) { model in
                     Button {
@@ -21,11 +21,11 @@ struct ModelMenu: View {
                         else { confirmDownload = model }
                     } label: {
                         if !model.fitsDevice {
-                            row(title: model.title, detail: "이 기기에서는 못 써요", selected: false)
+                            row(title: model.title.loc, detail: L("이 기기에서는 못 써요"), selected: false)
                         } else if brain.isInstalled(model) {
-                            row(title: model.title, detail: model.detail, selected: brain.selected == model)
+                            row(title: model.title.loc, detail: model.detail.loc, selected: brain.selected == model)
                         } else {
-                            row(title: model.title, detail: model.detail + " · 다운로드", selected: false, symbol: "arrow.down.circle")
+                            row(title: model.title.loc, detail: model.detail.loc + L(" · 다운로드"), selected: false, symbol: "arrow.down.circle")
                         }
                     }
                     .disabled(!DoitBrain.isSupported || !model.fitsDevice || (brain.downloading != nil && brain.downloading != model && !brain.isInstalled(model)))
@@ -44,7 +44,7 @@ struct ModelMenu: View {
             .contentShape(Rectangle())
         }
         .accessibilityLabel("모델 고르기, 지금 \(title)")
-        .alert(confirmDownload.map { "\($0.title) 다운로드" } ?? "", isPresented: Binding(get: { confirmDownload != nil }, set: { if !$0 { confirmDownload = nil } })) {
+        .alert(confirmDownload.map { L("\($0.title.loc) 다운로드") } ?? "", isPresented: Binding(get: { confirmDownload != nil }, set: { if !$0 { confirmDownload = nil } })) {
             Button("다운로드") {
                 if let model = confirmDownload { Task { await brain.download(model) } }
                 confirmDownload = nil
@@ -70,7 +70,7 @@ struct ModelMenu: View {
 
     private var title: String {
         if let downloading = brain.downloading { return downloading.title }
-        return brain.selected?.title ?? "모티 ZERO"
+        return brain.selected?.title.loc ?? L("모티 ZERO")
     }
 }
 
@@ -96,7 +96,7 @@ struct ModelDownloadCard: View {
                         Haptics.tap()
                         Task { await brain.download(model) }
                     } label: {
-                        Label("\(model.title) 다운로드", systemImage: "arrow.down.circle.fill")
+                        Label("\(model.title.loc) 다운로드", systemImage: "arrow.down.circle.fill")
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity)
                     }
@@ -113,15 +113,15 @@ struct ModelDownloadCard: View {
     }
 
     private func headline(_ model: DoitBrain.Model) -> String {
-        if case .downloading = brain.phase { return "\(model.title) 다운로드 중" }
-        if brain.phase == .loading { return "\(model.title) 준비 중…" }
+        if case .downloading = brain.phase { return L("\(model.title.loc) 다운로드 중") }
+        if brain.phase == .loading { return L("\(model.title.loc) 준비 중…") }
         if case .failed(let message) = brain.phase { return message }
-        return "\(model.title) 모델 사용하기"
+        return L("\(model.title.loc) 모델 사용하기")
     }
 
     private func detail(_ model: DoitBrain.Model) -> String {
-        if case .downloading(let fraction) = brain.phase { return "\(Int(fraction * 100))% · 앱을 켜 둔 채로 기다려 주세요" }
-        return "한 번 다운로드하면 더 자연스럽게 대화하고, 인터넷에서 찾아 정리하고, 스스로 배워요. 위쪽 메뉴에서 다른 모델도 고를 수 있어요."
+        if case .downloading(let fraction) = brain.phase { return L("\(Int(fraction * 100))% · 앱을 켜 둔 채로 기다려 주세요") }
+        return L("한 번 다운로드하면 더 자연스럽게 대화하고, 인터넷에서 찾아 정리하고, 스스로 배워요. 위쪽 메뉴에서 다른 모델도 고를 수 있어요.")
     }
 }
 

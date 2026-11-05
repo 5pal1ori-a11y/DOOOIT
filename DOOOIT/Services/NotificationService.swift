@@ -39,10 +39,10 @@ enum NotificationService {
             if planLead > 0 && leadDate > now {
                 add(
                     id: "lead.\(occurrence.id)",
-                    title: "\(planLead)분 후 \(plan.title)",
+                    title: L("\(planLead)분 후 \(plan.title)"),
                     body: plan.isStudy
-                        ? (plan.lockApps ? "곧 공부 시간이에요. 시작하면 다른 앱이 잠겨요." : "곧 공부 시간이에요. 책상 정리하고 준비해볼까요?")
-                        : "곧 일정이 시작돼요.",
+                        ? (plan.lockApps ? L("곧 공부 시간이에요. 시작하면 다른 앱이 잠겨요.") : L("곧 공부 시간이에요. 책상 정리하고 준비해볼까요?"))
+                        : L("곧 일정이 시작돼요."),
                     date: leadDate,
                     info: info
                 )
@@ -50,8 +50,8 @@ enum NotificationService {
 
             add(
                 id: "start.\(occurrence.id)",
-                title: "\(plan.title) 시작",
-                body: plan.isStudy ? "공부 타이머를 시작할 시간이에요. 눌러서 바로 시작하세요." : "일정을 시작할 시간이에요.",
+                title: L("\(plan.title) 시작"),
+                body: plan.isStudy ? L("공부 타이머를 시작할 시간이에요. 눌러서 바로 시작하세요.") : L("일정을 시작할 시간이에요."),
                 date: occurrence.start,
                 info: info
             )

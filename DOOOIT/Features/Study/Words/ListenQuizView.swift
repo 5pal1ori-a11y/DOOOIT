@@ -33,7 +33,7 @@ struct ListenQuizView: View {
         ScrollView {
             VStack(spacing: 24) {
                 Picker("방식", selection: $mode) {
-                    ForEach(Mode.allCases) { Text($0.rawValue).tag($0) }
+                    ForEach(Mode.allCases) { Text($0.rawValue.loc).tag($0) }
                 }
                 .pickerStyle(.segmented)
 
@@ -131,7 +131,7 @@ struct ListenQuizView: View {
             Button {
                 next()
             } label: {
-                Label(index + 1 < queue.count ? "다음" : "결과", systemImage: "arrow.right")
+                Label(index + 1 < queue.count ? L("다음") : L("결과"), systemImage: "arrow.right")
             }
             .buttonStyle(.primaryFill)
         }

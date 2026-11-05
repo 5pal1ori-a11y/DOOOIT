@@ -8,21 +8,21 @@ enum LearnStep: String, CaseIterable, Identifiable, Codable {
 
     var title: String {
         switch self {
-        case .concept: return "개념"
-        case .cloze: return "빈칸"
+        case .concept: return L("개념")
+        case .cloze: return L("빈칸")
         case .ox: return "O/X"
-        case .problem: return "문제"
-        case .weak: return "취약"
+        case .problem: return L("문제")
+        case .weak: return L("취약")
         }
     }
 
     var longTitle: String {
         switch self {
-        case .concept: return "개념 보기"
-        case .cloze: return "빈칸 암기"
-        case .ox: return "O/X 문제"
-        case .problem: return "문제 풀기"
-        case .weak: return "취약 복습"
+        case .concept: return L("개념 보기")
+        case .cloze: return L("빈칸 암기")
+        case .ox: return L("O/X 문제")
+        case .problem: return L("문제 풀기")
+        case .weak: return L("취약 복습")
         }
     }
 
@@ -306,7 +306,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                         .symbolEffect(.pulse, options: .repeating)
                     Text("모티 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
-                        Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요" : "준비 중")
+                        Text(loading ? L("\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요") : L("준비 중"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
@@ -352,7 +352,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             if loading && value == nil && error == nil {
                 work.cancel()
                 loading = false
-                error = "시간이 너무 오래 걸려서 멈췄어요. 다시 시도해주세요.\n(기기가 뜨겁거나 저전력 모드면 느려질 수 있어요)"
+                error = L("시간이 너무 오래 걸려서 멈췄어요. 다시 시도해주세요.\n(기기가 뜨겁거나 저전력 모드면 느려질 수 있어요)")
             }
         }
     }
@@ -479,7 +479,7 @@ struct ConceptStepView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                primaryButton("다 읽었어요 · 빈칸 암기로") { onDone(.concept) }
+                primaryButton(L("다 읽었어요 · 빈칸 암기로")) { onDone(.concept) }
             }
         }
     }
@@ -535,9 +535,9 @@ struct ClozeStepView: View {
                 if checked {
                     let score = set.items.indices.filter { DoitStudy.clozeMatches(answers[$0] ?? "", answer: set.items[$0].answer) }.count
                     ResultSummaryCard(correct: score, total: set.items.count)
-                    primaryButton("O/X 문제로") { onDone(.cloze) }
+                    primaryButton(L("O/X 문제로")) { onDone(.cloze) }
                 } else {
-                    primaryButton("채점하기", symbol: "checkmark") {
+                    primaryButton(L("채점하기"), symbol: "checkmark") {
                         withAnimation(Motion.spring) { checked = true }
                         let wrong = set.items.indices.filter { !DoitStudy.clozeMatches(answers[$0] ?? "", answer: set.items[$0].answer) }
                         record(context, subject: subject, unit: unit, step: .cloze, correct: set.items.count - wrong.count, total: set.items.count)
@@ -590,7 +590,7 @@ struct OXStepView: View {
                     if let picked {
                         let ok = picked == item.isTrue
                         VStack(alignment: .leading, spacing: 6) {
-                            Label(ok ? "맞았어요!" : "틀렸어요 · 정답은 \(item.isTrue ? "O" : "X")", systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            Label(ok ? L("맞았어요!") : L("틀렸어요 · 정답은 \(item.isTrue ? "O" : "X")"), systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .font(.headline)
                                 .foregroundStyle(ok ? Palette.success : Palette.danger)
                                 .symbolEffect(.bounce, value: picked)
@@ -600,7 +600,7 @@ struct OXStepView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background((ok ? Palette.success : Palette.danger).opacity(0.12), in: .rect(cornerRadius: 16))
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                        primaryButton(index + 1 < set.items.count ? "다음" : "결과 보기") {
+                        primaryButton(index + 1 < set.items.count ? L("다음") : L("결과 보기")) {
                             if index + 1 < set.items.count {
                                 withAnimation(Motion.spring) {
                                     index += 1
@@ -651,7 +651,7 @@ struct OXStepView: View {
             if !wrongs.isEmpty {
                 Text("틀린 \(wrongs.count)문제는 취약 복습에 모아뒀어요").font(.subheadline).foregroundStyle(.secondary)
             }
-            primaryButton("문제 풀기로") { onDone(.ox) }
+            primaryButton(L("문제 풀기로")) { onDone(.ox) }
             Button("새 O/X 문제 받기", action: retry).font(.subheadline)
         }
         .frame(maxWidth: .infinity)
@@ -682,7 +682,7 @@ struct ProblemStepView: View {
             if finished || set.items.isEmpty {
                 VStack(spacing: 14) {
                     ResultSummaryCard(correct: correct, total: set.items.count)
-                    primaryButton("취약 복습으로") { onDone(.problem) }
+                    primaryButton(L("취약 복습으로")) { onDone(.problem) }
                     Button("새 문제 받기") { index = 0; correct = 0; wrongs = []; picked = nil; finished = false; regenerate() }
                         .font(.subheadline)
                 }
@@ -762,14 +762,14 @@ struct ProblemStepView: View {
 
                         if let picked, picked != item.answerNumber {
                             Button { saveToNotes(item, picked: picked) } label: {
-                                Label(savedToNotes.contains(item.question) ? "오답노트에 담았어요" : "오답노트에 담기",
+                                Label(savedToNotes.contains(item.question) ? L("오답노트에 담았어요") : L("오답노트에 담기"),
                                       systemImage: savedToNotes.contains(item.question) ? "checkmark" : "arrow.down.circle")
                                     .font(.subheadline.weight(.semibold))
                             }
                             .disabled(savedToNotes.contains(item.question))
                         }
 
-                        primaryButton(index + 1 < set.items.count ? "다음 문제" : "결과 보기") {
+                        primaryButton(index + 1 < set.items.count ? L("다음 문제") : L("결과 보기")) {
                             showSteps = false
                             if index + 1 < set.items.count {
                                 withAnimation(Motion.spring) {
@@ -863,7 +863,7 @@ struct WeakStepView: View {
                 .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
                 .transition(.asymmetric(insertion: .opacity, removal: .move(edge: .trailing).combined(with: .opacity)))
             }
-            primaryButton("이 단원 학습 완료", symbol: "checkmark") { onDone(.weak) }
+            primaryButton(L("이 단원 학습 완료"), symbol: "checkmark") { onDone(.weak) }
         }
         .onAppear { items = ContentCache.load([WeakItem].self, key: ContentCache.key(subject, unit, "weak"), context: context) ?? [] }
     }
@@ -891,10 +891,10 @@ struct ResultSummaryCard: View {
 
     private var message: String {
         switch ratio {
-        case 1: return "완벽해요! 🎉"
-        case 0.7...: return "잘했어요! 조금만 더 다듬어요"
-        case 0.4...: return "절반 넘게 맞혔어요. 틀린 건 복습해요"
-        default: return "괜찮아요, 틀린 문제가 실력이 돼요"
+        case 1: return L("완벽해요! 🎉")
+        case 0.7...: return L("잘했어요! 조금만 더 다듬어요")
+        case 0.4...: return L("절반 넘게 맞혔어요. 틀린 건 복습해요")
+        default: return L("괜찮아요, 틀린 문제가 실력이 돼요")
         }
     }
 

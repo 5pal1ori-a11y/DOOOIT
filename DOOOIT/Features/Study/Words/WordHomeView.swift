@@ -35,8 +35,8 @@ struct WordHomeView: View {
         return words.filter { $0.deck == activeDeck }
     }
     private var title: String {
-        if let activeDeck { return activeDeck }
-        return decks.count == 1 ? decks[0] : "전체 단어"
+        if let activeDeck { return activeDeck.loc }
+        return decks.count == 1 ? decks[0].loc : L("전체 단어")
     }
     /// 새로 추가할 때 기본 단어장
     private var addDeck: String { activeDeck ?? (decks.count == 1 ? decks[0] : "기본 단어장") }
@@ -116,7 +116,7 @@ struct WordHomeView: View {
         Menu {
             Picker("단어장", selection: $selectedDeck) {
                 Text("전체").tag("")
-                ForEach(decks, id: \.self) { Text($0).tag($0) }
+                ForEach(decks, id: \.self) { Text($0.loc).tag($0) }
             }
         } label: {
             HStack(spacing: 4) {
@@ -135,8 +135,8 @@ struct WordHomeView: View {
 
     private var tabBar: some View {
         HStack(spacing: 0) {
-            tabButton("학습", .study)
-            tabButton("내 단어장", .book)
+            tabButton(L("학습"), .study)
+            tabButton(L("내 단어장"), .book)
         }
         .padding(.horizontal, 20)
         .overlay(alignment: .bottom) {
@@ -221,11 +221,11 @@ struct WordHomeView: View {
     private var todayStats: some View {
         let due = dueWords.count
         return HStack(spacing: 0) {
-            statButton(value: due, label: "오늘 복습", highlighted: due > 0) {
+            statButton(value: due, label: L("오늘 복습"), highlighted: due > 0) {
                 if due > 0 { session = WordSessionConfig(words: dueWords, kind: .spaced) }
             }
             Rectangle().fill(Color.primary.opacity(0.08)).frame(width: 1, height: 44)
-            statButton(value: newCount, label: doneToday ? "새 단어 완료" : "새 단어", highlighted: due == 0 && newCount > 0) {
+            statButton(value: newCount, label: doneToday ? L("새 단어 완료") : L("새 단어"), highlighted: due == 0 && newCount > 0) {
                 if newCount > 0 { session = WordSessionConfig(words: todayWords, kind: .daily) }
             }
         }
@@ -274,23 +274,23 @@ struct WordHomeView: View {
         VStack(spacing: 0) {
             if !deckWords.isEmpty {
                 NavigationLink { ListenQuizView(pool: listenPool) } label: {
-                    RowLabel(symbol: "ear", title: "듣기 퀴즈")
+                    RowLabel(symbol: "ear", title: L("듣기 퀴즈"))
                 }
                 RowDivider()
                 NavigationLink { SpeakPracticeView(pool: listenPool) } label: {
-                    RowLabel(symbol: "mic", title: "발음 연습")
+                    RowLabel(symbol: "mic", title: L("발음 연습"))
                 }
                 RowDivider()
             }
             addMenu {
-                RowLabel(symbol: "plus", title: "단어 추가")
+                RowLabel(symbol: "plus", title: L("단어 추가"))
             }
             if !wrongWords.isEmpty {
                 RowDivider()
                 Button {
                     session = WordSessionConfig(words: wrongWords, kind: .review)
                 } label: {
-                    RowLabel(symbol: "arrow.counterclockwise", color: Palette.danger, title: "틀린 단어", value: "\(wrongWords.count)")
+                    RowLabel(symbol: "arrow.counterclockwise", color: Palette.danger, title: L("틀린 단어"), value: "\(wrongWords.count)")
                 }
             }
             if !starredWords.isEmpty {
@@ -298,7 +298,7 @@ struct WordHomeView: View {
                 Button {
                     session = WordSessionConfig(words: starredWords, kind: .extra)
                 } label: {
-                    RowLabel(symbol: "bookmark", title: "저장한 단어", value: "\(starredWords.count)")
+                    RowLabel(symbol: "bookmark", title: L("저장한 단어"), value: "\(starredWords.count)")
                 }
             }
         }
@@ -322,7 +322,7 @@ struct WordHomeView: View {
         if DocumentScanner.isSupported {
             showScanner = true
         } else {
-            errorMessage = "이 기기는 스캔을 지원하지 않아요. 앨범에서 골라 주세요."
+            errorMessage = L("이 기기는 스캔을 지원하지 않아요. 앨범에서 골라 주세요.")
         }
     }
 }
@@ -347,8 +347,8 @@ private struct WordStatsSheet: View {
             guard (1...WordReview.intervals.count).contains(word.reviewStage), let next = word.nextReviewAt, next > Date() else { return nil }
             return Calendar.current.startOfDay(for: next)
         }
-        guard let first = upcoming.min() else { return "없음" }
-        return "\(WordReview.describe(first)) \(upcoming.filter { $0 == first }.count)개"
+        guard let first = upcoming.min() else { return L("없음") }
+        return L("\(WordReview.describeL(first)) \(upcoming.filter { $0 == first }.count)개")
     }
 
     var body: some View {
@@ -364,7 +364,7 @@ private struct WordStatsSheet: View {
                 }
                 Section {
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
-                        LabeledContent("하루 목표", value: "\(wordGoal)개")
+                        LabeledContent("하루 목표", value: L("\(wordGoal)개"))
                     }
                     Picker("발음", selection: $accentRaw) {
                         ForEach(WordSpeaker.Accent.allCases) { Text($0.title).tag($0.rawValue) }

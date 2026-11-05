@@ -163,7 +163,7 @@ struct WordSessionView: View {
 
     private func caption(for offset: Int, word: Word) -> String {
         guard let picked, choices[offset] == word.meaning else { return "" }
-        return choices[picked] == word.meaning ? "정답입니다!" : "정답"
+        return choices[picked] == word.meaning ? L("정답입니다!") : L("정답")
     }
 
     private func choiceCard(number: Int, text: String, state: CardState, action: @escaping () -> Void) -> some View {
@@ -238,10 +238,10 @@ struct WordSessionView: View {
 
     private func pills(_ word: Word) -> some View {
         HStack(spacing: 10) {
-            pill(title: "듣기", symbol: "speaker.wave.2.fill", active: false) {
+            pill(title: L("듣기"), symbol: "speaker.wave.2.fill", active: false) {
                 WordSpeaker.shared.speak(word.term)
             }
-            pill(title: "저장", symbol: word.isStarred ? "bookmark.fill" : "bookmark", active: word.isStarred) {
+            pill(title: L("저장"), symbol: word.isStarred ? "bookmark.fill" : "bookmark", active: word.isStarred) {
                 word.isStarred.toggle()
                 try? context.save()
                 Haptics.tap()
@@ -387,7 +387,7 @@ struct WordSessionView: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 if kind == .daily && !practice {
-                    TagLabel(text: "오늘 목표 완료", symbol: "checkmark")
+                    TagLabel(text: L("오늘 목표 완료"), symbol: "checkmark")
                         .padding(.top, 6)
                 }
             }

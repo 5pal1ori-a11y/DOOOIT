@@ -104,28 +104,28 @@ struct MockExamView: View {
                         .font(.title3.weight(.bold))
                         .foregroundStyle(Palette.ink)
                     HStack(spacing: 6) {
-                        TagLabel(text: "\(DoitMockExam.size)문제", symbol: "list.number", color: Palette.sky)
-                        TagLabel(text: "\(DoitMockExam.minutes)분", symbol: "timer", color: Palette.butter)
-                        TagLabel(text: "객관식 · 단답", color: .secondary)
+                        TagLabel(text: L("\(DoitMockExam.size)문제"), symbol: "list.number", color: Palette.sky)
+                        TagLabel(text: L("\(DoitMockExam.minutes)분"), symbol: "timer", color: Palette.butter)
+                        TagLabel(text: L("객관식 · 단답"), color: .secondary)
                     }
                 }
                 .softCard(cornerRadius: 24, padding: 20)
                 .appearAnimation()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    SectionTitle("범위")
+                    SectionTitle(L("범위"))
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {
-                            scopeChip(nil, title: "전체", symbol: "square.grid.2x2")
+                            scopeChip(nil, title: L("전체"), symbol: "square.grid.2x2")
                             ForEach(subjects) { subject in
-                                scopeChip(subject, title: subject.rawValue, symbol: subject.symbol)
+                                scopeChip(subject, title: subject.rawValue.loc, symbol: subject.symbol)
                             }
                         }
                         .padding(.horizontal, 2)
                     }
                     .scrollIndicators(.hidden)
                     if inScope < DoitMockExam.minWeak {
-                        Label(inScope == 0 ? "취약 개념이 없어서 최근 단원으로 내요" : "취약 개념이 적어서 최근 단원도 섞어요", systemImage: "info.circle")
+                        Label(inScope == 0 ? L("취약 개념이 없어서 최근 단원으로 내요") : L("취약 개념이 적어서 최근 단원도 섞어요"), systemImage: "info.circle")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 4)
@@ -206,7 +206,7 @@ struct MockExamView: View {
             }
             .font(.subheadline.weight(.semibold).monospacedDigit())
             .foregroundStyle(left >= 0 ? Palette.ink : Palette.warning)
-            .accessibilityLabel(left >= 0 ? "남은 시간 \(Self.mmss(left))" : "시간 지남")
+            .accessibilityLabel(left >= 0 ? L("남은 시간 \(Self.mmss(left))") : L("시간 지남"))
         }
     }
 
@@ -279,7 +279,7 @@ struct MockExamView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 6) {
                 Text("\(number)번").font(.headline).foregroundStyle(Theme.accent)
-                TagLabel(text: q.isChoice ? "객관식" : "단답", color: .secondary)
+                TagLabel(text: q.isChoice ? L("객관식") : L("단답"), color: .secondary)
                 Spacer()
                 Text(q.concept).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
@@ -463,8 +463,8 @@ struct MockExamView: View {
                     if q.item.question.contains("\n") {
                         Text(MathSymbolBar.pretty(q.item.question)).font(.footnote).foregroundStyle(.secondary)
                     }
-                    answerLine("내 답", mine.isEmpty ? "—" : (q.isChoice ? choiceText(q, mine) : mine), color: correct ? Palette.success : Palette.danger)
-                    answerLine("정답", DoitMockExam.answerText(q.item), color: Palette.success)
+                    answerLine(L("내 답"), mine.isEmpty ? "—" : (q.isChoice ? choiceText(q, mine) : mine), color: correct ? Palette.success : Palette.danger)
+                    answerLine(L("정답"), DoitMockExam.answerText(q.item), color: Palette.success)
                     ForEach(Array(q.item.explanation.prefix(4).enumerated()), id: \.offset) { _, line in
                         Text(MathSymbolBar.pretty(line)).font(.footnote).foregroundStyle(Palette.ink.opacity(0.8))
                             .fixedSize(horizontal: false, vertical: true)

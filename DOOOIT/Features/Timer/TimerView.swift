@@ -306,7 +306,7 @@ struct TimerView: View {
                         .font(.footnote.weight(.bold))
                         .foregroundStyle(Palette.danger)
                 }
-                Text(studyTimer.title)
+                Text(studyTimer.title.loc)
                     .font(.title3.weight(.bold))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -432,7 +432,7 @@ struct TimerAccessoryView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 if studyTimer.isActive {
-                    Text(studyTimer.title)
+                    Text(studyTimer.title.loc)
                         .font(.subheadline.weight(.semibold))
                         .lineLimit(1)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -561,7 +561,7 @@ struct AmbientSoundSheet: View {
                             RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(color, lineWidth: 1.5)
                         }
                     }
-                Text(kind.title)
+                Text(kind.title.loc)
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(isOn ? Palette.ink : .secondary)
                     .lineLimit(1)
@@ -570,7 +570,7 @@ struct AmbientSoundSheet: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel(kind.title)
+        .accessibilityLabel(kind.title.loc)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
@@ -585,7 +585,7 @@ struct AmbientSoundSheet: View {
                 .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))
             Slider(value: Binding(get: { Double(sound.mix.level(kind)) }, set: { sound.setLevel(kind, Float($0)) }), in: 0...1)
                 .tint(color)
-                .accessibilityLabel("\(kind.title) 음량")
+                .accessibilityLabel("\(kind.title.loc) 음량")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

@@ -46,7 +46,7 @@ struct WordListView: View {
 
             Section {
                 if filtered.isEmpty {
-                    Text(search.isEmpty ? "단어가 없어요" : "검색 결과가 없어요")
+                    Text(search.isEmpty ? L("단어가 없어요") : L("검색 결과가 없어요"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
@@ -121,7 +121,7 @@ struct WordListView: View {
                         Button {
                             withAnimation(reduceMotion ? nil : .snappy) { filter = item }
                         } label: {
-                            Text(item.rawValue)
+                            Text(item.rawValue.loc)
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(selected ? .white : Palette.ink.opacity(0.75))
                                 .padding(.horizontal, 14)
@@ -165,12 +165,12 @@ struct WordListView: View {
             }
             .buttonStyle(.plain)
 
-            iconButton(symbol: "speaker.wave.2", color: .secondary, label: "\(word.term) 발음 듣기") {
+            iconButton(symbol: "speaker.wave.2", color: .secondary, label: L("\(word.term) 발음 듣기")) {
                 WordSpeaker.shared.speak(word.term)
             }
             iconButton(symbol: word.isStarred ? "bookmark.fill" : "bookmark",
                        color: word.isStarred ? Theme.accent : .secondary,
-                       label: word.isStarred ? "저장 취소" : "저장") {
+                       label: word.isStarred ? L("저장 취소") : L("저장")) {
                 word.isStarred.toggle()
                 try? context.save()
                 Haptics.tap()

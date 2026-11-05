@@ -63,7 +63,7 @@ struct WordImportView: View {
                         .foregroundStyle(Palette.warning)
                 } else {
                     let unsure = items.filter(\.unsure).count
-                    Label(unsure > 0 ? "\(items.count)개 · 확인 필요 \(unsure)" : "\(items.count)개 찾음",
+                    Label(unsure > 0 ? L("\(items.count)개 · 확인 필요 \(unsure)") : L("\(items.count)개 찾음"),
                           systemImage: "text.viewfinder")
                 }
                 TextField("단어장 이름", text: $deck)
@@ -128,7 +128,7 @@ struct WordImportView: View {
         if !withMeaning.isEmpty { all = withMeaning }
         items = all
         if all.isEmpty {
-            failedMessage = "글자를 못 찾았어요"
+            failedMessage = L("글자를 못 찾았어요")
             items = [ParsedWord(term: "", meaning: "")]
         }
         withAnimation { isProcessing = false }
@@ -179,7 +179,7 @@ struct WordEditSheet: View {
                     Section {
                         LabeledContent("맞힘", value: "\(word.correctCount)")
                         LabeledContent("틀림", value: "\(word.wrongCount)")
-                        LabeledContent("상태", value: word.isMastered ? "완전히 외움" : (word.isLearned ? "외움" : "학습 전"))
+                        LabeledContent("상태", value: word.isMastered ? L("완전히 외움") : (word.isLearned ? L("외움") : L("학습 전")))
                         if word.isLearned {
                             Button("학습 전으로 되돌리기") {
                                 word.learnedAt = nil
@@ -190,7 +190,7 @@ struct WordEditSheet: View {
                     }
                 }
             }
-            .navigationTitle(word == nil ? "단어 추가" : "단어 수정")
+            .navigationTitle(word == nil ? L("단어 추가") : L("단어 수정"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("취소") { dismiss() } }

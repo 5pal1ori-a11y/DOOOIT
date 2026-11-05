@@ -12,7 +12,7 @@ struct AskAIListView: View {
     var body: some View {
         List {
             if questions.isEmpty {
-                EmptyStateView(symbol: "questionmark.circle", title: "궁금한 걸 물어보세요")
+                EmptyStateView(symbol: "questionmark.circle", title: L("궁금한 걸 물어보세요"))
                     .listRowBackground(Color.clear)
             }
             ForEach(questions) { item in
@@ -22,7 +22,7 @@ struct AskAIListView: View {
                                   color: item.helpful > 0 ? Palette.success : Theme.accent, size: 38)
                         VStack(alignment: .leading, spacing: 4) {
                             HStack(spacing: 6) {
-                                TagLabel(text: item.subject.isEmpty ? "질문" : item.subject)
+                                TagLabel(text: item.subject.isEmpty ? L("질문") : item.subject)
                                 Text(item.createdAt.ui("M.d")).font(.caption).foregroundStyle(.secondary)
                             }
                             Text(item.question).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(2)
@@ -71,7 +71,7 @@ struct AskAIComposer: View {
             Form {
                 Section("과목") {
                     Picker("과목", selection: $subject) {
-                        ForEach(subjects, id: \.self) { Text($0).tag($0) }
+                        ForEach(subjects, id: \.self) { Text($0.loc).tag($0) }
                     }
                     .pickerStyle(.segmented)
                 }
@@ -112,7 +112,7 @@ struct AskAIComposer: View {
             .imageInput(showScanner: $showScanner, showPhotoPicker: $showPicker, photoItems: $photoItems, maxPhotos: 1) { images in
                 image = images.first
             }
-            .overlay { if working { ProcessingOverlay(message: "AI 선생님이 답을 쓰고 있어요") } }
+            .overlay { if working { ProcessingOverlay(message: L("AI 선생님이 답을 쓰고 있어요")) } }
             .errorAlert($error)
         }
     }
@@ -123,7 +123,7 @@ struct AskAIComposer: View {
         let question = text.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let answer = try await DoitTutor.answer(question, subject: subject, image: image)
-            let item = AIQuestion(question: question.isEmpty ? "사진 질문" : question,
+            let item = AIQuestion(question: question.isEmpty ? L("사진 질문") : question,
                                   imageData: image?.jpegForStorage(maxDimension: 1600), subject: subject)
             item.answer = answer
             context.insert(item)
@@ -148,7 +148,7 @@ struct AIQuestionDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        TagLabel(text: "질문")
+                        TagLabel(text: L("질문"))
                         Text("\(item.subject) · \(item.createdAt.ui("yyyy.MM.dd"))").font(.caption).foregroundStyle(.secondary)
                     }
                     Text(item.question).font(.body.weight(.semibold))
