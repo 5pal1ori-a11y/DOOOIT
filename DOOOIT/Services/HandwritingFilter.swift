@@ -29,6 +29,8 @@ enum HandwritingFilter {
         var contrast: Double = 0
         var chroma: Double = 0
         var hue: Hue = .neutral
+        /// 가장 진한 8%의 대비 (가는 획·흐린 사진에서도 인쇄는 여기가 진함, 연필은 여기도 연함)
+        var peak: Double = 0
     }
 
     /// 읽은 글자 하나 (box: 픽셀, 위가 0)
@@ -50,6 +52,7 @@ enum HandwritingFilter {
     /// 페이지 인쇄 글자의 기준 (한글 본문에서 잼)
     struct Reference: Equatable {
         var contrast: Double
+        var peak: Double = 0
         var chroma: Double
         var hue: Hue
         var lineHeight: Double
@@ -168,7 +171,9 @@ enum HandwritingFilter {
         let contrast = core.reduce(0) { $0 + $1.c } / n
         let r = core.reduce(0.0) { $0 + Double($1.r) } / n, g = core.reduce(0.0) { $0 + Double($1.g) } / n, b = core.reduce(0.0) { $0 + Double($1.b) } / n
         let h = hue(r: r, g: g, b: b)
-        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue)
+        let top = samples.prefix(max(1, samples.count * 2 / 25))
+        let peak = top.reduce(0) { $0 + $1.c } / Double(top.count)
+        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak)
     }
 
     // MARK: - 기준 · 색 판정
@@ -200,7 +205,8 @@ enum HandwritingFilter {
         let height = median(refLines.map { Double($0.box.height) }) ?? median(lines.map { Double($0.box.height) }) ?? 20
         let angleLines = refLines.filter { $0.text.filter { !$0.isWhitespace }.count >= 4 }
         let angle = median(angleLines.map(\.angle)) ?? median(lines.map(\.angle)) ?? 0
-        return Reference(contrast: contrast, chroma: chroma, hue: hue, lineHeight: height, angle: angle)
+        let peak = median(glyphs.compactMap { $0.ink?.peak }) ?? contrast
+        return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle)
     }
 
     /// 인쇄 기준과 비교한 잉크 색: 다른 색 펜 / 훨씬 연한 연필 / 인쇄와 같음
@@ -212,7 +218,9 @@ enum HandwritingFilter {
             // 색으로 인쇄한 쪽 위 검은 펜
             if ink.hue == .neutral, ref.chroma - ink.chroma >= 45 { return .colored }
         }
-        if ink.hue == .neutral, ref.hue == .neutral, ref.contrast >= 0.4, ink.contrast < ref.contrast * 0.66 { return .light }
+        // 연필: 획의 가장 진한 곳도 인쇄보다 훨씬 연함 (가는 인쇄 획·흐린 사진은 평균은 연해도 가장 진한 곳은 진함)
+        if ink.hue == .neutral, ref.hue == .neutral, ref.contrast >= 0.4, ink.contrast < ref.contrast * 0.66,
+           ink.peak < max(ref.peak, ref.contrast) * 0.62 { return .light }
         return .native
     }
 
@@ -259,6 +267,8 @@ enum HandwritingFilter {
                 let light = Double(known.filter { tints[$0] == .light }.count)
                 let n = Double(max(1, known.count))
                 let hangul = text.filter(isHangul).count
+                let core = text.filter { !$0.isPunctuation && !"+-−=×÷()".contains($0) }.count
+                let circled = text.contains(where: { "①②③④⑤⑥⑦⑧⑨⑩".contains($0) })
                 var score = 0.0
                 var reasons: [String] = []
                 let tilt = abs(line.angle - ref.angle)
@@ -271,15 +281,24 @@ enum HandwritingFilter {
                     if hangul >= 2 && printedShape { score -= 0.9; reasons.append("인쇄 모양") }
                 }
                 if !known.isEmpty, light / n >= 0.6 {
-                    let darkest = glyphs.compactMap { $0.ink?.contrast }.max() ?? 0
-                    if darkest < ref.contrast * 0.55 { score += 1.9; reasons.append("아주 연함") } else { score += 1.5; reasons.append("연함") }
+                    let darkest = glyphs.compactMap { $0.ink?.peak }.max() ?? 0
+                    if darkest < max(ref.peak, ref.contrast) * 0.5 { score += 1.9; reasons.append("아주 연함") } else { score += 1.5; reasons.append("연함") }
                     if hangul >= 2 && printedShape { score -= 0.5; reasons.append("인쇄 모양") }
                 }
-                if score > 0, hangul == 0 { score += 0.4; reasons.append("한글 없음") }
+                if score > 0, hangul == 0, core >= 2, !circled { score += 0.4; reasons.append("한글 없음") }
                 if measurable, tilt > 3 { score += tilt > 6 ? 1.0 : 0.6; reasons.append("기울기 \(Int(tilt.rounded()))°") }
                 if whole, ratio >= 1.45 { score += ratio >= 1.9 ? 0.9 : 0.6; reasons.append("큰 글씨") }
-                if line.confidence < 0.4 { score += 0.6; reasons.append("신뢰도 낮음") } else if line.confidence < 0.6 { score += 0.3; reasons.append("신뢰도 보통") }
+                // Vision은 ①~⑤ 든 줄의 신뢰도를 늘 낮게 줌 → 보기 번호 조각은 신뢰도로 깎지 않음
+                if !circled {
+                    if line.confidence < 0.4 { score += 0.6; reasons.append("신뢰도 낮음") } else if line.confidence < 0.6 { score += 0.3; reasons.append("신뢰도 보통") }
+                }
                 if looksLikeWork(text) { score += 0.4; reasons.append("풀이 모양") }
+                // 인쇄 줄 안에 낀 한두 글자 조각(+, −, 괄호, ②)은 가는 획이라 연해 보일 뿐 (줄 대부분이 인쇄면 필기 아님)
+                let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
+                let lineNative = lineKnown.filter { tints[$0] == .native }.count
+                if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6 {
+                    score = 0; reasons = ["인쇄 줄 속 조각"]
+                }
                 let threshold = mode == .text ? 1.8 : 2.3
                 out.append(Token(text: text, box: box, line: index, score: score, reasons: reasons, hand: score >= threshold))
             }
@@ -400,7 +419,9 @@ enum HandwritingFilter {
             }
             n = max(1, n)
             let hh = hue(r: r / n, g: g / n, b: bl / n)
-            return Ink(count: b.count, contrast: csum / n, chroma: hh.chroma, hue: hh.hue)
+            let top = cs.prefix(max(1, cs.count * 2 / 25))
+            let peak = Double(top.reduce(0, +)) / Double(top.count)
+            return Ink(count: b.count, contrast: csum / n, chroma: hh.chroma, hue: hh.hue, peak: peak)
         }
         func overlap(_ a: CGRect, _ boxes: [CGRect]) -> Double {
             let area = max(1, a.width * a.height)
@@ -420,8 +441,7 @@ enum HandwritingFilter {
         func foreignPixel(_ i: Int) -> Bool {
             let r = Int(pixels.rgba[i * 4]), g = Int(pixels.rgba[i * 4 + 1]), b = Int(pixels.rgba[i * 4 + 2])
             let hh = hue(r: Double(r), g: Double(g), b: Double(b))
-            if hh.hue != ref.hue && hh.chroma >= 55 { return true }
-            return ref.hue == .neutral && hh.hue == .neutral && Double(contrastOf[i]) < ref.contrast * 0.6
+            return hh.hue != ref.hue && hh.chroma >= 55
         }
         func nearPrintCore(_ i: Int) -> Bool {
             let x = i % w, y = i / w
@@ -449,21 +469,24 @@ enum HandwritingFilter {
             // 사진 가장자리에 닿은 아주 큰 덩어리 (책상·그림자)는 그대로
             let touchesEdge = b.minX == 0 || b.minY == 0 || b.maxX == w - 1 || b.maxY == h - 1
             if touchesEdge && Double(rect.width * rect.height) > imageArea * 0.1 { continue }
-            let t = tint(blobInk(b), ref)
+            let bi = blobInk(b)
+            let t = tint(bi, ref)
             let foreign = t == .colored || t == .light
+            // 인쇄 자리 위에서도 지우는 큰 표시: 색 펜, 또는 아주 연한 연필 (흐린 인쇄 선을 연필로 보지 않게)
+            let strongForeign = t == .colored || (t == .light && bi.peak < max(ref.peak, ref.contrast) * 0.5)
             let inHand = overlap(rect, handBoxes) >= 0.5
             let inPrinted = overlap(rect, printedBoxes) >= 0.5
             let isBig = Double(max(rect.width, rect.height)) > big
             var wipe = false
             switch mode {
             case .text:
-                wipe = (inHand && (foreign || !inPrinted)) || (foreign && (!inPrinted || isBig))
+                wipe = (inHand && (foreign || !inPrinted)) || (foreign && !inPrinted) || (strongForeign && isBig)
             case .figure:
                 wipe = inHand && (foreign || !inPrinted)
             }
             if wipe {
                 wipes.append(index)
-                if foreign && (isBig || b.count >= sizable) && !inPrinted { evidence = true }
+                if (foreign && (isBig || b.count >= sizable) && !inPrinted) || (strongForeign && isBig) { evidence = true }
             } else if mode == .text, isBig || inHand {
                 partial.append(index)
             }

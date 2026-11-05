@@ -30,7 +30,7 @@ sed -e '/^struct OCRLine /d' -e '/static func printedText(from lines/d' -e 's/^e
   "$ROOT/Tests/DoitAI/Support/Stubs.swift" > "$SRC/Stubs.swift"
 cp "$HERE/Shared/CaseSpec.swift" "$HERE/Shared/Checks.swift" "$SRC/"
 cp "$HERE/Runner/main.swift" "$SRC/main.swift"
-swiftc -swift-version 5 "$SRC"/*.swift -o "$BUILD/ocr-runner"
+swiftc -O -swift-version 5 "$SRC"/*.swift -o "$BUILD/ocr-runner"
 
 echo "▶ 읽기"
 "$BUILD/ocr-runner" "$OUT" "$FILTER"

@@ -196,6 +196,10 @@ func printResult(_ result: CaseResult) {
         print("    글: \(result.text.replacingOccurrences(of: "\n", with: " ⏎ ").prefix(300))")
         if !result.words.isEmpty { print("    단어: \(result.words.joined(separator: " | ").prefix(400))") }
     }
+    // 필기가 없는 사진인데 지운 것이 있으면 (잘못 지운 것 찾기)
+    if !result.category.hasPrefix("hw-"), let hw = result.handwriting, let last = hw.last, !last.hasPrefix("지움 0px") {
+        for line in hw { print("    필기?: \(line)") }
+    }
     // 학생 필기 사진: 지우기 판단과 지우기 전 결과 (기준 맞추기용)
     if result.category.hasPrefix("hw-") {
         for line in result.handwriting ?? [] { print("    필기: \(line)") }

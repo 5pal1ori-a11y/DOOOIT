@@ -72,10 +72,13 @@ private func available(_ names: [String], size: CGFloat) -> CTFont? {
 let handLatinFonts = ["Noteworthy-Light", "BradleyHandITCTT-Bold", "MarkerFelt-Thin", "ChalkboardSE-Light", "ChalkboardSE-Regular"]
 let handKoreanFonts = ["NanumPen", "NanumPenScript-Regular", "NanumBrush", "NanumBrushScript-Regular", "AppleSDGothicNeo-Light"]
 
+// 글꼴 찾기는 없는 이름이면 오래 걸려서 한 번만
+let handLatinBase = available(handLatinFonts, size: 40) ?? CTFontCreateWithName("Helvetica" as CFString, 40, nil)
+let handKoreanBase = available(handKoreanFonts, size: 40) ?? CTFontCreateWithName("AppleSDGothicNeo-Regular" as CFString, 40, nil)
+
 /// 손글씨처럼: 글자마다 크기·기울기·높낮이를 조금씩 흔들고, 줄 전체를 기울여서
 func handText(_ ctx: CGContext, _ text: String, x: CGFloat, top: CGFloat, size: CGFloat, pen: Pen, tilt: CGFloat, rng: inout SeededRandom, pageHeight: CGFloat) -> CGFloat {
-    let latin = available(handLatinFonts, size: size) ?? CTFontCreateWithName("Helvetica" as CFString, size, nil)
-    let korean = available(handKoreanFonts, size: size) ?? CTFontCreateWithName("AppleSDGothicNeo-Regular" as CFString, size, nil)
+    let latin = handLatinBase, korean = handKoreanBase
     ctx.saveGState()
     let baseY = pageHeight - top - size * 0.8
     ctx.translateBy(x: x, y: baseY)
@@ -289,8 +292,8 @@ let handBases: [(id: String, answer: Int)] = [
 /// 필기 사진 만들기 (emit과 같은 손상, 이름 hw-<문제>-<필기>__<손상>)
 func emitHandwriting(_ all: [Content], degrades: [Degrade]) {
     let byID = Dictionary(all.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-    let latin = available(handLatinFonts, size: 40).map { CTFontCopyPostScriptName($0) as String } ?? "없음"
-    let korean = available(handKoreanFonts, size: 40).map { CTFontCopyPostScriptName($0) as String } ?? "없음"
+    let latin = CTFontCopyPostScriptName(handLatinBase) as String
+    let korean = CTFontCopyPostScriptName(handKoreanBase) as String
     print("필기 글꼴: \(latin) / \(korean)")
     var handSeed: UInt64 = 9001
     for (k, base) in handBases.enumerated() {
