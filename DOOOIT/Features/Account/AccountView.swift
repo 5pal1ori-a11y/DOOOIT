@@ -92,6 +92,7 @@ struct AccountView: View {
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
             .uiShotPush(.badges) { BadgeShelfView() }
+            .uiShotPush(.appSettings) { appSettings }
             #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {

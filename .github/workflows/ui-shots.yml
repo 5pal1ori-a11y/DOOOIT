@@ -27,6 +27,9 @@ jobs:
     timeout-minutes: 100
     env:
       SCREENS_ALL: "home study words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem widgets widgets2 widgets3 widgets4 widgetsLock"
+      # 다른 언어로도 찍을 화면 (밝게만) · 언어 (-AppleLanguages)
+      LANG_SCREENS: "home study words mathList mathNote ai planner account appSettings accountSettings timer auth badges weeklyReport mockExam soundMixer grammar widgets widgets2 widgets3 widgets4 widgetsLock"
+      LANGS: "en zh-Hans ja"
     steps:
       - uses: actions/checkout@v4
 
@@ -93,6 +96,16 @@ jobs:
           APP=$(find "$RUNNER_TEMP/dd/Build/Products/Debug-iphonesimulator" -maxdepth 1 -name "*.app" | head -1)
           echo "APP=$APP" >> "$GITHUB_ENV"
           echo "::notice title=Build::$APP"
+          # 컴파일러가 뽑은 번역 키 (.stringsdata) → 사진과 같이 올려서 카탈로그와 비교
+          mkdir -p "$RUNNER_TEMP/shots/stringsdata"
+          find "$RUNNER_TEMP/dd/Build/Intermediates.noindex" -name "*.stringsdata" 2>/dev/null | while IFS= read -r f; do
+            t=$(echo "$f" | sed -E 's|.*/([^/]+)\.build/.*|\1|')
+            mkdir -p "$RUNNER_TEMP/shots/stringsdata/$t"
+            cp "$f" "$RUNNER_TEMP/shots/stringsdata/$t/" 2>/dev/null || true
+          done
+          (cd "$RUNNER_TEMP/shots" && tar czf stringsdata.tgz stringsdata && rm -rf stringsdata) || true
+          # 앱 묶음에 들어간 언어 폴더
+          ls -d "$APP"/*.lproj 2>/dev/null | xargs -n1 basename > "$RUNNER_TEMP/shots/lproj.txt" || true
 
       - name: Install
         run: |
@@ -109,7 +122,9 @@ jobs:
           OUT="$RUNNER_TEMP/shots"
           mkdir -p "$OUT"
           LIST="${SCREENS:-$SCREENS_ALL}"
-          for mode in light dark; do
+          # 다국어 브랜치: 한국어는 밝게만 몇 화면
+          case "$GITHUB_REF_NAME" in ui-shots-i18n*) LIST="${SCREENS:-home planner timer appSettings}"; MODES="light" ;; *) MODES="light dark" ;; esac
+          for mode in $MODES; do
             xcrun simctl ui "$UDID" appearance "$mode" || true
             for screen in $LIST; do
               xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
@@ -127,6 +142,30 @@ jobs:
               echo "$screen-$mode"
             done
           done
+          # 다른 언어 (밝게)
+          xcrun simctl ui "$UDID" appearance light || true
+          case "$GITHUB_REF_NAME" in ui-shots-i18n*) DO_LANGS=1 ;; *) DO_LANGS="${FORCE_LANGS:-}" ;; esac
+          if [ -n "$DO_LANGS" ]; then
+            for lang in $LANGS; do
+              case "$lang" in en) LOC=en_US ;; zh-Hans) LOC=zh_CN ;; ja) LOC=ja_JP ;; *) LOC=en_US ;; esac
+              for screen in $LANG_SCREENS; do
+                xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+                xcrun simctl launch "$UDID" "$BUNDLE" -uiShot "$screen" -AppleLanguages "($lang)" -AppleLocale "$LOC" >/dev/null
+                case "$screen" in ai) sleep 14 ;; mathNote) sleep 12 ;; mockExam|mockResult) sleep 10 ;; *) sleep 7 ;; esac
+                xcrun simctl io "$UDID" screenshot --type=png "$OUT/$lang-$screen.png" >/dev/null 2>&1 || echo "::warning::$lang-$screen 사진 실패"
+                sips -Z 1200 "$OUT/$lang-$screen.png" >/dev/null 2>&1 || true
+                echo "$lang-$screen"
+              done
+            done
+            # 앱 안에서 언어만 바꾼 경우 (시스템은 한국어, 다시 열지 않음): 바로 바뀌는지
+            for screen in home appSettings planner; do
+              xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+              xcrun simctl launch "$UDID" "$BUNDLE" -uiShot "$screen" -uiLang en -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
+              sleep 7
+              xcrun simctl io "$UDID" screenshot --type=png "$OUT/live-en-$screen.png" >/dev/null 2>&1 || true
+              sips -Z 1200 "$OUT/live-en-$screen.png" >/dev/null 2>&1 || true
+            done
+          fi
           xcrun simctl spawn "$UDID" log show --last 15m --style compact --predicate 'process == "DOOOIT"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/app-log.txt" || true
           ls -la "$OUT"
 

@@ -20,6 +20,8 @@ enum UIShotScreen: String, CaseIterable {
     }
     /// 앱스토어 사진용: 앱 잠금 켠 채 공부 중인 타이머 · 주간 AI 리포트 · 단어 카드 학습
     case timerLock, weeklyReport, wordSession
+    /// 계정 → 앱 (화면 모드 · 테마 · 언어)
+    case appSettings
 }
 
 @MainActor
@@ -48,13 +50,18 @@ enum UIShot {
              .weeklyReport, .wordSession: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
-        case .account, .accountSettings, .badges: return .account
+        case .account, .accountSettings, .badges, .appSettings: return .account
         default: return .home
         }
     }
 
     /// 저장되지 않는 기본값으로만 (알림 권한 창·자동 타이머·라이브 액티비티 끔)
     static func prepareDefaults() {
+        // -uiLang en: 시스템 언어는 그대로 두고 앱 안에서 고른 것처럼 (다시 열지 않고 바로 바뀌는지 확인용)
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-uiLang"), i + 1 < args.count, let lang = AppLanguage(rawValue: args[i + 1]) {
+            AppLanguage.override = lang
+        }
         UserDefaults.standard.register(defaults: [
             "selectedTab": tab.rawValue,
             AppearanceMode.key: isDark ? AppearanceMode.dark.rawValue : AppearanceMode.light.rawValue,
