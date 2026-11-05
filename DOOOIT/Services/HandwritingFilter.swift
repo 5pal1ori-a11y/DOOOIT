@@ -31,6 +31,8 @@ enum HandwritingFilter {
         var hue: Hue = .neutral
         /// 가장 진한 8%의 대비 (가는 획·흐린 사진에서도 인쇄는 여기가 진함, 연필은 여기도 연함)
         var peak: Double = 0
+        /// 진한 잉크가 끝나는 아래 줄 (픽셀, 글씨 밑선이 들쭉날쭉한지 볼 때)
+        var bottom: Double? = nil
     }
 
     /// 읽은 글자 하나 (box: 픽셀, 위가 0)
@@ -147,7 +149,7 @@ enum HandwritingFilter {
         guard x1 > x0, y1 > y0 else { return nil }
         let area = (x1 - x0) * (y1 - y0)
         let step = area > 40_000 ? 2 : 1
-        var samples: [(c: Double, r: Int, g: Int, b: Int)] = []
+        var samples: [(c: Double, r: Int, g: Int, b: Int, y: Int)] = []
         p.rgba.withUnsafeBufferPointer { px in
             var y = y0
             while y < y1 {
@@ -158,7 +160,7 @@ enum HandwritingFilter {
                     let bg = paper.at(x, y)
                     let c = (bg - Double(luminance(r, g, b))) / bg
                     let chroma = max(r, g, b) - min(r, g, b)
-                    if c > 0.2 || (chroma > 50 && c > 0.08) { samples.append((c, r, g, b)) }
+                    if c > 0.2 || (chroma > 50 && c > 0.08) { samples.append((c, r, g, b, y)) }
                     x += step
                 }
                 y += step
@@ -169,11 +171,15 @@ enum HandwritingFilter {
         let core = samples.prefix(max(1, samples.count * 2 / 5))
         let n = Double(core.count)
         let contrast = core.reduce(0) { $0 + $1.c } / n
-        let r = core.reduce(0.0) { $0 + Double($1.r) } / n, g = core.reduce(0.0) { $0 + Double($1.g) } / n, b = core.reduce(0.0) { $0 + Double($1.b) } / n
+        // 색은 가장 진한 픽셀로 (인쇄 글자 위에 펜 선이 지나가도 가장 진한 곳은 인쇄 잉크)
+        let top = samples.prefix(max(3, samples.count * 2 / 25))
+        let m = Double(top.count)
+        let r = top.reduce(0.0) { $0 + Double($1.r) } / m, g = top.reduce(0.0) { $0 + Double($1.g) } / m, b = top.reduce(0.0) { $0 + Double($1.b) } / m
         let h = hue(r: r, g: g, b: b)
-        let top = samples.prefix(max(1, samples.count * 2 / 25))
-        let peak = top.reduce(0) { $0 + $1.c } / Double(top.count)
-        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak)
+        let peak = top.reduce(0) { $0 + $1.c } / m
+        let strong = samples.filter { $0.c >= peak * 0.5 }
+        let bottom = strong.map(\.y).max().map(Double.init)
+        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak, bottom: bottom)
     }
 
     // MARK: - 기준 · 색 판정
@@ -202,9 +208,11 @@ enum HandwritingFilter {
         for g in glyphs { if let h = g.ink?.hue { hues[h, default: 0] += 1 } }
         let hue = hues.max { $0.value < $1.value }?.key ?? .neutral
         let chroma = median(glyphs.compactMap { $0.ink?.chroma }) ?? 0
-        let height = median(refLines.map { Double($0.box.height) }) ?? median(lines.map { Double($0.box.height) }) ?? 20
+        // 줄 높이: 글자 상자 높이 (두 줄이 한 줄로 읽혀도 흔들리지 않게), 기울기: 글자 수만큼 무게
+        let height = median(glyphs.compactMap { $0.box.map { Double($0.height) } }) ?? median(refLines.map { Double($0.box.height) }) ?? 20
         let angleLines = refLines.filter { $0.text.filter { !$0.isWhitespace }.count >= 4 }
-        let angle = median(angleLines.map(\.angle)) ?? median(lines.map(\.angle)) ?? 0
+        let weighted = angleLines.flatMap { line in Array(repeating: line.angle, count: line.text.filter { !$0.isWhitespace }.count) }
+        let angle = median(weighted) ?? median(lines.map(\.angle)) ?? 0
         let peak = median(glyphs.compactMap { $0.ink?.peak }) ?? contrast
         return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle)
     }
@@ -235,8 +243,20 @@ enum HandwritingFilter {
             && t.contains(where: { "=×÷+−-".contains($0) })
     }
 
+    /// 글씨 밑선이 들쭉날쭉한 정도 (숫자·영문 글자 밑의 흩어짐 / 글자 높이). 셀 글자가 3개 미만이면 nil
+    static func wobble(_ glyphs: [Glyph], height: Double) -> Double? {
+        let flat = Set("0123456789abcdefhiklmnorstuvwxzABCDEFGHIJKLMNOPRSTUVWXYZ")
+        let bottoms = glyphs.filter { flat.contains($0.char) }.compactMap { $0.ink?.bottom }
+        guard bottoms.count >= 3, height > 0 else { return nil }
+        let mean = bottoms.reduce(0, +) / Double(bottoms.count)
+        let sd = (bottoms.map { ($0 - mean) * ($0 - mean) }.reduce(0, +) / Double(bottoms.count)).squareRoot()
+        return sd / height
+    }
+
     static func tokens(_ lines: [Line], reference ref: Reference, mode: Mode) -> [Token] {
         var out: [Token] = []
+        // 보기 줄(①②가 둘 이상)이 끝나는 아래: 그 밑에 쓴 계산은 대개 학생 풀이
+        let choiceBottom = lines.filter { $0.text.filter { "①②③④⑤".contains($0) }.count >= 2 }.map { Double($0.box.maxY) }.max()
         for (index, line) in lines.enumerated() {
             let tints = line.glyphs.map { $0.char.isWhitespace ? Tint.unknown : tint($0.ink, ref) }
             // 띄어쓰기와 색이 바뀌는 곳에서 나눔 (모르는 글자는 앞 조각에 붙임)
@@ -293,6 +313,10 @@ enum HandwritingFilter {
                     if line.confidence < 0.4 { score += 0.6; reasons.append("신뢰도 낮음") } else if line.confidence < 0.6 { score += 0.3; reasons.append("신뢰도 보통") }
                 }
                 if looksLikeWork(text) { score += 0.4; reasons.append("풀이 모양") }
+                if let bottom = choiceBottom, Double(line.box.minY) > bottom + ref.lineHeight * 0.3, !circled {
+                    score += 0.8; reasons.append("보기 아래")
+                }
+                if let w = wobble(glyphs, height: ref.lineHeight), w > 0.045 { score += w > 0.08 ? 0.9 : 0.6; reasons.append(String(format: "들쭉날쭉 %.2f", w)) }
                 // 인쇄 줄 안에 낀 한두 글자 조각(+, −, 괄호, ②)은 가는 획이라 연해 보일 뿐 (줄 대부분이 인쇄면 필기 아님)
                 let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
                 let lineNative = lineKnown.filter { tints[$0] == .native }.count
@@ -412,13 +436,15 @@ enum HandwritingFilter {
             var cs = b.pixels.map { contrastOf[$0] }
             cs.sort(by: >)
             let cut = cs[min(cs.count - 1, max(0, cs.count * 2 / 5 - 1))]
-            var r = 0.0, g = 0.0, bl = 0.0, n = 0.0, csum = 0.0
-            for i in b.pixels where contrastOf[i] >= cut {
-                r += Double(pixels.rgba[i * 4]); g += Double(pixels.rgba[i * 4 + 1]); bl += Double(pixels.rgba[i * 4 + 2])
-                csum += Double(contrastOf[i]); n += 1
+            let peakCut = cs[min(cs.count - 1, max(0, max(3, cs.count * 2 / 25) - 1))]
+            var r = 0.0, g = 0.0, bl = 0.0, m = 0.0, n = 0.0, csum = 0.0
+            for i in b.pixels {
+                let c = contrastOf[i]
+                if c >= cut { csum += Double(c); n += 1 }
+                if c >= peakCut { r += Double(pixels.rgba[i * 4]); g += Double(pixels.rgba[i * 4 + 1]); bl += Double(pixels.rgba[i * 4 + 2]); m += 1 }
             }
-            n = max(1, n)
-            let hh = hue(r: r / n, g: g / n, b: bl / n)
+            n = max(1, n); m = max(1, m)
+            let hh = hue(r: r / m, g: g / m, b: bl / m)
             let top = cs.prefix(max(1, cs.count * 2 / 25))
             let peak = Double(top.reduce(0, +)) / Double(top.count)
             return Ink(count: b.count, contrast: csum / n, chroma: hh.chroma, hue: hh.hue, peak: peak)
@@ -488,7 +514,12 @@ enum HandwritingFilter {
                 wipes.append(index)
                 if (foreign && (isBig || b.count >= sizable) && !inPrinted) || (strongForeign && isBig) { evidence = true }
             } else if mode == .text, isBig || inHand {
-                partial.append(index)
+                // 인쇄 글자·선에 붙은 다른 색 잉크가 넉넉하면 (보기 번호에 닿은 동그라미, 글자를 지나는 줄)
+                let foreignCount = b.pixels.reduce(0) { $0 + (foreignPixel($1) ? 1 : 0) }
+                if Double(foreignCount) >= Double(b.count) * 0.25 {
+                    partial.append(index)
+                    if isBig { evidence = true }
+                }
             }
         }
         // 필기라고 볼 근거가 없으면 (인쇄만 있는 쪽: 잡티·흐린 가장자리뿐) 사진을 그대로 둠
@@ -501,7 +532,6 @@ enum HandwritingFilter {
             // 인쇄 글자·선에 붙은 다른 색 잉크 (보기 번호에 닿은 동그라미, 글자를 지나는 줄)
             let b = blobs[index]
             let foreignPixels = b.pixels.filter(foreignPixel)
-            guard Double(foreignPixels.count) >= Double(b.count) * 0.25 else { continue }
             var any = false
             for i in foreignPixels where !nearPrintCore(i) { erase(i); any = true }
             if any { report.marks += 1 }
