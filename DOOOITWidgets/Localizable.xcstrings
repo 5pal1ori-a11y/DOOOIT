@@ -685,6 +685,35 @@
         }
       }
     },
+    "공부(짧게)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Time"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "勉強"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "공부"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学习"
+          }
+        }
+      }
+    },
     "공부한 날": {
       "localizations": {
         "en": {
@@ -2019,7 +2048,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This Week's Study"
+            "value": "Weekly Study"
           }
         },
         "ja": {

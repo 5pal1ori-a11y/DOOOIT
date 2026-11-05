@@ -151,7 +151,7 @@ jobs:
               for screen in $LANG_SCREENS; do
                 xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
                 xcrun simctl launch "$UDID" "$BUNDLE" -uiShot "$screen" -AppleLanguages "($lang)" -AppleLocale "$LOC" >/dev/null
-                case "$screen" in ai) sleep 14 ;; mathNote) sleep 12 ;; mockExam|mockResult) sleep 10 ;; *) sleep 7 ;; esac
+                case "$screen" in ai) sleep 14 ;; mathNote) sleep 12 ;; mockExam|mockResult) sleep 12 ;; *) sleep 9 ;; esac
                 xcrun simctl io "$UDID" screenshot --type=png "$OUT/$lang-$screen.png" >/dev/null 2>&1 || echo "::warning::$lang-$screen 사진 실패"
                 sips -Z 1200 "$OUT/$lang-$screen.png" >/dev/null 2>&1 || true
                 echo "$lang-$screen"

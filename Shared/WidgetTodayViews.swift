@@ -272,7 +272,7 @@ struct StudyProgressView: View {
                     .frame(width: 112, height: 112)
                 VStack(alignment: .leading, spacing: 9) {
                     WidgetHeader(title: L("오늘 공부"), accent: snapshot.accent)
-                    stat(L("공부"), timeText, color: .primary)
+                    stat(L("공부(짧게)"), timeText, color: .primary)
                     stat(L("목표"), WidgetMath.durationTextL(snapshot.goalMinutes), color: .secondary)
                     stat(L("남은"), minutes >= snapshot.goalMinutes ? L("달성!") : WidgetMath.durationTextL(snapshot.goalMinutes - minutes),
                          color: minutes >= snapshot.goalMinutes ? snapshot.accent : .secondary)
