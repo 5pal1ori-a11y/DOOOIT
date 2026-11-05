@@ -27,7 +27,7 @@ struct PresenceChip: View {
             .background(color.opacity(0.16), in: .capsule)
         }
         .buttonStyle(.plain)
-        .disabled(!tappable)
+        .allowsHitTesting(tappable)
         .animation(.smooth(duration: 0.25), value: monitor.state)
         .accessibilityLabel("AI 순공부 측정")
         .accessibilityValue(monitor.chipText)

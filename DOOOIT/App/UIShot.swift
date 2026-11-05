@@ -21,7 +21,7 @@ enum UIShotScreen: String, CaseIterable {
     /// 앱스토어 사진용: 앱 잠금 켠 채 공부 중인 타이머 · 주간 AI 리포트 · 단어 카드 학습
     case timerLock, weeklyReport, wordSession
     /// AI 순공부 측정: 안내 화면 · 공부 중 칩 · 자리 비움 칩 · 끝난 뒤 결과 (카메라 없이 가짜 값)
-    case camGuide, camTimer, camAway, camResult
+    case camGuide, camTimer, camAway, camResult, camSetup
 }
 
 @MainActor
@@ -67,7 +67,7 @@ enum UIShot {
             SettingsKey.dDayDate: Date().startOfDay.addingTimeInterval(86_400 * 23).timeIntervalSince1970,
             SettingsKey.dailyWordGoal: 20,
             SettingsKey.dailyStudyGoalMinutes: 180,
-            StudyPresenceMonitor.enabledKey: matches(.camGuide, .camTimer, .camAway)
+            StudyPresenceMonitor.enabledKey: matches(.camGuide, .camTimer, .camAway, .camSetup)
         ])
     }
 
@@ -88,7 +88,7 @@ enum UIShot {
             guard assistant.messages.isEmpty else { return }
             await assistant.send("x² - 5x + 6 = 0 풀어줘")
             await assistant.send("비슷한 문제 내줘")
-        case .timer:
+        case .timer, .camSetup:
             try? await Task.sleep(for: .milliseconds(300))
             timer.isPresented = true
         case .timerLock:
