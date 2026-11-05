@@ -198,7 +198,9 @@ enum DoitKnowledge {
                 score = max(score, best)
             }
             // 이름이 질문 낱말과 똑같으면 조금 더 ("소수" → '복소수'가 아니라 '소수')
-            if queryWords.count == 1, item.names.contains(q) || item.names.contains(DoitRelevance.stripParticle(q)) { score = min(1, score + 0.06) }
+            if queryWords.count == 1, item.names.contains(q) || item.names.contains(DoitRelevance.stripParticle(q)) { score += 0.06 }
+            // 대표 이름이 똑같으면 더 ("엽록체" → 다른 이름으로 엽록체를 가진 '광합성'이 아니라 '엽록체')
+            if queryWords.count == 1, let title = item.names.first, title == q || title == DoitRelevance.stripParticle(q) { score += 0.03 }
             if score > 0.18 { results.append(Match(entry: entries[i], score: score)) }
         }
         return Array(results.sorted { $0.score > $1.score }.prefix(limit))
