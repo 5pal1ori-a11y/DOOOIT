@@ -166,7 +166,7 @@ jobs:
               sips -Z 1200 "$OUT/live-en-$screen.png" >/dev/null 2>&1 || true
             done
           fi
-          xcrun simctl spawn "$UDID" log show --last 15m --style compact --predicate 'process == "DOOOIT"' 2>/dev/null | grep -iE "fault|fatal|crash" | tail -40 > "$OUT/app-log.txt" || true
+          xcrun simctl spawn "$UDID" log show --last 45m --style compact --predicate 'process == "DOOOIT"' 2>/dev/null | grep -iE "fault|fatal|crash|uiShotLang" | tail -80 > "$OUT/app-log.txt" || true
           ls -la "$OUT"
 
       - name: Push to ui-shots-out

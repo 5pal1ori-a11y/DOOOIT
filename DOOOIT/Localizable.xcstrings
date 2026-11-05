@@ -1101,6 +1101,28 @@
         }
       }
     },
+    "%lld개 남음": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld left"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り%lld個"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剩余%lld个"
+          }
+        }
+      }
+    },
     "%lld개 단원": {
       "localizations": {
         "en": {
@@ -1299,6 +1321,28 @@
         }
       }
     },
+    "%lld단계 풀이": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld-step solution"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld段階の解き方"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld步解答"
+          }
+        }
+      }
+    },
     "%lld단계, 정답 %lld개": {
       "localizations": {
         "en": {
@@ -1361,6 +1405,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$lld题中答对%2$@题"
+          }
+        }
+      }
+    },
+    "%lld문제 중 %lld개 정답": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$lld of %1$lld correct"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld問中%2$lld問正解"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld题中答对%2$lld题"
           }
         }
       }
@@ -1757,6 +1823,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "连续学习%lld天，最高%@天"
+          }
+        }
+      }
+    },
+    "%lld일 연속 공부, 최고 %lld일": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld-day streak, best %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld日連続、最高%lld日"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连续学习%lld天，最高%lld天"
           }
         }
       }
@@ -3540,6 +3628,28 @@
         }
       }
     },
+    "iCloud 동기화": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud Sync"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud同期"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "iCloud 同步"
+          }
+        }
+      }
+    },
     "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요": {
       "localizations": {
         "en": {
@@ -3624,6 +3734,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "学习最多的时间 %@点"
+          }
+        }
+      }
+    },
+    "가장 많이 공부한 시간 %lld시": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peak hour: %lld:00"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一番勉強した時間 %lld時"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学习最多的时间 %lld点"
           }
         }
       }
@@ -4580,6 +4712,28 @@
         }
       }
     },
+    "공부 기록 초기화": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset Study Records"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学習記録をリセット"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重置学习记录"
+          }
+        }
+      }
+    },
     "공부 기록을 모두 지울까요?": {
       "localizations": {
         "en": {
@@ -5083,6 +5237,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "科目（例：历史）"
+          }
+        }
+      }
+    },
+    "과목 · 카테고리": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Subjects · Categories"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "科目・カテゴリ"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "科目 · 分类"
           }
         }
       }
@@ -6259,6 +6435,28 @@
         }
       }
     },
+    "내 풀이: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My work: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分の解き方: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的解题：%@"
+          }
+        }
+      }
+    },
     "내 풀이: %lld": {
       "localizations": {
         "en": {
@@ -7402,6 +7600,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "下次我会找得更好"
+          }
+        }
+      }
+    },
+    "다이나믹 아일랜드": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dynamic Island"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dynamic Island"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "灵动岛"
           }
         }
       }
@@ -9375,6 +9595,28 @@
         }
       }
     },
+    "메모 검색": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search memos"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモを検索"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "搜索备忘"
+          }
+        }
+      }
+    },
     "메모가 없어요": {
       "localizations": {
         "en": {
@@ -10016,6 +10258,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "目标"
+          }
+        }
+      }
+    },
+    "목표 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Goal %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標 %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标 %@"
           }
         }
       }
@@ -10948,6 +11212,28 @@
         }
       }
     },
+    "미리 알림": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remind Me"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "事前通知"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提前提醒"
+          }
+        }
+      }
+    },
     "미채점": {
       "localizations": {
         "en": {
@@ -11340,6 +11626,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "徽章"
+          }
+        }
+      }
+    },
+    "버전": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バージョン"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         }
       }
@@ -13247,6 +13555,28 @@
         }
       }
     },
+    "시간 ": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "h "
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "時間"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小时"
+          }
+        }
+      }
+    },
     "시간 부족": {
       "extractionState": "manual",
       "localizations": {
@@ -14063,6 +14393,28 @@
         }
       }
     },
+    "안 푼 문제 %lld개": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld unanswered"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未回答 %lld問"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未答 %lld 题"
+          }
+        }
+      }
+    },
     "알림": {
       "localizations": {
         "en": {
@@ -14529,6 +14881,28 @@
         }
       }
     },
+    "언어": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "语言"
+          }
+        }
+      }
+    },
     "언어를 바꿀게요": {
       "localizations": {
         "en": {
@@ -14906,6 +15280,28 @@
         }
       }
     },
+    "예상 도달: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expected: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予想到達: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预计达到：%@"
+          }
+        }
+      }
+    },
     "예상 도달: %lld": {
       "localizations": {
         "en": {
@@ -15038,6 +15434,28 @@
         }
       }
     },
+    "오늘 %@ · %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today %@ · %lld%%"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日 %@ · %lld%%"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日 %@ · %lld%%"
+          }
+        }
+      }
+    },
     "오늘 %lld개": {
       "localizations": {
         "en": {
@@ -15144,6 +15562,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "今日目标%@%%，已学%@"
+          }
+        }
+      }
+    },
+    "오늘 목표 %lld퍼센트, %@ 공부": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today's goal %lld percent, studied %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日の目標%lldパーセント、%@勉強"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日目标%lld%%，已学%@"
           }
         }
       }
@@ -15606,6 +16046,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "错题本 %@"
+          }
+        }
+      }
+    },
+    "오답노트 %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ノート %lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "错题本 %lld"
           }
         }
       }
@@ -17726,6 +18188,28 @@
         }
       }
     },
+    "일정": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日程"
+          }
+        }
+      }
+    },
     "일정 %lld개": {
       "localizations": {
         "en": {
@@ -17744,6 +18228,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld个日程"
+          }
+        }
+      }
+    },
+    "일정 알림": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan Alerts"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定の通知"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日程提醒"
           }
         }
       }
@@ -20247,6 +20753,28 @@
         }
       }
     },
+    "총 %@ 집중했어요": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focused %@ in total"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合計 %@ 集中しました"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共专注 %@"
+          }
+        }
+      }
+    },
     "총 %lld 집중했어요": {
       "localizations": {
         "en": {
@@ -20400,6 +20928,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "最高%@天"
+          }
+        }
+      }
+    },
+    "최고 %lld일": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best %lld days"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高%lld日"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高%lld天"
           }
         }
       }
@@ -21105,6 +21655,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "查看计时器"
+          }
+        }
+      }
+    },
+    "타이머 자동 시작": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auto-start Timer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイマー自動開始"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自动开始计时"
           }
         }
       }
@@ -22304,6 +22876,50 @@
         }
       }
     },
+    "하루 공부": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily Study"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1日の勉強"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每日学习"
+          }
+        }
+      }
+    },
+    "하루 단어": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Daily Words"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1日の単語"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每日单词"
+          }
+        }
+      }
+    },
     "하루 목표": {
       "localizations": {
         "en": {
@@ -23073,6 +23689,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "我们会在首页用名字问候你"
+          }
+        }
+      }
+    },
+    "화면 모드": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画面モード"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "外观"
           }
         }
       }

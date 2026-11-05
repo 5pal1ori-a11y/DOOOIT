@@ -45,6 +45,28 @@
         }
       }
     },
+    "%lld/%lld 맞힘": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld correct"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld/%lld 正解"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "答对 %lld/%lld"
+          }
+        }
+      }
+    },
     "%lld/%lld 완료": {
       "localizations": {
         "en": {
@@ -107,6 +129,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld分钟"
+          }
+        }
+      }
+    },
+    "%lld분 · %lld분": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min · %lld min"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld分 · %lld分"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld分钟 · %lld分钟"
           }
         }
       }

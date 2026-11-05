@@ -86,6 +86,10 @@ enum UIShot {
 
     /// 화면이 뜬 뒤 할 일 (모티 AI 예시 대화, 타이머 열기)
     static func afterLaunch(timer: StudyTimer) async {
+        // 언어 확인용 (화면 사진 기록에 남김)
+        NSLog("uiShotLang code=%@ selected=%@ args=%@ preferred=%@", AppLanguage.code, AppLanguage.selected.rawValue,
+              UserDefaults.standard.stringArray(forKey: "AppleLanguages")?.joined(separator: ",") ?? "-",
+              Bundle.main.preferredLocalizations.joined(separator: ","))
         switch screen {
         case .ai:
             let assistant = DoitAssistant.shared

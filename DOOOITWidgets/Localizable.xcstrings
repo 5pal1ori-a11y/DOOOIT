@@ -133,6 +133,28 @@
         }
       }
     },
+    "%lld개 남음": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld left"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り%lld個"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "剩余%lld个"
+          }
+        }
+      }
+    },
     "%lld분": {
       "localizations": {
         "en": {
@@ -327,6 +349,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "连续学习%lld天，最高%@天"
+          }
+        }
+      }
+    },
+    "%lld일 연속 공부, 최고 %lld일": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld-day streak, best %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld日連続、最高%lld日"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连续学习%lld天，最高%lld天"
           }
         }
       }
@@ -1485,6 +1529,28 @@
         }
       }
     },
+    "오늘 %@ · %lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today %@ · %lld%%"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日 %@ · %lld%%"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日 %@ · %lld%%"
+          }
+        }
+      }
+    },
     "오늘 공부": {
       "localizations": {
         "en": {
@@ -1591,6 +1657,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "今日目标%@%%，已学%@"
+          }
+        }
+      }
+    },
+    "오늘 목표 %lld퍼센트, %@ 공부": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today's goal %lld percent, studied %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日の目標%lldパーセント、%@勉強"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日目标%lld%%，已学%@"
           }
         }
       }
@@ -1767,6 +1855,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "今日计划"
+          }
+        }
+      }
+    },
+    "완료": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Done"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
           }
         }
       }
@@ -2081,6 +2191,28 @@
         }
       }
     },
+    "일정": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日程"
+          }
+        }
+      }
+    },
     "일정 %lld개": {
       "localizations": {
         "en": {
@@ -2258,6 +2390,28 @@
         }
       }
     },
+    "최고 %lld일": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Best %lld days"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高%lld日"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最高%lld天"
+          }
+        }
+      }
+    },
     "푹 쉬어요": {
       "localizations": {
         "en": {
@@ -2276,6 +2430,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "好好休息"
+          }
+        }
+      }
+    },
+    "플랜 완료": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Complete Plan"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プランを完了"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成计划"
           }
         }
       }
