@@ -198,6 +198,62 @@ struct MathNoteListView: View {
         }
     }
 
+    /// 상태 고르기 (개수 함께)
+    private var filterChips: some View {
+        HStack(spacing: 8) {
+            ForEach(Filter.allCases) { item in
+                let isOn = filter == item
+                let number: Int = {
+                    switch item {
+                    case .all: return scoped.count
+                    case .unsolved: return count(.unsolved)
+                    case .wrong: return count(.wrong)
+                    case .correct: return count(.correct)
+                    }
+                }()
+                Button {
+                    withAnimation(.snappy) { filter = item }
+                    Haptics.tap()
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(item.rawValue)
+                        Text("\(number)").monospacedDigit().opacity(0.7)
+                    }
+                    .font(.pt(.subheadline).weight(.semibold))
+                    .padding(.horizontal, 13)
+                    .frame(height: 34)
+                    .foregroundStyle(isOn ? Palette.card : Palette.ink)
+                    .background(isOn ? AnyShapeStyle(Palette.ink) : AnyShapeStyle(Palette.card), in: .capsule)
+                    .overlay(Capsule().strokeBorder(Color.primary.opacity(isOn ? 0 : 0.08)))
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// 문제 목록 (한 줄씩: 사진 · 제목 · 유형·날짜 · 상태)
+    private var noteList: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(filtered.enumerated()), id: \.element.id) { index, note in
+                Button { openedNote = note } label: {
+                    MathNoteRow(note: note)
+                }
+                .buttonStyle(.pressable)
+                .contextMenu {
+                    Button(role: .destructive) {
+                        context.delete(note)
+                        try? context.save()
+                    } label: {
+                        Label("삭제", systemImage: "trash")
+                    }
+                }
+                if index < filtered.count - 1 { Divider().padding(.leading, 88) }
+            }
+        }
+        .softCardBackground(cornerRadius: 22)
+    }
+
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: "camera.viewfinder")
