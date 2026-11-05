@@ -315,7 +315,7 @@ struct StudyProgressView: View {
 
     private func stat(_ label: String, _ value: String, color: Color) -> some View {
         HStack(spacing: 6) {
-            Text(label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).frame(width: 26, alignment: .leading)
+            Text(label).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.6).frame(width: 30, alignment: .leading)
             Text(value).font(.subheadline.weight(.bold)).foregroundStyle(color).lineLimit(1).minimumScaleFactor(0.7)
         }
         .accessibilityElement(children: .combine)
