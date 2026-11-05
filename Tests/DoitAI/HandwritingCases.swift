@@ -120,6 +120,24 @@ func runHandwritingCases() {
     let r8 = HandwritingFilter.clean(thin.p, lines: [line("다음 중 +일차방정", x: 20, y: 20, size: 30)], mode: .text)
     check("필기: 인쇄 줄 속 가는 기호는 필기 아님", r8.report.tokens.allSatisfy { !$0.hand } && r8.report.erased == 0, r8.report.lines.joined(separator: " / "))
 
+    // 6-3b) 앱 안 필기(PencilKit 획·글자 메모)가 문제 인식 입력에 섞이지 않는지 소스 검사
+    //  - 필기 획(PKDrawing)을 그림으로 바꿔 읽는 곳은 '내 풀이 읽기'(readHandwriting) 하나뿐이고,
+    //  - 필기 데이터를 다루는 화면 파일은 화면을 그림으로 찍어(렌더러·스냅샷) 읽지 않아야 함 (문제 사진 위 필기가 합쳐져 들어가는 길)
+    if let files = FileManager.default.enumerator(atPath: ".")?.compactMap({ $0 as? String }).filter({ $0.hasSuffix(".swift") && $0.hasPrefix("Features/") }), !files.isEmpty {
+        var strokeReaders: [String] = []
+        var mixed: [String] = []
+        let renderers = ["UIGraphicsImageRenderer", "ImageRenderer", "drawHierarchy", "snapshotView", "takeSnapshot"]
+        for f in files {
+            guard let src = try? String(contentsOfFile: f, encoding: .utf8) else { continue }
+            if src.contains("PKDrawing") && src.contains("drawing.image(from") { strokeReaders.append(f) }
+            if (src.contains("PKDrawing") || src.contains("drawingData") || src.contains("annotationsData")) && renderers.contains(where: { src.contains($0) }) && f != "Features/Learn/WorkCheckCard.swift" { mixed.append(f) }
+        }
+        check("필기: 획을 그림으로 바꾸는 곳은 풀이 읽기 하나", strokeReaders == ["Features/Learn/WorkCheckCard.swift"], strokeReaders.joined(separator: ", "))
+        check("필기: 필기 화면은 화면을 그림으로 찍어 읽지 않음", mixed.isEmpty, mixed.joined(separator: ", "))
+        let work = (try? String(contentsOfFile: "Features/Learn/WorkCheckCard.swift", encoding: .utf8)) ?? ""
+        check("필기: 풀이 읽기는 필기만 흰 바탕에 그려 읽음(문제 사진과 합치지 않음)", work.contains("readHandwriting(image)") && !work.contains("readMathProblem") && !work.contains("readSubjectProblem"))
+    }
+
     // 6-4) 써 넣은 답 줄
     check("필기 내용: 써 넣은 답 줄", HandwritingFilter.looksLikeAnswerNote("답: 3") && HandwritingFilter.looksLikeAnswerNote("정답 ④")
           && !HandwritingFilter.looksLikeAnswerNote("답을 고르시오.") && !HandwritingFilter.looksLikeAnswerNote("정답과 가장 가까운 것은?"))
