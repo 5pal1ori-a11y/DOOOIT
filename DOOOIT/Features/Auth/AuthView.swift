@@ -14,7 +14,9 @@ struct AuthView: View {
     @Environment(AuthManager.self) private var auth
     @Environment(\.colorScheme) private var scheme
 
-    @State private var mode: Mode = .signUp
+    @State private var mode: Mode = .signIn
+    /// 예전 이메일 계정으로 들어가기 (기기에 이메일 계정이 있을 때만 보임)
+    @State private var showEmailLogin = false
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -32,7 +34,7 @@ struct AuthView: View {
     /// 동의하지 않고 가입·소셜 로그인을 누름
     @State private var consentNudge = 0
 
-    /// 가입(이메일)과 Apple·Google 로그인(처음이면 가입)에는 동의가 필요
+    /// Apple 로그인(처음이면 가입)과 예전 이메일 계정 로그인에는 동의가 필요
     private var needsConsent: Bool { !agreed }
     @FocusState private var focus: Field?
 
@@ -77,33 +79,32 @@ struct AuthView: View {
                 .padding(.bottom, 22)
                 .appearAnimation()
 
-            PillSegmentedControl(items: Mode.allCases, selection: $mode) { $0.rawValue }
-                .disabled(isSubmitting)
-                .padding(.bottom, 14)
-                .appearAnimation(delay: 0.05)
-
-            fields
-                .shake(trigger: shakeTrigger)
-                .appearAnimation(delay: 0.1)
-
-            primaryButton
-                .padding(.top, 18)
-                .appearAnimation(delay: 0.14)
-
-            orDivider
-                .padding(.vertical, 14)
-                .appearAnimation(delay: 0.18)
-
+            // 가입·로그인은 Apple로만
             appleButton
-                .appearAnimation(delay: 0.18)
-
-            googleButton
-                .padding(.top, 10)
-                .appearAnimation(delay: 0.2)
+                .appearAnimation(delay: 0.1)
 
             LegalConsentRow(agreed: $agreed)
                 .padding(.top, 14)
                 .shake(trigger: consentNudge)
+
+            // 예전에 이 기기에서 만든 이메일 계정: 기록을 그대로 쓰도록 로그인만 남겨 둠 (새 가입은 없음)
+            if auth.hasEmailAccounts {
+                if showEmailLogin {
+                    orDivider
+                        .padding(.vertical, 14)
+                    fields
+                        .shake(trigger: shakeTrigger)
+                    primaryButton
+                        .padding(.top, 18)
+                } else {
+                    Button("예전 이메일 계정으로 로그인") {
+                        withAnimation(Motion.spring) { showEmailLogin = true }
+                    }
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 18)
+                }
+            }
         }
         .onAppear { agreed = agreedVersion >= LegalText.version }
         .onChange(of: agreed) { _, value in agreedVersion = value ? LegalText.version : 0 }
@@ -121,7 +122,7 @@ struct AuthView: View {
         VStack(spacing: 8) {
             BrandLogo(size: 72)
                 .padding(.bottom, 10)
-            Text(mode == .signUp ? "MOTI 시작하기" : "다시 만나서 반가워요")
+            Text("MOTI 시작하기")
                 .font(.system(.largeTitle, design: .rounded, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.opacity)
@@ -279,38 +280,6 @@ struct AuthView: View {
                     .onTapGesture { _ = checkConsent() }
             }
         }
-    }
-
-    private var googleButton: some View {
-        Button {
-            guard checkConsent() else { return }
-            Task {
-                isSubmitting = true
-                defer { isSubmitting = false }
-                do {
-                    try await auth.signInWithGoogle()
-                } catch {
-                    appleErrorMessage = error.localizedDescription
-                }
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Text("G")
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
-                    .foregroundStyle(LinearGradient(colors: [Color(hex: "#4285F4"), Color(hex: "#34A853"), Color(hex: "#FBBC05"), Color(hex: "#EA4335")],
-                                                    startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text("Google로 계속하기")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
-        }
-        .buttonStyle(.pressable)
-        .disabled(isSubmitting)
-        .accessibilityLabel("Google로 계속하기")
     }
 
     // MARK: 짧은 안내 (입력을 마친 칸에만)

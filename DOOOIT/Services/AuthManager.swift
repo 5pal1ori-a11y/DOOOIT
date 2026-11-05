@@ -341,6 +341,9 @@ final class AuthManager {
         }
     }
 
+    /// 이 기기에 예전에 만든 이메일 계정이 있는지 (Apple 로그인만 쓰게 바뀐 뒤에도 그 기록에 들어갈 수 있게)
+    var hasEmailAccounts: Bool { !loadAccounts().isEmpty }
+
     private func loadAccounts() -> [String: StoredAccount] {
         guard let data = Keychain.get(emailAccountsKey),
               let accounts = try? JSONDecoder().decode([String: StoredAccount].self, from: data) else { return [:] }
