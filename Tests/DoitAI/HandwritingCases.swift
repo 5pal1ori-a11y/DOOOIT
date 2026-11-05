@@ -102,6 +102,24 @@ func runHandwritingCases() {
     let r6 = HandwritingFilter.clean(figure.p, lines: plainLines, mode: .figure)
     check("필기: 그림 읽기에선 색 선 남김", r6.report.erased == 0)
 
+    // 6-2) 인쇄 글자를 지나는 파란 밑줄: 글자는 인쇄(가장 진한 곳이 검정), 밑줄만 지움
+    var underlined = plain
+    underlined.fill(20, 20 + 20, 300, 3, blue)
+    let r7 = HandwritingFilter.clean(underlined.p, lines: plainLines, mode: .text)
+    let after7 = Paper(p: r7.pixels)
+    check("필기: 밑줄 지난 인쇄 글자는 인쇄", r7.report.tokens.allSatisfy { !$0.hand }, r7.report.lines.joined(separator: " / "))
+    check("필기: 글자를 지나는 펜 밑줄 지움", after7.color(20 + 30 * 3 + 2, 41).2 < 230 ? false : after7.color(20 + 30 * 3 + 2, 41).0 > 200, "\(after7.color(112, 41))")
+    check("필기: 밑줄 지나도 인쇄 획은 남김", after7.color(20 + 30 / 5 + 1, 20 + 8).0 < 60)
+
+    // 6-3) 흐린 사진의 가는 인쇄 기호(+, 괄호)는 연해 보여도 필기 아님
+    var thin = Paper(600, 120)
+    thin.glyphs(20, 20, count: 4, size: 30, black)
+    thin.fill(20 + 4 * 30 + 12, 28, 1, 14, (140, 140, 142))
+    thin.fill(20 + 4 * 30 + 6, 34, 13, 1, (140, 140, 142))
+    thin.glyphs(20 + 5 * 30, 20, count: 4, size: 30, black)
+    let r8 = HandwritingFilter.clean(thin.p, lines: [line("다음 중 +일차방정", x: 20, y: 20, size: 30)], mode: .text)
+    check("필기: 인쇄 줄 속 가는 기호는 필기 아님", r8.report.tokens.allSatisfy { !$0.hand } && r8.report.erased == 0, r8.report.lines.joined(separator: " / "))
+
     // 7) 내용 판정
     check("필기 내용: 답 쓰기", HandwritingFilter.looksLikeWork("답: 4") && HandwritingFilter.looksLikeWork("x=4") && HandwritingFilter.looksLikeWork("3×4=12"))
     check("필기 내용: 인쇄 문장은 아님", !HandwritingFilter.looksLikeWork("다음 중 옳은 것은?") && !HandwritingFilter.looksLikeWork("2018"))

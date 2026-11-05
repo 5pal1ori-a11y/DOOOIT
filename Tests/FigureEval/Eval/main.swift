@@ -160,6 +160,8 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         do { print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " ")) }
         let all = ShapeReader.analyze(px, labels: labels)
         let shapes = all.filter { $0.bounds.w * $0.bounds.h >= minArea }
+        print("   글자 상자: " + labels.map { "\($0.text)[\(Int($0.box.minX)),\(Int($0.box.minY)) \(Int($0.box.w))x\(Int($0.box.h))]" }.joined(separator: " "))
+        print("   글자 없이 찾은 도형: \(ShapeReader.analyze(px, labels: []).filter { $0.bounds.w * $0.bounds.h >= minArea }.map(\.name))")
         print("   도형: " + all.prefix(4).map { "\($0.name) \(Int($0.bounds.w))x\(Int($0.bounds.h)) 이름\($0.vertexNames.sorted { $0.key < $1.key }.map(\.value).joined()) 변\($0.sideLabels.count) 각\($0.angleLabels.count) 안\($0.innerNumbers.count)" }.joined(separator: " · "))
         return FigureVision.shapeLines(shapes, problem: c.problem)
     }

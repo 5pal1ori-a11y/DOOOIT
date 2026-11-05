@@ -36,13 +36,22 @@ struct ShapeAnalysis {
 enum ShapeReader {
     static func analyze(_ image: PixelImage, labels: [TextLabel]) -> [ShapeAnalysis] {
         let w = image.width, h = image.height
-        // 글자 자리는 잉크에서 빼기
+        // 글자는 잉크에서 빼기: 글자 상자 안에 다 들어가는 잉크 덩어리만 (상자에 걸친 도형 선은 남겨서 도형이 끊기지 않게)
         let boxes = labels.map { $0.box.insetBy(-2) }
         var ink = [Bool](repeating: false, count: w * h)
         for y in 0..<h {
             for x in 0..<w where image.isDark(x, y, threshold: 150) || (image.chroma[y * w + x] > 70 && image.gray[y * w + x] < 225) {
-                if boxes.contains(where: { $0.contains(Double(x), Double(y)) }) { continue }
                 ink[y * w + x] = true
+            }
+        }
+        if !boxes.isEmpty {
+            for comp in VisionMath.components(ink, width: w, height: h, minSize: 1) {
+                var x0 = w, y0 = h, x1 = 0, y1 = 0
+                for i in comp { let x = i % w, y = i / w; x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y) }
+                let inside = boxes.contains { b in
+                    b.contains(Double(x0), Double(y0)) && b.contains(Double(x1), Double(y1))
+                }
+                if inside { for i in comp { ink[i] = false } }
             }
         }
         // 바깥에서 닿는 빈 곳 = 바탕, 닿지 않는 빈 곳 = 도형 안쪽
