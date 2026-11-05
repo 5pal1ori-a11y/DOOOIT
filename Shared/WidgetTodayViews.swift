@@ -36,7 +36,7 @@ struct TodayPlansView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         } else {
             VStack(alignment: .leading, spacing: family == .systemSmall ? 6 : 8) {
-                WidgetHeader(title: "오늘의 플랜", trailing: "\(done)/\(plans.count)", accent: snapshot.accent)
+                WidgetHeader(title: L("오늘의 플랜"), trailing: "\(done)/\(plans.count)", accent: snapshot.accent)
                 if plans.isEmpty {
                     Spacer()
                     Text("오늘 등록된 플랜이 없어요").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
@@ -62,7 +62,7 @@ struct TodayPlansView: View {
         if let id = plan.occurrenceID {
             Button(intent: TogglePlanDoneIntent(occurrenceID: id, done: !plan.isDone)) { icon }
                 .buttonStyle(.plain)
-                .accessibilityLabel(plan.isDone ? "\(plan.title) 완료 취소" : "\(plan.title) 완료")
+                .accessibilityLabel(plan.isDone ? L("\(plan.title) 완료 취소") : L("\(plan.title) 완료"))
         } else {
             icon
         }
@@ -100,13 +100,13 @@ struct DDayView: View {
         let text = snapshot.dDayText(on: date)
         switch family {
         case .accessoryInline:
-            Label(text.map { "\(snapshot.dDayTitle) \($0)" } ?? "D-Day를 설정하세요", systemImage: "flag.checkered")
+            Label(text.map { "\(snapshot.dDayTitle) \($0)" } ?? L("D-Day를 설정하세요"), systemImage: "flag.checkered")
         case .accessoryCircular:
             ZStack {
                 AccessoryWidgetBackground()
                 VStack(spacing: 0) {
                     Text(text ?? "D-?").font(.system(size: 15, weight: .heavy)).minimumScaleFactor(0.6).widgetAccentable()
-                    Text(snapshot.dDayTitle.isEmpty ? "목표" : snapshot.dDayTitle).font(.system(size: 9)).lineLimit(1)
+                    Text(snapshot.dDayTitle.isEmpty ? L("목표") : snapshot.dDayTitle).font(.system(size: 9)).lineLimit(1)
                 }
                 .padding(4)
             }
@@ -114,7 +114,7 @@ struct DDayView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Label(snapshot.dDayTitle.isEmpty ? "D-Day" : snapshot.dDayTitle, systemImage: "flag.checkered")
                     .font(.caption).lineLimit(1)
-                Text(text ?? "앱에서 설정").font(.title2.weight(.heavy)).widgetAccentable()
+                Text(text ?? L("앱에서 설정")).font(.title2.weight(.heavy)).widgetAccentable()
                 if let dDayDate = snapshot.dDayDate {
                     Text(dDayDate, format: .dateTime.month().day().weekday()).font(.caption2).opacity(0.8)
                 }
@@ -127,17 +127,17 @@ struct DDayView: View {
                     Spacer()
                     Text(snapshot.dDayTitle.isEmpty ? "D-Day" : snapshot.dDayTitle)
                         .font(.subheadline.weight(.semibold)).opacity(0.9).lineLimit(1)
-                    Text(text ?? "설정 필요")
+                    Text(text ?? L("설정 필요"))
                         .font(.system(size: text == nil ? 22 : 44, weight: .black, design: .rounded))
                         .minimumScaleFactor(0.5).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 10) {
                     if let dDayDate = snapshot.dDayDate {
-                        mediumStat("목표일", dDayDate.formatted(.dateTime.month().day().weekday()))
+                        mediumStat(L("목표일"), dDayDate.formatted(.dateTime.month().day().weekday()))
                     }
                     let minutes = snapshot.isStale(at: date) ? 0 : snapshot.studyMinutes
-                    mediumStat("오늘 공부", WidgetMath.durationText(minutes))
+                    mediumStat(L("오늘 공부"), WidgetMath.durationTextL(minutes))
                     let progress = min(Double(minutes) / Double(max(snapshot.goalMinutes, 1)), 1)
                     VStack(alignment: .leading, spacing: 4) {
                         Text("목표 \(Int(progress * 100))%").font(.caption2.weight(.bold)).opacity(0.85)
@@ -161,7 +161,7 @@ struct DDayView: View {
                     .font(.subheadline.weight(.semibold))
                     .opacity(0.9)
                     .lineLimit(1)
-                Text(text ?? "설정 필요")
+                Text(text ?? L("설정 필요"))
                     .font(.system(size: text == nil ? 22 : 38, weight: .black, design: .rounded))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
@@ -201,7 +201,7 @@ struct TodayWordsView: View {
             }
             if snapshot.words.isEmpty {
                 Spacer()
-                Text(snapshot.wordsLeft == 0 && !snapshot.dayKey.isEmpty ? "오늘 목표 완료!" : "단어장을 찍어서 시작해요")
+                Text(snapshot.wordsLeft == 0 && !snapshot.dayKey.isEmpty ? L("오늘 목표 완료!") : L("단어장을 찍어서 시작해요"))
                     .font(.headline)
                     .foregroundStyle(ink)
                 Spacer()
@@ -234,7 +234,7 @@ struct StudyProgressView: View {
 
     private var minutes: Int { snapshot.isStale(at: date) ? 0 : snapshot.studyMinutes }
     private var progress: Double { min(Double(minutes) / Double(max(snapshot.goalMinutes, 1)), 1) }
-    private var timeText: String { WidgetMath.durationText(minutes) }
+    private var timeText: String { WidgetMath.durationTextL(minutes) }
     private var percent: Int { Int((Double(minutes) / Double(max(snapshot.goalMinutes, 1)) * 100).rounded(.down)) }
 
     var body: some View {
@@ -271,10 +271,10 @@ struct StudyProgressView: View {
                 ring(lineWidth: 11, big: true)
                     .frame(width: 112, height: 112)
                 VStack(alignment: .leading, spacing: 9) {
-                    WidgetHeader(title: "오늘 공부", accent: snapshot.accent)
-                    stat("공부", timeText, color: .primary)
-                    stat("목표", WidgetMath.durationText(snapshot.goalMinutes), color: .secondary)
-                    stat("남은", minutes >= snapshot.goalMinutes ? "달성!" : WidgetMath.durationText(snapshot.goalMinutes - minutes),
+                    WidgetHeader(title: L("오늘 공부"), accent: snapshot.accent)
+                    stat(L("공부"), timeText, color: .primary)
+                    stat(L("목표"), WidgetMath.durationTextL(snapshot.goalMinutes), color: .secondary)
+                    stat(L("남은"), minutes >= snapshot.goalMinutes ? L("달성!") : WidgetMath.durationTextL(snapshot.goalMinutes - minutes),
                          color: minutes >= snapshot.goalMinutes ? snapshot.accent : .secondary)
                     Label("\(snapshot.streak(at: date))일 연속", systemImage: "flame.fill")
                         .font(.caption2.weight(.bold))

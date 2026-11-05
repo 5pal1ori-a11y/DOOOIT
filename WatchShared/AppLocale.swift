@@ -184,6 +184,13 @@ enum AppDateFormat {
         return cal.veryShortStandaloneWeekdaySymbols
     }
 
+    /// 짧은 요일 (일요일부터): 일 월 / Sun Mon / 周日 周一 / 日 月
+    static var shortWeekdaySymbols: [String] {
+        var cal = Calendar(identifier: .gregorian)
+        cal.locale = AppLanguage.locale
+        return cal.shortStandaloneWeekdaySymbols
+    }
+
     /// "다음 주 월요일" → "월" / "Mon" / "周一" / "月"
     static func weekdayLabel(_ dayText: String) -> String {
         let day = dayText.replacingOccurrences(of: "다음 주 ", with: "")

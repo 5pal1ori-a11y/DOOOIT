@@ -118,7 +118,7 @@ struct TimerLiveView: View {
                         .font(.title3)
                         .widgetAccentable()
                     if timer.phase == .paused {
-                        Text(WatchFormat.short(Int(timer.pausedElapsed)))
+                        Text(WatchFormat.shortL(Int(timer.pausedElapsed)))
                             .font(.system(.caption2, design: .rounded).weight(.semibold))
                     }
                 }
@@ -142,13 +142,13 @@ struct TimerLiveView: View {
         if timer.phase == .running, let since = timer.runningSince {
             Text(since, style: .timer)
         } else {
-            Text(timer.phase == .paused ? "멈춤" : "시작")
+            Text(timer.phase == .paused ? L("멈춤") : L("시작"))
         }
     }
 
     private var rectangular: some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(timer.isActive ? timer.title : "공부 타이머")
+            Text(timer.isActive ? timer.title : L("공부 타이머"))
                 .font(.system(.caption2, design: .rounded).weight(.semibold))
                 .foregroundStyle(entry.accent)
                 .widgetAccentable()
@@ -163,7 +163,7 @@ struct TimerLiveView: View {
                 } else if timer.phase == .paused {
                     Text(WatchFormat.clock(timer.pausedElapsed))
                 } else {
-                    Text(WatchFormat.duration(entry.snapshot.studySeconds(at: entry.date)))
+                    Text(WatchFormat.durationL(entry.snapshot.studySeconds(at: entry.date)))
                 }
             }
             .font(.system(.title3, design: .rounded).weight(.bold))
@@ -173,7 +173,7 @@ struct TimerLiveView: View {
                 ProgressView(timerInterval: since...goal, countsDown: false, label: { EmptyView() }, currentValueLabel: { EmptyView() })
                     .tint(entry.accent)
             } else {
-                Text(timer.phase == .paused ? "멈춤" : "눌러서 시작")
+                Text(timer.phase == .paused ? L("멈춤") : L("눌러서 시작"))
                     .font(.system(.caption2, design: .rounded))
                     .foregroundStyle(.secondary)
             }
@@ -252,7 +252,7 @@ struct NextPlanView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text(entry.snapshot.plans.isEmpty ? "오늘 일정 없음" : "오늘 일정 끝!")
+                    Text(entry.snapshot.plans.isEmpty ? L("오늘 일정 없음") : L("오늘 일정 끝!"))
                         .font(.system(.headline, design: .rounded).weight(.bold))
                     if let first = entry.snapshot.tomorrow.first {
                         Text("내일 \(first.time) \(first.title)")
@@ -298,7 +298,7 @@ struct DDayView: View {
                         .font(.system(.body, design: .rounded).weight(.bold))
                         .minimumScaleFactor(0.5)
                         .widgetAccentable()
-                    Text(first?.title ?? "없음")
+                    Text(first?.title ?? L("없음"))
                         .font(.system(size: 10, design: .rounded))
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -394,7 +394,7 @@ struct StreakView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("\(streak)일 연속")
                         .font(.system(.headline, design: .rounded).weight(.bold))
-                    Text("오늘 \(WatchFormat.duration(entry.snapshot.studySeconds(at: entry.date)))")
+                    Text("오늘 \(WatchFormat.durationL(entry.snapshot.studySeconds(at: entry.date)))")
                         .font(.system(.caption2, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
@@ -440,7 +440,7 @@ struct TasksLeftView: View {
             .tint(entry.accent)
             .widgetAccentable()
         case .accessoryInline:
-            Text(left == 0 ? "할 일 끝!" : "할 일 \(left)개 남음")
+            Text(left == 0 ? L("할 일 끝!") : L("할 일 \(left)개 남음"))
         case .accessoryCorner:
             Text("\(left)")
                 .font(.system(.title3, design: .rounded).weight(.bold))
@@ -462,11 +462,11 @@ struct TasksLeftView: View {
                         .font(.system(.headline, design: .rounded).weight(.bold))
                         .lineLimit(2)
                         .minimumScaleFactor(0.7)
-                    Text(left > 1 ? "외 \(left - 1)개" : next.time)
+                    Text(left > 1 ? L("외 \(left - 1)개") : next.time)
                         .font(.system(.caption2, design: .rounded))
                         .foregroundStyle(.secondary)
                 } else {
-                    Text(plans.isEmpty ? "오늘 할 일 없음" : "다 했어요!")
+                    Text(plans.isEmpty ? L("오늘 할 일 없음") : L("다 했어요!"))
                         .font(.system(.headline, design: .rounded).weight(.bold))
                 }
             }

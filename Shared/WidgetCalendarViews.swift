@@ -16,7 +16,10 @@ struct MonthCalendarWidgetView: View {
     private var monthDays: [Date] { grid.filter { calendar.isDate($0, equalTo: date, toGranularity: .month) } }
     private var monthMinutes: Int { monthDays.reduce(0) { $0 + snapshot.minutes(on: $1) } }
     private var studiedDays: Int { monthDays.filter { snapshot.minutes(on: $0) > 0 }.count }
-    private var monthTitle: String { "\(calendar.component(.month, from: date))월" }
+    private var monthTitle: String {
+        AppLanguage.isKorean ? "\(calendar.component(.month, from: date))월"
+            : date.formatted(.dateTime.month(.abbreviated).locale(AppLanguage.locale))
+    }
 
     var body: some View {
         if family == .systemMedium {
@@ -34,7 +37,7 @@ struct MonthCalendarWidgetView: View {
                 Text(monthTitle).font(.title3.weight(.heavy))
                 Text("공부 달력").font(.caption.weight(.bold)).foregroundStyle(snapshot.accent)
                 Spacer()
-                Label(WidgetMath.compactHours(monthMinutes), systemImage: "clock.fill")
+                Label(WidgetMath.compactHoursL(monthMinutes), systemImage: "clock.fill")
                     .font(.caption.weight(.bold)).foregroundStyle(.secondary).monospacedDigit()
                 Label("\(studiedDays)일", systemImage: "checkmark.seal.fill")
                     .font(.caption.weight(.bold)).foregroundStyle(.secondary).monospacedDigit()
@@ -115,8 +118,8 @@ struct MonthCalendarWidgetView: View {
                 Text("공부 달력").font(.caption.weight(.heavy)).foregroundStyle(snapshot.accent)
                 Text(monthTitle).font(.system(size: 30, weight: .black, design: .rounded))
                 Spacer(minLength: 0)
-                summary("이번 달", WidgetMath.compactHours(monthMinutes))
-                summary("공부한 날", "\(studiedDays)일")
+                summary(L("이번 달"), WidgetMath.compactHoursL(monthMinutes))
+                summary(L("공부한 날"), L("\(studiedDays)일"))
                 Label("\(snapshot.streak(at: date))일 연속", systemImage: "flame.fill")
                     .font(.caption2.weight(.bold)).foregroundStyle(WidgetStyle.flame)
             }
@@ -183,9 +186,9 @@ struct MonthCalendarWidgetView: View {
 
     private func cellLabel(_ day: Date, minutes: Int, plans: Int, isToday: Bool) -> String {
         var parts = [day.formatted(.dateTime.month().day())]
-        if isToday { parts.append("오늘") }
-        parts.append(minutes > 0 ? "\(WidgetMath.durationText(minutes)) 공부" : "공부 안 함")
-        if plans > 0 { parts.append("일정 \(plans)개") }
+        if isToday { parts.append(L("오늘")) }
+        parts.append(minutes > 0 ? L("\(WidgetMath.durationTextL(minutes)) 공부") : L("공부 안 함"))
+        if plans > 0 { parts.append(L("일정 \(plans)개")) }
         return parts.joined(separator: ", ")
     }
 }
@@ -204,7 +207,7 @@ struct WeekPlansWidgetView: View {
         guard let first = week.first, let last = week.last else { return "" }
         let m1 = calendar.component(.month, from: first), m2 = calendar.component(.month, from: last)
         let d1 = calendar.component(.day, from: first), d2 = calendar.component(.day, from: last)
-        return m1 == m2 ? "\(m1)월 \(d1)–\(d2)일" : "\(m1)/\(d1)–\(m2)/\(d2)"
+        return m1 == m2 ? L("\(m1)월 \(d1)–\(d2)일") : "\(m1)/\(d1)–\(m2)/\(d2)"
     }
 
     private func items(_ day: Date) -> [WidgetSnapshot.PlanItem] {
@@ -217,7 +220,7 @@ struct WeekPlansWidgetView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            WidgetHeader(title: "이번 주", symbol: "calendar", trailing: rangeText, accent: snapshot.accent)
+            WidgetHeader(title: L("이번 주"), symbol: "calendar", trailing: rangeText, accent: snapshot.accent)
             if family == .systemLarge {
                 largeList
             } else {
@@ -336,8 +339,8 @@ struct WeekPlansWidgetView: View {
     private func dayLabel(_ day: Date) -> String {
         let list = items(day)
         var text = day.formatted(.dateTime.month().day().weekday())
-        if calendar.isDate(day, inSameDayAs: date) { text += ", 오늘" }
-        text += list.isEmpty ? ", 일정 없음" : ", " + list.map { "\($0.time) \($0.title)" }.joined(separator: ", ")
+        if calendar.isDate(day, inSameDayAs: date) { text += L(", 오늘") }
+        text += list.isEmpty ? L(", 일정 없음") : ", " + list.map { "\($0.time) \($0.title)" }.joined(separator: ", ")
         return text
     }
 }

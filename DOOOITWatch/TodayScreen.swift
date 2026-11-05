@@ -19,7 +19,7 @@ struct TodayScreen: View {
         List {
             Section {
                 if plans.isEmpty {
-                    WatchEmpty(symbol: "sparkles", text: "오늘 할 일이 없어요", color: accent)
+                    WatchEmpty(symbol: "sparkles", text: L("오늘 할 일이 없어요"), color: accent)
                         .listRowBackground(Color.clear)
                 }
                 ForEach(plans) { plan in
