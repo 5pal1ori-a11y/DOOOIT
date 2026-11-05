@@ -49,9 +49,14 @@ enum FigureReader {
         case .graph, .geometry:
             if let seen = await vision(cgImage) { return seen }
             if route == .graph {
-                // 그래프 판독 식 + 그림에 적힌 좌표
-                var lines = analysis?.graph.map(FigureVision.graphLines) ?? []
-                lines += FigureVision.pointLines(analysis?.text ?? problemText)
+                // 그림에 적힌 절편·꼭짓점·좌표로 식이 정해지면 그 값만, 아니면 그래프 판독 식 + 적힌 좌표
+                var lines: [String]
+                if let analysis {
+                    lines = FigureVision.graphFacts(analysis.textLabels, pixels: analysis.pixels, graph: analysis.graph, problem: problemText)
+                    if lines.isEmpty { lines = FigureVision.pointLines(analysis.text) }
+                } else {
+                    lines = FigureVision.pointLines(problemText)
+                }
                 if !lines.isEmpty { return .init(kind: .graph, lines: lines, source: "기본 판독") }
             }
             let lines = FigureVision.shapeLines(analysis?.shapes ?? [])

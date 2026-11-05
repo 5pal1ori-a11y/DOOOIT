@@ -55,8 +55,10 @@ enum VisionAnalyzer {
             return ImageAnalysis(kind: .empty, summary: "사진을 읽지 못했어요. 다른 사진으로 다시 시도해 주세요.", details: [], text: "",
                                  graph: nil, shapes: [], labels: [], faceCount: 0, codes: [])
         }
-        let vision = await runVision(cgImage, width: pixels.width, height: pixels.height)
+        var vision = await runVision(cgImage, width: pixels.width, height: pixels.height)
         let text = vision.lines.joined(separator: "\n")
+        // 글자 읽기가 놓친 그림 속 작은 글자 (꼭짓점 이름, 변 길이, 각, 축 옆 숫자)
+        vision.labels += await FigureVision.missingLabels(cgImage, pixels: pixels, known: vision.labels)
 
         // 1) 그래프: 좌표축이 있고 곡선이 맞으면
         var graph: GraphAnalysis?

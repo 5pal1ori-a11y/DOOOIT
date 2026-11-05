@@ -78,6 +78,13 @@ func oneLine(_ s: String) -> String { s.replacingOccurrences(of: "\n", with: "�
 
 // MARK: - 기본 판독 (Vision + 픽셀)
 
+/// 앱(VisionAnalyzer)과 같게: 글자 읽기 + 놓친 작은 글자 다시 읽기
+func appLabels(_ image: CGImage) async -> [TextLabel] {
+    let base = await FigureVision.textLabels(image, correction: true)
+    guard let px = pixels(image) else { return base }
+    return base + (await FigureVision.missingLabels(image, pixels: px, known: base))
+}
+
 func visionLabels(_ image: CGImage) -> [TextLabel] {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
@@ -131,14 +138,17 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         guard route == .chart else { return [] }
         return FigureVision.chartLines(visionLabels(image), image: pixels(image), kind: .bar)
     case .graph:
-        let labels = visionLabels(image)
-        var lines: [String] = []
-        if let px = pixels(image), GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: labels) { lines = FigureVision.graphLines(g) }
-        return lines + FigureVision.pointLines(labels.map(\.text).joined(separator: " "))
+        let labels = await appLabels(image)
+        let px = pixels(image)
+        var graph: GraphAnalysis?
+        if let px, GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: labels), g.kind != .unknown { graph = g }
+        return FigureVision.graphFacts(labels, pixels: px, graph: graph, problem: c.problem)
     case .geometry, .none:
         guard let px = pixels(image) else { return [] }
         let minArea = Double(px.width * px.height) * 0.03
-        let shapes = ShapeReader.analyze(px, labels: visionLabels(image)).filter { $0.bounds.w * $0.bounds.h >= minArea }
+        let labels = await appLabels(image)
+        do { print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " ")) }
+        let shapes = ShapeReader.analyze(px, labels: labels).filter { $0.bounds.w * $0.bounds.h >= minArea }
         return FigureVision.shapeLines(shapes)
     }
 }
