@@ -82,7 +82,7 @@ struct WidgetGalleryView: View {
                 inline { StreakWidgetView(snapshot: s, family: .accessoryInline, date: now) }
                 inline { NextPlanWidgetView(snapshot: s, family: .accessoryInline, date: now) }
                 Text(now, format: .dateTime.hour().minute())
-                    .font(.system(size: 84, weight: .semibold, design: .rounded))
+                    .font(.pt(size: 84, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.95))
             }
             HStack(spacing: 14) {
@@ -144,7 +144,7 @@ struct WidgetGalleryView: View {
 
     private func inline<V: View>(@ViewBuilder _ view: () -> V) -> some View {
         view()
-            .font(.subheadline.weight(.semibold))
+            .font(.pt(.subheadline).weight(.semibold))
             .foregroundStyle(.white.opacity(0.9))
             .lineLimit(1)
             .fontDesign(.rounded)

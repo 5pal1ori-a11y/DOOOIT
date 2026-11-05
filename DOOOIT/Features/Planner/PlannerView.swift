@@ -96,12 +96,12 @@ struct PlannerView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
                     Text(month.kr("yyyy년"))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(.secondary)
                     DDayChip()
                 }
                 Text(month.kr("M월"))
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .font(.pt(size: 34, weight: .bold))
                     .foregroundStyle(Palette.ink)
                     .contentTransition(.numericText())
             }
@@ -114,7 +114,7 @@ struct PlannerView: View {
                     }
                     Haptics.tap()
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 12)
                 .frame(height: 34)
@@ -136,7 +136,7 @@ struct PlannerView: View {
                     Haptics.tap()
                 } label: {
                     Image(systemName: mode.symbol)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(isOn ? Color.white : Color.secondary)
                         .frame(width: 40, height: 30)
                         .background(isOn ? Theme.accent : Color.clear, in: .capsule)
@@ -162,7 +162,7 @@ struct PlannerView: View {
                     Button { changeMonth(1) } label: { Image(systemName: "chevron.right").frame(width: 40, height: 36) }
                         .accessibilityLabel("다음 달")
                 }
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 4)
 
@@ -202,7 +202,7 @@ struct PlannerView: View {
             DaySummaryHeader(day: selected, occurrences: occurrences) {
                 Button { editorTarget = .new(selected) } label: {
                     Image(systemName: "plus")
-                        .font(.subheadline.weight(.bold))
+                        .font(.pt(.subheadline).weight(.bold))
                         .foregroundStyle(Theme.accent)
                         .frame(width: 32, height: 32)
                         .background(Theme.accent.opacity(0.12), in: .circle)
@@ -215,7 +215,7 @@ struct PlannerView: View {
                     HStack(spacing: 12) {
                         IconBadge(symbol: "calendar", size: 40)
                         Text("일정 없음")
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                             .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
@@ -295,14 +295,14 @@ struct DayTimelineView: View {
             if !allDay.isEmpty {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
-                        Text("종일").font(.caption).foregroundStyle(.secondary)
+                        Text("종일").font(.pt(.caption)).foregroundStyle(.secondary)
                         ForEach(allDay) { occurrence in
                             Button { onOpen(occurrence.plan) } label: {
                                 HStack(spacing: 6) {
                                     Circle().fill(occurrence.plan.color).frame(width: 8, height: 8)
                                     Text(occurrence.plan.title)
                                 }
-                                .font(.footnote.weight(.semibold))
+                                .font(.pt(.footnote).weight(.semibold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
                                 .background(occurrence.plan.color.opacity(0.12), in: .capsule)
@@ -318,7 +318,7 @@ struct DayTimelineView: View {
                 ForEach(0...24, id: \.self) { hour in
                     HStack(alignment: .top, spacing: 4) {
                         Text(Self.hourLabel(hour))
-                            .font(.system(size: 10.5))
+                            .font(.pt(size: 10.5))
                             .foregroundStyle(.secondary)
                             .frame(width: labelWidth - 4, alignment: .leading)
                         DashedLine()
@@ -354,7 +354,7 @@ struct DayTimelineView: View {
                             let y = CGFloat(Self.minutes(of: context.date)) / 60 * hourHeight
                             HStack(spacing: 0) {
                                 Text(context.date.kr("HH:mm"))
-                                    .font(.system(size: 10, weight: .heavy))
+                                    .font(.pt(size: 10, weight: .heavy))
                                     .monospacedDigit()
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 5)
@@ -371,7 +371,7 @@ struct DayTimelineView: View {
 
             if occurrences.isEmpty {
                 Text("일정 없음")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
             }
         }
@@ -418,14 +418,14 @@ struct TimelineBlock: View {
         Group {
             if compact {
                 HStack(spacing: 6) {
-                    Text(plan.title).font(.caption.weight(.bold)).lineLimit(1)
-                    Text(time).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(plan.title).font(.pt(.caption).weight(.bold)).lineLimit(1)
+                    Text(time).font(.pt(.caption2)).foregroundStyle(.secondary).lineLimit(1)
                 }
             } else {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(plan.title).font(.footnote.weight(.bold)).lineLimit(1)
+                    Text(plan.title).font(.pt(.footnote).weight(.bold)).lineLimit(1)
                     Text(plan.isStudy ? "\(time) · \(TimeText.duration(minutes: plan.durationMinutes))" : time)
-                        .font(.caption2)
+                        .font(.pt(.caption2))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -440,7 +440,7 @@ struct TimelineBlock: View {
         .overlay(alignment: .topTrailing) {
             if plan.isStudy {
                 Image(systemName: plan.lockApps ? "lock.fill" : "timer")
-                    .font(.caption2)
+                    .font(.pt(.caption2))
                     .foregroundStyle(plan.color)
                     .padding(6)
             }
@@ -476,7 +476,7 @@ struct CalendarGrid: View {
             HStack(spacing: 0) {
                 ForEach(Array(weekdays.enumerated()), id: \.offset) { index, symbol in
                     Text(symbol)
-                        .font(.caption.weight(.semibold))
+                        .font(.pt(.caption).weight(.semibold))
                         .foregroundStyle(index == 0 ? Palette.danger : (index == 6 ? Theme.accent : Color.secondary))
                         .frame(maxWidth: .infinity)
                 }
@@ -519,7 +519,7 @@ private struct DayCell: View {
         let weekday = Calendar.current.component(.weekday, from: day)
         VStack(spacing: 3) {
             Text("\(Calendar.current.component(.day, from: day))")
-                .font(.footnote.weight(isToday || isSelected ? .bold : .medium))
+                .font(.pt(.footnote).weight(isToday || isSelected ? .bold : .medium))
                 .monospacedDigit()
                 .foregroundStyle(textColor(weekday: weekday))
                 .frame(width: 26, height: 26)
@@ -534,7 +534,7 @@ private struct DayCell: View {
             VStack(spacing: 2) {
                 ForEach(Array(events.prefix(2).enumerated()), id: \.offset) { _, event in
                     Text(event.title)
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.pt(size: 9, weight: .semibold))
                         .lineLimit(1)
                         .strikethrough(event.done)
                         .foregroundStyle(event.color)
@@ -546,7 +546,7 @@ private struct DayCell: View {
                 }
                 if events.count > 2 {
                     Text("+\(events.count - 2)")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.pt(size: 9, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .frame(height: 10)
                 }
@@ -584,11 +584,11 @@ private struct DaySummaryHeader<Trailing: View>: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
                         Text(day.kr("M월 d일 EEEE"))
-                            .font(.title3.weight(.bold))
+                            .font(.pt(.title3).weight(.bold))
                             .foregroundStyle(Palette.ink)
                         if day.isSameDay(as: Date()) {
                             Text("오늘")
-                                .font(.caption.weight(.bold))
+                                .font(.pt(.caption).weight(.bold))
                                 .foregroundStyle(Theme.accent)
                                 .padding(.horizontal, 7)
                                 .padding(.vertical, 2)
@@ -597,7 +597,7 @@ private struct DaySummaryHeader<Trailing: View>: View {
                     }
                     if !occurrences.isEmpty {
                         Text(summary(done: done, studyMinutes: studyMinutes))
-                            .font(.footnote)
+                            .font(.pt(.footnote))
                             .foregroundStyle(.secondary)
                     }
                 }

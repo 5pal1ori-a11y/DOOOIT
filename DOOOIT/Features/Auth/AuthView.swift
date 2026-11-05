@@ -14,7 +14,7 @@ struct AuthView: View {
     @Environment(AuthManager.self) private var auth
     @Environment(\.colorScheme) private var scheme
 
-    @State private var mode: Mode = .signUp
+    @State private var mode: Mode = .signIn
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -32,7 +32,7 @@ struct AuthView: View {
     /// 동의하지 않고 가입·소셜 로그인을 누름
     @State private var consentNudge = 0
 
-    /// 가입(이메일)과 Apple·Google 로그인(처음이면 가입)에는 동의가 필요
+    /// Apple 로그인(처음이면 가입)과 예전 이메일 계정 로그인에는 동의가 필요
     private var needsConsent: Bool { !agreed }
     @FocusState private var focus: Field?
 
@@ -77,33 +77,30 @@ struct AuthView: View {
                 .padding(.bottom, 22)
                 .appearAnimation()
 
-            PillSegmentedControl(items: Mode.allCases, selection: $mode) { $0.rawValue }
-                .disabled(isSubmitting)
-                .padding(.bottom, 14)
-                .appearAnimation(delay: 0.05)
-
-            fields
-                .shake(trigger: shakeTrigger)
-                .appearAnimation(delay: 0.1)
-
-            primaryButton
-                .padding(.top, 18)
-                .appearAnimation(delay: 0.14)
-
-            orDivider
-                .padding(.vertical, 14)
-                .appearAnimation(delay: 0.18)
-
+            // 가입·로그인은 Apple로만
             appleButton
-                .appearAnimation(delay: 0.18)
-
-            googleButton
-                .padding(.top, 10)
-                .appearAnimation(delay: 0.2)
+                .appearAnimation(delay: 0.1)
 
             LegalConsentRow(agreed: $agreed)
                 .padding(.top, 14)
                 .shake(trigger: consentNudge)
+
+            // 로그인 없이 둘러보기 (이 기기에만 저장 · iCloud 동기화와 랭킹은 로그인 뒤에)
+            Button {
+                guard checkConsent() else { return }
+                Haptics.tap()
+                auth.startGuest()
+            } label: {
+                Text("로그인 없이 둘러보기")
+                    .font(.pt(.subheadline).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
+            }
+            .buttonStyle(.pressable)
+            .padding(.top, 12)
         }
         .onAppear { agreed = agreedVersion >= LegalText.version }
         .onChange(of: agreed) { _, value in agreedVersion = value ? LegalText.version : 0 }
@@ -121,14 +118,14 @@ struct AuthView: View {
         VStack(spacing: 8) {
             BrandLogo(size: 72)
                 .padding(.bottom, 10)
-            Text(mode == .signUp ? "MOTI 시작하기" : "다시 만나서 반가워요")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+            Text("MOTI 시작하기")
+                .font(.pt(.largeTitle).weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .contentTransition(.opacity)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text("오늘 할 일, 끝까지 함께")
-                .font(.subheadline.weight(.medium))
+                .font(.pt(.subheadline).weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .multilineTextAlignment(.center)
@@ -213,7 +210,7 @@ struct AuthView: View {
             if let current { Task { @MainActor in focus = current } }
         } label: {
             Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .font(.pt(size: 15, weight: .semibold))
                 .foregroundStyle(.secondary)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: 36, height: 44)
@@ -247,7 +244,7 @@ struct AuthView: View {
         HStack(spacing: 12) {
             Capsule().fill(Color.primary.opacity(0.1)).frame(height: 1)
             Text("또는")
-                .font(.caption.weight(.medium))
+                .font(.pt(.caption).weight(.medium))
                 .foregroundStyle(.secondary)
             Capsule().fill(Color.primary.opacity(0.1)).frame(height: 1)
         }
@@ -279,38 +276,6 @@ struct AuthView: View {
                     .onTapGesture { _ = checkConsent() }
             }
         }
-    }
-
-    private var googleButton: some View {
-        Button {
-            guard checkConsent() else { return }
-            Task {
-                isSubmitting = true
-                defer { isSubmitting = false }
-                do {
-                    try await auth.signInWithGoogle()
-                } catch {
-                    appleErrorMessage = error.localizedDescription
-                }
-            }
-        } label: {
-            HStack(spacing: 10) {
-                Text("G")
-                    .font(.system(size: 19, weight: .bold, design: .rounded))
-                    .foregroundStyle(LinearGradient(colors: [Color(hex: "#4285F4"), Color(hex: "#34A853"), Color(hex: "#FBBC05"), Color(hex: "#EA4335")],
-                                                    startPoint: .topLeading, endPoint: .bottomTrailing))
-                Text("Google로 계속하기")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 52)
-            .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
-        }
-        .buttonStyle(.pressable)
-        .disabled(isSubmitting)
-        .accessibilityLabel("Google로 계속하기")
     }
 
     // MARK: 짧은 안내 (입력을 마친 칸에만)
@@ -389,12 +354,12 @@ private struct AuthField<Content: View, Trailing: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Image(systemName: symbol)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.pt(size: 16, weight: .semibold))
                     .foregroundStyle(message != nil ? Palette.danger : (isFocused ? Theme.accent : Color.secondary))
                     .frame(width: 22)
                     .accessibilityHidden(true)
                 content
-                    .font(.body)
+                    .font(.pt(.body))
                     .foregroundStyle(Palette.ink)
                 trailing
             }
@@ -408,7 +373,7 @@ private struct AuthField<Content: View, Trailing: View>: View {
 
             if let message {
                 Label(message, systemImage: "exclamationmark.circle.fill")
-                    .font(.caption.weight(.medium))
+                    .font(.pt(.caption).weight(.medium))
                     .foregroundStyle(Palette.danger)
                     .padding(.leading, 6)
                     .transition(.opacity.combined(with: .move(edge: .top)))
@@ -450,10 +415,10 @@ struct NameSetupView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("어떻게 불러드릴까요?")
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .font(.pt(.largeTitle).weight(.bold))
                         .foregroundStyle(Palette.ink)
                     Text("홈에서 이름으로 인사해 드려요")
-                        .font(.subheadline.weight(.medium))
+                        .font(.pt(.subheadline).weight(.medium))
                         .foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 26)
@@ -469,7 +434,7 @@ struct NameSetupView: View {
                 .appearAnimation(delay: 0.1)
 
                 Text("테마 색")
-                    .font(.footnote.weight(.semibold))
+                    .font(.pt(.footnote).weight(.semibold))
                     .foregroundStyle(.secondary)
                     .padding(.top, 24)
                     .padding(.bottom, 8)

@@ -50,11 +50,11 @@ struct BadgeShelfView: View {
         return VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(count)")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
+                    .font(.pt(size: 34, weight: .bold))
                     .foregroundStyle(Palette.ink)
                     .contentTransition(.numericText())
                 Text("/ \(BadgeBook.all.count)개 모았어요")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(.secondary)
             }
             if let next = center.next {
@@ -62,9 +62,9 @@ struct BadgeShelfView: View {
                     IconBadge(symbol: next.symbol, color: next.color, size: 40)
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text("다음 · \(next.title)").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("다음 · \(next.title)").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
                             Spacer()
-                            Text(next.progressText(center.stats)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                            Text(next.progressText(center.stats)).font(.pt(.caption).weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
                         }
                         LinearProgressBar(value: next.progress(center.stats), color: next.color, height: 7)
                     }
@@ -87,7 +87,7 @@ struct BadgeTile: View {
         VStack(spacing: 7) {
             BadgeMedal(badge: badge, isOn: isOn, size: size)
             Text(badge.title)
-                .font(.caption.weight(.bold))
+                .font(.pt(.caption).weight(.bold))
                 .foregroundStyle(isOn ? Palette.ink : .secondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
@@ -98,7 +98,7 @@ struct BadgeTile: View {
                     Text(badge.progressText(stats))
                 }
             }
-            .font(.caption2)
+            .font(.pt(.caption2))
             .foregroundStyle(.tertiary)
             .monospacedDigit()
         }
@@ -118,7 +118,7 @@ struct BadgeMedal: View {
         let shape = RoundedRectangle(cornerRadius: size * 0.34, style: .continuous)
         Image(systemName: badge.symbol)
             .environment(\.symbolVariants, .none)
-            .font(.system(size: size * 0.38, weight: .regular))
+            .font(.pt(size: size * 0.38, weight: .regular))
             .foregroundStyle(isOn ? badge.color : Color.secondary.opacity(0.55))
             .symbolEffect(.bounce, value: bounce)
             .frame(width: size, height: size)
@@ -144,14 +144,14 @@ struct BadgeDetailSheet: View {
         VStack(spacing: 14) {
             BadgeMedal(badge: badge, isOn: unlockedAt != nil, size: 96, bounce: bounce)
                 .padding(.top, 28)
-            Text(badge.title).font(.title3.weight(.bold)).foregroundStyle(Palette.ink)
-            Text(badge.detail).font(.subheadline).foregroundStyle(.secondary)
+            Text(badge.title).font(.pt(.title3).weight(.bold)).foregroundStyle(Palette.ink)
+            Text(badge.detail).font(.pt(.subheadline)).foregroundStyle(.secondary)
             if let unlockedAt {
                 TagLabel(text: unlockedAt.kr("yyyy년 M월 d일"), symbol: "checkmark", color: badge.color)
             } else {
                 VStack(spacing: 6) {
                     LinearProgressBar(value: badge.progress(stats), color: badge.color, height: 8)
-                    Text(badge.progressText(stats)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                    Text(badge.progressText(stats)).font(.pt(.caption).weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
                 }
                 .frame(width: 200)
             }
@@ -175,8 +175,8 @@ struct BadgeToastHost: View {
                     HStack(spacing: 12) {
                         BadgeMedal(badge: toast.badge, isOn: true, size: 46, bounce: bounce)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("새 배지!").font(.caption.weight(.semibold)).foregroundStyle(toast.badge.color)
-                            Text(toast.badge.title).font(.headline).foregroundStyle(Palette.ink)
+                            Text("새 배지!").font(.pt(.caption).weight(.semibold)).foregroundStyle(toast.badge.color)
+                            Text(toast.badge.title).font(.pt(.headline)).foregroundStyle(Palette.ink)
                         }
                         Spacer(minLength: 0)
                         if toast.more > 0 {
@@ -212,12 +212,12 @@ struct RecentBadgeChip: View {
             NavigationLink { BadgeShelfView() } label: {
                 HStack(spacing: 10) {
                     BadgeMedal(badge: badge, isOn: true, size: 30)
-                    Text("최근 배지").font(.subheadline).foregroundStyle(.secondary)
-                    Text(badge.title).font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                    Text("최근 배지").font(.pt(.subheadline)).foregroundStyle(.secondary)
+                    Text(badge.title).font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
                     Spacer(minLength: 0)
                     Text("\(center.unlocked.count)/\(BadgeBook.all.count)")
-                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
-                    Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                        .font(.pt(.caption).weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                    Image(systemName: "chevron.right").font(.pt(.caption).weight(.semibold)).foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)

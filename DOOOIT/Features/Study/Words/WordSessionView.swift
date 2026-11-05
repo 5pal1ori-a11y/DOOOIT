@@ -73,7 +73,7 @@ struct WordSessionView: View {
         ZStack {
             if !finished && !queue.isEmpty {
                 Text("\(min(index + 1, queue.count))/\(queue.count)")
-                    .font(.subheadline.weight(.semibold).monospacedDigit())
+                    .font(.pt(.subheadline).weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
                     .contentTransition(.numericText())
             }
@@ -82,7 +82,7 @@ struct WordSessionView: View {
                     if finished || seen.isEmpty { dismiss() } else { showExitConfirm = true }
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.body.weight(.semibold))
+                        .font(.pt(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .frame(width: 40, height: 40)
                 }
@@ -102,7 +102,7 @@ struct WordSessionView: View {
             Spacer(minLength: 24)
 
             Text(word.term)
-                .font(.system(size: 52, weight: .bold))
+                .font(.pt(size: 52, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
                 .lineLimit(3)
@@ -112,7 +112,7 @@ struct WordSessionView: View {
 
             if isFlashcard, revealed {
                 Text(word.meaning)
-                    .font(.title3.weight(.medium))
+                    .font(.pt(.title3).weight(.medium))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.top, 14)
@@ -143,7 +143,7 @@ struct WordSessionView: View {
                         pick(offset, word: word)
                     }
                     Text(caption(for: offset, word: word))
-                        .font(.footnote.weight(.semibold))
+                        .font(.pt(.footnote).weight(.semibold))
                         .foregroundStyle(Theme.accent)
                         .frame(height: 18)
                         .opacity(caption(for: offset, word: word).isEmpty ? 0 : 1)
@@ -174,7 +174,7 @@ struct WordSessionView: View {
         }
         return Button(action: action) {
             Text(text)
-                .font(.headline)
+                .font(.pt(.headline))
                 .foregroundStyle(tint ?? Palette.ink)
                 .multilineTextAlignment(.center)
                 .lineLimit(4)
@@ -189,7 +189,7 @@ struct WordSessionView: View {
                 }
                 .overlay(alignment: .top) {
                     Text("\(number)")
-                        .font(.footnote.weight(.bold).monospacedDigit())
+                        .font(.pt(.footnote).weight(.bold).monospacedDigit())
                         .foregroundStyle(tint == nil ? Palette.ink : .white)
                         .frame(width: 28, height: 28)
                         .background(tint ?? Palette.card, in: .circle)
@@ -219,7 +219,7 @@ struct WordSessionView: View {
             HStack(spacing: 12) {
                 Button { grade(false, word: word, choice: 1) } label: {
                     Text("몰라요")
-                        .font(.body.weight(.bold))
+                        .font(.pt(.body).weight(.bold))
                         .foregroundStyle(Palette.danger)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
@@ -252,7 +252,7 @@ struct WordSessionView: View {
     private func pill(title: String, symbol: String, active: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(active ? Theme.accent : Palette.ink.opacity(0.75))
                 .padding(.horizontal, 16)
                 .frame(height: 38)
@@ -381,10 +381,10 @@ struct WordSessionView: View {
         return VStack(spacing: 0) {
             VStack(spacing: 6) {
                 Text("\(right)/\(total)")
-                    .font(.system(size: 56, weight: .bold).monospacedDigit())
+                    .font(.pt(size: 56, weight: .bold).monospacedDigit())
                     .foregroundStyle(right == total ? Theme.accent : Palette.ink)
                 Text("맞힌 개수")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(.secondary)
                 if kind == .daily && !practice {
                     TagLabel(text: "오늘 목표 완료", symbol: "checkmark")
@@ -397,22 +397,22 @@ struct WordSessionView: View {
             if missed.isEmpty {
                 Spacer()
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 52))
+                    .font(.pt(size: 52))
                     .foregroundStyle(Theme.accent)
                     .symbolEffect(.bounce, options: .nonRepeating, value: finished)
                 Spacer()
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("다시 볼 단어 \(missed.count)")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(.secondary)
                     ScrollView {
                         VStack(spacing: 0) {
                             ForEach(missed) { word in
                                 HStack(spacing: 12) {
                                     VStack(alignment: .leading, spacing: 2) {
-                                        Text(word.term).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
-                                        Text(word.meaning).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                                        Text(word.term).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
+                                        Text(word.meaning).font(.pt(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
                                     }
                                     Spacer(minLength: 8)
                                     SpeakButton(text: word.term, size: 34)
@@ -434,7 +434,7 @@ struct WordSessionView: View {
                     withAnimation(reduceMotion ? nil : .smooth) { start(with: missed.isEmpty ? roundWords : missed) }
                 } label: {
                     Label("다시 하기", systemImage: "arrow.counterclockwise")
-                        .font(.body.weight(.bold))
+                        .font(.pt(.body).weight(.bold))
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)

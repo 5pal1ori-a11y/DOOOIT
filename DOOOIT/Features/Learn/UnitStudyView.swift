@@ -103,7 +103,7 @@ struct UnitStudyView: View {
                     if DoitStudy.isFree(subject) {
                         // 교과서 자료 없이 모델이 만든 내용
                         Label("AI가 만든 내용 · 틀릴 수 있어요", systemImage: "sparkles")
-                            .font(.caption.weight(.semibold))
+                            .font(.pt(.caption).weight(.semibold))
                             .foregroundStyle(Palette.warning)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
@@ -164,16 +164,16 @@ struct UnitStudyView: View {
                             Circle()
                                 .strokeBorder(isCurrent || isDone ? Color.clear : Color.primary.opacity(0.12), lineWidth: 1.5)
                             if isDone && !isCurrent {
-                                Image(systemName: "checkmark").font(.caption.weight(.heavy)).foregroundStyle(Theme.accent)
+                                Image(systemName: "checkmark").font(.pt(.caption).weight(.heavy)).foregroundStyle(Theme.accent)
                             } else {
                                 Text("\(index + 1)")
-                                    .font(.subheadline.weight(.bold))
+                                    .font(.pt(.subheadline).weight(.bold))
                                     .foregroundStyle(isCurrent ? Color.white : Color.secondary)
                             }
                         }
                         .frame(width: 32, height: 32)
                         Text(item.title)
-                            .font(.caption2.weight(isCurrent ? .bold : .medium))
+                            .font(.pt(.caption2).weight(isCurrent ? .bold : .medium))
                             .foregroundStyle(isCurrent ? Palette.ink : Color.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -206,11 +206,11 @@ struct UnitStudyView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
-                    .font(.title2)
+                    .font(.pt(.title2))
                     .foregroundStyle(Palette.success)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("단원 학습 완료").font(.headline).foregroundStyle(Palette.ink)
-                    Text(unit).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
+                    Text("단원 학습 완료").font(.pt(.headline)).foregroundStyle(Palette.ink)
+                    Text(unit).font(.pt(.subheadline)).foregroundStyle(.secondary).lineLimit(1)
                 }
             }
             HStack(spacing: 10) {
@@ -230,7 +230,7 @@ struct UnitStudyView: View {
                     }
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(Theme.accent)
                         .frame(width: 52, height: 52)
                         .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 16))
@@ -284,11 +284,11 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             } else if let error {
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.circle")
-                        .font(.system(size: 30, weight: .semibold))
+                        .font(.pt(size: 30, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         .frame(width: 64, height: 64)
                         .background(Theme.accent.opacity(0.12), in: .circle)
-                    Text(error).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Text(error).font(.pt(.subheadline)).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     Button("다시 시도") { Task { await load(force: true) } }
                         .buttonStyle(.glass)
                 }
@@ -298,16 +298,16 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 // 처음부터 이 화면을 보여줘야 .task가 실행됨 (빈 화면이면 시작되지 않음)
                 VStack(spacing: 12) {
                     Image(systemName: "sparkles")
-                        .font(.system(size: 34, weight: .bold))
+                        .font(.pt(size: 34, weight: .bold))
                         .foregroundStyle(.white)
                         .frame(width: 72, height: 72)
                         .background(AccentGradient.linear, in: .circle)
                         .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
                         .symbolEffect(.pulse, options: .repeating)
-                    Text("모티 AI가 학습 자료를 만들고 있어요").font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+                    Text("모티 AI가 학습 자료를 만들고 있어요").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(loading ? "\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요" : "준비 중")
-                            .font(.caption)
+                            .font(.pt(.caption))
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
@@ -379,7 +379,7 @@ private func saveWeak(_ items: [WeakItem], subject: String, unit: String, contex
 private func primaryButton(_ title: String, symbol: String = "arrow.right", action: @escaping () -> Void) -> some View {
     Button(action: action) {
         Label(title, systemImage: symbol)
-            .font(.body.weight(.bold))
+            .font(.pt(.body).weight(.bold))
             .frame(maxWidth: .infinity)
             .frame(height: 40)
     }
@@ -402,7 +402,7 @@ struct ConceptStepView: View {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
                     Label(note.scope.isEmpty ? "\(subject) · \(note.title)" : note.scope, systemImage: "book.pages")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(Palette.ink)
                     Spacer()
                     Button(action: regenerate) { Image(systemName: "arrow.clockwise") }
@@ -413,7 +413,7 @@ struct ConceptStepView: View {
                     HStack(spacing: 6) {
                         ForEach(note.checks, id: \.self) { check in
                             Label(check, systemImage: "checkmark.seal.fill")
-                                .font(.caption2.weight(.semibold))
+                                .font(.pt(.caption2).weight(.semibold))
                                 .foregroundStyle(Palette.success)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -423,8 +423,8 @@ struct ConceptStepView: View {
                 }
                 if !note.summary.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("핵심 개념", systemImage: "star.fill").font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
-                        Text(note.summary).font(.body).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                        Label("핵심 개념", systemImage: "star.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Theme.accent)
+                        Text(note.summary).font(.pt(.body)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -434,27 +434,27 @@ struct ConceptStepView: View {
                     DisclosureGroup {
                         VStack(alignment: .leading, spacing: 10) {
                             ForEach(Array(note.details.enumerated()), id: \.offset) { _, detail in
-                                Text(detail).font(.subheadline).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                                Text(detail).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
                             }
                         }
                         .padding(.top, 8)
                     } label: {
-                        Label("자세히 알아보기", systemImage: "book.closed").font(.subheadline.weight(.bold))
+                        Label("자세히 알아보기", systemImage: "book.closed").font(.pt(.subheadline).weight(.bold))
                     }
                     .padding(14)
                     .background(Palette.card, in: .rect(cornerRadius: 16))
                 }
-                Text("핵심 학습 포인트").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
+                Text("핵심 학습 포인트").font(.pt(.subheadline).weight(.bold)).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(Array(note.keyPoints.enumerated()), id: \.offset) { index, point in
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(index + 1)")
-                                .font(.caption.weight(.bold))
+                                .font(.pt(.caption).weight(.bold))
                                 .foregroundStyle(.white)
                                 .frame(width: 24, height: 24)
                                 .background(AccentGradient.linear, in: .circle)
                             Text(point)
-                                .font(.body)
+                                .font(.pt(.body))
                                 .foregroundStyle(Palette.ink)
                                 .lineSpacing(2)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -465,8 +465,8 @@ struct ConceptStepView: View {
                 .softCard()
                 if !note.example.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Label("예제", systemImage: "lightbulb.fill").font(.subheadline.weight(.bold)).foregroundStyle(Palette.warning)
-                        Text(note.example).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                        Label("예제", systemImage: "lightbulb.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.warning)
+                        Text(note.example).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -475,7 +475,7 @@ struct ConceptStepView: View {
                 }
                 if !note.sources.isEmpty {
                     Label("근거: " + note.sources.joined(separator: " · "), systemImage: "books.vertical")
-                        .font(.caption2)
+                        .font(.pt(.caption2))
                         .foregroundStyle(.secondary)
                 }
 
@@ -503,7 +503,7 @@ struct ClozeStepView: View {
         } content: { set, regenerate in
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
-                    Text("빈칸에 들어갈 말을 적어보세요").font(.headline)
+                    Text("빈칸에 들어갈 말을 적어보세요").font(.pt(.headline))
                     Spacer()
                     Button { answers = [:]; checked = false; regenerate() } label: { Image(systemName: "arrow.clockwise") }
                         .accessibilityLabel("새 문제")
@@ -528,7 +528,7 @@ struct ClozeStepView: View {
                         .feedbackGlow(checked ? ok : nil, cornerRadius: 12)
                         .shake(trigger: checked && !ok)
                         if checked && !ok {
-                            Text("정답: \(item.answer)").font(.caption.weight(.semibold)).foregroundStyle(Palette.danger)
+                            Text("정답: \(item.answer)").font(.pt(.caption).weight(.semibold)).foregroundStyle(Palette.danger)
                         }
                     }
                 }
@@ -573,9 +573,9 @@ struct OXStepView: View {
             } else {
                 let item = set.items[min(index, set.items.count - 1)]
                 VStack(alignment: .leading, spacing: 18) {
-                    Text("\(index + 1) / \(set.items.count)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    Text("\(index + 1) / \(set.items.count)").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
                     Text(item.statement)
-                        .font(.title3.weight(.semibold))
+                        .font(.pt(.title3).weight(.semibold))
                         .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(Palette.ink)
                         .softCard(cornerRadius: 22, padding: 20)
@@ -591,10 +591,10 @@ struct OXStepView: View {
                         let ok = picked == item.isTrue
                         VStack(alignment: .leading, spacing: 6) {
                             Label(ok ? "맞았어요!" : "틀렸어요 · 정답은 \(item.isTrue ? "O" : "X")", systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .font(.headline)
+                                .font(.pt(.headline))
                                 .foregroundStyle(ok ? Palette.success : Palette.danger)
                                 .symbolEffect(.bounce, value: picked)
-                            Text(item.explanation).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                            Text(item.explanation).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -631,7 +631,7 @@ struct OXStepView: View {
             }
         } label: {
             Image(systemName: value ? "circle" : "xmark")
-                .font(.system(size: 34, weight: .heavy))
+                .font(.pt(size: 34, weight: .heavy))
                 .foregroundStyle(value ? Palette.success : Palette.danger)
                 .frame(maxWidth: .infinity)
                 .frame(height: 76)
@@ -649,10 +649,10 @@ struct OXStepView: View {
         VStack(spacing: 14) {
             ResultSummaryCard(correct: correct, total: total)
             if !wrongs.isEmpty {
-                Text("틀린 \(wrongs.count)문제는 취약 복습에 모아뒀어요").font(.subheadline).foregroundStyle(.secondary)
+                Text("틀린 \(wrongs.count)문제는 취약 복습에 모아뒀어요").font(.pt(.subheadline)).foregroundStyle(.secondary)
             }
             primaryButton("문제 풀기로") { onDone(.ox) }
-            Button("새 O/X 문제 받기", action: retry).font(.subheadline)
+            Button("새 O/X 문제 받기", action: retry).font(.pt(.subheadline))
         }
         .frame(maxWidth: .infinity)
     }
@@ -684,15 +684,15 @@ struct ProblemStepView: View {
                     ResultSummaryCard(correct: correct, total: set.items.count)
                     primaryButton("취약 복습으로") { onDone(.problem) }
                     Button("새 문제 받기") { index = 0; correct = 0; wrongs = []; picked = nil; finished = false; regenerate() }
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                 }
                 .frame(maxWidth: .infinity)
             } else {
                 let item = set.items[min(index, set.items.count - 1)]
                 VStack(alignment: .leading, spacing: 14) {
-                    Text("문제 \(index + 1) / \(set.items.count)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                    Text("문제 \(index + 1) / \(set.items.count)").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
                     Text(item.question)
-                        .font(.body.weight(.semibold))
+                        .font(.pt(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .softCard(cornerRadius: 20, padding: 16)
@@ -711,7 +711,7 @@ struct ProblemStepView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Text("\(number)")
-                                    .font(.subheadline.weight(.bold))
+                                    .font(.pt(.subheadline).weight(.bold))
                                     .frame(width: 28, height: 28)
                                     .background(choiceColor(number, answer: item.answerNumber).opacity(0.18), in: .circle)
                                 Text(choice).multilineTextAlignment(.leading).foregroundStyle(Palette.ink)
@@ -743,19 +743,19 @@ struct ProblemStepView: View {
                                 ForEach(Array(item.steps.enumerated()), id: \.offset) { stepIndex, line in
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("\(stepIndex + 1)단계 풀이")
-                                            .font(.caption.weight(.bold))
+                                            .font(.pt(.caption).weight(.bold))
                                             .foregroundStyle(.white)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 3)
                                             .background(Theme.accent, in: .rect(cornerRadius: 6))
-                                        Text(line).font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                                        Text(line).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
-                                Text("최종 답: \(item.finalAnswer)").font(.headline)
+                                Text("최종 답: \(item.finalAnswer)").font(.pt(.headline))
                             }
                             .padding(.top, 8)
                         } label: {
-                            Label("단계별 풀이 보기", systemImage: "lightbulb.fill").font(.subheadline.weight(.bold))
+                            Label("단계별 풀이 보기", systemImage: "lightbulb.fill").font(.pt(.subheadline).weight(.bold))
                         }
                         .padding(14)
                         .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
@@ -764,7 +764,7 @@ struct ProblemStepView: View {
                             Button { saveToNotes(item, picked: picked) } label: {
                                 Label(savedToNotes.contains(item.question) ? "오답노트에 담았어요" : "오답노트에 담기",
                                       systemImage: savedToNotes.contains(item.question) ? "checkmark" : "arrow.down.circle")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.pt(.subheadline).weight(.semibold))
                             }
                             .disabled(savedToNotes.contains(item.question))
                         }
@@ -832,23 +832,23 @@ struct WeakStepView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("틀렸던 문제를 다시 확인해요").font(.headline)
+            Text("틀렸던 문제를 다시 확인해요").font(.pt(.headline))
             if items.isEmpty {
                 Label("아직 틀린 문제가 없어요", systemImage: "checkmark.seal")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
             }
             ForEach(items) { item in
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(item.prompt).font(.subheadline.weight(.semibold)).fixedSize(horizontal: false, vertical: true)
+                    Text(item.prompt).font(.pt(.subheadline).weight(.semibold)).fixedSize(horizontal: false, vertical: true)
                     if revealed.contains(item.id) {
-                        Text("정답: \(item.answer)").font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
+                        Text("정답: \(item.answer)").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Theme.accent)
                         if !item.explanation.isEmpty {
-                            Text(item.explanation).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            Text(item.explanation).font(.pt(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         }
-                        Button("이제 알아요 · 목록에서 빼기") { remove(item) }.font(.caption.weight(.semibold))
+                        Button("이제 알아요 · 목록에서 빼기") { remove(item) }.font(.pt(.caption).weight(.semibold))
                     } else {
-                        Button("정답 확인") { _ = withAnimation(Motion.spring) { revealed.insert(item.id) } }.font(.caption.weight(.semibold))
+                        Button("정답 확인") { _ = withAnimation(Motion.spring) { revealed.insert(item.id) } }.font(.pt(.caption).weight(.semibold))
                     }
                 }
                 .padding(14)
@@ -909,10 +909,10 @@ struct ResultSummaryCard: View {
             .frame(width: 76, height: 76)
             VStack(alignment: .leading, spacing: 4) {
                 Text("\(total)문제 중 \(correct)개 정답")
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .foregroundStyle(Palette.ink)
                 Text(message)
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)

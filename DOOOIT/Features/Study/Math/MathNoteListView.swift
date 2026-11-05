@@ -87,7 +87,7 @@ struct MathNoteListView: View {
                     filterChips
                     if filtered.isEmpty {
                         Text("해당하는 문제가 없어요")
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 40)
@@ -180,10 +180,10 @@ struct MathNoteListView: View {
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(toReview > 0 ? "복습할 문제" : "모두 복습했어요")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(.secondary)
                     Text("\(toReview)개")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.pt(size: 34, weight: .bold))
                         .foregroundStyle(Palette.ink)
                         .contentTransition(.numericText())
                 }
@@ -191,8 +191,8 @@ struct MathNoteListView: View {
                 ZStack {
                     ProgressRing(progress: ratio, lineWidth: 9, color: Palette.success)
                     VStack(spacing: 0) {
-                        Text("\(Int(ratio * 100))%").font(.subheadline.weight(.bold)).monospacedDigit().foregroundStyle(Palette.ink)
-                        Text("정답률").font(.caption2).foregroundStyle(.secondary)
+                        Text("\(Int(ratio * 100))%").font(.pt(.subheadline).weight(.bold)).monospacedDigit().foregroundStyle(Palette.ink)
+                        Text("정답률").font(.pt(.caption2)).foregroundStyle(.secondary)
                     }
                 }
                 .frame(width: 76, height: 76)
@@ -218,7 +218,7 @@ struct MathNoteListView: View {
                 SubjectMenuItems(includeAuto: true, onAuto: { addSubjectRaw = DoitSubjectNote.autoLabel }, onPick: { addSubjectRaw = $0 })
             } label: {
                 VStack(spacing: 1) {
-                    if isAutoSubject { Image(systemName: "sparkles").font(.caption2.weight(.bold)) }
+                    if isAutoSubject { Image(systemName: "sparkles").font(.pt(.caption2).weight(.bold)) }
                     Text(addSubjectRaw)
                         .font(addSubjectRaw.count > 3 ? .caption2.weight(.bold) : .subheadline.weight(.bold))
                         .lineLimit(1)
@@ -235,7 +235,7 @@ struct MathNoteListView: View {
             .buttonStyle(.primaryFill)
             Button { showPhotoPicker = true } label: {
                 Image(systemName: "photo.on.rectangle")
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .foregroundStyle(Theme.accent)
                     .frame(width: 52, height: 52)
                     .background(Theme.accent.pastel, in: .rect(cornerRadius: 20, style: .continuous))
@@ -282,7 +282,7 @@ struct MathNoteListView: View {
                                 Haptics.tap()
                             } label: {
                                 Text("\(detail.label) \(detail.count)")
-                                    .font(.caption.weight(.semibold))
+                                    .font(.pt(.caption).weight(.semibold))
                                     .padding(.horizontal, 10)
                                     .frame(height: 26)
                                     .foregroundStyle(isOn ? Palette.card : Palette.ink)
@@ -308,7 +308,7 @@ struct MathNoteListView: View {
                 Text(title)
                 Text("\(number)").monospacedDigit().opacity(0.7)
             }
-            .font(.subheadline.weight(.semibold))
+            .font(.pt(.subheadline).weight(.semibold))
             .padding(.horizontal, 12)
             .frame(height: 32)
             .foregroundStyle(isOn ? Palette.card : Palette.ink)
@@ -339,7 +339,7 @@ struct MathNoteListView: View {
                         Text(item.rawValue)
                         Text("\(number)").monospacedDigit().opacity(0.7)
                     }
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .padding(.horizontal, 13)
                     .frame(height: 34)
                     .foregroundStyle(isOn ? Palette.card : Palette.ink)
@@ -377,23 +377,23 @@ struct MathNoteListView: View {
     private var emptyState: some View {
         VStack(spacing: 20) {
             Image(systemName: addSubject.symbol)
-                .font(.system(size: 30, weight: .semibold))
+                .font(.pt(size: 30, weight: .semibold))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 72, height: 72)
                 .background(Theme.accent.opacity(0.12), in: .circle)
             VStack(spacing: 6) {
                 Text("틀린 문제를 찍어 보세요")
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(Palette.ink)
                 Text("채점 · 풀이 · 비슷한 문제까지")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             captureButtons
             Button { createBlank() } label: {
                 Text("문제 직접 입력")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -558,7 +558,7 @@ private struct MathNoteRow: View {
                     if let data = note.thumbnailData, let image = UIImage(data: data) {
                         Image(uiImage: image).resizable().scaledToFill()
                     } else {
-                        Image(systemName: DoitSubjectNote.symbol(broad: note.broadSubject)).font(.title3).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: DoitSubjectNote.symbol(broad: note.broadSubject)).font(.pt(.title3)).foregroundStyle(Palette.ink.opacity(0.3))
                     }
                 }
                 .clipShape(.rect(cornerRadius: 12))
@@ -566,13 +566,13 @@ private struct MathNoteRow: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(note.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     SubjectTag(label: note.subjectLabel, auto: note.isSubjectAuto)
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -584,7 +584,7 @@ private struct MathNoteRow: View {
                     .accessibilityLabel("다시 풀 차례")
             }
             Text(note.status.title)
-                .font(.caption.weight(.bold))
+                .font(.pt(.caption).weight(.bold))
                 .foregroundStyle(note.status.color)
                 .padding(.horizontal, 9)
                 .padding(.vertical, 4)
@@ -640,7 +640,7 @@ struct PhotoRecognitionMenu: View {
             }
         } label: {
             if case .downloading(let fraction) = ocr.phase {
-                Text("\(Int(fraction * 100))%").font(.caption.weight(.semibold)).monospacedDigit().foregroundStyle(Theme.accent)
+                Text("\(Int(fraction * 100))%").font(.pt(.caption).weight(.semibold)).monospacedDigit().foregroundStyle(Theme.accent)
             } else {
                 Image(systemName: "text.viewfinder")
             }

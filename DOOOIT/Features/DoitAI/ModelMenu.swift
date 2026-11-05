@@ -33,13 +33,13 @@ struct ModelMenu: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(title).font(.headline).foregroundStyle(Palette.ink)
+                Text(title).font(.pt(.headline)).foregroundStyle(Palette.ink)
                 if case .downloading(let fraction) = brain.phase {
-                    Text("\(Int(fraction * 100))%").font(.caption.weight(.semibold)).foregroundStyle(Theme.accent).monospacedDigit()
+                    Text("\(Int(fraction * 100))%").font(.pt(.caption).weight(.semibold)).foregroundStyle(Theme.accent).monospacedDigit()
                 } else if brain.phase == .loading {
                     ProgressView().controlSize(.mini)
                 }
-                Image(systemName: "chevron.down").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Image(systemName: "chevron.down").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
             }
             .contentShape(Rectangle())
         }
@@ -83,10 +83,10 @@ struct ModelDownloadCard: View {
             let model = brain.downloading ?? DoitBrain.Model.recommended
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    Image(systemName: "sparkles").font(.headline).foregroundStyle(Theme.accent)
+                    Image(systemName: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(headline(model)).font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
-                        Text(detail(model)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        Text(headline(model)).font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
+                        Text(detail(model)).font(.pt(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 if case .downloading(let fraction) = brain.phase {
@@ -97,7 +97,7 @@ struct ModelDownloadCard: View {
                         Task { await brain.download(model) }
                     } label: {
                         Label("\(model.title) 다운로드", systemImage: "arrow.down.circle.fill")
-                            .font(.subheadline.weight(.bold))
+                            .font(.pt(.subheadline).weight(.bold))
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent)
@@ -137,19 +137,19 @@ struct LearnedNotesSheet: View {
                 Section {
                     if notes.isEmpty {
                         Text("아직 배운 내용이 없어요. 인터넷에서 찾아 정리한 내용, 👍를 받은 설명, \"기억해줘: …\"로 알려준 내용이 여기에 쌓여요.")
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                     }
                     ForEach(notes) { note in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text(icon(note.kind) + " " + note.topic).font(.subheadline.weight(.semibold))
+                                Text(icon(note.kind) + " " + note.topic).font(.pt(.subheadline).weight(.semibold))
                                 Spacer()
-                                if note.score > 0 { Text("👍 \(note.score)").font(.caption) }
+                                if note.score > 0 { Text("👍 \(note.score)").font(.pt(.caption)) }
                             }
-                            Text(note.summary).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                            Text(note.summary).font(.pt(.caption)).foregroundStyle(.secondary).lineLimit(3)
                             if !note.sources.isEmpty {
-                                Text("출처: " + note.sources.joined(separator: ", ")).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
+                                Text("출처: " + note.sources.joined(separator: ", ")).font(.pt(.caption2)).foregroundStyle(.tertiary).lineLimit(1)
                             }
                         }
                     }

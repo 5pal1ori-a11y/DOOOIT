@@ -15,7 +15,7 @@ struct CramListView: View {
                         EmptyStateView(symbol: "bolt.fill", title: "다가오는 시험이 없어요")
                         Button { showNew = true } label: {
                             Label("시험 추가하기", systemImage: "plus")
-                                .font(.body.weight(.bold))
+                                .font(.pt(.body).weight(.bold))
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 40)
                         }
@@ -57,21 +57,21 @@ struct CramListView: View {
         return HStack(spacing: 16) {
             VStack(spacing: 0) {
                 Text(exam.dDay > 0 ? "D-\(exam.dDay)" : (exam.dDay == 0 ? "D-DAY" : "끝"))
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(exam.dDay <= 3 ? Palette.danger : Theme.accent)
-                Text(exam.examDate.kr("M.d")).font(.caption2).foregroundStyle(.secondary)
+                Text(exam.examDate.kr("M.d")).font(.pt(.caption2)).foregroundStyle(.secondary)
             }
             .frame(width: 64)
             VStack(alignment: .leading, spacing: 6) {
-                Text(exam.name).font(.headline)
+                Text(exam.name).font(.pt(.headline))
                 Text("\(Set(units.map(\.subject)).sorted().joined(separator: " · ")) · \(units.count)단원")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                 ProgressView(value: Double(doneSteps), total: Double(max(totalSteps, 1)))
                     .tint(Theme.accent)
             }
-            Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
         }
         .glassCard(interactive: true)
     }
@@ -111,7 +111,7 @@ struct CramDetailView: View {
                             ForEach(subjects, id: \.self) { name in
                                 Button { subject = name } label: {
                                     Text(name)
-                                        .font(.headline)
+                                        .font(.pt(.headline))
                                         .foregroundStyle(name == current ? Color.primary : Color.secondary)
                                         .padding(.bottom, 6)
                                         .overlay(alignment: .bottom) {
@@ -125,10 +125,10 @@ struct CramDetailView: View {
                     .scrollIndicators(.hidden)
                 }
 
-                Text("학습 범위").font(.title3.weight(.bold))
+                Text("학습 범위").font(.pt(.title3).weight(.bold))
                 ForEach(chapters, id: \.self) { chapter in
                     VStack(alignment: .leading, spacing: 10) {
-                        Text(chapter).font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
+                        Text(chapter).font(.pt(.subheadline).weight(.bold)).foregroundStyle(.secondary)
                         ForEach(units.filter { $0.chapter == chapter }) { unit in
                             unitCard(unit)
                         }
@@ -156,12 +156,12 @@ struct CramDetailView: View {
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(exam.name).font(.title2.weight(.bold))
-                Text("\(exam.examDate.kr("M월 d일 (E)")) 시험").font(.subheadline).foregroundStyle(.secondary)
+                Text(exam.name).font(.pt(.title2).weight(.bold))
+                Text("\(exam.examDate.kr("M월 d일 (E)")) 시험").font(.pt(.subheadline)).foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "bolt.fill")
-                .font(.system(size: 34))
+                .font(.pt(size: 34))
                 .foregroundStyle(Palette.warning)
                 .frame(width: 64, height: 64)
                 .glassEffect(.regular, in: .circle)
@@ -173,7 +173,7 @@ struct CramDetailView: View {
         VStack(alignment: .trailing, spacing: 6) {
             if exam.dDay <= 2 && !exam.isBooster {
                 Label("시험 \(max(exam.dDay, 0))일 전, 핵심만 빠르게", systemImage: "sparkles")
-                    .font(.caption.weight(.semibold))
+                    .font(.pt(.caption).weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(Color.primary.opacity(0.08), in: .capsule)
@@ -184,7 +184,7 @@ struct CramDetailView: View {
             }
             .pickerStyle(.segmented)
             Text(exam.isBooster ? "부스터: 핵심 개념 3개, 문제 수를 줄여 빠르게 훑어요." : "정석: 개념부터 응용 문제까지 차근차근 풀어요.")
-                .font(.caption)
+                .font(.pt(.caption))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -193,9 +193,9 @@ struct CramDetailView: View {
     private func unitCard(_ unit: CramUnit) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(unit.title).font(.headline)
+                Text(unit.title).font(.pt(.headline))
                 Spacer()
-                Text("\(unit.done.count)/\(LearnStep.allCases.count)").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+                Text("\(unit.done.count)/\(LearnStep.allCases.count)").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
             }
             ScrollView(.horizontal) {
                 HStack(spacing: 4) {
@@ -203,10 +203,10 @@ struct CramDetailView: View {
                         let done = unit.done.contains(step.rawValue)
                         Button { openUnit = OpenUnit(unitID: unit.id, step: step) } label: {
                             HStack(spacing: 4) {
-                                if done { Image(systemName: "checkmark").font(.caption2.weight(.bold)) }
+                                if done { Image(systemName: "checkmark").font(.pt(.caption2).weight(.bold)) }
                                 Text(step.title)
                             }
-                            .font(.subheadline.weight(.semibold))
+                            .font(.pt(.subheadline).weight(.semibold))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 9)
                             .foregroundStyle(done ? Theme.accent : Color.primary)
@@ -230,10 +230,10 @@ struct CramDetailView: View {
         return HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(next.map { "\($0.subject) · \($0.title)" } ?? "모든 단원을 끝냈어요")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Text(exam.dDay >= 0 ? "시험 D-\(exam.dDay)" : "시험이 끝났어요").font(.headline)
+                Text(exam.dDay >= 0 ? "시험 D-\(exam.dDay)" : "시험이 끝났어요").font(.pt(.headline))
             }
             Spacer()
             if let next {
@@ -276,7 +276,7 @@ struct CramEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("시험 이름", text: $name).font(.headline)
+                    TextField("시험 이름", text: $name).font(.pt(.headline))
                     DatePicker("시험 날짜", selection: $date, in: Date()..., displayedComponents: .date)
                 }
 
@@ -290,7 +290,7 @@ struct CramEditorView: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 1) {
                                         Text(unit.title).foregroundStyle(Color.primary)
-                                        Text(unit.chapter).font(.caption).foregroundStyle(.secondary)
+                                        Text(unit.chapter).font(.pt(.caption)).foregroundStyle(.secondary)
                                     }
                                     Spacer()
                                     Image(systemName: selected.contains(key) ? "checkmark.circle.fill" : "circle")

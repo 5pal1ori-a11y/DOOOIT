@@ -42,14 +42,14 @@ struct WrittenSolutionCard: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
 
                 Label("모티 풀이 엔진이 직접 푼 단계예요. 문제 글이 정확해야 풀이도 정확해요.", systemImage: "exclamationmark.circle")
-                    .font(.caption2)
+                    .font(.pt(.caption2))
                     .foregroundStyle(.secondary)
             } else if working {
                 HStack(spacing: 12) {
                     ProgressView()
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("단계별 풀이를 쓰고 있어요").font(.subheadline.weight(.semibold))
-                        Text("보통 10~20초 걸려요").font(.caption).foregroundStyle(.secondary)
+                        Text("단계별 풀이를 쓰고 있어요").font(.pt(.subheadline).weight(.semibold))
+                        Text("보통 10~20초 걸려요").font(.pt(.caption)).foregroundStyle(.secondary)
                     }
                 }
                 .padding(.vertical, 8)
@@ -71,15 +71,15 @@ struct WrittenSolutionCard: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "list.number")
-                .font(.headline)
+                .font(.pt(.headline))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 34, height: 34)
                 .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text("단계별 풀이").font(.headline)
+                Text("단계별 풀이").font(.pt(.headline))
                 if let solution {
                     Text("\(solution.steps.count)단계 · 최종 답 \(solution.finalAnswer)")
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
@@ -88,7 +88,7 @@ struct WrittenSolutionCard: View {
             if solution != nil {
                 Button { Task { await generate() } } label: {
                     Image(systemName: "arrow.clockwise")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .frame(width: 34, height: 34)
                         .background(Color.primary.opacity(0.06), in: .circle)
                 }
@@ -104,11 +104,11 @@ struct WrittenSolutionCard: View {
             Text(note.recognizedText.isEmpty
                  ? "문제 탭에서 문제가 읽히면 단계별 풀이를 만들 수 있어요."
                  : "생각할 점과 식을 단계별로 나눠서 정리해드려요. 먼저 직접 풀어보고 모범 답안과 비교해보세요.")
-                .font(.subheadline)
+                .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button { Task { await generate() } } label: {
                 Label("AI 단계별 풀이 만들기", systemImage: "sparkles")
-                    .font(.body.weight(.bold))
+                    .font(.pt(.body).weight(.bold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
             }
@@ -122,16 +122,16 @@ struct WrittenSolutionCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "questionmark.circle")
-                    .font(.title3.weight(.semibold))
+                    .font(.pt(.title3).weight(.semibold))
                     .foregroundStyle(Palette.warning)
                     .frame(width: 42, height: 42)
                     .background(Palette.warning.opacity(0.14), in: .rect(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 3) {
                     Text("아직 풀 수 없는 문제예요")
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .foregroundStyle(Palette.ink)
                     Text("틀린 풀이를 지어내지 않으려고 멈췄어요")
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                 }
             }
@@ -139,10 +139,10 @@ struct WrittenSolutionCard: View {
             // 읽은 문제 글 (대부분 글자가 잘못 읽혀서 못 풀어요)
             VStack(alignment: .leading, spacing: 6) {
                 Text("읽은 문제")
-                    .font(.caption.weight(.semibold))
+                    .font(.pt(.caption).weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(note.recognizedText.trimmingCharacters(in: .whitespacesAndNewlines))
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,7 +160,7 @@ struct WrittenSolutionCard: View {
                     onEditProblem()
                 } label: {
                     Label("문제 글 고치기", systemImage: "pencil")
-                        .font(.subheadline.weight(.bold))
+                        .font(.pt(.subheadline).weight(.bold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 36)
                 }
@@ -169,7 +169,7 @@ struct WrittenSolutionCard: View {
                     Task { await generate() }
                 } label: {
                     Label("다시 시도", systemImage: "arrow.clockwise")
-                        .font(.subheadline.weight(.bold))
+                        .font(.pt(.subheadline).weight(.bold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 36)
                 }
@@ -180,9 +180,9 @@ struct WrittenSolutionCard: View {
 
     private func tip(_ symbol: String, _ text: String) -> some View {
         Label {
-            Text(text).font(.footnote).foregroundStyle(.secondary)
+            Text(text).font(.pt(.footnote)).foregroundStyle(.secondary)
         } icon: {
-            Image(systemName: symbol).font(.footnote).foregroundStyle(Theme.accent)
+            Image(systemName: symbol).font(.pt(.footnote)).foregroundStyle(Theme.accent)
         }
     }
 
@@ -190,7 +190,7 @@ struct WrittenSolutionCard: View {
     private func stepMarker(_ index: Int, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             Text("\(index + 1)")
-                .font(.subheadline.weight(.bold))
+                .font(.pt(.subheadline).weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
                 .background(AccentGradient.linear, in: .circle)
@@ -212,11 +212,11 @@ struct WrittenSolutionCard: View {
                     stepMarker(index, isLast: index == solution.steps.count - 1)
                     VStack(alignment: .leading, spacing: 8) {
                         Label(step.hint, systemImage: "lightbulb.fill")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.pt(.subheadline).weight(.semibold))
                             .foregroundStyle(Palette.warning)
                             .labelStyle(.titleAndIcon)
                         TextField("이 단계를 직접 풀어보세요", text: answerBinding(index), axis: .vertical)
-                            .font(.system(.body, design: .rounded))
+                            .font(.pt(.body))
                             .lineLimit(2...6)
                             .padding(12)
                             .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14))
@@ -229,7 +229,7 @@ struct WrittenSolutionCard: View {
                 withAnimation(Motion.spring) { tab = .answer }
             } label: {
                 Label("다 풀었어요 · 모범 답안과 비교", systemImage: "arrow.right.circle.fill")
-                    .font(.subheadline.weight(.bold))
+                    .font(.pt(.subheadline).weight(.bold))
             }
             .padding(.leading, 40)
         }
@@ -238,10 +238,10 @@ struct WrittenSolutionCard: View {
     private func concept(_ solution: WrittenSolution) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "book.closed.fill")
-                .font(.title3)
+                .font(.pt(.title3))
                 .foregroundStyle(Theme.accent)
             Text(solution.concept)
-                .font(.body)
+                .font(.pt(.body))
                 .lineSpacing(6)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -258,18 +258,18 @@ struct WrittenSolutionCard: View {
                     VStack(alignment: .leading, spacing: 8) {
                         // 이 단계에서 할 일
                         Text(step.hint)
-                            .font(.caption.weight(.semibold))
+                            .font(.pt(.caption).weight(.semibold))
                             .foregroundStyle(.secondary)
                         // 쓰는 개념·공식
                         if !step.concept.isEmpty {
                             Label(MathSymbolBar.pretty(step.concept), systemImage: "function")
-                                .font(.caption)
+                                .font(.pt(.caption))
                                 .foregroundStyle(Theme.accent)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         // 계산·풀이 과정
                         Text(MathSymbolBar.pretty(step.work))
-                            .font(.system(.body, design: .rounded).weight(.medium))
+                            .font(.pt(.body).weight(.medium))
                             .lineSpacing(5)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(12)
@@ -278,18 +278,18 @@ struct WrittenSolutionCard: View {
                         // 왜 이렇게 하는지 · 다음 단계
                         if !step.reason.isEmpty {
                             Label(step.reason, systemImage: "questionmark.circle")
-                                .font(.caption)
+                                .font(.pt(.caption))
                                 .foregroundStyle(.secondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         if !step.next.isEmpty {
                             Text(MathSymbolBar.pretty(step.next))
-                                .font(.caption2.weight(.semibold))
+                                .font(.pt(.caption2).weight(.semibold))
                                 .foregroundStyle(.tertiary)
                         }
                         if index < myAnswers.count, !myAnswers[index].isEmpty {
                             Label("내 풀이: \(myAnswers[index])", systemImage: "person.fill")
-                                .font(.caption)
+                                .font(.pt(.caption))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -300,11 +300,11 @@ struct WrittenSolutionCard: View {
 
             HStack {
                 Label("최종 답", systemImage: "checkmark.seal.fill")
-                    .font(.subheadline.weight(.bold))
+                    .font(.pt(.subheadline).weight(.bold))
                     .symbolEffect(.bounce, value: tab)
                 Spacer()
                 Text(MathSymbolBar.pretty(solution.finalAnswer))
-                    .font(.title3.weight(.bold))
+                    .font(.pt(.title3).weight(.bold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 18)
@@ -318,7 +318,7 @@ struct WrittenSolutionCard: View {
                     note.correctAnswer = solution.finalAnswer
                 } label: {
                     Label("이 답을 정답 칸에 넣기", systemImage: "arrow.down.circle")
-                        .font(.caption.weight(.semibold))
+                        .font(.pt(.caption).weight(.semibold))
                 }
                 .padding(.top, 10)
             }

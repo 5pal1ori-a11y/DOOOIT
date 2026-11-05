@@ -2,12 +2,12 @@ import Foundation
 
 /// 이용약관 · 개인정보 처리방침 (가입할 때 동의, 계정 설정에서 다시 보기)
 /// 앱이 실제로 하는 일에 맞춰 씀: 모든 학습 자료는 기기에만 저장, 서버 없음,
-/// 밖으로 나가는 것은 로그인(Apple·Google), 랭킹(Game Center, 참여할 때만), 인터넷 검색(DuckDuckGo, 켰을 때만),
+/// 밖으로 나가는 것은 로그인(Apple), 랭킹(Game Center, 참여할 때만), 인터넷 검색(DuckDuckGo, 켰을 때만),
 /// 영어 사전(Free Dictionary API), 모델 받기(Hugging Face, 개인정보 없음)뿐
 /// 내용을 바꾸면 version을 올려서 다시 동의를 받음
 enum LegalText {
-    static let version = 3
-    static let effectiveDate = "2026년 11월 3일"
+    static let version = 4
+    static let effectiveDate = "2026년 11월 5일"
     static let service = "MOTI (모티)"
     /// 운영자 · 개인정보 보호책임자
     static let operatorName = "SHINYOUNG WHANG"
@@ -34,8 +34,8 @@ enum LegalText {
         이 약관은 \(service)(이하 "앱")를 이용하는 데 필요한 이용자와 운영자의 권리, 의무와 책임을 정합니다.
         """),
         Section(title: "제2조 (계정)", body: """
-        1. 이용자는 이메일, Apple 로그인, Google 로그인 중 하나로 계정을 만들 수 있어요.
-        2. 이메일 계정은 기기 안에만 만들어지며, 비밀번호는 기기의 키체인에 안전하게 바꾼 값으로만 저장돼요.
+        1. 이용자는 Apple 로그인으로 계정을 만들어요.
+        2. 예전에 만든 이메일 계정은 기기 안에만 있으며 계속 로그인할 수 있어요. 비밀번호는 기기의 키체인에 안전하게 바꾼 값으로만 저장돼요.
         3. 만 14세 미만 이용자는 보호자(법정대리인)의 동의를 받은 뒤 이용해야 해요.
         4. 다른 사람의 정보로 계정을 만들면 안 돼요.
         """),
@@ -82,7 +82,7 @@ enum LegalText {
 
     static let privacy: [Section] = [
         Section(title: "1. 처리하는 개인정보", body: """
-        • 계정: 이름(닉네임), 이메일 주소. Apple·Google 로그인을 쓰면 그 서비스가 알려 주는 이름, 이메일, 계정 식별값
+        • 계정: 이름(닉네임), 이메일 주소. Apple 로그인을 쓰면 Apple이 알려 주는 이름, 이메일(가린 주소일 수 있음), 계정 식별값
         • 학습 자료: 플랜, 공부 시간, 단어장, 오답노트(문제 사진, 필기, 답), 메모, AI와 나눈 대화, 모의고사 기록, 받은 배지
         • 랭킹에 참여한 경우: Game Center 닉네임과 공부 시간
         학습 자료는 이 기기 안에 저장되고, iCloud 동기화를 켜면 본인의 iCloud에도 저장돼요. 운영자는 서버를 두지 않으며 이 정보를 모으지 않아요.
@@ -100,7 +100,6 @@ enum LegalText {
         앱은 아래 경우에만 기기 밖으로 정보를 보내요.
         • Apple iCloud (iCloud 동기화를 켰을 때만): 학습 자료를 본인 iCloud 계정에 암호화해 저장하고 같은 Apple ID 기기끼리 이어 줘요. 운영자는 볼 수 없어요.
         • Apple (로그인, Game Center 랭킹): 로그인 정보, 랭킹에 참여하면 공부 시간
-        • Google (Google 로그인): 로그인 정보
         • DuckDuckGo (모티 AI 인터넷 검색, 켰을 때만): 검색어
         • Free Dictionary API (영어 단어 뜻 찾기): 찾는 영어 단어
         • Hugging Face (AI 모델 받기): 개인정보를 보내지 않아요

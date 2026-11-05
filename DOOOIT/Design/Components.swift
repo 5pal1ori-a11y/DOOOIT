@@ -44,12 +44,12 @@ struct SectionHeader<Trailing: View>: View {
         HStack(spacing: 8) {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
-                .font(.caption.weight(.regular))
+                .font(.pt(.caption).weight(.regular))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 26, height: 26)
                 .background(Theme.accent.pastel, in: .rect(cornerRadius: 8, style: .continuous))
             Text(title)
-                .font(.headline.weight(.bold))
+                .font(.pt(.headline).weight(.bold))
                 .foregroundStyle(Palette.ink)
             Spacer(minLength: 0)
             trailing
@@ -75,19 +75,19 @@ struct EmptyStateView: View {
         VStack(spacing: 12) {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
-                .font(.system(size: 28, weight: .regular))
+                .font(.pt(size: 28, weight: .regular))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 72, height: 72)
                 .background(Theme.accent.pastel, in: .rect(cornerRadius: 24, style: .continuous))
                 .symbolEffect(.bounce, value: appeared)
                 .padding(.bottom, 2)
             Text(title)
-                .font(.headline)
+                .font(.pt(.headline))
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
             if let message {
                 Text(message)
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -107,7 +107,7 @@ struct IconBadge: View {
     var body: some View {
         Image(systemName: symbol.outlineSymbol)
             .environment(\.symbolVariants, .none)
-            .font(.system(size: size * 0.42, weight: .regular))
+            .font(.pt(size: size * 0.42, weight: .regular))
             .foregroundStyle(color)
             .frame(width: size, height: size)
             .background(color.pastel, in: .rect(cornerRadius: size * 0.34, style: .continuous))
@@ -125,7 +125,7 @@ struct TagLabel: View {
             if let symbol { Image(systemName: symbol) }
             Text(text)
         }
-        .font(.caption2.weight(.bold))
+        .font(.pt(.caption2).weight(.bold))
         .foregroundStyle(color)
         .padding(.horizontal, 9)
         .padding(.vertical, 4)
@@ -195,7 +195,7 @@ struct ProcessingOverlay: View {
             Color.black.opacity(0.25).ignoresSafeArea()
             VStack(spacing: 14) {
                 ProgressView().controlSize(.large)
-                Text(message).font(.subheadline.weight(.semibold)).foregroundStyle(Palette.ink)
+                Text(message).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
             }
             .padding(28)
             .background(Palette.card, in: .rect(cornerRadius: 26))
@@ -219,7 +219,7 @@ struct ThemePicker: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "paintpalette")
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.pt(size: 14, weight: .regular))
                     .foregroundStyle(current.accent)
                     .frame(width: 30, height: 30)
                     .background(current.accent.pastel, in: .rect(cornerRadius: 10, style: .continuous))
@@ -241,11 +241,11 @@ struct SectionTitle<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.title3.weight(.bold))
+                .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(Palette.ink)
             Spacer(minLength: 8)
             trailing
-                .font(.subheadline.weight(.medium))
+                .font(.pt(.subheadline).weight(.medium))
                 .foregroundStyle(.secondary)
         }
         .padding(.horizontal, 4)
@@ -271,22 +271,22 @@ struct RowLabel: View {
         HStack(spacing: 14) {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
-                .font(.system(size: 17, weight: .regular))
+                .font(.pt(size: 17, weight: .regular))
                 .foregroundStyle(color)
                 .frame(width: 40, height: 40)
                 .background(color.pastel, in: .rect(cornerRadius: 14, style: .continuous))
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.body.weight(.semibold)).foregroundStyle(Palette.ink)
+                Text(title).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
                 if let subtitle {
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                    Text(subtitle).font(.pt(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
             Spacer(minLength: 8)
             if let value {
-                Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                Text(value).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
             }
             if chevron {
-                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.pt(.footnote).weight(.semibold)).foregroundStyle(.tertiary)
             }
         }
         .padding(.horizontal, 16)
@@ -309,13 +309,13 @@ struct StatColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.title3.weight(.bold))
+                .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(color)
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(label).font(.pt(.caption)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -343,7 +343,7 @@ struct LinearProgressBar: View {
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.body.weight(.bold))
+            .font(.pt(.body).weight(.bold))
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .frame(height: 54)

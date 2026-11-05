@@ -24,19 +24,19 @@ struct GuidedSolveEntryCard: View {
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "bubble.left.fill")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(Theme.accent)
                     .frame(width: 34, height: 34)
                     .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("AI와 함께 풀기").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
+                    Text("AI와 함께 풀기").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
                     Text(ready ? (note.guidedSolve?.summary ?? "힌트를 보며 직접 풀어요") : "문제를 먼저 확인해 주세요")
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
                 Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.pt(.caption).weight(.bold)).foregroundStyle(.tertiary)
             }
             .contentShape(Rectangle())
         }
@@ -118,12 +118,12 @@ struct GuidedSolveView: View {
                 HStack(spacing: 6) {
                     SubjectTag(label: note.subjectLabel)
                     Text(showProblem ? "문제" : problemText.replacingOccurrences(of: "\n", with: " "))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(showProblem ? Palette.ink : .secondary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
                     Image(systemName: showProblem ? "chevron.up" : "chevron.down")
-                        .font(.caption.weight(.bold))
+                        .font(.pt(.caption).weight(.bold))
                         .foregroundStyle(.tertiary)
                 }
                 .contentShape(Rectangle())
@@ -142,8 +142,8 @@ struct GuidedSolveView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(choices.enumerated()), id: \.offset) { index, choice in
                             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                                Text(DoitGuidedSolve.circled(index + 1)).font(.subheadline.weight(.bold)).foregroundStyle(Theme.accent)
-                                Text(MathSymbolBar.pretty(choice)).font(.subheadline).foregroundStyle(Palette.ink)
+                                Text(DoitGuidedSolve.circled(index + 1)).font(.pt(.subheadline).weight(.bold)).foregroundStyle(Theme.accent)
+                                Text(MathSymbolBar.pretty(choice)).font(.pt(.subheadline)).foregroundStyle(Palette.ink)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
@@ -162,7 +162,7 @@ struct GuidedSolveView: View {
             HStack {
                 Spacer(minLength: 48)
                 Text(MathSymbolBar.pretty(message.text))
-                    .font(.subheadline.weight(.medium))
+                    .font(.pt(.subheadline).weight(.medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
@@ -175,11 +175,11 @@ struct GuidedSolveView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     if let label = message.label ?? toneLabel(message.tone) {
                         Label(label, systemImage: toneSymbol(message.tone))
-                            .font(.caption.weight(.bold))
+                            .font(.pt(.caption).weight(.bold))
                             .foregroundStyle(toneColor(message.tone))
                     }
                     Text(MathSymbolBar.pretty(message.text))
-                        .font(.subheadline)
+                        .font(.pt(.subheadline))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)
@@ -196,17 +196,17 @@ struct GuidedSolveView: View {
     private func explainCard(_ message: GuidedSolveSession.Message) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Label(message.label ?? "풀이", systemImage: "checkmark.seal.fill")
-                .font(.caption.weight(.bold))
+                .font(.pt(.caption).weight(.bold))
                 .foregroundStyle(Theme.accent)
             if !message.text.isEmpty {
                 Text(MathSymbolBar.pretty(message.text))
-                    .font(.headline)
+                    .font(.pt(.headline))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(Array(message.lines.enumerated()), id: \.offset) { _, line in
                 Text(MathSymbolBar.pretty(line))
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(Palette.ink.opacity(0.85))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -218,7 +218,7 @@ struct GuidedSolveView: View {
     private var thinking: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.small)
-            Text("AI 힌트 생각 중").font(.caption).foregroundStyle(.secondary)
+            Text("AI 힌트 생각 중").font(.pt(.caption)).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
@@ -272,7 +272,7 @@ struct GuidedSolveView: View {
         }
         let color = session.phase == .solved ? Palette.success : (session.phase == .revealed ? Palette.warning : Theme.accent)
         return Text(text)
-            .font(.caption.weight(.bold))
+            .font(.pt(.caption).weight(.bold))
             .monospacedDigit()
             .foregroundStyle(color)
             .padding(.horizontal, 10)
@@ -291,7 +291,7 @@ struct GuidedSolveView: View {
                         restart()
                     } label: {
                         Label("다시 풀기", systemImage: "arrow.counterclockwise")
-                            .font(.body.weight(.semibold))
+                            .font(.pt(.body).weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .frame(height: 52)
                     }
@@ -323,7 +323,7 @@ struct GuidedSolveView: View {
             ForEach(1...min(plan.choices.count, 9), id: \.self) { n in
                 Button { send(.submit("\(n)")) } label: {
                     Text(DoitGuidedSolve.circled(n))
-                        .font(.title3.weight(.bold))
+                        .font(.pt(.title3).weight(.bold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
                         .foregroundStyle(Palette.ink)
@@ -342,7 +342,7 @@ struct GuidedSolveView: View {
             ForEach(["O", "X"], id: \.self) { mark in
                 Button { send(.submit(mark)) } label: {
                     Text(mark)
-                        .font(.title3.weight(.bold))
+                        .font(.pt(.title3).weight(.bold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
                         .foregroundStyle(Palette.ink)
@@ -375,7 +375,7 @@ struct GuidedSolveView: View {
     private func chip(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .font(.subheadline.weight(.semibold))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -399,7 +399,7 @@ struct GuidedSolveView: View {
                 .glassEffect(.regular, in: .rect(cornerRadius: 20))
             Button(action: submitInput) {
                 Image(systemName: "arrow.up")
-                    .font(.headline.weight(.bold))
+                    .font(.pt(.headline).weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 40, height: 40)
                     .background(canSend ? Theme.accent : Color.secondary.opacity(0.4), in: .circle)

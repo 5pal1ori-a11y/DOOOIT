@@ -67,7 +67,7 @@ struct ListenQuizView: View {
     @ViewBuilder
     private func question(_ word: Word) -> some View {
         Text("\(index + 1)/\(queue.count)")
-            .font(.subheadline.weight(.semibold))
+            .font(.pt(.subheadline).weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(.secondary)
 
@@ -75,10 +75,10 @@ struct ListenQuizView: View {
             SpeakButton(text: word.term, size: 84)
             if result != nil {
                 Text(word.term)
-                    .font(.system(size: 34, weight: .bold))
+                    .font(.pt(size: 34, weight: .bold))
                     .foregroundStyle(result == true ? Theme.accent : Palette.danger)
                 Text(word.meaning)
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
@@ -91,7 +91,7 @@ struct ListenQuizView: View {
                 ForEach(choices, id: \.self) { choice in
                     Button { pick(choice, word: word) } label: {
                         Text(choice)
-                            .font(.body.weight(.semibold))
+                            .font(.pt(.body).weight(.semibold))
                             .foregroundStyle(choiceColor(choice, word: word))
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,7 +120,7 @@ struct ListenQuizView: View {
                     .background(Palette.cardInset, in: .rect(cornerRadius: 16))
                 if result == nil {
                     Button("확인") { check(word) }
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .tint(Theme.accent)
                         .disabled(typed.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -140,9 +140,9 @@ struct ListenQuizView: View {
     private var finished: some View {
         VStack(spacing: 16) {
             Text("\(correct)/\(queue.count)")
-                .font(.system(size: 52, weight: .bold).monospacedDigit())
+                .font(.pt(size: 52, weight: .bold).monospacedDigit())
                 .foregroundStyle(correct == queue.count ? Theme.accent : Palette.ink)
-            Text("맞힌 개수").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            Text("맞힌 개수").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(.secondary)
             Button { setUp() } label: { Label("다시 하기", systemImage: "arrow.counterclockwise") }
                 .buttonStyle(.primaryFill)
                 .padding(.top, 12)

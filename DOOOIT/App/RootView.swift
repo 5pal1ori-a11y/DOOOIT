@@ -37,8 +37,8 @@ struct RootView: View {
             }
         }
         .tint(Theme.accent)
-        // 둥근 글꼴로 앱 전체를 부드럽게
-        .fontDesign(.rounded)
+        // 앱 전체 기본 글꼴: Pretendard
+        .font(.pt(.body))
         .preferredColorScheme(AppearanceMode(rawValue: appearanceRaw)?.colorScheme)
     }
 

@@ -35,7 +35,7 @@ struct WorkCheckCard: View {
                 HStack {
                     header
                     Image(systemName: "chevron.down")
-                        .font(.caption.weight(.bold))
+                        .font(.pt(.caption).weight(.bold))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
@@ -63,7 +63,7 @@ struct WorkCheckCard: View {
             if reading {
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text("풀이 글씨를 읽고 있어요").font(.subheadline.weight(.semibold))
+                    Text("풀이 글씨를 읽고 있어요").font(.pt(.subheadline).weight(.semibold))
                 }
                 .transition(.opacity)
             }
@@ -74,7 +74,7 @@ struct WorkCheckCard: View {
 
             if let message {
                 Label(message, systemImage: "info.circle")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
             }
 
@@ -89,14 +89,14 @@ struct WorkCheckCard: View {
     private var header: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.headline)
+                .font(.pt(.headline))
                 .foregroundStyle(Palette.mint)
                 .frame(width: 34, height: 34)
                 .background(Palette.mint.pastel, in: .rect(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text("풀이 과정 채점").font(.headline).foregroundStyle(Palette.ink)
+                Text("풀이 과정 채점").font(.pt(.headline)).foregroundStyle(Palette.ink)
                 Text("내 풀이에서 틀린 줄을 찾아요")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
@@ -128,7 +128,7 @@ struct WorkCheckCard: View {
     private func sourceButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Label(title, systemImage: symbol)
-                .font(.footnote.weight(.semibold))
+                .font(.pt(.footnote).weight(.semibold))
                 .foregroundStyle(Theme.accent)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -140,8 +140,8 @@ struct WorkCheckCard: View {
     private var workEditor: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("내 풀이").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
-                Text("한 줄에 한 단계씩").font(.caption).foregroundStyle(.secondary)
+                Text("내 풀이").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
+                Text("한 줄에 한 단계씩").font(.pt(.caption)).foregroundStyle(.secondary)
                 Spacer()
             }
             TextEditor(text: $note.workText)
@@ -152,7 +152,7 @@ struct WorkCheckCard: View {
                 .padding(10)
                 .background(Color.black.opacity(0.04), in: .rect(cornerRadius: 14))
             Text("잘못 읽힌 글자는 고친 뒤 채점하세요. 예: 2x = 11 − 3 ⏎ 2x = 8 ⏎ x = 4")
-                .font(.caption2)
+                .font(.pt(.caption2))
                 .foregroundStyle(.secondary)
             Button {
                 Task { await check() }
@@ -161,7 +161,7 @@ struct WorkCheckCard: View {
                     if checking { ProgressView().tint(.white) }
                     Label("채점하기", systemImage: "checkmark.circle")
                 }
-                .font(.body.weight(.bold))
+                .font(.pt(.body).weight(.bold))
                 .frame(maxWidth: .infinity)
                 .frame(height: 40)
             }
@@ -169,7 +169,7 @@ struct WorkCheckCard: View {
             .disabled(workLines.isEmpty || checking || note.recognizedText.isEmpty)
             if note.recognizedText.isEmpty {
                 Text("먼저 '문제' 탭에서 문제 글이 있어야 채점할 수 있어요.")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(Palette.danger)
             }
         }
@@ -240,11 +240,11 @@ private struct ReportView: View {
             // 한 줄 판정
             HStack(spacing: 10) {
                 Image(systemName: report.allGood ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                    .font(.title2)
+                    .font(.pt(.title2))
                     .foregroundStyle(report.allGood ? Palette.success : Palette.warning)
                     .symbolEffect(.bounce, value: report.verdict)
                 Text(report.verdict)
-                    .font(.subheadline.weight(.bold))
+                    .font(.pt(.subheadline).weight(.bold))
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: 0)
             }
@@ -262,17 +262,17 @@ private struct ReportView: View {
 
             ForEach(report.tips, id: \.self) { tip in
                 Label(tip, systemImage: "lightbulb")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
             }
 
             if !report.correctAnswer.isEmpty && !report.allGood {
                 HStack(spacing: 6) {
-                    Text("정답").font(.caption.weight(.bold)).foregroundStyle(.white)
+                    Text("정답").font(.pt(.caption).weight(.bold)).foregroundStyle(.white)
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(Palette.success, in: .capsule)
                     Text(MathSymbolBar.pretty(report.correctAnswer.components(separatedBy: "\n").first ?? report.correctAnswer))
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                 }
             }
@@ -301,7 +301,7 @@ private struct ReportView: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(spacing: 0) {
                 Image(systemName: symbol(line.mark))
-                    .font(.caption.weight(.bold))
+                    .font(.pt(.caption).weight(.bold))
                     .foregroundStyle(.white)
                     .frame(width: 26, height: 26)
                     .background(color(line.mark), in: .circle)
@@ -315,7 +315,7 @@ private struct ReportView: View {
                     .foregroundStyle(line.mark == .wrong ? Palette.danger : Palette.ink)
                 if !line.note.isEmpty {
                     Text(line.note)
-                        .font(.caption)
+                        .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

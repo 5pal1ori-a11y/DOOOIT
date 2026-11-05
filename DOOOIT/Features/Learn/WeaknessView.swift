@@ -73,17 +73,17 @@ struct WeaknessView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("빈칸·O/X·문제 풀이 기록과 오답노트를 모아 약한 유형을 찾아요.")
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                 NavigationLink { WeakConceptListView() } label: {
                     HStack(spacing: 12) {
                         IconBadge(symbol: "target", color: Palette.danger)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("오답노트 취약 개념").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
-                            Text("개념별 오답 횟수·원인·숙련도").font(.caption).foregroundStyle(.secondary)
+                            Text("오답노트 취약 개념").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("개념별 오답 횟수·원인·숙련도").font(.pt(.caption)).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
                     }
                     .softCard(cornerRadius: 20, padding: 14)
                 }
@@ -92,11 +92,11 @@ struct WeaknessView: View {
                     HStack(spacing: 12) {
                         IconBadge(symbol: "doc.text", color: Palette.sky)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("AI 모의고사").font(.subheadline.weight(.bold)).foregroundStyle(Palette.ink)
-                            Text("취약 개념 10문제").font(.caption).foregroundStyle(.secondary)
+                            Text("AI 모의고사").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
+                            Text("취약 개념 10문제").font(.pt(.caption)).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                        Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
                     }
                     .softCard(cornerRadius: 20, padding: 14)
                 }
@@ -127,13 +127,13 @@ struct WeaknessView: View {
                 if item.total > 0 { TagLabel(text: "정답률 \(Int(item.accuracy * 100))%", color: Theme.accent) }
                 if item.wrongNotes > 0 { TagLabel(text: "오답노트 \(item.wrongNotes)", color: Palette.danger) }
             }
-            Label(item.unit, systemImage: "sparkles").font(.headline).foregroundStyle(Theme.accent)
+            Label(item.unit, systemImage: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
             Text("\(item.headline)\n\(item.plan)")
-                .font(.title3.weight(.bold))
+                .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("맞춤 학습 예상 시간 \(TimeText.duration(minutes: item.minutes))")
-                .font(.caption)
+                .font(.pt(.caption))
                 .foregroundStyle(.secondary)
 
             levelBar(item.level)
@@ -142,7 +142,7 @@ struct WeaknessView: View {
                 UnitStudyView(subject: item.subject, unit: item.unit, initialStep: item.startStep)
             } label: {
                 Text("이 맞춤 학습 시작하기")
-                    .font(.body.weight(.bold))
+                    .font(.pt(.body).weight(.bold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 40)
             }
@@ -158,10 +158,10 @@ struct WeaknessView: View {
         let target = min(1, (Double(level) + 1.5) / 3)
         return VStack(spacing: 6) {
             HStack {
-                Text("현재 내 실력은?").font(.caption).foregroundStyle(.secondary)
+                Text("현재 내 실력은?").font(.pt(.caption)).foregroundStyle(.secondary)
                 Spacer()
                 Label("예상 도달: \(labels[min(level + 1, 2)])", systemImage: "sparkles")
-                    .font(.caption.weight(.semibold))
+                    .font(.pt(.caption).weight(.semibold))
                     .foregroundStyle(Theme.accent)
             }
             LevelFillBar(current: current, target: target)
@@ -169,7 +169,7 @@ struct WeaknessView: View {
             HStack {
                 ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                     Text(label)
-                        .font(.caption2.weight(index == level ? .bold : .regular))
+                        .font(.pt(.caption2).weight(index == level ? .bold : .regular))
                         .foregroundStyle(index == level ? Color.primary : Color.secondary)
                         .frame(maxWidth: .infinity)
                 }

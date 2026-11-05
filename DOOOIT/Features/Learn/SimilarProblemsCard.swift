@@ -39,12 +39,12 @@ struct SimilarProblemsCard: View {
                 if let lastResult { feedback(lastResult.item, lastResult.result, reminder: ladder.reminder) }
                 if ladder.finished {
                     Label("5단계까지 통과했어요! 2~3일 뒤 원래 문제를 다시 풀어서 확실히 익혔는지 확인해요.", systemImage: "trophy.fill")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(Palette.success)
                 } else if let item = ladder.current {
                     itemView(item)
                 } else if working {
-                    ProgressView("다음 문제를 만드는 중…").font(.caption)
+                    ProgressView("다음 문제를 만드는 중…").font(.pt(.caption))
                 } else {
                     Button { Task { await nextItem() } } label: {
                         Label(lastResult == nil ? "\(PracticeLadder.levelTitle(ladder.level)) 시작" : "다음 문제", systemImage: "arrow.right")
@@ -54,14 +54,14 @@ struct SimilarProblemsCard: View {
                 }
             } else {
                 Text("같은 핵심 개념을 단계별로 연습해요. 숫자만 바꾼 문제가 아니라 개념 확인 → 쉬운 유형 → 비슷한 문제 → 응용 → 최종 복습 순서로, 맞히면 어려워지고 틀리면 개념을 다시 보여줘요.")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                    .font(.pt(.subheadline)).foregroundStyle(.secondary)
                 Button { Task { await start() } } label: {
                     Label("단계 학습 시작", systemImage: "sparkles").frame(maxWidth: .infinity).frame(height: 38)
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(note.recognizedText.isEmpty || working)
             }
-            if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
+            if let message { Text(message).font(.pt(.caption)).foregroundStyle(.secondary) }
 
             Divider().padding(.vertical, 4)
             retrySection
@@ -86,7 +86,7 @@ struct SimilarProblemsCard: View {
 
     private func itemView(_ item: PracticeItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(PracticeLadder.levelTitle(item.level)).font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
+            Text(PracticeLadder.levelTitle(item.level)).font(.pt(.caption).weight(.bold)).foregroundStyle(Theme.accent)
             Text(MathSymbolBar.pretty(item.question))
                 .font(.system(size: 16, design: .serif))
                 .lineSpacing(5)
@@ -95,7 +95,7 @@ struct SimilarProblemsCard: View {
                 ForEach(Array(item.choices.enumerated()), id: \.offset) { index, choice in
                     Button { submit(item, answer: "\(index + 1)") } label: {
                         HStack {
-                            Text("\(index + 1)").font(.subheadline.weight(.bold)).frame(width: 26, height: 26).background(Theme.accent.opacity(0.12), in: .circle)
+                            Text("\(index + 1)").font(.pt(.subheadline).weight(.bold)).frame(width: 26, height: 26).background(Theme.accent.opacity(0.12), in: .circle)
                             Text(MathSymbolBar.pretty(choice)).foregroundStyle(Palette.ink).multilineTextAlignment(.leading)
                             Spacer(minLength: 0)
                         }
@@ -123,15 +123,15 @@ struct SimilarProblemsCard: View {
         VStack(alignment: .leading, spacing: 6) {
             Label(result.verdict == .correct ? "정답이에요! 한 단계 올라가요" : (result.verdict == .needsReview ? "확인이 필요해요" : "아쉬워요. 개념을 다시 보고 쉬운 문제로 가요"),
                   systemImage: result.verdict == .correct ? "checkmark.circle.fill" : "arrow.down.circle.fill")
-                .font(.subheadline.weight(.bold))
+                .font(.pt(.subheadline).weight(.bold))
                 .foregroundStyle(result.verdict == .correct ? Palette.success : Palette.warning)
-            if result.verdict != .correct { Text("정답: \(MathSymbolBar.pretty(item.choices.isEmpty ? item.answer : "\(item.answer)번"))").font(.subheadline.weight(.semibold)) }
+            if result.verdict != .correct { Text("정답: \(MathSymbolBar.pretty(item.choices.isEmpty ? item.answer : "\(item.answer)번"))").font(.pt(.subheadline).weight(.semibold)) }
             ForEach(item.explanation, id: \.self) { line in
-                Text(MathSymbolBar.pretty(line)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(MathSymbolBar.pretty(line)).font(.pt(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             if let reminder, result.verdict != .correct {
                 Text(MathSymbolBar.pretty(reminder))
-                    .font(.subheadline)
+                    .font(.pt(.subheadline))
                     .padding(10)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Palette.warning.opacity(0.1), in: .rect(cornerRadius: 12))
@@ -188,7 +188,7 @@ struct SimilarProblemsCard: View {
     private var retrySection: some View {
         VStack(alignment: .leading, spacing: 10) {
             FlowHeader(number: retryOnly ? 4 : 6, title: "원래 문제 재도전", symbol: "arrow.counterclockwise")
-            Text(retryOnly ? "정답을 보지 않고 다시 풀어 봐요." : "유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.").font(.caption).foregroundStyle(.secondary)
+            Text(retryOnly ? "정답을 보지 않고 다시 풀어 봐요." : "유사 문제를 푼 뒤 원래 문제를 정답을 보지 않고 다시 풀어 봐요.").font(.pt(.caption)).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 TextField("다시 푼 답", text: $retryAnswer)
                     .textInputAutocapitalization(.never)
@@ -201,12 +201,12 @@ struct SimilarProblemsCard: View {
             }
             if let retryResult {
                 Text(retryResult.verdict == .correct ? "재도전 성공! 🎉" : (retryResult.verdict == .needsReview ? (retryResult.reasons.first ?? "확인이 필요해요") : "아직 틀렸어요. 풀이와 원인 분석을 다시 확인해요."))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(retryResult.verdict == .correct ? Palette.success : Palette.danger)
             }
             if let retries = ladder?.retries, !retries.isEmpty {
                 ForEach(Array(retries.suffix(5).enumerated()), id: \.offset) { _, attempt in
-                    Text("\(attempt.date.kr("M월 d일")) · \(attempt.given) · \(attempt.correct ? "정답" : "오답")").font(.caption).foregroundStyle(.secondary)
+                    Text("\(attempt.date.kr("M월 d일")) · \(attempt.given) · \(attempt.correct ? "정답" : "오답")").font(.pt(.caption)).foregroundStyle(.secondary)
                 }
             }
         }

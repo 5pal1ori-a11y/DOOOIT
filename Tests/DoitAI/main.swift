@@ -834,6 +834,8 @@ runProblemTypeCases()
 
 await runChatRelevanceCases()
 await runChatNaturalCases()
+await runChatZeroCases()
+await runZeroAudit()
 
 runGuidedSolveCases()
 runPaddleOCRCases()

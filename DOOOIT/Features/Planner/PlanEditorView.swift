@@ -56,7 +56,7 @@ struct PlanEditorView: View {
 
                 Section {
                     TextField(kind == .study ? "공부할 내용 (예: 수학 문제집 3단원)" : "할 일 (예: 친구랑 점심)", text: $title)
-                        .font(.headline)
+                        .font(.pt(.headline))
                         .focused($titleFocused)
                 }
 
@@ -67,7 +67,7 @@ struct PlanEditorView: View {
                                 let isOn = category?.id == item.id
                                 Button { category = item } label: {
                                     Label(item.name, systemImage: item.symbol)
-                                        .font(.subheadline.weight(.semibold))
+                                        .font(.pt(.subheadline).weight(.semibold))
                                         .padding(.horizontal, 12)
                                         .padding(.vertical, 8)
                                         .foregroundStyle(isOn ? Color.white : Color.primary)
@@ -77,7 +77,7 @@ struct PlanEditorView: View {
                             }
                             Button { showNewCategory = true } label: {
                                 Label(kind == .study ? "과목 추가" : "추가", systemImage: "plus")
-                                    .font(.subheadline.weight(.semibold))
+                                    .font(.pt(.subheadline).weight(.semibold))
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 8)
                                     .background(Color.primary.opacity(0.06), in: .capsule)
@@ -226,10 +226,10 @@ struct PlanEditorView: View {
                 } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         Image(systemName: item.symbol)
-                            .font(.title3)
+                            .font(.pt(.title3))
                             .foregroundStyle(isOn ? Theme.accent : Color.secondary)
-                        Text(item.title).font(.headline)
-                        Text(item.subtitle).font(.caption).foregroundStyle(.secondary)
+                        Text(item.title).font(.pt(.headline))
+                        Text(item.subtitle).font(.pt(.caption)).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)

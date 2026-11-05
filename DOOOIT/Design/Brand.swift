@@ -34,7 +34,7 @@ struct BrandWordmark: View {
     var body: some View {
         let o = Text("O").foregroundStyle(Theme.accent)
         Text("M\(o)TI")
-            .font(.system(size: size, weight: .heavy, design: .rounded))
+            .font(.pt(size: size, weight: .heavy))
             .tracking(tracking ?? size * 0.12)
             .foregroundStyle(Palette.ink)
             .lineLimit(1)

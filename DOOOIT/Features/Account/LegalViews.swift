@@ -8,15 +8,15 @@ struct LegalDocumentView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("시행일 \(LegalText.effectiveDate)")
-                    .font(.caption)
+                    .font(.pt(.caption))
                     .foregroundStyle(.secondary)
                 ForEach(kind.sections) { section in
                     VStack(alignment: .leading, spacing: 6) {
                         Text(section.title)
-                            .font(.subheadline.weight(.bold))
+                            .font(.pt(.subheadline).weight(.bold))
                             .foregroundStyle(Palette.ink)
                         Text(section.body)
-                            .font(.subheadline)
+                            .font(.pt(.subheadline))
                             .foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -44,11 +44,11 @@ struct LegalConsentRow: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: agreed ? "checkmark.circle.fill" : "circle")
-                        .font(.title3)
+                        .font(.pt(.title3))
                         .foregroundStyle(agreed ? Theme.accent : Color.secondary)
                         .contentTransition(.symbolEffect(.replace))
                     Text("[필수] 이용약관과 개인정보 처리방침에 동의해요")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .multilineTextAlignment(.leading)
                     Spacer(minLength: 0)
@@ -66,7 +66,7 @@ struct LegalConsentRow: View {
             .padding(.leading, 34)
 
             Text("만 14세 미만은 보호자 동의 후 이용해 주세요")
-                .font(.caption2)
+                .font(.pt(.caption2))
                 .foregroundStyle(.tertiary)
                 .padding(.leading, 34)
         }
@@ -85,7 +85,7 @@ struct LegalConsentRow: View {
             reading = kind
         } label: {
             Text("\(kind.title) 보기")
-                .font(.caption.weight(.semibold))
+                .font(.pt(.caption).weight(.semibold))
                 .underline()
                 .foregroundStyle(Theme.accent)
         }
