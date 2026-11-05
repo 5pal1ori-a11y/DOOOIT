@@ -338,7 +338,17 @@ enum FigureVision {
             guard n >= 3, n <= 4 else { continue }
             let names = (0..<n).compactMap { shape.vertexNames[$0] }
             if names.count == n, n == 3 { lines.append("△" + names.sorted().joined()) }
-            if names.count == n, n == 4 { lines.append("사각형 " + names.joined()) }
+            if names.count == n, n == 4 {
+                // 문제 글의 이름(사각형 ABCD)이 같은 네 점을 같은 둘레 순서로 부르면 그 이름으로
+                let ring = names.joined()
+                let stated = problem.matches(of: #/[A-Z]{4}/#).map { String($0.0) }.first { s in
+                    Set(s) == Set(ring) && (0..<4).contains { k in
+                        let rotated = String((ring + ring).dropFirst(k).prefix(4))
+                        return rotated == s || String(rotated.reversed()) == s
+                    }
+                }
+                lines.append("사각형 " + (stated ?? ring))
+            }
             for i in 0..<n {
                 guard let value = shape.sideLabels[i], let a = shape.vertexNames[i], let b = shape.vertexNames[(i + 1) % n] else { continue }
                 lines.append(GeometryText.segment(String([a, b].sorted().joined())) + " = " + VisionMath.format(value))
