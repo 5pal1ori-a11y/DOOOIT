@@ -20,6 +20,8 @@ enum UIShotScreen: String, CaseIterable {
     }
     /// 앱스토어 사진용: 앱 잠금 켠 채 공부 중인 타이머 · 주간 AI 리포트 · 단어 카드 학습
     case timerLock, weeklyReport, wordSession
+    /// AI 순공부 측정: 안내 화면 · 공부 중 칩 · 자리 비움 칩 · 끝난 뒤 결과 (카메라 없이 가짜 값)
+    case camGuide, camTimer, camAway, camResult
 }
 
 @MainActor
@@ -64,7 +66,8 @@ enum UIShot {
             SettingsKey.dDayTitle: "기말고사",
             SettingsKey.dDayDate: Date().startOfDay.addingTimeInterval(86_400 * 23).timeIntervalSince1970,
             SettingsKey.dailyWordGoal: 20,
-            SettingsKey.dailyStudyGoalMinutes: 180
+            SettingsKey.dailyStudyGoalMinutes: 180,
+            StudyPresenceMonitor.enabledKey: matches(.camGuide, .camTimer, .camAway)
         ])
     }
 
@@ -93,6 +96,20 @@ enum UIShot {
             let now = Date()
             timer.showDemo(title: "수학 오답 복습", categoryName: "수학", symbol: "function", targetMinutes: 90,
                            startedAt: now.addingTimeInterval(-42 * 60 - 17), lockUntil: now.addingTimeInterval(48 * 60))
+            try? await Task.sleep(for: .milliseconds(300))
+            timer.isPresented = true
+        case .camGuide:
+            StudyPresenceMonitor.shared.showDemo(state: .waiting, net: 0, preview: true)
+            try? await Task.sleep(for: .milliseconds(300))
+            timer.isPresented = true
+        case .camTimer, .camAway:
+            let now = Date()
+            timer.showDemo(title: "수학 오답 복습", categoryName: "수학", symbol: "function", targetMinutes: 90,
+                           startedAt: now.addingTimeInterval(-47 * 60 - 12), lockUntil: nil)
+            StudyPresenceMonitor.shared.showDemo(state: screen == .camAway ? .away : .studying, net: 42 * 60 + 10)
+            try? await Task.sleep(for: .milliseconds(300))
+            timer.isPresented = true
+        case .camResult:
             try? await Task.sleep(for: .milliseconds(300))
             timer.isPresented = true
         case .soundMixer:
