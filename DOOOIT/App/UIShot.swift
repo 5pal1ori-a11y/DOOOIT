@@ -22,6 +22,8 @@ enum UIShotScreen: String, CaseIterable {
     case timerLock, weeklyReport, wordSession
     /// 계정 → 앱 (화면 모드 · 테마 · 언어)
     case appSettings
+    /// 둘러보기(게스트) 상태의 계정 화면
+    case guestAccount
 }
 
 @MainActor
@@ -41,7 +43,11 @@ enum UIShot {
     }
 
     static var demoUser: UserAccount? {
-        screen == .auth ? nil : UserAccount(id: "uishot.demo", name: "김모티", email: "dooit@example.com", provider: .email, createdAt: Date())
+        switch screen {
+        case .auth: return nil
+        case .guestAccount: return UserAccount(id: AuthManager.guestID, name: "게스트", email: "", provider: .guest, createdAt: Date())
+        default: return UserAccount(id: "uishot.demo", name: "김모티", email: "dooit@example.com", provider: .email, createdAt: Date())
+        }
     }
 
     static var tab: AppTab {
@@ -50,7 +56,7 @@ enum UIShot {
              .weeklyReport, .wordSession: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
-        case .account, .accountSettings, .badges, .appSettings: return .account
+        case .account, .accountSettings, .badges, .appSettings, .guestAccount: return .account
         default: return .home
         }
     }
