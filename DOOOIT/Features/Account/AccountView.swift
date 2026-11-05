@@ -184,6 +184,7 @@ struct AccountView: View {
         guard let language = pendingLanguage else { return }
         pendingLanguage = nil
         AppLanguage.set(language)
+        DoitMind.replyLanguage = AppLanguage.code
         // 알림·위젯 글자도 새 언어로
         PlanScheduler.shared.rescheduleNotifications()
         WidgetSync.update(context: context)

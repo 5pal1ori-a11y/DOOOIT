@@ -23,6 +23,16 @@ struct DoitAIView: View {
                     ScrollView {
                         // 대화는 길지 않아서 VStack: LazyVStack은 높이를 어림하다가 스크롤이 튀어요
                         VStack(alignment: .leading, spacing: 16) {
+                            // 모티 ZERO(모델 없이)는 한국어로만 답해요: 다른 화면 언어면 맨 위에 한 줄 안내
+                            if !AppLanguage.isKorean && DoitBrain.shared.selected == nil {
+                                Label(L("모티 ZERO는 한국어로만 답해요. 모티 1·2를 받으면 이 언어로 대화해요."), systemImage: "globe")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(Theme.accent)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 10)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 14))
+                            }
                             if assistant.messages.isEmpty {
                                 welcome
                             }

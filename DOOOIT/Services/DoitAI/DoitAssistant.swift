@@ -348,7 +348,7 @@ final class DoitAssistant {
         let reasoning = origin != .chat && style != .casual && DoitBrain.shared.selected == .dooit2 && DoitMind.needsReasoning(question)
         if reasoning { status = "깊게 생각하는 중…" }
         do {
-            for try await chunk in DoitBrain.shared.stream(system: DoitMind.persona,
+            for try await chunk in DoitBrain.shared.stream(system: DoitMind.chatPersona,
                                                            prompt: DoitMind.answerPrompt(question: question, context: context, history: [],
                                                                                          summary: history.summary, topic: topicHint, style: style),
                                                            history: history.recent,

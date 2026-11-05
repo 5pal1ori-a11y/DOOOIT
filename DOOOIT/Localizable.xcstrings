@@ -10152,6 +10152,29 @@
         }
       }
     },
+    "모티 ZERO는 한국어로만 답해요. 모티 1·2를 받으면 이 언어로 대화해요.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTI ZERO replies in Korean only. Download MOTI 1 or 2 to chat in English."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTI ZEROは韓国語でのみ答えます。MOTI 1・2を入れると日本語で会話できます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MOTI ZERO 只用韩语回答。下载 MOTI 1 或 2 即可用中文对话。"
+          }
+        }
+      }
+    },
     "모티 랭킹": {
       "localizations": {
         "en": {
@@ -18453,6 +18476,29 @@
         }
       }
     },
+    "자료를 찾아 읽는 중…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Searching sources…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "資料を探して読んでいます…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在查找资料…"
+          }
+        }
+      }
+    },
     "자세히": {
       "localizations": {
         "en": {
@@ -20504,6 +20550,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "找到的单元"
+          }
+        }
+      }
+    },
+    "찾은 자료를 정리하는 중…": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organizing what I found…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見つけた資料を整理中…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在整理找到的资料…"
           }
         }
       }

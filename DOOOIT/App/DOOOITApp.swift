@@ -41,6 +41,8 @@ struct DOOOITApp: App {
     @MainActor
     private func attachServices() {
         let context = container.mainContext
+        // 모티 1·2는 화면 언어로 답함 (한국어면 지금과 같음)
+        DoitMind.replyLanguage = AppLanguage.code
         #if DEBUG
         if UIShot.isActive {
             studyTimer.attach(context: context)

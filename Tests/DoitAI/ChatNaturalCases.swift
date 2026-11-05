@@ -135,6 +135,21 @@ func runChatNaturalCases() async {
     check("프롬프트: 공부 질문은 그대로", studyPrompt.hasSuffix("짧고 간단하게 답해 주세요. 요약이나 결론은 붙이지 마세요."), studyPrompt)
     check("말투 지침: 해요체·되풀이 없음", DoitMind.persona.contains("~습니다") && DoitMind.persona.contains("되풀이하지 않아요"))
 
+    // 화면 언어: 한국어면 그대로, 다른 언어면 그 언어로 답하게 하고 답을 지우지 않음
+    check("화면 언어: 한국어는 성격 그대로", DoitMind.chatPersona == DoitMind.persona && DoitMind.languageRule == nil)
+    DoitMind.replyLanguage = "en"
+    check("화면 언어 영어: 성격에 영어로 답하기", DoitMind.chatPersona.contains("Always answer in English.") && !DoitMind.chatPersona.contains("해요체"))
+    check("화면 언어 영어: 프롬프트 끝에 한 번 더",
+          DoitMind.answerPrompt(question: "What is photosynthesis?", context: DoitMind.Context(), history: []).hasSuffix("Always answer in English."))
+    let english = DoitMind.chatAnswer("Photosynthesis turns light into chemical energy in plants.", question: "What is photosynthesis?")
+    check("화면 언어 영어: 영어 답을 지우지 않음", english.contains("chemical energy") && DoitMind.isUsable(english, question: "What is photosynthesis?"), english)
+    DoitMind.replyLanguage = "zh-Hans"
+    let chinese = DoitMind.chatAnswer("光合作用是植物利用光能制造养分的过程。", question: "光合作用是什么？")
+    check("화면 언어 중국어: 한자 답을 쓸 수 있음", chinese.contains("光合作用") && DoitMind.isUsable(chinese, question: "光合作用是什么？"), chinese)
+    DoitMind.replyLanguage = "ja"
+    check("화면 언어 일본어: 성격에 일본어로", DoitMind.chatPersona.hasSuffix("必ず日本語で答えてください。"))
+    DoitMind.replyLanguage = "ko"
+
     // 8) 모델 비교에서 나온 것들: 잡담에 오늘 상황 끌어오기, 끼어든 영어 낱말, 같은 문장 두 번, 뜬금없는 반가움, 한자가 대부분인 답
     for q in ["안녕", "고마워", "ㅋㅋ", "잘자", "너 누구야?"] {
         check("오늘 상황: '\(q)'에는 안 줌", !DoitMind.wantsSituation(q, style: DoitMind.style(for: q, chat: true)))
