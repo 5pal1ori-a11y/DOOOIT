@@ -211,7 +211,10 @@ enum DoitKnowledge {
         let asked = words(query).joined()
         let alias = best.entry.names.dropFirst().first { name in
             let key = name.lowercased().filter { !$0.isWhitespace }
+            // (질문처럼 쓴 다른 이름 "무지개는 왜 생겨", 두 낱말을 늘어놓은 이름 "안 않"은 보여 주지 않음)
             return key.count >= 2 && asked.contains(key) && !best.entry.title.lowercased().filter({ !$0.isWhitespace }).contains(key)
+                && !name.contains("왜") && !name.contains("이유") && name.split(separator: " ").count <= 3
+                && !(name.split(separator: " ").count >= 2 && DoitZeroFacts.entries.contains { $0.names.contains(name) })
         }
         var text = "**\(best.entry.title)** (\(alias.map { "\($0) · " } ?? "")\(best.entry.label))\n\(best.entry.body)"
         // 함께 보면 좋은 개념: 같은 과목이고 이름이 질문 낱말로 시작하거나 ("소수" → '소수와 합성수') 같은 갈래인 것 ("은유법" → '직유법')만

@@ -178,7 +178,7 @@ enum DoitRelevance {
         let rain = t.range(of: #"(비|눈|소나기)(가|이)?(와|오|올|내리|내려|온대)"#, options: .regularExpression) != nil && !has(t, ["이유", "원리", "왜", "과정"])
         let president = t.contains("대통령") && has(t, ["누구", "지금", "현재", "이번", "요즘"])
         let match = has(t, ["축구", "야구", "농구", "배구", "경기", "월드컵", "올림픽", "리그", "시합"]) && has(t, ["이겼", "졌", "결과", "스코어", "몇대몇", "누가", "우승"])
-        let asksLive = text.contains("?") || has(t, ["알려", "어때", "뭐야", "얼마", "몇", "누구", "언제", "결과", "올까", "오나", "오니", "나와", "어떻게돼", "됐어", "줘", "궁금", "알아"])
+        let asksLive = text.contains("?") || has(t, ["알려", "어때", "뭐야", "얼마", "몇", "누구", "누가", "언제", "결과", "올까", "오나", "오니", "나와", "어떻게돼", "됐어", "줘", "궁금", "알아"])
             || liveWords.contains { t.hasSuffix($0) }
         if !isCalc, asksLive, !asksConcept || rain, rain || president || match || has(t, liveWords) {
             let word = liveWords.first { t.contains($0) } ?? (rain ? "날씨" : match ? "경기결과" : "그 소식")
@@ -264,7 +264,7 @@ enum DoitRelevance {
                 return Guard(text: "'\(word)'\(josa(word, "은")) 아직 잘 몰라요." + modelHint(),
                              suggestions: ["\(topic) 설명해줘"], modelMayAnswer: true)
             }
-            return Guard(text: DoitTone.pick(["'\(topic)'에서 그 부분은 아직 잘 몰라요.", "그 부분은 제 자료에 없어서 잘 몰라요."]) + modelHint(),
+            return Guard(text: DoitTone.pick(["'\(topic)'에서 그 부분은 아직 잘 몰라요.", "'\(topic)'에서 그 부분은 제 자료에 없어서 잘 몰라요."]) + modelHint(),
                          suggestions: ["\(topic) 설명해줘"], modelMayAnswer: true)
         }
         guard !words.isEmpty else {
