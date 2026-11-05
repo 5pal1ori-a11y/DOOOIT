@@ -118,7 +118,7 @@ struct RankingView: View {
     private var joinCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("랭킹에 참여할까요?", systemImage: "trophy.fill").font(.headline)
-            Text("참여하면 \(ranking.playerName.isEmpty ? "내 Game Center 닉네임" : "'\(ranking.playerName)'")과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.")
+            Text("참여하면 \(ranking.playerName.isEmpty ? L("내 Game Center 닉네임") : "'\(ranking.playerName)'")과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Button("참여하기") {

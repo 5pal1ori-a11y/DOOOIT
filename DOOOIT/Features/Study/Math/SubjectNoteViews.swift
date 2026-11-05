@@ -84,7 +84,7 @@ struct SubjectTag: View {
         let color = Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: label)))
         HStack(spacing: 2) {
             if auto { Image(systemName: "sparkles").font(.system(size: 8, weight: .bold)) }
-            Text(label).lineLimit(1)
+            Text(label.loc).lineLimit(1)
         }
         .font(.caption2.weight(.bold))
         .foregroundStyle(color)
@@ -190,7 +190,7 @@ struct SubjectCauseCard: View {
                     ForEach(subject.causes, id: \.self) { cause in
                         let isOn = analysis?.cause == cause
                         Button { choose(cause) } label: {
-                            Text(cause.label)
+                            Text(cause.label.loc)
                                 .font(.subheadline.weight(.semibold))
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)

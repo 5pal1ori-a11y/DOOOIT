@@ -182,7 +182,7 @@ struct StatsView: View {
             if diff == 0 {
                 Text("똑같아요").font(.title2.weight(.bold))
             } else {
-                Text("\(bigTime(abs(diff))) \(diff > 0 ? "늘었어요" : "줄었어요")")
+                Text("\(bigTime(abs(diff))) \(diff > 0 ? L("늘었어요") : L("줄었어요"))")
                     .font(.subheadline.weight(.semibold))
             }
 

@@ -351,7 +351,7 @@ struct CurriculumView: View {
                         .font(.headline)
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
-                    Text("\(progress.subject) · 다음: \(progress.nextStep?.longTitle ?? "복습")")
+                    Text("\(progress.subject) · 다음: \(progress.nextStep?.longTitle ?? L("복습"))")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

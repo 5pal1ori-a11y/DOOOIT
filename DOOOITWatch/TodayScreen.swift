@@ -80,7 +80,7 @@ struct TodayScreen: View {
                 .tint(accent)
             }
         }
-        .accessibilityLabel("\(plan.title), \(plan.isDone ? "완료" : "할 일")")
+        .accessibilityLabel("\(plan.title), \(plan.isDone ? L("완료") : L("할 일"))")
     }
 
     /// 누르면 받아쓰기 · 손글씨 · 키보드 ("4시 수학 1시간"처럼 말하면 시간도 들어감)

@@ -596,7 +596,7 @@ struct WeakConceptListView: View {
                              + (concept.mainCause.map { " · \($0)" } ?? ""))
                             .font(.caption).foregroundStyle(.secondary)
                         if let last = concept.records.last {
-                            Text("마지막 풀이: \(last.source) \(last.level)단계 \(last.correct ? "정답" : "오답")").font(.caption2).foregroundStyle(.secondary)
+                            Text("마지막 풀이: \(last.source.loc) \(last.level)단계 \(last.correct ? L("정답") : L("오답"))").font(.caption2).foregroundStyle(.secondary)
                         }
                         if DoitStudy.catalog.contains(where: { $0.subjectName == concept.subject && $0.unit == concept.unit }) {
                             NavigationLink {

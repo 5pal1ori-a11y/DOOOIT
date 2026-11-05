@@ -180,7 +180,7 @@ struct UnitStudyView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(index + 1)단계 \(item.longTitle)\(isDone ? ", 완료" : "")")
+                .accessibilityLabel("\(index + 1)단계 \(item.longTitle)\(isDone ? L(", 완료") : "")")
                 .background(alignment: .top) {
                     // 옆 단계와 잇는 선
                     if index < LearnStep.allCases.count - 1 {

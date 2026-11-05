@@ -47,7 +47,7 @@ struct SimilarProblemsCard: View {
                     ProgressView("다음 문제를 만드는 중…").font(.caption)
                 } else {
                     Button { Task { await nextItem() } } label: {
-                        Label(lastResult == nil ? L("\(PracticeLadder.levelTitle(ladder.level)) 시작") : L("다음 문제"), systemImage: "arrow.right")
+                        Label(lastResult == nil ? L("\(PracticeLadder.levelTitle(ladder.level).loc) 시작") : L("다음 문제"), systemImage: "arrow.right")
                             .frame(maxWidth: .infinity).frame(height: 38)
                     }
                     .buttonStyle(.glassProminent)
@@ -86,7 +86,7 @@ struct SimilarProblemsCard: View {
 
     private func itemView(_ item: PracticeItem) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(PracticeLadder.levelTitle(item.level)).font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
+            Text(PracticeLadder.levelTitle(item.level).loc).font(.caption.weight(.bold)).foregroundStyle(Theme.accent)
             Text(MathSymbolBar.pretty(item.question))
                 .font(.system(size: 16, design: .serif))
                 .lineSpacing(5)
@@ -206,7 +206,7 @@ struct SimilarProblemsCard: View {
             }
             if let retries = ladder?.retries, !retries.isEmpty {
                 ForEach(Array(retries.suffix(5).enumerated()), id: \.offset) { _, attempt in
-                    Text("\(attempt.date.ui("M월 d일")) · \(attempt.given) · \(attempt.correct ? "정답" : "오답")").font(.caption).foregroundStyle(.secondary)
+                    Text("\(attempt.date.ui("M월 d일")) · \(attempt.given) · \(attempt.correct ? L("정답") : L("오답"))").font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
