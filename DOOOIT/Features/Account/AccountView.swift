@@ -309,7 +309,7 @@ struct AccountView: View {
             .clipShape(.rect(cornerRadius: 16, style: .continuous))
         }
         .softCard(cornerRadius: 22, padding: 18)
-        .errorAlert($guestSignInError, title: "로그인 실패")
+        .errorAlert($guestSignInError, title: L("로그인 실패"))
     }
 
     /// 프로필 카드 (흰 카드 · 동그란 이니셜 · 이름 · 로그인 방식)
@@ -325,7 +325,7 @@ struct AccountView: View {
                 .background(Theme.accent.pastel, in: .circle)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(user?.name ?? "")
+                Text(user?.name.loc ?? "")
                     .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(Palette.ink)
                 if let email = user?.email, !email.isEmpty {

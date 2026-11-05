@@ -79,7 +79,7 @@ struct HomeView: View {
             .font(.pt(.subheadline).weight(.semibold))
             .foregroundStyle(.secondary)
 
-            Text(Greeting.textL(name: auth.currentUser?.name ?? L("유저"), at: now))
+            Text(Greeting.textL(name: auth.currentUser?.name.loc ?? L("유저"), at: now))
                 .font(.pt(size: 28, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)

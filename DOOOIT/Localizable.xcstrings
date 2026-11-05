@@ -3320,6 +3320,29 @@
         }
       }
     },
+    "Apple로 로그인하면 쓸 수 있어요": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in with Apple to use this"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appleでサインインすると使えます"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用 Apple 登录后即可使用"
+          }
+        }
+      }
+    },
     "D-Day를 설정하세요": {
       "localizations": {
         "en": {
@@ -4182,6 +4205,29 @@
         }
       }
     },
+    "게스트": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guest"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲスト"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "访客"
+          }
+        }
+      }
+    },
     "결과": {
       "localizations": {
         "en": {
@@ -4819,6 +4865,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "学习排行"
+          }
+        }
+      }
+    },
+    "공부 랭킹 (로그인 필요)": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ranking (sign-in required)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学習ランキング（要ログイン）"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学习排行（需登录）"
           }
         }
       }
@@ -5990,6 +6059,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "记录"
+          }
+        }
+      }
+    },
+    "기록은 이 기기에만 저장돼요. Apple로 로그인하면 지금 기록 그대로 iCloud 동기화와 랭킹을 쓸 수 있어요.": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records are saved on this device only. Sign in with Apple to keep them and use iCloud sync and ranking."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録はこのデバイスにのみ保存されます。Appleでサインインすると記録をそのまま、iCloud同期とランキングが使えます。"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "记录仅保存在本设备。使用 Apple 登录后可保留记录并使用 iCloud 同步和排行。"
           }
         }
       }
@@ -8788,6 +8880,52 @@
         }
       }
     },
+    "둘러보기 끝내기": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "End Browsing"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お試しを終える"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "结束浏览"
+          }
+        }
+      }
+    },
+    "둘러보기 중": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browsing"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お試し中"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "浏览中"
+          }
+        }
+      }
+    },
     "듣고 있어요…": {
       "localizations": {
         "en": {
@@ -9268,6 +9406,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "登录失败"
+          }
+        }
+      }
+    },
+    "로그인 없이 둘러보기": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Browse Without Signing In"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインせずに使ってみる"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不登录先看看"
+          }
+        }
+      }
+    },
+    "로그인 없이 쓰는 중이에요": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Using without signing in"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ログインせずに利用中"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在未登录使用"
           }
         }
       }
