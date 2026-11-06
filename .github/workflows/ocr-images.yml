@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ocr-images-${{ github.ref }}
+  group: ocr-images-${{ github.ref }}-${{ github.event.inputs.filter }}
   cancel-in-progress: true
 
 jobs:
