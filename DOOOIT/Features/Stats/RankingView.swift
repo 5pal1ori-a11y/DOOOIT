@@ -23,7 +23,7 @@ struct RankingView: View {
                 }
                 if let board {
                     if board.entries.isEmpty {
-                        EmptyStateView(symbol: "trophy", title: "아직 기록이 없어요")
+                        EmptyStateView(symbol: "trophy", title: L("아직 기록이 없어요"))
                             .softCard()
                     } else {
                         topThree(board)
@@ -97,16 +97,16 @@ struct RankingView: View {
 
     private func dateText(_ start: Date, _ end: Date) -> String {
         switch period {
-        case .daily: return start.kr("M월 d일")
-        case .weekly: return "\(start.kr("M월 d일")) ~ \(end.addingTimeInterval(-1).kr("M월 d일"))"
-        case .monthly: return start.kr("yyyy년 M월")
+        case .daily: return start.ui("M월 d일")
+        case .weekly: return L("\(start.ui("M월 d일")) ~ \(end.addingTimeInterval(-1).ui("M월 d일"))")
+        case .monthly: return start.ui("yyyy년 M월")
         }
     }
 
     private var signInCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Game Center에 로그인해 주세요", systemImage: "gamecontroller.fill").font(.pt(.headline))
-            Text(ranking.authMessage ?? "모티 랭킹은 Apple Game Center로 순위를 모아요. 로그인하면 다른 학생들과 공부 시간을 겨룰 수 있어요.")
+            Text(ranking.authMessage ?? L("모티 랭킹은 Apple Game Center로 순위를 모아요. 로그인하면 다른 학생들과 공부 시간을 겨룰 수 있어요."))
                 .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button("로그인") { ranking.authenticate() }
@@ -118,7 +118,7 @@ struct RankingView: View {
     private var joinCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("랭킹에 참여할까요?", systemImage: "trophy.fill").font(.pt(.headline))
-            Text("참여하면 \(ranking.playerName.isEmpty ? "내 Game Center 닉네임" : "'\(ranking.playerName)'")과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.")
+            Text("참여하면 \(ranking.playerName.isEmpty ? L("내 Game Center 닉네임") : "'\(ranking.playerName)'")과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.")
                 .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button("참여하기") {
@@ -187,7 +187,7 @@ struct RankingView: View {
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         HStack {
-                            Text(entry.isMe ? "\(entry.name) (나)" : entry.name)
+                            Text(entry.isMe ? L("\(entry.name) (나)") : entry.name)
                                 .font(.pt(.body).weight(entry.isMe ? .bold : .regular))
                                 .foregroundStyle(Palette.ink)
                                 .lineLimit(1)

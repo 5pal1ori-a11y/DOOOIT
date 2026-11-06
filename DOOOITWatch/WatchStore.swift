@@ -252,24 +252,24 @@ final class WatchStore: NSObject {
             switch cycle.stage {
             case .focus:
                 if let goal = timer.goalDate {
-                    list.append(Upcoming(id: "watch.goal", date: goal, title: "집중 끝!", body: "\(cycle.restLength)분 쉬어요", haptic: .success))
+                    list.append(Upcoming(id: "watch.goal", date: goal, title: L("집중 끝!"), body: L("\(cycle.restLength)분 쉬어요"), haptic: .success))
                     let restEnd = goal.addingTimeInterval(Double(cycle.restLength) * 60)
-                    list.append(Upcoming(id: "watch.rest", date: restEnd, title: "휴식 끝", body: "다시 집중해요", haptic: .notification))
+                    list.append(Upcoming(id: "watch.rest", date: restEnd, title: L("휴식 끝"), body: L("다시 집중해요"), haptic: .notification))
                 }
             case .rest:
                 if let until = cycle.restUntil {
-                    list.append(Upcoming(id: "watch.rest", date: until, title: "휴식 끝",
-                                         body: cycle.restOnly ? "다시 공부해요" : "다시 집중해요", haptic: .notification))
+                    list.append(Upcoming(id: "watch.rest", date: until, title: L("휴식 끝"),
+                                         body: cycle.restOnly ? L("다시 공부해요") : L("다시 집중해요"), haptic: .notification))
                 }
             case .ready:
                 break
             }
         } else if let goal = timer.goalDate {
-            list.append(Upcoming(id: "watch.goal", date: goal, title: "목표 달성!", body: "오늘도 잘했어요", haptic: .success))
+            list.append(Upcoming(id: "watch.goal", date: goal, title: L("목표 달성!"), body: L("오늘도 잘했어요"), haptic: .success))
         }
         if let daily = snapshot.dailyGoalDate(at: now), !list.contains(where: { abs($0.date.timeIntervalSince(daily)) < 60 }) {
-            list.append(Upcoming(id: "watch.daily", date: daily, title: "오늘 목표 달성!",
-                                 body: WatchFormat.duration(snapshot.goalMinutes * 60), haptic: .success))
+            list.append(Upcoming(id: "watch.daily", date: daily, title: L("오늘 목표 달성!"),
+                                 body: WatchFormat.durationL(snapshot.goalMinutes * 60), haptic: .success))
         }
         // 30분마다 살짝 (화면이 켜져 있을 때만)
         if WatchPrefs.milestones, timer.phase == .running, let since = timer.runningSince {

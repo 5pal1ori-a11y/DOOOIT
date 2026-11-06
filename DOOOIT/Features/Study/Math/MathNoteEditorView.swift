@@ -96,7 +96,7 @@ struct MathNoteEditorView: View {
             .scrollDismissesKeyboard(.interactively)
         }
         .background { AppBackground() }
-        .navigationTitle(note.title.isEmpty ? "오답노트" : note.title)
+        .navigationTitle(note.title.isEmpty ? L("오답노트") : note.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -104,7 +104,7 @@ struct MathNoteEditorView: View {
                     Button {
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { isDrawing.toggle() }
                     } label: {
-                        Label(isDrawing ? "완료" : "필기", systemImage: isDrawing ? "checkmark" : "pencil.tip")
+                        Label(isDrawing ? L("완료") : L("필기"), systemImage: isDrawing ? "checkmark" : "pencil.tip")
                     }
                 }
             }
@@ -117,7 +117,7 @@ struct MathNoteEditorView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .alert(editingAnnotationID == nil ? "텍스트 추가" : "텍스트 수정", isPresented: $showTextAlert) {
+        .alert(editingAnnotationID == nil ? L("텍스트 추가") : L("텍스트 수정"), isPresented: $showTextAlert) {
             TextField("내용", text: $textInput)
             Button("취소", role: .cancel) { resetTextEditing() }
             if editingAnnotationID != nil {
@@ -192,7 +192,7 @@ struct MathNoteEditorView: View {
                     } label: {
                         SubjectTag(label: note.subjectLabel, auto: note.isSubjectAuto)
                     }
-                    TextField(subject.isMath ? "단원 (예: 이차함수)" : "단원", text: $note.unit)
+                    TextField(subject.isMath ? L("단원 (예: 이차함수)") : L("단원"), text: $note.unit)
                         .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                 }
@@ -218,7 +218,7 @@ struct MathNoteEditorView: View {
                 } label: {
                     VStack(spacing: 8) {
                         HStack(spacing: 4) {
-                            Text(item.rawValue)
+                            Text(item.rawValue.loc)
                             if item == .text && !note.isRecognitionConfirmed {
                                 Circle().fill(Palette.warning).frame(width: 6, height: 6)
                             }
@@ -438,7 +438,7 @@ struct MathNoteEditorView: View {
                             let current = note.recognizedText
                             note.recognizedText = previousText
                             self.previousText = current
-                            withAnimation { textMessage = "이전 글로 되돌렸어요." }
+                            withAnimation { textMessage = L("이전 글로 되돌렸어요.") }
                         } label: {
                             Label("되돌리기", systemImage: "arrow.uturn.backward")
                         }
@@ -454,7 +454,7 @@ struct MathNoteEditorView: View {
                 Button {
                     withAnimation(.snappy) { isEditingText.toggle() }
                 } label: {
-                    Label(isEditingText ? "완료" : "고치기", systemImage: isEditingText ? "checkmark" : "pencil")
+                    Label(isEditingText ? L("완료") : L("고치기"), systemImage: isEditingText ? "checkmark" : "pencil")
                         .font(.pt(.subheadline).weight(.semibold))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -540,7 +540,7 @@ struct MathNoteEditorView: View {
             // 수학이 아닌 과목: 한글·영어 문장 그대로 (수식 교정 없이)
             let read = await SubjectOCR.read(problem)
             note.isRecognitionConfirmed = false
-            apply(read.text, message: read.text.isEmpty ? "글자를 찾지 못했어요" : "다시 읽었어요")
+            apply(read.text, message: read.text.isEmpty ? L("글자를 찾지 못했어요") : L("다시 읽었어요"))
             rescan(read.text, unsure: read.unsure)
             refreshSubjectAndType()
             return
@@ -548,9 +548,9 @@ struct MathNoteEditorView: View {
         let result = await OCRService.readMathProblemDetailed(problem)
         // 새로 읽은 문제는 사용자가 확인하기 전까지 확정하지 않음
         note.isRecognitionConfirmed = false
-        apply(result.text, message: result.text.isEmpty ? "글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요."
-              : result.improved ? "여러 방법으로 읽어서 수식이 가장 자연스러운 결과를 골랐어요. 틀린 곳은 \"고치기\"로 바꿔주세요."
-              : "선택한 영역의 인쇄된 글자만 다시 읽었어요.")
+        apply(result.text, message: result.text.isEmpty ? L("글자를 찾지 못했어요. 영역을 넓혀서 다시 골라보세요.")
+              : result.improved ? L("여러 방법으로 읽어서 수식이 가장 자연스러운 결과를 골랐어요. 틀린 곳은 \"고치기\"로 바꿔주세요.")
+              : L("선택한 영역의 인쇄된 글자만 다시 읽었어요."))
         rescan(result.text, unsure: result.unsure)
         refreshSubjectAndType()
     }

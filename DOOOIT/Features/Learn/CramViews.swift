@@ -12,7 +12,7 @@ struct CramListView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if exams.isEmpty {
                     VStack(spacing: 16) {
-                        EmptyStateView(symbol: "bolt.fill", title: "다가오는 시험이 없어요")
+                        EmptyStateView(symbol: "bolt.fill", title: L("다가오는 시험이 없어요"))
                         Button { showNew = true } label: {
                             Label("시험 추가하기", systemImage: "plus")
                                 .font(.pt(.body).weight(.bold))
@@ -56,10 +56,10 @@ struct CramListView: View {
         let doneSteps = units.reduce(0) { $0 + $1.done.count }
         return HStack(spacing: 16) {
             VStack(spacing: 0) {
-                Text(exam.dDay > 0 ? "D-\(exam.dDay)" : (exam.dDay == 0 ? "D-DAY" : "끝"))
+                Text(exam.dDay > 0 ? "D-\(exam.dDay)" : (exam.dDay == 0 ? "D-DAY" : L("끝")))
                     .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(exam.dDay <= 3 ? Palette.danger : Theme.accent)
-                Text(exam.examDate.kr("M.d")).font(.pt(.caption2)).foregroundStyle(.secondary)
+                Text(exam.examDate.ui("M.d")).font(.pt(.caption2)).foregroundStyle(.secondary)
             }
             .frame(width: 64)
             VStack(alignment: .leading, spacing: 6) {
@@ -157,7 +157,7 @@ struct CramDetailView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(exam.name).font(.pt(.title2).weight(.bold))
-                Text("\(exam.examDate.kr("M월 d일 (E)")) 시험").font(.pt(.subheadline)).foregroundStyle(.secondary)
+                Text("\(exam.examDate.ui("M월 d일 (E)")) 시험").font(.pt(.subheadline)).foregroundStyle(.secondary)
             }
             Spacer()
             Image(systemName: "bolt.fill")
@@ -183,7 +183,7 @@ struct CramDetailView: View {
                 Text("부스터 모드").tag(true)
             }
             .pickerStyle(.segmented)
-            Text(exam.isBooster ? "부스터: 핵심 개념 3개, 문제 수를 줄여 빠르게 훑어요." : "정석: 개념부터 응용 문제까지 차근차근 풀어요.")
+            Text(exam.isBooster ? L("부스터: 핵심 개념 3개, 문제 수를 줄여 빠르게 훑어요.") : L("정석: 개념부터 응용 문제까지 차근차근 풀어요."))
                 .font(.pt(.caption))
                 .foregroundStyle(.secondary)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -229,11 +229,11 @@ struct CramDetailView: View {
         let next = exam.units.first { $0.done.count < LearnStep.allCases.count }
         return HStack(spacing: 14) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(next.map { "\($0.subject) · \($0.title)" } ?? "모든 단원을 끝냈어요")
+                Text(next.map { "\($0.subject) · \($0.title)" } ?? L("모든 단원을 끝냈어요"))
                     .font(.pt(.caption))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Text(exam.dDay >= 0 ? "시험 D-\(exam.dDay)" : "시험이 끝났어요").font(.pt(.headline))
+                Text(exam.dDay >= 0 ? L("시험 D-\(exam.dDay)") : L("시험이 끝났어요")).font(.pt(.headline))
             }
             Spacer()
             if let next {
@@ -265,7 +265,7 @@ struct CramEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
 
-    @State private var name = "1학기 중간고사"
+    @State private var name = L("1학기 중간고사")
     @State private var date = Date().adding(days: 7)
     @State private var selected: Set<String> = []
     @State private var customSubject = ""
@@ -311,7 +311,7 @@ struct CramEditorView: View {
                             let s = customSubject.trimmingCharacters(in: .whitespaces)
                             let u = customUnit.trimmingCharacters(in: .whitespaces)
                             guard !s.isEmpty, !u.isEmpty else { return }
-                            customUnits.append(CramUnit(subject: s, chapter: "직접 추가", title: u))
+                            customUnits.append(CramUnit(subject: s, chapter: L("직접 추가"), title: u))
                             customUnit = ""
                         }
                     }

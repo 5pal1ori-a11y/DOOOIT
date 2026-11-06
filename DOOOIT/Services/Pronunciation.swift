@@ -13,7 +13,7 @@ final class WordSpeaker {
     enum Accent: String, CaseIterable, Identifiable {
         case us, uk
         var id: String { rawValue }
-        var title: String { self == .us ? "미국식" : "영국식" }
+        var title: String { self == .us ? L("미국식") : L("영국식") }
         var language: String { self == .us ? "en-US" : "en-GB" }
     }
 
@@ -93,11 +93,11 @@ final class SpeechChecker {
         errorMessage = nil
         transcript = ""
         guard await Self.requestPermission() else {
-            errorMessage = "설정 > MOTI에서 마이크와 음성 인식을 허용해주세요."
+            errorMessage = L("설정 > MOTI에서 마이크와 음성 인식을 허용해주세요.")
             return
         }
         guard let recognizer, recognizer.isAvailable else {
-            errorMessage = "지금은 음성 인식을 쓸 수 없어요. 잠시 후 다시 시도해주세요."
+            errorMessage = L("지금은 음성 인식을 쓸 수 없어요. 잠시 후 다시 시도해주세요.")
             return
         }
         AmbientSoundPlayer.shared.stop()
@@ -128,7 +128,7 @@ final class SpeechChecker {
                 self?.stop()
             }
         } catch {
-            errorMessage = "마이크를 시작하지 못했어요."
+            errorMessage = L("마이크를 시작하지 못했어요.")
             cleanUp()
         }
     }

@@ -11,11 +11,11 @@ enum RepeatRule: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .none: return "반복 안 함"
-        case .daily: return "매일"
-        case .weekly: return "매주"
-        case .monthly: return "매달"
-        case .yearly: return "매년"
+        case .none: return L("반복 안 함")
+        case .daily: return L("매일")
+        case .weekly: return L("매주")
+        case .monthly: return L("매달")
+        case .yearly: return L("매년")
         }
     }
 }
@@ -24,8 +24,8 @@ enum PlanKind: String, Codable, CaseIterable, Identifiable {
     case general, study
 
     var id: String { rawValue }
-    var title: String { self == .study ? "공부 플랜" : "일반 플랜" }
-    var subtitle: String { self == .study ? "자동 타이머 · 앱 잠금" : "약속 · 할 일 · 알림" }
+    var title: String { self == .study ? L("공부 플랜") : L("일반 플랜") }
+    var subtitle: String { self == .study ? L("자동 타이머 · 앱 잠금") : L("약속 · 할 일 · 알림") }
     var symbol: String { self == .study ? "timer" : "calendar" }
 }
 
@@ -164,7 +164,7 @@ struct PlanOccurrence: Identifiable {
     var isCompleted: Bool { plan.isCompleted(on: day) }
 
     var timeText: String {
-        plan.isAllDay ? "하루 종일" : "\(start.kr("a h:mm")) - \(end.kr("a h:mm"))"
+        plan.isAllDay ? L("하루 종일") : "\(start.ui("a h:mm")) - \(end.ui("a h:mm"))"
     }
 }
 
@@ -219,9 +219,9 @@ enum NoteStatus: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .unsolved: return "미채점"
-        case .wrong: return "오답"
-        case .correct: return "정답"
+        case .unsolved: return L("미채점")
+        case .wrong: return L("오답")
+        case .correct: return L("정답(상태)")
         }
     }
 
@@ -348,7 +348,7 @@ final class Memo {
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)
         if !t.isEmpty { return t }
         let firstLine = content.split(separator: "\n").first.map(String.init) ?? ""
-        return firstLine.isEmpty ? "새로운 메모" : firstLine
+        return firstLine.isEmpty ? L("새로운 메모") : firstLine
     }
 }
 

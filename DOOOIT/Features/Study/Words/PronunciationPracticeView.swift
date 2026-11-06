@@ -91,11 +91,11 @@ struct SpeakPracticeView: View {
 
                     Group {
                         if checker.isListening {
-                            Text(checker.transcript.isEmpty ? "듣는 중…" : "“\(checker.transcript)”")
+                            Text(checker.transcript.isEmpty ? L("듣는 중…") : "“\(checker.transcript)”")
                                 .foregroundStyle(.secondary)
                         } else if let result {
                             VStack(spacing: 4) {
-                                Label(result ? "정확해요!" : "다시 해 봐요",
+                                Label(result ? L("정확해요!") : L("다시 해 봐요"),
                                       systemImage: result ? "checkmark.circle.fill" : "arrow.counterclockwise.circle.fill")
                                     .font(.pt(.headline))
                                     .foregroundStyle(result ? Palette.success : Palette.warning)
@@ -116,7 +116,7 @@ struct SpeakPracticeView: View {
                         index += 1
                         result = nil
                     } label: {
-                        Text(result == true ? "다음 단어" : "건너뛰기")
+                        Text(result == true ? L("다음 단어") : L("건너뛰기"))
                             .font(.pt(.headline))
                             .frame(maxWidth: .infinity)
                             .frame(height: 40)
@@ -128,7 +128,7 @@ struct SpeakPracticeView: View {
                 .onAppear { WordSpeaker.shared.speak(current.term) }
                 .onChange(of: index) { if let next = self.current { WordSpeaker.shared.speak(next.term) } }
             } else if !queue.isEmpty {
-                GameResultView(title: "\(passed)/\(queue.count) 통과", symbol: "mic.fill") { setUp() }
+                GameResultView(title: L("\(passed)/\(queue.count) 통과"), symbol: "mic.fill") { setUp() }
             } else {
                 ProgressView()
             }

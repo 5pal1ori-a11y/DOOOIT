@@ -50,11 +50,11 @@ struct SummaryScreen: View {
             }
             .frame(width: 54, height: 54)
             VStack(alignment: .leading, spacing: 2) {
-                Text(WatchFormat.duration(seconds))
+                Text(WatchFormat.durationL(seconds))
                     .font(.system(size: 19, weight: .bold, design: .rounded))
                     .minimumScaleFactor(0.6)
                     .lineLimit(1)
-                Text("목표 \(WatchFormat.duration(s.goalMinutes * 60))")
+                Text("목표 \(WatchFormat.durationL(s.goalMinutes * 60))")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 let streak = s.streak(at: now)
@@ -91,9 +91,9 @@ struct SummaryScreen: View {
     /// 12분 후 · 2시간 후
     static func until(_ date: Date, now: Date) -> String {
         let minutes = max(0, Int(date.timeIntervalSince(now) / 60))
-        if minutes < 1 { return "곧" }
-        if minutes < 60 { return "\(minutes)분 후" }
-        return "\(minutes / 60)시간 후"
+        if minutes < 1 { return L("곧") }
+        if minutes < 60 { return L("\(minutes)분 후") }
+        return L("\(minutes / 60)시간 후")
     }
 
     // MARK: D-Day
@@ -121,9 +121,9 @@ struct SummaryScreen: View {
 
     private func stats(_ s: WatchSnapshot) -> some View {
         HStack(spacing: 4) {
-            stat("\(s.wordsToday)", "단어", "character.book.closed.fill", accent)
-            stat("\(s.words.count)", "복습", "arrow.clockwise", .teal)
-            stat("\(s.mistakes)", "오답", "xmark.circle.fill", .pink)
+            stat("\(s.wordsToday)", L("단어"), "character.book.closed.fill", accent)
+            stat("\(s.words.count)", L("복습"), "arrow.clockwise", .teal)
+            stat("\(s.mistakes)", L("오답"), "xmark.circle.fill", .pink)
         }
     }
 
@@ -167,7 +167,7 @@ struct WeekBars: View {
                 Text("이번 주")
                     .font(.caption2.weight(.semibold))
                 Spacer()
-                Text(WatchFormat.short(seconds.reduce(0, +)))
+                Text(WatchFormat.shortL(seconds.reduce(0, +)))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -190,7 +190,7 @@ struct WeekBars: View {
         .padding(8)
         .background(.gray.opacity(0.18), in: .rect(cornerRadius: 12))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("이번 주 \(WatchFormat.duration(seconds.reduce(0, +)))")
+        .accessibilityLabel("이번 주 \(WatchFormat.durationL(seconds.reduce(0, +)))")
     }
 
     private func label(_ i: Int) -> String {

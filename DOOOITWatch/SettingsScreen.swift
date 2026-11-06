@@ -21,7 +21,7 @@ struct SettingsScreen: View {
             Section("기본 목표") {
                 Picker("목표", selection: $targetIndex) {
                     ForEach(choices.indices, id: \.self) { i in
-                        Text(WatchTimerState.targetLabel(choices[i])).tag(i)
+                        Text(WatchTimerState.targetLabelL(choices[i])).tag(i)
                     }
                 }
             }

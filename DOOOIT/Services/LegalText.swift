@@ -23,7 +23,7 @@ enum LegalText {
     enum Kind: String, Identifiable {
         case terms, privacy
         var id: String { rawValue }
-        var title: String { self == .terms ? "이용약관" : "개인정보 처리방침" }
+        var title: String { self == .terms ? L("이용약관") : L("개인정보 처리방침") }
         var sections: [Section] { self == .terms ? LegalText.terms : LegalText.privacy }
     }
 

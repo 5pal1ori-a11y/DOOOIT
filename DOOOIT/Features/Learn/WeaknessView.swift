@@ -20,17 +20,17 @@ struct WeaknessView: View {
 
         var headline: String {
             switch level {
-            case 0: return "기본 문제에 오답이 많아요"
-            case 1: return "응용 문제에서 실수가 있어요"
-            default: return "고난도 문제에 도전할 차례예요"
+            case 0: return L("기본 문제에 오답이 많아요")
+            case 1: return L("응용 문제에서 실수가 있어요")
+            default: return L("고난도 문제에 도전할 차례예요")
             }
         }
 
         var plan: String {
             switch level {
-            case 0: return "개념 중심 학습으로 교과서 문제를 쉽게 풀 수 있어요"
-            case 1: return "O/X와 유형 문제로 실전 감각을 길러요"
-            default: return "실전 문제로 실수 없이 마무리해요"
+            case 0: return L("개념 중심 학습으로 교과서 문제를 쉽게 풀 수 있어요")
+            case 1: return L("O/X와 유형 문제로 실전 감각을 길러요")
+            default: return L("실전 문제로 실수 없이 마무리해요")
             }
         }
 
@@ -102,7 +102,7 @@ struct WeaknessView: View {
                 }
                 .buttonStyle(.pressable)
                 if list.isEmpty {
-                    EmptyStateView(symbol: "target", title: "아직 취약 유형이 없어요")
+                    EmptyStateView(symbol: "target", title: L("아직 취약 유형이 없어요"))
                         .softCard()
                         .appearAnimation()
                 }
@@ -124,15 +124,15 @@ struct WeaknessView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 6) {
                 TagLabel(text: item.subject, color: .secondary)
-                if item.total > 0 { TagLabel(text: "정답률 \(Int(item.accuracy * 100))%", color: Theme.accent) }
-                if item.wrongNotes > 0 { TagLabel(text: "오답노트 \(item.wrongNotes)", color: Palette.danger) }
+                if item.total > 0 { TagLabel(text: L("정답률 \(Int(item.accuracy * 100))%"), color: Theme.accent) }
+                if item.wrongNotes > 0 { TagLabel(text: L("오답노트 \(item.wrongNotes)"), color: Palette.danger) }
             }
             Label(item.unit, systemImage: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
             Text("\(item.headline)\n\(item.plan)")
                 .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("맞춤 학습 예상 시간 \(TimeText.duration(minutes: item.minutes))")
+            Text("맞춤 학습 예상 시간 \(TimeText.durationL(minutes: item.minutes))")
                 .font(.pt(.caption))
                 .foregroundStyle(.secondary)
 
@@ -153,7 +153,7 @@ struct WeaknessView: View {
     }
 
     private func levelBar(_ level: Int) -> some View {
-        let labels = ["개념이해 전", "실전활용 가능", "고난도 정복"]
+        let labels = [L("개념이해 전"), L("실전활용 가능"), L("고난도 정복")]
         let current = (Double(level) + 0.5) / 3
         let target = min(1, (Double(level) + 1.5) / 3)
         return VStack(spacing: 6) {
