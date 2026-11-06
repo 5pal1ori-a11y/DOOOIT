@@ -231,7 +231,10 @@ struct ThemePicker: View {
             }
         }
         .padding(.vertical, 4)
-        .onChange(of: themeRaw) { Haptics.tap() }
+        .onChange(of: themeRaw) {
+            Haptics.tap()
+            AppIconSwitcher.apply(ThemeColor.from(themeRaw))
+        }
     }
 
     private func card(_ theme: ThemeColor) -> some View {
@@ -398,4 +401,20 @@ struct PrimaryButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PrimaryButtonStyle {
     static var primaryFill: PrimaryButtonStyle { PrimaryButtonStyle() }
+}
+
+
+/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (트와일라이트가 기본 아이콘, 나머지는 대체 아이콘)
+/// iOS가 바꿀 때마다 "아이콘을 변경했습니다" 안내를 한 번 보여 줘요
+enum AppIconSwitcher {
+    static func iconName(for theme: ThemeColor) -> String? {
+        theme.resolved == .twilight ? nil : "AppIcon-\(theme.resolved.rawValue)"
+    }
+
+    @MainActor static func apply(_ theme: ThemeColor) {
+        let app = UIApplication.shared
+        let wanted = iconName(for: theme)
+        guard app.supportsAlternateIcons, app.alternateIconName != wanted else { return }
+        app.setAlternateIconName(wanted) { _ in }
+    }
 }
