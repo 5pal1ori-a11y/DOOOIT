@@ -296,6 +296,7 @@
 			fileSystemSynchronizedGroups = (
 				62073C66595723C3FB02BE22,
 				5946ABB114403A2E5563F52C,
+				B7A7C0DE0000000000000009 /* WatchShared */,
 			);
 			name = DOOOITWidgetsExtension;
 			packageProductDependencies = (
@@ -407,6 +408,8 @@
 			knownRegions = (
 				ko,
 				en,
+				"zh-Hans",
+				ja,
 				Base,
 			);
 			mainGroup = 186495F7DA296BF880DF3A22;

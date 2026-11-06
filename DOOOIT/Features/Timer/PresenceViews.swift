@@ -56,11 +56,11 @@ struct PresenceResultView: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            Label(PresenceText.result(totalSeconds: totalSeconds, summary: summary), systemImage: "viewfinder")
+            Label(PresenceText.resultL(totalSeconds: totalSeconds, summary: summary), systemImage: "viewfinder")
                 .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(Color(hex: "#34C759"))
                 .monospacedDigit()
-            let rest = PresenceText.breakdown(summary)
+            let rest = PresenceText.breakdownL(summary)
             if !rest.isEmpty {
                 Text(rest)
                     .font(.pt(.footnote))
@@ -147,7 +147,7 @@ struct PresenceGuideSheet: View {
                 .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(green)
                 .frame(width: 24)
-            Text(text)
+            Text(text.loc)
                 .font(.pt(.subheadline))
         }
     }
@@ -176,7 +176,7 @@ struct PresenceGuideSheet: View {
     private var statusLine: some View {
         if case .unavailable(let message) = monitor.status {
             VStack(spacing: 8) {
-                Label(message, systemImage: "exclamationmark.triangle.fill")
+                Label(message.loc, systemImage: "exclamationmark.triangle.fill")
                     .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.warning)
                 if PresenceCameraController.authorization == .denied {
@@ -320,7 +320,7 @@ struct PresenceCanvas: View {
             Image(systemName: "video.slash.fill")
                 .font(.pt(size: 26, weight: .semibold))
             if case .unavailable(let message) = status {
-                Text(message).font(.pt(.footnote))
+                Text(message.loc).font(.pt(.footnote))
             } else {
                 Text("카메라 준비 중…").font(.pt(.footnote))
             }
@@ -336,7 +336,7 @@ struct PresenceCanvas: View {
                 .background(tint.opacity(ok ? 0.12 : 0.05), in: .rect(cornerRadius: 10, style: .continuous))
             HStack(spacing: 3) {
                 if ok { Image(systemName: "checkmark").font(.pt(.caption2).weight(.bold)) }
-                Text(label).font(.pt(.caption).weight(.bold))
+                Text(label.loc).font(.pt(.caption).weight(.bold))
             }
             .foregroundStyle(.black)
             .padding(.horizontal, 8)

@@ -8,19 +8,19 @@ struct LearnHubSection: View {
             SectionTitle("AI")
             VStack(spacing: 0) {
                 NavigationLink { CurriculumView() } label: {
-                    RowLabel(symbol: "sparkles", title: "AI 학습")
+                    RowLabel(symbol: "sparkles", title: L("AI 학습"))
                 }
                 RowDivider()
                 NavigationLink { WeaknessView() } label: {
-                    RowLabel(symbol: "target", color: Palette.pink, title: "취약 유형")
+                    RowLabel(symbol: "target", color: Palette.pink, title: L("취약 유형"))
                 }
                 RowDivider()
                 NavigationLink { MockExamView() } label: {
-                    RowLabel(symbol: "doc.text", color: Palette.sky, title: "AI 모의고사")
+                    RowLabel(symbol: "doc.text", color: Palette.sky, title: L("AI 모의고사"))
                 }
                 RowDivider()
                 NavigationLink { WeeklyReportView() } label: {
-                    RowLabel(symbol: "newspaper.fill", color: Palette.butter, title: "주간 리포트")
+                    RowLabel(symbol: "newspaper.fill", color: Palette.butter, title: L("주간 리포트"))
                 }
             }
             .buttonStyle(.pressable)

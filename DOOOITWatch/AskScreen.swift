@@ -17,9 +17,9 @@ struct AskScreen: View {
 
     /// 짧은 버튼 → 모티가 알아듣는 말
     private let quick = [
-        Quick(label: "오늘 할 일", text: "오늘 할 일 알려줘"),
-        Quick(label: "내일 일정", text: "내일 일정 알려줘"),
-        Quick(label: "공부 통계", text: "이번 주 공부 통계")
+        Quick(label: L("오늘 할 일"), text: "오늘 할 일 알려줘"),
+        Quick(label: L("내일 일정"), text: "내일 일정 알려줘"),
+        Quick(label: L("공부 통계"), text: "이번 주 공부 통계")
     ]
 
     var body: some View {

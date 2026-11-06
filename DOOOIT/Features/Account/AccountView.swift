@@ -19,6 +19,9 @@ struct AccountView: View {
     @AppStorage(SettingsKey.liveActivityEnabled) private var liveActivityEnabled = true
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
+    /// 화면 언어: 고른 값 (적용은 안내 창에서 확인한 뒤)
+    @State private var languagePick = AppLanguage.selected
+    @State private var pendingLanguage: AppLanguage?
 
     @State private var showNameEdit = false
     @State private var nameDraft = ""
@@ -67,10 +70,10 @@ struct AccountView: View {
 
                 Section("목표") {
                     Stepper(value: $studyGoalMinutes, in: 30...720, step: 30) {
-                        settingLabel("하루 공부", value: TimeText.duration(minutes: studyGoalMinutes), symbol: "clock.fill", color: Theme.accent)
+                        settingLabel("하루 공부", value: TimeText.durationL(minutes: studyGoalMinutes), symbol: "clock.fill", color: Theme.accent)
                     }
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
-                        settingLabel("하루 단어", value: "\(wordGoal)개", symbol: "book.closed.fill", color: Palette.sky)
+                        settingLabel("하루 단어", value: L("\(wordGoal)개"), symbol: "book.closed.fill", color: Palette.sky)
                     }
                 }
 
@@ -93,6 +96,7 @@ struct AccountView: View {
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
             .uiShotPush(.badges) { BadgeShelfView() }
+            .uiShotPush(.appSettings) { appSettings }
             #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {
@@ -145,6 +149,10 @@ struct AccountView: View {
                 } label: { item("화면 모드", "circle.lefthalf.filled", Color.indigo) }
                 .pickerStyle(.menu)
                 ThemePicker()
+                Picker(selection: Binding(get: { languagePick }, set: { pickLanguage($0) })) {
+                    ForEach(AppLanguage.allCases) { Text(verbatim: $0.displayName).tag($0) }
+                } label: { item("언어", "globe", Palette.sky) }
+                .pickerStyle(.menu)
             }
             Section {
                 NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Palette.pink) }
@@ -164,6 +172,33 @@ struct AccountView: View {
         .tint(Theme.accent)
         .navigationTitle("앱")
         .navigationBarTitleDisplayMode(.inline)
+        // 언어 바꾸기 안내 (새 언어로 보여 줌)
+        .alert(pendingLanguage.map { AppLanguage.text("언어를 바꿀게요", in: $0) } ?? "", isPresented: Binding(
+            get: { pendingLanguage != nil }, set: { if !$0 { pendingLanguage = nil } })) {
+            Button(pendingLanguage.map { AppLanguage.text("확인", in: $0) } ?? "") { applyLanguage() }
+            Button(pendingLanguage.map { AppLanguage.text("취소", in: $0) } ?? "", role: .cancel) {
+                languagePick = AppLanguage.selected
+            }
+        } message: {
+            Text(verbatim: pendingLanguage.map { AppLanguage.text("앱을 다시 열면 위젯·알림까지 모두 바뀌어요.", in: $0) } ?? "")
+        }
+    }
+
+    /// 언어를 고르면: 먼저 새 언어로 안내를 보여 주고, 확인하면 저장 + 화면을 바로 그 언어로
+    private func pickLanguage(_ language: AppLanguage) {
+        languagePick = language
+        guard language != AppLanguage.selected else { return }
+        pendingLanguage = language
+    }
+
+    private func applyLanguage() {
+        guard let language = pendingLanguage else { return }
+        pendingLanguage = nil
+        AppLanguage.set(language)
+        DoitMind.replyLanguage = AppLanguage.code
+        // 알림·위젯 글자도 새 언어로
+        PlanScheduler.shared.rescheduleNotifications()
+        WidgetSync.update(context: context)
     }
 
     /// 계정 설정: 버전 · 공부 기록 초기화 · 로그아웃 · 계정 삭제
@@ -186,7 +221,7 @@ struct AccountView: View {
                 .disabled(!cloudAvailable && !syncOn)
             } footer: {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(cloudAvailable ? "같은 Apple ID 기기끼리 기록이 이어져요" : "iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요")
+                    Text(cloudAvailable ? L("같은 Apple ID 기기끼리 기록이 이어져요") : L("iPhone 설정에서 iCloud에 로그인하면 켤 수 있어요"))
                     // 동기화 상태 (문제를 찾을 때 보려고, 2초마다 다시 읽음)
                     if syncOn {
                         TimelineView(.periodic(from: .now, by: 2)) { _ in
@@ -274,14 +309,14 @@ struct AccountView: View {
             .clipShape(.rect(cornerRadius: 16, style: .continuous))
         }
         .softCard(cornerRadius: 22, padding: 18)
-        .errorAlert($guestSignInError, title: "로그인 실패")
+        .errorAlert($guestSignInError, title: L("로그인 실패"))
     }
 
     /// 프로필 카드 (흰 카드 · 동그란 이니셜 · 이름 · 로그인 방식)
     private var profileHeader: some View {
         let user = auth.currentUser
         return HStack(spacing: 16) {
-            Text(String(user?.name.prefix(1) ?? "D"))
+            Text(String(user?.name.loc.prefix(1) ?? "D"))
                 .font(.pt(size: 26, weight: .bold))
                 .foregroundStyle(.white)
                 .frame(width: 60, height: 60)
@@ -290,7 +325,7 @@ struct AccountView: View {
                 .background(Theme.accent.pastel, in: .circle)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(user?.name ?? "")
+                Text(user?.name.loc ?? "")
                     .font(.pt(.title3).weight(.bold))
                     .foregroundStyle(Palette.ink)
                 if let email = user?.email, !email.isEmpty {
@@ -324,11 +359,11 @@ struct AccountView: View {
         let totalMinutes = sessions.reduce(0) { $0 + $1.seconds } / 60
         let learned = words.filter(\.isLearned).count
         return HStack(spacing: 0) {
-            stat(value: TimeText.duration(minutes: totalMinutes), label: "총 공부 시간")
+            stat(value: TimeText.durationL(minutes: totalMinutes), label: L("총 공부 시간"))
             Divider().frame(height: 36)
-            stat(value: "\(learned)", label: "외운 단어")
+            stat(value: "\(learned)", label: L("외운 단어"))
             Divider().frame(height: 36)
-            stat(value: "\(notes.count)", label: "오답노트")
+            stat(value: "\(notes.count)", label: L("오답노트"))
         }
         .softCard(cornerRadius: 22, padding: 16)
     }
@@ -348,7 +383,7 @@ struct AccountView: View {
         .frame(maxWidth: .infinity)
     }
 
-    private func settingLabel(_ title: String, value: String, symbol: String, color: Color) -> some View {
+    private func settingLabel(_ title: LocalizedStringKey, value: String, symbol: String, color: Color) -> some View {
         HStack(spacing: 12) {
             icon(symbol, color)
             Text(title)
@@ -360,7 +395,7 @@ struct AccountView: View {
     }
 
     /// 옅은 파스텔 네모 아이콘 + 제목
-    private func item(_ title: String, _ symbol: String, _ color: Color) -> some View {
+    private func item(_ title: LocalizedStringKey, _ symbol: String, _ color: Color) -> some View {
         HStack(spacing: 12) {
             icon(symbol, color)
             Text(title).foregroundStyle(Palette.ink)

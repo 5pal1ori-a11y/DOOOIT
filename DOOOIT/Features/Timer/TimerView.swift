@@ -95,7 +95,7 @@ struct TimerView: View {
         // 앱을 껐다 켰는데 공부가 이어지고 있으면 측정도 이어서
         .task { presence.resumeIfNeeded() }
         .confirmationDialog("공부를 마칠까요?", isPresented: $showStopConfirm, titleVisibility: .visible) {
-            Button(studyTimer.lockUntil != nil ? "완료하고 잠금 해제" : "완료하고 기록 저장", role: .destructive) {
+            Button(studyTimer.lockUntil != nil ? L("완료하고 잠금 해제") : L("완료하고 기록 저장"), role: .destructive) {
                 let start = studyTimer.startedAt
                 let saved = studyTimer.stop()
                 presenceSummary = presence.finish(totalSeconds: saved) ?? start.flatMap { PresenceStore().summary(forStart: $0) }
@@ -324,7 +324,7 @@ struct TimerView: View {
                                 .scaleEffect(phase.isIdentity ? 1 : 0.62)
                         }
                         .id(minutes)
-                        .accessibilityLabel(minutes == 0 ? "무제한" : Self.shortText(minutes))
+                        .accessibilityLabel(minutes == 0 ? L("무제한") : Self.shortText(minutes))
                 }
             }
             .scrollTargetLayout()
@@ -337,7 +337,7 @@ struct TimerView: View {
         .mask(LinearGradient(colors: [.clear, .black, .black, .clear], startPoint: .top, endPoint: .bottom))
         .sensoryFeedback(.selection, trigger: targetMinutes)
         .overlay(alignment: .bottom) {
-            Text(targetMinutes.map(Self.shortText) ?? "무제한")
+            Text(targetMinutes.map(Self.shortText) ?? L("무제한"))
                 .font(.pt(.footnote).weight(.semibold))
                 .foregroundStyle(Color(white: 0.55))
                 .offset(y: 18)
@@ -352,8 +352,8 @@ struct TimerView: View {
 
     /// 칩에 쓰는 짧은 글: 40 → "40분", 70 → "1시간 10분"
     static func shortText(_ minutes: Int) -> String {
-        if minutes < 60 { return "\(minutes)분" }
-        return minutes % 60 == 0 ? "\(minutes / 60)시간" : "\(minutes / 60)시간 \(minutes % 60)분"
+        if minutes < 60 { return L("\(minutes)분") }
+        return minutes % 60 == 0 ? L("\(minutes / 60)시간") : L("\(minutes / 60)시간 \(minutes % 60)분")
     }
 
     // MARK: Running (가운데 제목 · 선 · 큰 숫자 · 선 / 아래 두 버튼)
@@ -363,14 +363,14 @@ struct TimerView: View {
             Spacer()
             VStack(spacing: 22) {
                 if let lockUntil = studyTimer.lockUntil {
-                    Label("다른 앱 잠금 중 · \(lockUntil.kr("a h:mm"))까지", systemImage: "lock.fill")
+                    Label("다른 앱 잠금 중 · \(lockUntil.ui("a h:mm"))까지", systemImage: "lock.fill")
                         .font(.pt(.footnote).weight(.bold))
                         .foregroundStyle(Palette.danger)
                 }
                 if presence.isSessionActive {
                     PresenceChip()
                 }
-                Text(studyTimer.title)
+                Text(studyTimer.title.loc)
                     .font(.pt(.title3).weight(.bold))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
@@ -393,13 +393,13 @@ struct TimerView: View {
             }
             Spacer()
             HStack(spacing: 12) {
-                pillButton(title: studyTimer.phase == .running ? "진행 중" : "일시정지",
+                pillButton(title: studyTimer.phase == .running ? L("진행 중") : L("일시정지"),
                            symbol: studyTimer.phase == .running ? "pause.fill" : "play.fill",
                            iconColor: green) {
                     studyTimer.togglePause()
                     Haptics.tap()
                 }
-                pillButton(title: "완료하기", symbol: "stop.fill", iconColor: .white) {
+                pillButton(title: L("완료하기"), symbol: "stop.fill", iconColor: .white) {
                     showStopConfirm = true
                 }
             }
@@ -413,11 +413,11 @@ struct TimerView: View {
             if elapsed >= Double(target) {
                 Label("목표 달성!", systemImage: "checkmark.seal.fill").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(green)
             } else {
-                Text("목표 \(TimeText.duration(seconds: target)) · \(TimeText.duration(seconds: target - Int(elapsed) + 59)) 남음")
+                Text("목표 \(TimeText.durationL(seconds: target)) · \(TimeText.durationL(seconds: target - Int(elapsed) + 59)) 남음")
                     .font(.pt(.subheadline)).foregroundStyle(Color(white: 0.55))
             }
         } else {
-            Text(studyTimer.phase == .paused ? "일시정지됨" : studyTimer.categoryName)
+            Text(studyTimer.phase == .paused ? L("일시정지됨") : studyTimer.categoryName)
                 .font(.pt(.subheadline)).foregroundStyle(Color(white: 0.55))
         }
     }
@@ -456,9 +456,9 @@ struct TimerView: View {
                 .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
                 .symbolEffect(.bounce, value: seconds)
             VStack(spacing: 8) {
-                Text(seconds >= 10 ? "수고했어요!" : "기록이 너무 짧아요")
+                Text(seconds >= 10 ? L("수고했어요!") : L("기록이 너무 짧아요"))
                     .font(.pt(.title).weight(.bold))
-                Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : "10초 이상 공부해야 기록돼요.")
+                Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : L("10초 이상 공부해야 기록돼요."))
                     .font(seconds >= 10 ? .pt(size: 44, weight: .bold).monospacedDigit() : .body)
                     .foregroundStyle(seconds >= 10 ? Color.white : Color(white: 0.6))
                 if seconds >= 10, let presenceSummary, presenceSummary.measuredSeconds >= 10 {
@@ -501,7 +501,7 @@ struct TimerAccessoryView: View {
 
             VStack(alignment: .leading, spacing: 1) {
                 if studyTimer.isActive {
-                    Text(studyTimer.title)
+                    Text(studyTimer.title.loc)
                         .font(.pt(.subheadline).weight(.semibold))
                         .lineLimit(1)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -548,7 +548,7 @@ struct TimerAccessoryView: View {
     private var nextPlanText: String? {
         let now = Date()
         guard let next = plans.occurrences(on: now).first(where: { $0.plan.isStudy && !$0.plan.isAllDay && $0.start > now }) else { return nil }
-        return "\(next.start.kr("a h:mm")) · \(next.plan.title)"
+        return "\(next.start.ui("a h:mm")) · \(next.plan.title)"
     }
 }
 
@@ -630,7 +630,7 @@ struct AmbientSoundSheet: View {
                             RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(color, lineWidth: 1.5)
                         }
                     }
-                Text(kind.title)
+                Text(kind.title.loc)
                     .font(.pt(.caption2).weight(.semibold))
                     .foregroundStyle(isOn ? Palette.ink : .secondary)
                     .lineLimit(1)
@@ -639,7 +639,7 @@ struct AmbientSoundSheet: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel(kind.title)
+        .accessibilityLabel(kind.title.loc)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
@@ -654,7 +654,7 @@ struct AmbientSoundSheet: View {
                 .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))
             Slider(value: Binding(get: { Double(sound.mix.level(kind)) }, set: { sound.setLevel(kind, Float($0)) }), in: 0...1)
                 .tint(color)
-                .accessibilityLabel("\(kind.title) 음량")
+                .accessibilityLabel("\(kind.title.loc) 음량")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

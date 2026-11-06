@@ -43,6 +43,8 @@ extension View {
     func widgetChrome(_ style: WidgetBackgroundStyle, snapshot: WidgetSnapshot, family: WidgetFamily, url: URL) -> some View {
         self
             .fontDesign(.rounded)
+            // 앱에서 고른 언어 (App Group으로 받음)
+            .environment(\.locale, AppLanguage.locale)
             .containerBackground(for: .widget) { style.view(accent: snapshot.accent, family: family) }
             .widgetURL(url)
     }

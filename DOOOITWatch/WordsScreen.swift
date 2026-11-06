@@ -38,7 +38,7 @@ struct WordsScreen: View {
                 finished(quiz: false)
             }
         }
-        .navigationTitle(quizMode ? "퀴즈" : "단어 카드")
+        .navigationTitle(quizMode ? L("퀴즈") : L("단어 카드"))
         .onAppear { if WatchDemo.screen == "quiz" { quizMode = true } else if WatchDemo.screen?.hasPrefix("words") == true { quizMode = false } }
     }
 
@@ -59,7 +59,7 @@ struct WordsScreen: View {
                 .background(accent.opacity(0.18), in: .circle)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(quizMode ? "카드로" : "퀴즈로")
+        .accessibilityLabel(quizMode ? L("카드로") : L("퀴즈로"))
     }
 
     // MARK: 끝 · 빈 화면
@@ -73,7 +73,7 @@ struct WordsScreen: View {
                 Text("\(score)/\(asked) 맞힘")
                     .font(.headline)
             } else {
-                Text(doneCount > 0 ? "복습 끝!" : "복습할 단어가 없어요")
+                Text(doneCount > 0 ? L("복습 끝!") : L("복습할 단어가 없어요"))
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(doneCount > 0 ? .primary : .secondary)
             }

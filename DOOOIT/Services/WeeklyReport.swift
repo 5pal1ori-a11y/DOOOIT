@@ -167,49 +167,49 @@ enum WeeklyReportBuilder {
 
         // 잘한 점
         var highlights: [String] = []
-        if previous > 0, total > previous { highlights.append("지난주보다 \(WeeklyReport.duration(total - previous)) 더 공부했어요") }
-        if streak >= 3 { highlights.append("\(streak)일 연속으로 공부하고 있어요") }
+        if previous > 0, total > previous { highlights.append(L("지난주보다 \(TimeText.durationL(minutes: total - previous)) 더 공부했어요")) }
+        if streak >= 3 { highlights.append(L("\(streak)일 연속으로 공부하고 있어요")) }
         // AI 순공부 측정을 쓴 공부가 있으면 순공부 시간과 집중도
         let measured = PresenceStore().totals(from: start, to: afterEnd)
         if measured.count > 0, measured.measured >= 600 {
             let focus = Int((Double(measured.net) / Double(measured.measured) * 100).rounded())
-            highlights.append("AI가 잰 순공부 \(WeeklyReport.duration(measured.net / 60)), 집중도 \(focus)%예요")
+            highlights.append(L("AI가 잰 순공부 \(TimeText.durationL(minutes: measured.net / 60)), 집중도 \(focus)%예요"))
         }
-        if goalDays >= 3 { highlights.append("하루 목표를 \(goalDays)일이나 달성했어요") }
-        if let best = strong.first { highlights.append("\(best.unit) 정답률 \(Int((best.rate * 100).rounded()))%로 탄탄해요") }
-        if planTotal > 0, Double(planDone) / Double(planTotal) >= 0.8 { highlights.append("플랜을 \(Int(Double(planDone) / Double(planTotal) * 100))% 지켰어요") }
-        if wordsLearned >= 20 { highlights.append("단어를 \(wordsLearned)개 외웠어요") }
-        if highlights.isEmpty && total > 0 { highlights.append("이번 주에 \(WeeklyReport.duration(total)) 공부했어요. 시작이 반이에요!") }
+        if goalDays >= 3 { highlights.append(L("하루 목표를 \(goalDays)일이나 달성했어요")) }
+        if let best = strong.first { highlights.append(L("\(best.unit) 정답률 \(Int((best.rate * 100).rounded()))%로 탄탄해요")) }
+        if planTotal > 0, Double(planDone) / Double(planTotal) >= 0.8 { highlights.append(L("플랜을 \(Int(Double(planDone) / Double(planTotal) * 100))% 지켰어요")) }
+        if wordsLearned >= 20 { highlights.append(L("단어를 \(wordsLearned)개 외웠어요")) }
+        if highlights.isEmpty && total > 0 { highlights.append(L("이번 주에 \(TimeText.durationL(minutes: total)) 공부했어요. 시작이 반이에요!")) }
 
         // 다음 주 조언
         var advice: [String] = []
-        if studyDays < 5 { advice.append("공부한 날이 \(studyDays)일이에요. 짧게라도 매일 하는 습관을 만들어 봐요 (하루 30분부터).") }
+        if studyDays < 5 { advice.append(L("공부한 날이 \(studyDays)일이에요. 짧게라도 매일 하는 습관을 만들어 봐요 (하루 30분부터).")) }
         if goalDays == 0 && total > 0 {
             let average = total / max(studyDays, 1)
-            advice.append("하루 평균 \(WeeklyReport.duration(average))로 목표(\(WeeklyReport.duration(goal)))보다 적어요. 목표를 조금 낮추거나 공부 플랜에 시간을 정해 두세요.")
+            advice.append(L("하루 평균 \(TimeText.durationL(minutes: average))로 목표(\(TimeText.durationL(minutes: goal)))보다 적어요. 목표를 조금 낮추거나 공부 플랜에 시간을 정해 두세요."))
         }
         for unit in weak.prefix(2) {
-            advice.append("\(unit.subject) '\(unit.unit)' 정답률이 \(Int((unit.rate * 100).rounded()))%예요. AI 학습에서 개념부터 다시 보고 문제를 풀어봐요.")
+            advice.append(L("\(unit.subject) '\(unit.unit)' 정답률이 \(Int((unit.rate * 100).rounded()))%예요. AI 학습에서 개념부터 다시 보고 문제를 풀어봐요."))
         }
         if let rate = planTotal > 0 ? Double(planDone) / Double(planTotal) : nil, rate < 0.6 {
-            advice.append("플랜 완료율이 \(Int(rate * 100))%예요. 계획을 80% 정도만 채우고 작게 쪼개 보세요.")
+            advice.append(L("플랜 완료율이 \(Int(rate * 100))%예요. 계획을 80% 정도만 채우고 작게 쪼개 보세요."))
         }
-        if notesWrongAll > 0 { advice.append("아직 '오답'인 문제가 \(notesWrongAll)개 있어요. 하루 2문제씩 다시 풀어봐요.") }
-        if !hardWords.isEmpty { advice.append("자주 틀린 단어(\(hardWords.prefix(3).joined(separator: ", ")))를 퀴즈로 복습해요.") }
+        if notesWrongAll > 0 { advice.append(L("아직 '오답'인 문제가 \(notesWrongAll)개 있어요. 하루 2문제씩 다시 풀어봐요.")) }
+        if !hardWords.isEmpty { advice.append(L("자주 틀린 단어(\(hardWords.prefix(3).joined(separator: ", ")))를 퀴즈로 복습해요.")) }
         if let lowest = subjects.last, subjects.count >= 2, lowest.minutes < (subjects.first?.minutes ?? 0) / 4 {
-            advice.append("\(lowest.name) 공부 시간이 적어요. 다음 주에 한두 번 더 넣어봐요.")
+            advice.append(L("\(lowest.name.loc) 공부 시간이 적어요. 다음 주에 한두 번 더 넣어봐요."))
         }
-        if total == 0 { advice.append("이번 주 기록이 없어요. 타이머로 공부하면 시간이 자동으로 기록돼요.") }
+        if total == 0 { advice.append(L("이번 주 기록이 없어요. 타이머로 공부하면 시간이 자동으로 기록돼요.")) }
 
         // 다음 주 추천 플랜: 약한 단원·적게 한 과목을 월·수·금에
-        var targets: [(String, Int)] = weak.prefix(2).map { ("\($0.subject) \($0.unit) 복습", 50) }
-        if notesWrongAll > 0 { targets.append(("오답노트 다시 풀기", 30)) }
-        if !hardWords.isEmpty { targets.append(("틀린 단어 복습", 20)) }
-        if let lowest = subjects.last, subjects.count >= 2 { targets.append(("\(lowest.name) 공부", 60)) }
-        if targets.isEmpty { targets = [("수학 문제 풀이", 60), ("영어 단어", 30), ("오늘 배운 내용 복습", 40)] }
+        var targets: [(String, Int)] = weak.prefix(2).map { (L("\($0.subject) \($0.unit) 복습"), 50) }
+        if notesWrongAll > 0 { targets.append((L("오답노트 다시 풀기"), 30)) }
+        if !hardWords.isEmpty { targets.append((L("틀린 단어 복습"), 20)) }
+        if let lowest = subjects.last, subjects.count >= 2 { targets.append((L("\(lowest.name.loc) 공부"), 60)) }
+        if targets.isEmpty { targets = [(L("수학 문제 풀이"), 60), (L("영어 단어"), 30), (L("오늘 배운 내용 복습"), 40)] }
         let days = ["월요일", "수요일", "금요일", "화요일", "목요일"]
         let hour = max(6, min(favoriteHour, 22))
-        let timeText = hour < 12 ? "오전 \(hour)시" : "오후 \(hour == 12 ? 12 : hour - 12)시"
+        let timeText = hour < 12 ? L("오전 \(hour)시") : L("오후 \(hour == 12 ? 12 : hour - 12)시")
         let nextWeek = targets.prefix(4).enumerated().map { index, target in
             WeeklyReport.Suggestion(dayText: "다음 주 " + days[index % days.count], timeText: timeText, title: target.0, minutes: target.1)
         }
@@ -227,8 +227,8 @@ enum WeeklyReportBuilder {
     nonisolated static func scheduleNotification() {
         guard AppSettings.notificationsEnabled else { return }
         let content = UNMutableNotificationContent()
-        content.title = "이번 주 공부 리포트가 준비됐어요"
-        content.body = "한 주 동안 얼마나 공부했는지, 다음 주엔 무엇을 하면 좋을지 확인해 보세요."
+        content.title = L("이번 주 공부 리포트가 준비됐어요")
+        content.body = L("한 주 동안 얼마나 공부했는지, 다음 주엔 무엇을 하면 좋을지 확인해 보세요.")
         content.sound = .default
         content.userInfo = ["weeklyReport": true]
         var components = DateComponents()

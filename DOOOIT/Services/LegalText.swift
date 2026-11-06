@@ -7,7 +7,7 @@ import Foundation
 /// 내용을 바꾸면 version을 올려서 다시 동의를 받음
 enum LegalText {
     static let version = 5
-    static let effectiveDate = "2026년 11월 5일"
+    static let effectiveDate = "2026년 11월 6일"
     static let service = "MOTI (모티)"
     /// 운영자 · 개인정보 보호책임자
     static let operatorName = "SHINYOUNG WHANG"
@@ -23,7 +23,7 @@ enum LegalText {
     enum Kind: String, Identifiable {
         case terms, privacy
         var id: String { rawValue }
-        var title: String { self == .terms ? "이용약관" : "개인정보 처리방침" }
+        var title: String { self == .terms ? L("이용약관") : L("개인정보 처리방침") }
         var sections: [Section] { self == .terms ? LegalText.terms : LegalText.privacy }
     }
 

@@ -38,11 +38,11 @@ struct TimerScreen: View {
     private func title(_ timer: WatchTimerState) -> String {
         if let cycle = store.focus {
             switch cycle.stage {
-            case .focus: return timer.isActive ? "집중 \(cycle.round)" : "타이머"
-            case .rest, .ready: return cycle.restOnly ? "휴식" : (cycle.isLongRest ? "긴 휴식" : "휴식")
+            case .focus: return timer.isActive ? L("집중 \(cycle.round)") : L("타이머")
+            case .rest, .ready: return cycle.restOnly ? L("휴식") : (cycle.isLongRest ? L("긴 휴식") : L("휴식"))
             }
         }
-        return "타이머"
+        return L("타이머")
     }
 
     // MARK: 시작 전: 목표 고르기
@@ -52,12 +52,12 @@ struct TimerScreen: View {
             ZStack {
                 WatchRing(progress: store.snapshot.goalProgress(at: Date()), color: accent.opacity(0.55), lineWidth: 7)
                 VStack(spacing: 0) {
-                    Text(WatchTimerState.targetLabel(choices[index]))
+                    Text(WatchTimerState.targetLabelL(choices[index]))
                         .font(.system(size: choices[index] == nil ? 36 : 26, weight: .bold, design: .rounded))
                         .contentTransition(.numericText())
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
-                    Text("오늘 \(WatchFormat.short(store.snapshot.studySeconds(at: Date())))")
+                    Text("오늘 \(WatchFormat.shortL(store.snapshot.studySeconds(at: Date())))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -68,14 +68,14 @@ struct TimerScreen: View {
             .digitalCrownRotation($crown, from: 0, through: Double(choices.count - 1), by: 1,
                                   sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
             .onChange(of: index) { _, value in savedIndex = value }
-            .accessibilityLabel("목표 \(WatchTimerState.targetLabel(choices[index]))")
+            .accessibilityLabel("목표 \(WatchTimerState.targetLabelL(choices[index]))")
 
             HStack(spacing: 4) {
                 ForEach([25, 50, 90], id: \.self) { minutes in
                     WatchChip(label: "\(minutes)", color: accent) { store.start(minutes: minutes) }
                         .accessibilityLabel("\(minutes)분 시작")
                 }
-                WatchChip(label: "뽀모", color: .orange) { store.startPomodoro() }
+                WatchChip(label: L("뽀모"), color: .orange) { store.startPomodoro() }
                     .accessibilityLabel("뽀모도로 \(WatchPrefs.focusMinutes)분 집중")
             }
 
@@ -128,7 +128,7 @@ struct TimerScreen: View {
                     WatchRing(progress: timer.progress(at: now) ?? store.snapshot.goalProgress(at: now),
                               color: dimmed ? color.opacity(0.5) : color, lineWidth: dimmed ? 6 : 9)
                     VStack(spacing: 0) {
-                        Text(reached ? "목표 달성!" : (timer.phase == .paused ? "멈춤" : (remaining == nil ? "공부 중" : "남은 시간")))
+                        Text(reached ? L("목표 달성!") : (timer.phase == .paused ? L("멈춤") : (remaining == nil ? L("공부 중") : L("남은 시간"))))
                             .font(.caption2.weight(.semibold))
                             .foregroundStyle(reached ? .green : .secondary)
                         clock(timer, now: now, remaining: remaining, reached: reached)
@@ -138,7 +138,7 @@ struct TimerScreen: View {
                             .lineLimit(1)
                             .opacity(timer.phase == .paused ? 0.6 : 1)
                         if !dimmed {
-                            Text(timer.title == "자유 공부" ? "오늘 \(WatchFormat.short(store.snapshot.studySeconds(at: now)))" : timer.title)
+                            Text(timer.title == "자유 공부" ? L("오늘 \(WatchFormat.shortL(store.snapshot.studySeconds(at: now)))") : timer.title.loc)
                                 .font(.caption2)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(1)
@@ -159,7 +159,7 @@ struct TimerScreen: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .tint(color)
-                        .accessibilityLabel(timer.phase == .running ? "멈춤" : "다시 시작")
+                        .accessibilityLabel(timer.phase == .running ? L("멈춤") : L("다시 시작"))
 
                         Button {
                             store.stop()
@@ -284,7 +284,7 @@ struct TaskPicker: View {
     var body: some View {
         List {
             if plans.isEmpty {
-                WatchEmpty(symbol: "checkmark.circle", text: "남은 할 일이 없어요", color: store.snapshot.accent)
+                WatchEmpty(symbol: "checkmark.circle", text: L("남은 할 일이 없어요"), color: store.snapshot.accent)
                     .listRowBackground(Color.clear)
             } else {
                 Section {
@@ -311,7 +311,7 @@ struct TaskPicker: View {
                         }
                     }
                 } header: {
-                    Text(WatchTimerState.targetLabel(minutes))
+                    Text(WatchTimerState.targetLabelL(minutes))
                 }
             }
         }

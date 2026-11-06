@@ -28,6 +28,13 @@ extension DoitMind {
     /// - final: 다 쓴 답 (일상 대화에서 덜 끝난 마지막 문장을 뺌). 쓰는 중에는 false
     static func chatAnswer(_ raw: String, question: String, previous: String? = nil, style: Style = .study, final: Bool = true) -> String {
         let base = answer(raw)
+        // 화면 언어가 한국어가 아니면: 한국어 말투 고치기(다른 글자 빼기·해요체·영어 낱말 빼기)는 하지 않음 (답이 지워지지 않게)
+        if !repliesInKorean {
+            var t = dropRepeatedSentences(dropEcho(base, question: question))
+            if style == .casual { t = shortenCasual(t, final: final) }
+            t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+            return t.count >= 2 ? t : base
+        }
         var t = dropEcho(base, question: question)
         t = dropForeign(t, question: question, strict: style == .casual)
         if style == .casual { t = dropEnglishWords(t, question: question) }
@@ -42,6 +49,7 @@ extension DoitMind {
 
     /// 쓸 만한 대화 답인지: isUsable + 한국어로 물었는데 거의 다른 말(영어 등)로 답했거나, 생각 태그·프롬프트 칸 이름이 남았으면 버림
     static func isUsable(_ text: String, question: String) -> Bool {
+        if !repliesInKorean { return isUsableOtherLanguage(text) }
         guard isUsable(text) else { return false }
         if text.contains("<think") || text.contains("</think") || text.contains("[질문]") || text.contains("[참고 자료]") { return false }
         // 다른 글자 문장을 빼면 거의 남지 않던 답 (dropForeign이 그대로 둠): 한자·일본어가 남았으면 버림
@@ -54,6 +62,17 @@ extension DoitMind {
         let hangul = letters.filter { (0xAC00...0xD7A3).contains($0.value) || (0x3131...0x318E).contains($0.value) }.count
         if letters.count >= 12, Double(hangul) / Double(letters.count) < 0.2 { return false }
         return true
+    }
+
+    /// 한국어가 아닌 화면 언어의 대화 답: 비었거나, 생각 태그·프롬프트 칸 이름이 남았거나, 같은 문장을 되풀이하면 버림 (한자·영어 검사는 안 함)
+    static func isUsableOtherLanguage(_ text: String) -> Bool {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count >= 2 else { return false }
+        if t.contains("<think") || t.contains("</think") || t.contains("[질문]") || t.contains("[참고 자료]") { return false }
+        let parts = t.components(separatedBy: CharacterSet(charactersIn: ".!?。！？\n")).map { $0.trimmingCharacters(in: .whitespaces) }.filter { $0.count >= 6 }
+        var counts: [String: Int] = [:]
+        for s in parts { counts[s, default: 0] += 1 }
+        return !counts.values.contains { $0 >= 3 }
     }
 
     // MARK: - 도구

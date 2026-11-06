@@ -353,10 +353,10 @@ final class StudyPresenceMonitor {
     /// 타이머 위에 보이는 칩 글
     var chipText: String {
         switch status {
-        case .unavailable(let message): return message
-        case .suspended: return "측정 멈춤 · 눌러서 켜기"
-        case .paused: return "일시정지 · 순공부 \(PresenceText.clock(netSeconds))"
-        default: return PresenceText.chip(state: state, netSeconds: netSeconds)
+        case .unavailable(let message): return message.loc
+        case .suspended: return L("측정 멈춤 · 눌러서 켜기")
+        case .paused: return L("일시정지 · 순공부 \(PresenceText.clock(netSeconds))")
+        default: return PresenceText.chipL(state: state, netSeconds: netSeconds)
         }
     }
 

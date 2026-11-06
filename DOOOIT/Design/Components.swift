@@ -205,29 +205,71 @@ struct ProcessingOverlay: View {
     }
 }
 
-/// 테마 색 고르기 (연보라 / 연하늘 / 연두)
+/// 테마 고르기: 색 세 가지씩 묶은 카드 넷 (미드나잇 · 포레스트 · 트와일라이트 · 오션)
 struct ThemePicker: View {
-    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.lavender.rawValue
+    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
 
-    private var current: ThemeColor { ThemeColor(rawValue: themeRaw) ?? .lavender }
+    private var current: ThemeColor { ThemeColor.from(themeRaw) }
 
     var body: some View {
-        Picker(selection: $themeRaw) {
-            ForEach(ThemeColor.allCases) { theme in
-                Text(theme.title).tag(theme.rawValue)
-            }
-        } label: {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: "paintpalette")
                     .font(.pt(size: 14, weight: .regular))
                     .foregroundStyle(current.accent)
                     .frame(width: 30, height: 30)
                     .background(current.accent.pastel, in: .rect(cornerRadius: 10, style: .continuous))
-                Text("테마 색")
+                Text("테마")
+                Spacer(minLength: 0)
+                Text(current.title)
+                    .font(.pt(.subheadline))
+                    .foregroundStyle(.secondary)
+            }
+            HStack(spacing: 10) {
+                ForEach(ThemeColor.allCases) { theme in
+                    card(theme)
+                }
             }
         }
-        .pickerStyle(.menu)
+        .padding(.vertical, 4)
         .onChange(of: themeRaw) { Haptics.tap() }
+    }
+
+    private func card(_ theme: ThemeColor) -> some View {
+        let isOn = theme == current
+        return Button {
+            withAnimation(.snappy) { themeRaw = theme.rawValue }
+        } label: {
+            VStack(spacing: 7) {
+                // 진한 색 · 강조색 · 연한 색 세 줄
+                HStack(spacing: 0) {
+                    Rectangle().fill(theme.deep)
+                    Rectangle().fill(theme.accent)
+                    Rectangle().fill(theme.light)
+                }
+                .frame(height: 38)
+                .clipShape(.rect(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(isOn ? theme.accent : Color.primary.opacity(0.08), lineWidth: isOn ? 2.5 : 1))
+                .overlay(alignment: .topTrailing) {
+                    if isOn {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.pt(size: 15, weight: .bold))
+                            .foregroundStyle(.white, theme.accent)
+                            .offset(x: 5, y: -5)
+                    }
+                }
+                Text(theme.title)
+                    .font(.pt(.caption2).weight(isOn ? .bold : .medium))
+                    .foregroundStyle(isOn ? Palette.ink : .secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(theme.title) 테마")
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
 
@@ -347,7 +389,7 @@ struct PrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
             .frame(height: 54)
-            .background(Theme.accent, in: .rect(cornerRadius: 20, style: .continuous))
+            .background(Theme.current.fill, in: .rect(cornerRadius: 20, style: .continuous))
             .shadow(color: Theme.accent.opacity(0.25), radius: 10, y: 4)
             .opacity(configuration.isPressed ? 0.88 : 1)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)

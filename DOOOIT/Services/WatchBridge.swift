@@ -127,7 +127,7 @@ final class WatchBridge: NSObject {
                     planID: occurrence.plan.id.uuidString,
                     dayKey: occurrence.day.dayKey,
                     title: String(occurrence.plan.title.prefix(40)),
-                    time: occurrence.plan.isAllDay ? "종일" : occurrence.start.kr("a h:mm"),
+                    time: occurrence.plan.isAllDay ? L("종일") : occurrence.start.ui("a h:mm"),
                     colorHex: occurrence.plan.category?.colorHex ?? accent,
                     isDone: occurrence.isCompleted,
                     isStudy: occurrence.plan.isStudy,
@@ -147,7 +147,7 @@ final class WatchBridge: NSObject {
             ddays.append((id: "dday", title: dDayTitle, date: Date(timeIntervalSince1970: dDayDate)))
         }
         let exams = (try? context.fetch(FetchDescriptor<ExamPlan>())) ?? []
-        ddays += exams.map { (id: $0.id.uuidString, title: $0.name.isEmpty ? "시험" : $0.name, date: $0.examDate) }
+        ddays += exams.map { (id: $0.id.uuidString, title: $0.name.isEmpty ? L("시험") : $0.name, date: $0.examDate) }
         snapshot.ddays = WatchBridgeLogic.ddays(ddays, now: now)
 
         let wrongRaw = NoteStatus.wrong.rawValue
@@ -250,7 +250,7 @@ final class WatchBridge: NSObject {
             }
             let reply = DoitEngine.respond(to: question, photo: nil)
             _ = DoitActions.shared.drainLog()
-            let answer = reply.deferred == nil ? reply.text : "이건 아이폰 모티에게 물어봐 주세요"
+            let answer = reply.deferred == nil ? reply.text : L("이건 아이폰 모티에게 물어봐 주세요")
             lastAnswer = WatchAnswer(id: command.id, question: question, text: WatchBridgeLogic.shortAnswer(answer))
         case .refresh:
             break

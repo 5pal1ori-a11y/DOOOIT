@@ -192,8 +192,8 @@ struct CurriculumView: View {
         }
         return VStack(alignment: .leading, spacing: 12) {
             Button(action: startTyped) {
-                RowLabel(symbol: "sparkles", color: Theme.accent, title: "'\(trimmed)'(으)로 학습 시작",
-                         subtitle: "과목·학년·단원을 알아서 찾아요")
+                RowLabel(symbol: "sparkles", color: Theme.accent, title: L("'\(trimmed)'(으)로 학습 시작"),
+                         subtitle: L("과목·학년·단원을 알아서 찾아요"))
                     .softCardBackground(cornerRadius: 18)
             }
             .buttonStyle(.pressable)
@@ -204,7 +204,7 @@ struct CurriculumView: View {
             }
 
             if !matches.isEmpty {
-                SectionTitle("찾은 단원")
+                SectionTitle(L("찾은 단원"))
                 VStack(spacing: 0) {
                     ForEach(Array(matches.enumerated()), id: \.offset) { index, match in
                         Button {
@@ -351,7 +351,7 @@ struct CurriculumView: View {
                         .font(.pt(.headline))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
-                    Text("\(progress.subject) · 다음: \(progress.nextStep?.longTitle ?? "복습")")
+                    Text("\(progress.subject) · 다음: \(progress.nextStep?.longTitle ?? L("복습"))")
                         .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -401,7 +401,7 @@ struct CurriculumView: View {
                 } label: {
                     VStack(spacing: 4) {
                         Image(systemName: item.symbol).font(.pt(.subheadline).weight(.semibold))
-                        Text(item.rawValue).font(.pt(.caption).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
+                        Text(item.rawValue.loc).font(.pt(.caption).weight(.semibold)).lineLimit(1).minimumScaleFactor(0.8)
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
@@ -455,7 +455,7 @@ struct CurriculumView: View {
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                Text(done > 0 ? "\(subject.units.count)개 단원 · \(done)개 완료" : "\(subject.units.count)개 단원")
+                Text(done > 0 ? L("\(subject.units.count)개 단원 · \(done)개 완료") : L("\(subject.units.count)개 단원"))
                     .font(.pt(.caption))
                     .foregroundStyle(.secondary)
             }
@@ -472,7 +472,7 @@ struct CurriculumView: View {
         let weak = weakUnits
         if !weak.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                SectionTitle("다시 볼 단원")
+                SectionTitle(L("다시 볼 단원"))
                 VStack(spacing: 0) {
                     ForEach(Array(weak.enumerated()), id: \.offset) { index, item in
                         Button {
@@ -521,7 +521,7 @@ struct CurriculumView: View {
         case .resolved(let scope):
             open(subject: scope.subjectName, unit: scope.unit)
         case .ambiguous(let options):
-            choicesMessage = "'\(trimmed)'은(는) 여러 단원으로 해석돼요."
+            choicesMessage = L("'\(trimmed)'은(는) 여러 단원으로 해석돼요.")
             choices = options
         case .notFound(_, let suggestions):
             Haptics.error()
@@ -545,7 +545,7 @@ struct FreeStudyOption: View {
         if brain.isAvailable {
             if let start {
                 Button(action: start) {
-                    RowLabel(symbol: "sparkles", title: "AI로 학습해 보기", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
+                    RowLabel(symbol: "sparkles", title: L("AI로 학습해 보기"), subtitle: L("AI가 만든 내용 · 틀릴 수 있어요"))
                         .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
                 }
                 .buttonStyle(.pressable)
@@ -557,7 +557,7 @@ struct FreeStudyOption: View {
                 Task { await brain.prepare() }
                 start?()
             } label: {
-                RowLabel(symbol: "sparkles", title: "\(model.title) 켜고 AI로 학습", subtitle: "AI가 만든 내용 · 틀릴 수 있어요")
+                RowLabel(symbol: "sparkles", title: L("\(model.title) 켜고 AI로 학습"), subtitle: L("AI가 만든 내용 · 틀릴 수 있어요"))
                     .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
             }
             .buttonStyle(.pressable)

@@ -51,7 +51,7 @@ struct StudyComplicationView: View {
             Gauge(value: entry.progress) {
                 Image(systemName: "book.fill")
             } currentValueLabel: {
-                Text(WatchFormat.short(entry.seconds))
+                Text(WatchFormat.shortL(entry.seconds))
                     .font(.system(.body, design: .rounded).weight(.bold))
                     .minimumScaleFactor(0.5)
             }
@@ -66,12 +66,12 @@ struct StudyComplicationView: View {
                     Gauge(value: entry.progress) {
                         Text("공부")
                     } currentValueLabel: {
-                        Text(WatchFormat.short(entry.seconds))
+                        Text(WatchFormat.shortL(entry.seconds))
                     }
                     .tint(entry.accent)
                 }
         case .accessoryInline:
-            Text("공부 \(WatchFormat.duration(entry.seconds))")
+            Text("공부 \(WatchFormat.durationL(entry.seconds))")
         default:
             HStack(spacing: 8) {
                 Gauge(value: entry.progress) {
@@ -84,14 +84,14 @@ struct StudyComplicationView: View {
                 .tint(entry.accent)
                 .widgetAccentable()
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(entry.snapshot.timer.phase == .running ? "공부 중" : "오늘 공부")
+                    Text(entry.snapshot.timer.phase == .running ? L("공부 중") : L("오늘 공부"))
                         .font(.system(.caption2, design: .rounded).weight(.semibold))
                         .foregroundStyle(entry.accent)
                         .widgetAccentable()
-                    Text(WatchFormat.duration(entry.seconds))
+                    Text(WatchFormat.durationL(entry.seconds))
                         .font(.system(.headline, design: .rounded).weight(.bold))
                         .minimumScaleFactor(0.7)
-                    Text("목표 \(WatchFormat.duration(entry.snapshot.goalMinutes * 60))")
+                    Text("목표 \(WatchFormat.durationL(entry.snapshot.goalMinutes * 60))")
                         .font(.system(.caption2, design: .rounded))
                         .foregroundStyle(.secondary)
                 }

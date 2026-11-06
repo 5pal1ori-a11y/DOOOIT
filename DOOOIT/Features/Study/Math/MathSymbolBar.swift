@@ -20,7 +20,7 @@ struct MathSymbolBar: View {
 
     static let symbols: [Symbol] = [
         Symbol("√", "√()", caret: 2),
-        Symbol("분수", "()/()", caret: 1),
+        Symbol(L("분수"), "()/()", caret: 1),
         Symbol("x²", "²"),
         Symbol("x³", "³"),
         Symbol("xⁿ", "^()", caret: 2),

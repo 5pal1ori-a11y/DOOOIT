@@ -27,7 +27,7 @@ extension WidgetFamily {
 }
 
 enum WidgetStyle {
-    static let weekdays = ["일", "월", "화", "수", "목", "금", "토"]
+    static var weekdays: [String] { AppDateFormat.weekdaySymbols }
     static let sunday = Color(red: 0.94, green: 0.33, blue: 0.33)
     static let flame = Color(red: 1, green: 0.55, blue: 0.2)
     static let flameDeep = Color(red: 0.96, green: 0.33, blue: 0.24)
