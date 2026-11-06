@@ -359,7 +359,7 @@ struct MockExamView: View {
         }
         try? context.save()
         let score = results.filter { $0 }.count
-        if score == list.count { Haptics.success() } else { Haptics.tap() }
+        if score == list.count { Haptics.celebrate() } else { Haptics.tap() }
         stage = .result
         BadgeCenter.shared.check(context: context)
     }

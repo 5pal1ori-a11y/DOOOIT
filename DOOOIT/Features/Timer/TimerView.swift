@@ -368,6 +368,7 @@ struct TimerView: View {
                         .foregroundStyle(Palette.danger)
                 }
                 if presence.isSessionActive {
+                    PresenceLiveCard()
                     PresenceChip()
                 }
                 Text(studyTimer.title.loc)

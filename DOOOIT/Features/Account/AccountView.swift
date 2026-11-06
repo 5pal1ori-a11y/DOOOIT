@@ -18,6 +18,7 @@ struct AccountView: View {
     @AppStorage(SettingsKey.reminderLeadMinutes) private var leadMinutes = 10
     @AppStorage(SettingsKey.liveActivityEnabled) private var liveActivityEnabled = true
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
+    @AppStorage(SettingsKey.soundEffects) private var soundEffects = true
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
     /// 화면 언어: 고른 값 (적용은 안내 창에서 확인한 뒤)
     @State private var languagePick = AppLanguage.selected
@@ -153,6 +154,7 @@ struct AccountView: View {
                     ForEach(AppLanguage.allCases) { Text(verbatim: $0.displayName).tag($0) }
                 } label: { item("언어", "globe", Palette.sky) }
                 .pickerStyle(.menu)
+                Toggle(isOn: $soundEffects) { item("효과음", "speaker.wave.2.fill", Palette.mint) }
             }
             Section {
                 NavigationLink { CategoryManagerView() } label: { item("과목 · 카테고리", "tag.fill", Palette.pink) }

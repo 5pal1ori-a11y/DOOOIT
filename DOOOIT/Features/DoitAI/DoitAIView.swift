@@ -208,7 +208,7 @@ struct DoitAIView: View {
                         }
                     }
                     .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: message.isStreaming && message.text.isEmpty ? nil : .infinity, alignment: .leading)
                     .background(Palette.card, in: UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 22, bottomTrailingRadius: 22, topTrailingRadius: 22))
                     .overlay(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 22, bottomTrailingRadius: 22, topTrailingRadius: 22)
                         .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
@@ -257,12 +257,26 @@ struct DoitAIView: View {
         return last.isStreaming
     }
 
+    /// 추천 칩 글자: 고른 언어로 보여 줌 (눌렀을 때 보내는 말은 그대로 한국어 — 모티가 알아듣는 말)
+    private static let chipPatterns = ["더 자세히 알려줘", "퀴즈 내줘", "설명해줘", "공부법 알려줘", "인터넷에서 다시 찾아줘", "D-Day 설정해줘", "일정 알려줘", "몰질량"]
+    static func chipLabel(_ text: String) -> String {
+        if AppLanguage.code == "ko" { return text }
+        let direct = text.loc
+        if direct != text { return direct }
+        for suffix in chipPatterns where text.hasSuffix(" " + suffix) {
+            let topic = String(text.dropLast(suffix.count + 1))
+            let format = "%@ \(suffix)".loc
+            if format != "%@ \(suffix)" { return format.replacingOccurrences(of: "%@", with: topic) }
+        }
+        return text
+    }
+
     private func suggestionChips(_ suggestions: [String]) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(suggestions, id: \.self) { suggestion in
                     Button { Task { await assistant.send(suggestion) } } label: {
-                        Text(suggestion)
+                        Text(Self.chipLabel(suggestion))
                             .font(.pt(.footnote).weight(.semibold))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 13)

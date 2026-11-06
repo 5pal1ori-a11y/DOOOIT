@@ -285,7 +285,20 @@ extension View {
 // MARK: - Haptics
 
 enum Haptics {
-    static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
-    static func error() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
+    /// 맞았을 때: 진동 + 효과음 (효과음은 설정에서 끌 수 있음)
+    static func success() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Task { @MainActor in SoundFX.shared.play(.correct) }
+    }
+    /// 틀렸을 때
+    static func error() {
+        UINotificationFeedbackGenerator().notificationOccurred(.error)
+        Task { @MainActor in SoundFX.shared.play(.wrong) }
+    }
+    /// 한 세트를 끝냈을 때
+    static func celebrate() {
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        Task { @MainActor in SoundFX.shared.play(.complete) }
+    }
     static func tap() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
 }

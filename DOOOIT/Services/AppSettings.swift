@@ -7,6 +7,7 @@ enum SettingsKey {
     static let reminderLeadMinutes = "reminderLeadMinutes"
     static let notificationsEnabled = "notificationsEnabled"
     static let liveActivityEnabled = "liveActivityEnabled"
+    static let soundEffects = "soundEffects"
     static let autoStartTimer = "autoStartTimer"
     static let appearance = "appearance"
     static let themeColor = "themeColor"

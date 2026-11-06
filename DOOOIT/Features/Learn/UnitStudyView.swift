@@ -248,7 +248,7 @@ struct UnitStudyView: View {
         onStepDone?(finished)
         let all = LearnStep.allCases
         if all.allSatisfy({ doneSteps.contains($0.rawValue) }) {
-            Haptics.success()
+            Haptics.celebrate()
             withAnimation(Motion.spring) { showComplete = true }
             if finished != .weak, let index = all.firstIndex(of: finished), index + 1 < all.count {
                 withAnimation(Motion.spring) { step = all[index + 1] }
