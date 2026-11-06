@@ -31,6 +31,8 @@ final class StudyPresenceMonitor {
     static let enabledKey = "timer.aiMeasure"
     static let cameraKey = "timer.aiMeasure.camera"
     static let flipKey = "timer.aiMeasure.flip"
+    /// 측정 중에 타이머 화면에서 카메라 화면을 보여 줄지 (기본 켬)
+    static let liveKey = "timer.aiMeasure.live"
 
     /// 앱이 이 시간보다 오래 뒤에 있다 돌아오면 카메라를 저절로 켜지 않고 눌러서 켜게 함 (초)
     static let maxBackgroundResume: TimeInterval = 10 * 60
@@ -84,6 +86,16 @@ final class StudyPresenceMonitor {
     }
 
     var isEnabled: Bool { UserDefaults.standard.bool(forKey: Self.enabledKey) }
+
+    private(set) var showLive: Bool = UserDefaults.standard.object(forKey: StudyPresenceMonitor.liveKey) as? Bool ?? true
+
+    /// 측정 중 카메라 화면 보이기 · 숨기기 (숨기면 화면용 그림을 만들지 않아 배터리도 아낌)
+    func setLive(_ on: Bool) {
+        showLive = on
+        UserDefaults.standard.set(on, forKey: Self.liveKey)
+        camera.setPreview(on && status == .measuring)
+        if !on { previewImage = nil; previewFrame = nil; previewObservation = nil }
+    }
 
     /// 미리보기 중 카메라나 좌우를 바꿨을 때 다시 반영
     func settingsChanged() {
@@ -179,6 +191,7 @@ final class StudyPresenceMonitor {
         ticker = nil
         sessionStart = nil
         camera.stop()
+        previewImage = nil; previewFrame = nil; previewObservation = nil
         status = .off
         state = .waiting
         releaseScreen()
@@ -203,7 +216,7 @@ final class StudyPresenceMonitor {
         aggregator.reset()
         camera.resetTracking()
         do {
-            try await camera.start(position: cameraPosition, layout: layout, preview: false)
+            try await camera.start(position: cameraPosition, layout: layout, preview: showLive)
             guard isSessionActive else { camera.stop(); return }
             status = StudyTimer.shared.phase == .paused ? .paused : .measuring
             if status == .paused { camera.stop() } else { keepScreenOn() }
@@ -248,6 +261,7 @@ final class StudyPresenceMonitor {
             previewObservation = observation
         case .measuring:
             guard isSessionActive, StudyTimer.shared.phase == .running else { return }
+            if showLive { previewFrame = frame; previewObservation = observation }
             if let sample = aggregator.add(observation, at: time) {
                 engine.feed(sample)
                 state = engine.state
@@ -260,7 +274,7 @@ final class StudyPresenceMonitor {
     }
 
     private func receivePreview(_ image: UIImage) {
-        guard status == .previewing else { return }
+        guard status == .previewing || (status == .measuring && showLive) else { return }
         previewImage = image
     }
 
@@ -288,6 +302,7 @@ final class StudyPresenceMonitor {
             if status == .measuring {
                 status = .paused
                 camera.stop()
+                previewImage = nil
                 releaseScreen()
             }
         case .running:
@@ -324,6 +339,7 @@ final class StudyPresenceMonitor {
         if let start = sessionStart { store.saveLive(engine.summary(startedAt: start)) }
         guard status == .measuring || status == .previewing else { return }
         camera.stop()
+        previewImage = nil
         status = isSessionActive ? .suspended : .off
         releaseScreen()
     }

@@ -44,6 +44,7 @@ final class PresenceCameraController: NSObject, AVCaptureVideoDataOutputSampleBu
     private var configuredPosition: PresenceCameraPosition?
     private var wantsPreview = false
     private var lastAnalyzed: CFTimeInterval = 0
+    private var lastPreview: CFTimeInterval = 0
     private var observers: [NSObjectProtocol] = []
 
     /// 분석 간격 (초): 1초에 3번쯤
@@ -186,7 +187,12 @@ final class PresenceCameraController: NSObject, AVCaptureVideoDataOutputSampleBu
         }
         guard let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        if wantsPreview, let image = previewImage(pixels) { onPreview?(image) }
+        // 미리보기는 1초에 5장쯤만 (배터리)
+        let stamp = CACurrentMediaTime()
+        if wantsPreview, stamp - lastPreview >= 0.2, let image = previewImage(pixels) {
+            lastPreview = stamp
+            onPreview?(image)
+        }
 
         let now = CACurrentMediaTime()
         guard now - lastAnalyzed >= Self.analysisInterval else { return }

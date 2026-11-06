@@ -27742,6 +27742,28 @@
           }
         }
       }
+    },
+    "카메라 화면 숨기기": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide camera view"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カメラ画面を隠す"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐藏摄像头画面"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

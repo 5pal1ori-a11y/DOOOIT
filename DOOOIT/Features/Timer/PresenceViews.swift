@@ -7,9 +7,9 @@ struct PresenceChip: View {
 
     var body: some View {
         let color = monitor.chipColor
-        let tappable = monitor.status == .suspended
         Button {
-            monitor.resumeNow()
+            // 멈춘 상태면 다시 켜기, 아니면 카메라 화면 보이기 · 숨기기
+            if monitor.status == .suspended || monitor.status.isUnavailable { monitor.resumeNow() } else { monitor.setLive(!monitor.showLive) }
             Haptics.tap()
         } label: {
             HStack(spacing: 7) {
@@ -27,7 +27,6 @@ struct PresenceChip: View {
             .background(color.opacity(0.16), in: .capsule)
         }
         .buttonStyle(.plain)
-        .allowsHitTesting(tappable)
         .animation(.smooth(duration: 0.25), value: monitor.state)
         .accessibilityLabel("AI 순공부 측정")
         .accessibilityValue(monitor.chipText)
@@ -45,6 +44,53 @@ struct PresenceChip: View {
             case .distracted: "iphone.gen3"
             case .away: "figure.walk"
             }
+        }
+    }
+}
+
+/// 측정 중 타이머 화면에 보이는 카메라 화면 (내 모습 + 가이드 박스). 영상은 저장하지 않아요
+struct PresenceLiveCard: View {
+    @State private var monitor = StudyPresenceMonitor.shared
+    @AppStorage(StudyPresenceMonitor.flipKey) private var flipped = false
+    @State private var angle: Double = PresenceGuideSheet.angle(for: UIDevice.current.orientation, fallback: 0)
+
+    var body: some View {
+        if monitor.status == .measuring && monitor.showLive {
+            let rotated = abs(angle) == 90
+            let layout = PresenceLayout.make(flipped: flipped)
+            GeometryReader { geo in
+                let canvasWidth = rotated ? geo.size.height : geo.size.width
+                let canvasHeight = canvasWidth * 3 / 4
+                PresenceCanvas(image: monitor.previewImage, layout: layout, frame: monitor.previewFrame,
+                               observation: monitor.previewObservation, isDemo: false, status: monitor.status)
+                    .frame(width: canvasWidth, height: canvasHeight)
+                    .rotationEffect(.degrees(angle))
+                    .frame(width: geo.size.width, height: geo.size.height)
+            }
+            .aspectRatio(rotated ? 3.0 / 4.0 : 4.0 / 3.0, contentMode: .fit)
+            .frame(maxWidth: 260)
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    monitor.setLive(false)
+                    Haptics.tap()
+                } label: {
+                    Image(systemName: "eye.slash.fill")
+                        .font(.pt(.caption).weight(.bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(.black.opacity(0.55), in: .circle)
+                }
+                .buttonStyle(.plain)
+                .padding(6)
+                .accessibilityLabel("카메라 화면 숨기기")
+            }
+            .animation(.smooth(duration: 0.3), value: angle)
+            .onAppear { UIDevice.current.beginGeneratingDeviceOrientationNotifications() }
+            .onDisappear { UIDevice.current.endGeneratingDeviceOrientationNotifications() }
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+                angle = PresenceGuideSheet.angle(for: UIDevice.current.orientation, fallback: angle)
+            }
+            .transition(.opacity)
         }
     }
 }
