@@ -205,7 +205,7 @@ struct MainTabView: View {
             if UIShot.isActive { return }
             #endif
             // 바탕화면 아이콘이 지금 테마 색과 다르면 맞춤 (이미 맞으면 아무 일도 없음)
-            AppIconSwitcher.apply(ThemeColor.from(themeRaw))
+            AppIconSwitcher.apply(Theme.current)
             // 랭킹에 참여 중이면 Game Center에 로그인해 둠 (타이머를 마치면 바로 반영되게)
             if RankingService.shared.isJoined { RankingService.shared.authenticate() }
             if AppSettings.notificationsEnabled {
