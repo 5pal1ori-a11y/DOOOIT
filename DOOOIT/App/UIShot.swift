@@ -28,6 +28,8 @@ enum UIShotScreen: String, CaseIterable {
     case guestAccount
     /// 공부 랭킹 (가짜 순위 · 내가 목록 안 / 밖)
     case ranking, rankingFar
+    /// 오답노트: 빈 목록 · 수학 문제(문제 탭) · 영어 문제(채점 뒤) · 취약 개념 목록 · 취약 유형 맞춤 학습
+    case mathEmpty, mathNoteText, subjectNote, weakList, weakness
 }
 
 @MainActor
@@ -57,7 +59,8 @@ enum UIShot {
     static var tab: AppTab {
         switch screen {
         case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem,
-             .weeklyReport, .wordSession, .ranking, .rankingFar: return .study
+             .weeklyReport, .wordSession, .ranking, .rankingFar,
+             .mathEmpty, .mathNoteText, .subjectNote, .weakList, .weakness: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
         case .account, .accountSettings, .appSettings, .badges, .guestAccount: return .account
@@ -92,6 +95,13 @@ enum UIShot {
         // swiftlint:disable:next force_try
         let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         seed(container.mainContext)
+        if screen == .mathEmpty {
+            // 빈 오답노트: 문제와 취약 개념을 모두 지움
+            let context = container.mainContext
+            for note in (try? context.fetch(FetchDescriptor<MathNote>())) ?? [] { context.delete(note) }
+            for concept in (try? context.fetch(FetchDescriptor<WeakConcept>())) ?? [] { context.delete(concept) }
+            try? context.save()
+        }
         return container
     }
 
@@ -221,6 +231,14 @@ enum UIShot {
         math.isRecognitionConfirmed = true
         math.myAnswer = "12"
         math.status = .wrong
+        math.grade = GradeResult(verdict: .wrong, score: 0, method: "수식을 계산해서 비교", reasons: ["내 답 12는 정답 13과 달라요."],
+                                 answerUsed: "13", answerSource: "입력한 정답")
+        math.analysis = MistakeAnalysis(cause: .formula, certainty: .estimated,
+                                        explanation: "α²+β²를 합과 곱으로 바꾸는 공식을 놓쳤을 수 있어요.",
+                                        evidence: ["내 답 12는 정답 13과 1 차이예요."],
+                                        missedConcepts: ["근과 계수의 관계", "α²+β² = (α+β)² − 2αβ"],
+                                        direction: "합 α+β=5, 곱 αβ=6을 먼저 구한 뒤 식에 넣어요.",
+                                        review: ["이차방정식 근과 계수"], next: ["유사 문제 풀기"], startLevel: 2)
         math.createdAt = now.addingTimeInterval(-3600 * 2)
         math.updatedAt = math.createdAt
         context.insert(math)
@@ -230,7 +248,12 @@ enum UIShot {
         eng.subject = NoteSubject.english.rawValue
         eng.unit = "to부정사"
         eng.isRecognitionConfirmed = true
-        eng.status = .unsolved
+        eng.myAnswer = "④"
+        eng.status = .wrong
+        eng.grade = GradeResult(verdict: .wrong, score: 0, method: "선택지 번호 비교", reasons: ["고른 번호 ④, 정답 ③이에요."],
+                                answerUsed: "③", answerSource: "입력한 정답")
+        eng.analysis = MistakeAnalysis(cause: .grammar, certainty: .confirmed, explanation: "too ~ to 구문의 형태를 골랐어요.",
+                                       evidence: [], missedConcepts: ["too ~ to 구문"], direction: "", review: [], next: [], startLevel: 2)
         eng.createdAt = now.addingTimeInterval(-86_400)
         eng.updatedAt = eng.createdAt
         context.insert(eng)

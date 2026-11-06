@@ -22,26 +22,11 @@ struct GuidedSolveEntryCard: View {
             Haptics.tap()
             if ready { open = true } else { onNeedConfirm() }
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "bubble.left.fill")
-                    .font(.pt(.subheadline))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 34, height: 34)
-                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("AI와 함께 풀기").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
-                    Text(ready ? (note.guidedSolve?.summary ?? L("힌트를 보며 직접 풀어요")) : L("문제를 먼저 확인해 주세요"))
-                        .font(.pt(.caption))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right").font(.pt(.caption).weight(.bold)).foregroundStyle(.tertiary)
-            }
-            .contentShape(Rectangle())
+            RowLabel(symbol: "bubble.left", title: L("AI와 함께 풀기"),
+                     subtitle: ready ? (note.guidedSolve?.summary ?? L("힌트를 보며 직접 풀어요")) : L("문제를 먼저 확인해 주세요"))
+                .softCardBackground()
         }
-        .buttonStyle(.plain)
-        .softCard()
+        .buttonStyle(.pressable)
         .sheet(isPresented: $open) {
             GuidedSolveView(note: note)
         }
@@ -70,7 +55,7 @@ struct GuidedSolveView: View {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: 12) {
                             problemCard
                             ForEach(session.messages) { message in
                                 bubble(message)
@@ -151,7 +136,7 @@ struct GuidedSolveView: View {
                 }
             }
         }
-        .softCard(cornerRadius: 18, padding: 14)
+        .softCard()
     }
 
     // MARK: 말풍선
@@ -166,7 +151,7 @@ struct GuidedSolveView: View {
                     .foregroundStyle(Theme.onAccent)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .background(Theme.accent, in: .rect(cornerRadius: 14))
+                    .background(Theme.accent, in: .rect(cornerRadius: Radius.card, style: .continuous))
             }
         } else if message.tone == .explain {
             explainCard(message)
@@ -174,9 +159,7 @@ struct GuidedSolveView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     if let label = message.label ?? toneLabel(message.tone) {
-                        Label(label, systemImage: toneSymbol(message.tone))
-                            .font(.pt(.caption).weight(.bold))
-                            .foregroundStyle(toneColor(message.tone))
+                        StatusText(text: label, color: toneColor(message.tone))
                     }
                     Text(MathSymbolBar.pretty(message.text))
                         .font(.pt(.subheadline))
@@ -186,8 +169,8 @@ struct GuidedSolveView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(toneBackground(message.tone), in: .rect(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
+                .background(toneBackground(message.tone), in: .rect(cornerRadius: Radius.card, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
                 Spacer(minLength: 36)
             }
         }
@@ -195,9 +178,7 @@ struct GuidedSolveView: View {
 
     private func explainCard(_ message: GuidedSolveSession.Message) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(message.label ?? L("풀이"), systemImage: "checkmark.seal.fill")
-                .font(.pt(.caption).weight(.bold))
-                .foregroundStyle(Theme.accent)
+            FlowLabel(message.label ?? L("풀이"))
             if !message.text.isEmpty {
                 Text(MathSymbolBar.pretty(message.text))
                     .font(.pt(.headline))
@@ -211,7 +192,7 @@ struct GuidedSolveView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .softCard(cornerRadius: 18, padding: 14)
+        .softCard()
         .textSelection(.enabled)
     }
 
@@ -232,17 +213,6 @@ struct GuidedSolveView: View {
         }
     }
 
-    private func toneSymbol(_ tone: GuidedSolveSession.Message.Tone) -> String {
-        switch tone {
-        case .hint: return "lightbulb.fill"
-        case .ai: return "lightbulb"
-        case .good: return "checkmark.circle.fill"
-        case .retry: return "arrow.uturn.backward.circle.fill"
-        case .concept: return "book.fill"
-        case .plain, .explain: return "bubble.left.fill"
-        }
-    }
-
     private func toneColor(_ tone: GuidedSolveSession.Message.Tone) -> Color {
         switch tone {
         case .good: return Palette.success
@@ -253,11 +223,8 @@ struct GuidedSolveView: View {
 
     private func toneBackground(_ tone: GuidedSolveSession.Message.Tone) -> Color {
         switch tone {
-        case .good: return Palette.success.opacity(0.12)
-        case .retry: return Palette.warning.opacity(0.14)
-        case .hint, .ai: return Theme.accent.opacity(0.09)
         case .concept: return Palette.cardInset
-        case .plain, .explain: return Palette.card
+        case .good, .retry, .hint, .ai, .plain, .explain: return Palette.card
         }
     }
 
@@ -271,13 +238,8 @@ struct GuidedSolveView: View {
         case .solving: text = L("힌트 \(session.hintsUsed)")
         }
         let color = session.phase == .solved ? Palette.success : (session.phase == .revealed ? Palette.warning : Theme.accent)
-        return Text(text)
-            .font(.pt(.caption).weight(.bold))
+        return StatusText(text: text, color: color)
             .monospacedDigit()
-            .foregroundStyle(color)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
-            .background(color.opacity(0.12), in: .capsule)
     }
 
     // MARK: 입력
@@ -290,12 +252,9 @@ struct GuidedSolveView: View {
                     Button {
                         restart()
                     } label: {
-                        Label("다시 풀기", systemImage: "arrow.counterclockwise")
-                            .font(.pt(.body).weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 52)
+                        Text("다시 풀기")
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.flat)
                     Button("닫기") { dismiss() }
                         .buttonStyle(.primaryFill)
                 }
@@ -323,12 +282,12 @@ struct GuidedSolveView: View {
             ForEach(1...min(plan.choices.count, 9), id: \.self) { n in
                 Button { send(.submit("\(n)")) } label: {
                     Text(DoitGuidedSolve.circled(n))
-                        .font(.pt(.title3).weight(.bold))
+                        .font(.pt(.title3).weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
                         .foregroundStyle(Palette.ink)
-                        .background(Palette.card, in: .rect(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                        .background(Palette.card, in: .rect(cornerRadius: Radius.field, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.field, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("\(n)번 고르기")
@@ -346,8 +305,8 @@ struct GuidedSolveView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 42)
                         .foregroundStyle(Palette.ink)
-                        .background(Palette.card, in: .rect(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                        .background(Palette.card, in: .rect(cornerRadius: Radius.field, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: Radius.field, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
             }
@@ -378,9 +337,8 @@ struct GuidedSolveView: View {
                 .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(Palette.card, in: .capsule)
-                .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+                .frame(height: 36)
+                .background(Theme.secondaryFill, in: .rect(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -394,9 +352,7 @@ struct GuidedSolveView: View {
                 .focused($focused)
                 .submitLabel(.send)
                 .onSubmit(submitInput)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .glassEffect(.regular, in: .rect(cornerRadius: 14))
+                .flatField(horizontal: 14, vertical: 10)
             Button(action: submitInput) {
                 Image(systemName: "arrow.up")
                     .font(.pt(.headline).weight(.bold))

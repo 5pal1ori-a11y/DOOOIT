@@ -34,7 +34,7 @@ struct AISolutionCard: View {
     private var noteKey: String { note.correctAnswer.trimmingCharacters(in: .whitespaces) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             header
             if let current {
                 result(current)
@@ -50,25 +50,21 @@ struct AISolutionCard: View {
                 Text("문제 글이 있으면 AI가 풀어 줘요").font(.pt(.subheadline)).foregroundStyle(.secondary)
             }
         }
-        .padding(18)
-        .glassEffect(.regular, in: .rect(cornerRadius: 14))
+        .softCard()
         .task(id: problemText) { await solveIfNeeded() }
     }
 
     // MARK: 화면
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "lightbulb")
-                .font(.pt(.headline))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 34, height: 34)
-                .background(Theme.accent.pastel, in: .rect(cornerRadius: 12, style: .continuous))
-            Text("AI 풀이").font(.pt(.headline))
+        HStack(spacing: 8) {
+            Text("AI 풀이").font(.pt(size: 17, weight: .semibold)).foregroundStyle(Palette.ink)
             Spacer()
             if current != nil, !working {
                 Button { Task { await solve(force: true) } } label: {
                     Image(systemName: "arrow.clockwise").font(.pt(.subheadline).weight(.semibold))
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
@@ -82,52 +78,49 @@ struct AISolutionCard: View {
         let fromModel = solution.source == DoitAutoSolve.modelSource
         let agrees = noteKey.isEmpty || DoitGuidedSolve.agrees(solution.finalAnswer, noteKey, choices: choices, choice: isChoice)
 
-        VStack(alignment: .leading, spacing: 6) {
-            Text("정답").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            FlowLabel(L("정답"))
             Text(MathSymbolBar.pretty(DoitSubjectNote.describe(solution.finalAnswer, choices: choices)))
-                .font(.pt(.title3).weight(.bold))
+                .font(.pt(size: 28, weight: .bold))
                 .foregroundStyle(Palette.ink)
+                .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 14))
+        .padding(.vertical, 12)
+        .overlay(alignment: .top) { Hairline() }
+        .overlay(alignment: .bottom) { Hairline() }
 
         if isChoice, !matchesChoice(solution.finalAnswer) {
-            Label("선지에 같은 답이 없어요. 문제 글을 확인해 주세요.", systemImage: "exclamationmark.triangle.fill")
-                .font(.pt(.caption).weight(.semibold))
-                .foregroundStyle(Palette.warning)
-                .fixedSize(horizontal: false, vertical: true)
+            StatusText(text: L("선지에 같은 답이 없어요. 문제 글을 확인해 주세요."), color: Palette.warning, lineLimit: nil)
         } else if !agrees {
-            Label("적어 둔 정답과 달라요. 문제 글을 확인해 주세요.", systemImage: "exclamationmark.triangle.fill")
-                .font(.pt(.caption).weight(.semibold))
-                .foregroundStyle(Palette.warning)
-                .fixedSize(horizontal: false, vertical: true)
+            StatusText(text: L("적어 둔 정답과 달라요. 문제 글을 확인해 주세요."), color: Palette.warning, lineLimit: nil)
         }
 
         if !solution.concept.isEmpty {
-            Label(MathSymbolBar.pretty(solution.concept), systemImage: "lightbulb")
+            Text(MathSymbolBar.pretty(solution.concept))
                 .font(.pt(.subheadline))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
 
         if !solution.steps.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 12) {
                 ForEach(Array(solution.steps.enumerated()), id: \.offset) { index, step in
-                    HStack(alignment: .top, spacing: 10) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
                         Text("\(index + 1)")
-                            .font(.pt(.caption).weight(.bold))
-                            .foregroundStyle(Theme.onAccent)
-                            .frame(width: 22, height: 22)
-                            .background(Theme.accent, in: .circle)
+                            .font(.pt(.subheadline).weight(.semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20, alignment: .trailing)
                         VStack(alignment: .leading, spacing: 4) {
                             if !step.hint.isEmpty {
-                                Text(step.hint).font(.pt(.caption).weight(.semibold)).foregroundStyle(.secondary)
+                                Text(step.hint).font(.pt(.footnote)).foregroundStyle(.secondary)
                             }
                             if !step.work.isEmpty {
                                 Text(MathSymbolBar.pretty(step.work))
                                     .font(.pt(.subheadline).weight(.medium))
+                                    .foregroundStyle(Palette.ink)
                                     .lineSpacing(4)
                             }
                         }
@@ -139,7 +132,7 @@ struct AISolutionCard: View {
 
         if fromModel {
             HStack {
-                Label("AI 추측이에요. 확인해 주세요.", systemImage: "info.circle")
+                Text("AI 추측이에요. 확인해 주세요.")
                     .font(.pt(.caption2))
                     .foregroundStyle(.secondary)
                 Spacer(minLength: 8)
@@ -149,15 +142,16 @@ struct AISolutionCard: View {
                         save()
                         Haptics.tap()
                     }
-                    .font(.pt(.caption).weight(.bold))
-                    .buttonStyle(.glass)
+                    .font(.pt(.footnote).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .buttonStyle(.pressable)
                 }
             }
         }
     }
 
     private var failedState: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(note.subjectKind.isMath ? L("확실한 답을 찾지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요.")
                  : DoitMind.isAvailable ? L("풀지 못했어요. 문제 글이 맞게 읽혔는지 확인해 주세요.") : L("풀지 못했어요. 모티 AI 탭에서 모델을 받으면 더 많이 풀어요."))
                 .font(.pt(.subheadline))
@@ -165,13 +159,13 @@ struct AISolutionCard: View {
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Button { onEditProblem() } label: {
-                    Label("문제 글 고치기", systemImage: "pencil").font(.pt(.subheadline).weight(.semibold))
+                    Text("문제 글 고치기")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.flat)
                 Button { Task { await solve(force: true) } } label: {
-                    Label("다시 풀기", systemImage: "arrow.clockwise").font(.pt(.subheadline).weight(.semibold))
+                    Text("다시 풀기")
                 }
-                .buttonStyle(.glass)
+                .buttonStyle(.flat)
             }
         }
     }
