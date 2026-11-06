@@ -311,7 +311,14 @@ enum HandwritingFilter {
                 let printedShape = line.confidence >= 0.9 && (!measurable || tilt <= 2) && (!whole || (0.7...1.35).contains(ratio))
                 if !known.isEmpty, colored / n >= 0.6 {
                     score += 1.5; reasons.append("색")
-                    if hangul >= 2 && printedShape { score -= 0.9; reasons.append("인쇄 모양") }
+                    // 색으로 인쇄한 머리말·라벨(첫 줄, [1~3], <보기>, (가))만 반듯하면 인쇄로 봄.
+                    // 문제 한가운데 따로 선 짧은 색 글(여기 중요, 다시 보기)은 반듯해도 펜 메모
+                    let lineStart = line.text.trimmingCharacters(in: .whitespaces).first
+                    let headerLike = index == 0 || (lineStart.map { "[<(［〈（".contains($0) } ?? false)
+                    if hangul >= 2 && printedShape {
+                        if headerLike { score -= 0.9; reasons.append("인쇄 모양") }
+                        else if nonSpace <= 12 { score += 0.4; reasons.append("짧은 색 메모") }
+                    }
                 }
                 if !known.isEmpty, light / n >= 0.6 {
                     let darkest = glyphs.compactMap { $0.ink?.peak }.max() ?? 0

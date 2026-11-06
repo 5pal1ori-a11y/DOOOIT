@@ -84,7 +84,7 @@ func runHandwritingCases() {
     // 4) 파란색으로 인쇄한 한글 머리말 (반듯·신뢰도 높음) → 남김
     var header = plain
     header.glyphs(20, 150, count: 6, size: 30, blue)
-    let r4 = HandwritingFilter.clean(header.p, lines: plainLines + [line("개념 확인 문제", x: 20, y: 150, size: 30)], mode: .text)
+    let r4 = HandwritingFilter.clean(header.p, lines: [line("개념 확인 문제", x: 20, y: 150, size: 30)] + plainLines, mode: .text)
     check("필기: 색으로 인쇄한 머리말은 남김", r4.report.tokens.allSatisfy { !$0.hand } && Paper(p: r4.pixels).color(20 + 30 / 5 + 1, 150 + 12).2 > 150 && Paper(p: r4.pixels).color(27, 162).0 < 80,
           r4.report.lines.joined(separator: " / "))
 
@@ -95,6 +95,12 @@ func runHandwritingCases() {
     let after5 = Paper(p: r5.pixels)
     check("필기: 보기 동그라미 지움", after5.color(20 + 30 * 7 + 15 + 27, 95).1 > 200, "\(after5.color(262, 95)) \(r5.report.lines.joined(separator: " / "))")
     check("필기: 동그라미 안 번호는 남김", after5.color(20 + 30 * 7 + 30 / 5 + 1, 80 + 12).0 < 60)
+
+    // 4-2) 문제 한가운데 따로 선 짧은 파란 한글(반듯해도 신뢰도 높음) → 펜 메모로 지움
+    var memo = plain
+    memo.glyphs(20, 150, count: 4, size: 30, blue)
+    let r4b = HandwritingFilter.clean(memo.p, lines: plainLines + [line("여기 중요", x: 20, y: 150, size: 30)], mode: .text)
+    check("필기: 문제 가운데 짧은 파란 한글 메모는 필기", r4b.report.tokens.contains { $0.text.contains("여기") && $0.hand }, r4b.report.lines.joined(separator: " / "))
 
     // 6) 그림 읽기: 파란 선(인쇄 그림일 수 있음)은 남기고, 필기로 판정한 글자만 지움
     var figure = plain
