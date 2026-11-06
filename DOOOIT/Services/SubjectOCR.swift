@@ -7,10 +7,12 @@ enum SubjectOCR {
     /// 정밀 인식(PaddleOCR-VL)을 받아 두었으면 그걸로 먼저, 안 되면 Vision
     static func read(_ image: UIImage) async -> (text: String, unsure: [String]) {
         guard let cgImage = image.resized(maxDimension: 3000).cgImage else { return ("", []) }
-        if let text = await PaddleOCRService.shared.problemText(image, cgImage: cgImage, purpose: .subjectProblem) {
+        // 학생 필기(밑줄·동그라미·써 넣은 답·풀이)를 먼저 지운 사진으로 읽음
+        let clean = await OCRService.printedOnly(cgImage)
+        if let text = await PaddleOCRService.shared.problemText(image, cgImage: clean, purpose: .subjectProblem) {
             return (DoitProblemScan.numbered(text), [])
         }
-        let read = await OCRService.readSubjectProblem(cgImage)
+        let read = await OCRService.readSubjectProblem(clean, cleaned: true)
         return (DoitProblemScan.numbered(read.text), read.unsure)
     }
 }

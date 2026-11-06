@@ -23,6 +23,10 @@ struct Expectation: Codable {
     var notTerms: [String] = []
     /// <보기> ㄱ. ㄴ. ㄷ. 항목 (DoitProblemScan.boxItems, 띄어쓰기 무시)
     var boxItems: [String]? = nil
+    /// 학생 필기 사진: 읽은 글에 섞이면 안 되는 필기 글 (띄어쓰기 무시, "|"는 또는). nil이면 필기 사진 아님
+    var leaks: [String]? = nil
+    /// 학생이 써 넣은 답 (읽은 글에서 정답 표기로 잡히면 안 됨)
+    var handAnswer: String? = nil
 }
 
 struct CaseSpec: Codable {

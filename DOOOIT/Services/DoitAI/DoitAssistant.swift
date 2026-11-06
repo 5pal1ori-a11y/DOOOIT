@@ -786,7 +786,8 @@ final class DoitAssistant {
         // 그림·그래프·표가 있는 문제: 그림에서 읽은 사실을 블록으로 붙임 (풀기 전에 학생에게 보여 줌)
         if words.count < 3, DoitFigureFacts.mentionsFigure(text) {
             status = "그림을 읽는 중…"
-            if let figure = await FigureReader.read(image, problemText: text) { text = DoitFigureFacts.attach(figure, to: text) }
+            // 학생 필기를 지운 사진으로 그림을 읽음
+            if let figure = await FigureReader.read(await OCRService.printedOnly(image, mode: .figure), problemText: text) { text = DoitFigureFacts.attach(figure, to: text) }
         }
         return DoitEngine.PhotoContext(image: image, text: text, words: words)
     }

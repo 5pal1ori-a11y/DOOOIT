@@ -25,18 +25,33 @@ struct ShapeAnalysis {
     var description: String
     /// 길이가 적혀 있으면 계산한 넓이·둘레 등
     var computed: [String]
+    /// 꼭짓점 안쪽에 적힌 각 ("50°"): 꼭짓점 번호 → 도
+    var angleLabels: [Int: Double] = [:]
+    /// 직각 표시(작은 네모)가 있는 꼭짓점
+    var rightAngles: Set<Int> = []
+    /// 도형 안쪽 꼭짓점 가까이에 적힌 단위 없는 숫자 (각일 수 있음: 문제 글을 보고 판단)
+    var innerNumbers: [Int: Double] = [:]
 }
 
 enum ShapeReader {
     static func analyze(_ image: PixelImage, labels: [TextLabel]) -> [ShapeAnalysis] {
         let w = image.width, h = image.height
-        // 글자 자리는 잉크에서 빼기
+        // 글자는 잉크에서 빼기: 글자 상자 안에 다 들어가는 잉크 덩어리만 (상자에 걸친 도형 선은 남겨서 도형이 끊기지 않게)
         let boxes = labels.map { $0.box.insetBy(-2) }
         var ink = [Bool](repeating: false, count: w * h)
         for y in 0..<h {
             for x in 0..<w where image.isDark(x, y, threshold: 150) || (image.chroma[y * w + x] > 70 && image.gray[y * w + x] < 225) {
-                if boxes.contains(where: { $0.contains(Double(x), Double(y)) }) { continue }
                 ink[y * w + x] = true
+            }
+        }
+        if !boxes.isEmpty {
+            for comp in VisionMath.components(ink, width: w, height: h, minSize: 1) {
+                var x0 = w, y0 = h, x1 = 0, y1 = 0
+                for i in comp { let x = i % w, y = i / w; x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y) }
+                let inside = boxes.contains { b in
+                    b.contains(Double(x0), Double(y0)) && b.contains(Double(x1), Double(y1))
+                }
+                if inside { for i in comp { ink[i] = false } }
             }
         }
         // 바깥에서 닿는 빈 곳 = 바탕, 닿지 않는 빈 곳 = 도형 안쪽
@@ -58,12 +73,23 @@ enum ShapeReader {
         var interior = [Bool](repeating: false, count: w * h)
         for i in 0..<(w * h) where !ink[i] && !outside[i] { interior[i] = true }
         let minArea = max(150, w * h / 600)
-        let regions = VisionMath.components(interior, width: w, height: h, minSize: minArea)
+        let all = VisionMath.components(interior, width: w, height: h, minSize: 12)
+        let regions = all.filter { $0.count >= minArea }
+        // 작은 빈 곳: 직각 표시(꼭짓점 안쪽의 작은 네모) 후보
+        let marks: [VRect] = all.filter { $0.count < minArea }.compactMap { region in
+            var x0 = w, y0 = h, x1 = 0, y1 = 0
+            for i in region { let x = i % w, y = i / w; x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y) }
+            let box = VRect(x: Double(x0), y: Double(y0), w: Double(x1 - x0 + 1), h: Double(y1 - y0 + 1))
+            let fill = Double(region.count) / (box.w * box.h)
+            guard box.w >= 5, box.h >= 5, box.w / box.h > 0.55, box.w / box.h < 1.8, fill > 0.55 else { return nil }
+            return box
+        }
 
         var shapes: [ShapeAnalysis] = []
         for region in regions {
             // 다른 도형 안의 작은 구멍(글자 속 등)은 크기로 거름
-            guard let shape = classify(region, width: w, labels: labels) else { continue }
+            guard var shape = classify(region, width: w, labels: labels) else { continue }
+            markRightAngles(&shape, marks: marks)
             shapes.append(shape)
         }
         // 큰 도형부터
@@ -160,6 +186,35 @@ enum ShapeReader {
         return parallel(dir(p[0], p[1]), dir(p[3], p[2])) || parallel(dir(p[1], p[2]), dir(p[0], p[3]))
     }
 
+    /// 점이 다각형 안에 있는지
+    static func inside(_ p: VPoint, _ polygon: [VPoint]) -> Bool {
+        guard polygon.count >= 3 else { return false }
+        var result = false
+        var j = polygon.count - 1
+        for i in 0..<polygon.count {
+            let a = polygon[i], b = polygon[j]
+            if (a.y > p.y) != (b.y > p.y), p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { result.toggle() }
+            j = i
+        }
+        return result
+    }
+
+    // MARK: - 직각 표시
+
+    /// 꼭짓점 바로 안쪽의 작은 네모 빈 곳 = 직각 표시 (각이 90°에 가까울 때만)
+    private static func markRightAngles(_ shape: inout ShapeAnalysis, marks: [VRect]) {
+        let n = shape.vertices.count
+        guard n >= 3, n <= 4 else { return }
+        let size = max(shape.bounds.w, shape.bounds.h)
+        for i in 0..<n where abs(shape.angles[i] - 90) < 12 {
+            let v = shape.vertices[i]
+            let hit = marks.contains { m in
+                max(m.w, m.h) < size * 0.16 && hypot(m.midX - v.x, m.midY - v.y) < hypot(m.w, m.h) * 1.1 + 6
+            }
+            if hit { shape.rightAngles.insert(i) }
+        }
+    }
+
     // MARK: - 글자 붙이기
 
     /// 숫자는 가장 가까운 변에, 알파벳 한 글자는 가장 가까운 꼭짓점에
@@ -175,7 +230,21 @@ enum ShapeReader {
                 }
                 continue
             }
+            let nearest = shape.vertices.enumerated().map { ($0.offset, distance($0.element, c)) }.min { $0.1 < $1.1 }
+            // 각 ("50°", 글자 읽기가 °를 %·º·o로 읽은 것도): 도형 안쪽, 가장 가까운 꼭짓점
+            if let last = text.last, "°º˚%o".contains(last), let value = Double(text.dropLast().replacingOccurrences(of: " ", with: "")), value > 0, value < 180 {
+                if inside(c, shape.vertices), let (i, d) = nearest, d < size * 0.4 { shape.angleLabels[i] = value }
+                continue
+            }
             guard let value = lengthValue(text) else { continue }
+            // 도형 안쪽에서 어느 변 가운데보다 꼭짓점에 더 가까운 숫자: 길이가 아니라 각일 수 있음 (° 를 못 읽은 "70")
+            if let (i, d) = nearest, inside(c, shape.vertices) {
+                let midDistance = (0..<n).map { k -> Double in
+                    let a = shape.vertices[k], b = shape.vertices[(k + 1) % n]
+                    return distance(VPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2), c)
+                }.min() ?? .infinity
+                if d < midDistance, d < size * 0.4 { shape.innerNumbers[i] = value; continue }
+            }
             var best: (Int, Double)?
             for i in 0..<n {
                 let d = segmentDistance(c, shape.vertices[i], shape.vertices[(i + 1) % n])

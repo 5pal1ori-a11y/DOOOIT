@@ -78,6 +78,13 @@ func oneLine(_ s: String) -> String { s.replacingOccurrences(of: "\n", with: "�
 
 // MARK: - 기본 판독 (Vision + 픽셀)
 
+/// 앱(VisionAnalyzer)과 같게: 글자 읽기 + 놓친 작은 글자 다시 읽기
+func appLabels(_ image: CGImage) async -> [TextLabel] {
+    let base = await FigureVision.textLabels(image, correction: true)
+    guard let px = pixels(image) else { return base }
+    return base + (await FigureVision.missingLabels(image, pixels: px, known: base))
+}
+
 func visionLabels(_ image: CGImage) -> [TextLabel] {
     let request = VNRecognizeTextRequest()
     request.recognitionLevel = .accurate
@@ -120,7 +127,10 @@ func pixels(_ image: CGImage) -> PixelImage? {
 }
 
 func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
-    let route = DoitFigureFacts.route(c.problem)
+    var route = DoitFigureFacts.route(c.problem)
+    // 앱(FigureReader)과 같게: 글이 도형·없음이어도 그림에 좌표축과 곡선이 있으면 그래프로
+    if route == .none, let px = pixels(image), GraphReader.findAxes(px) != nil,
+       let g = GraphReader.analyze(px, labels: visionLabels(image)), g.kind != .unknown { route = .graph }
     switch route {
     case .table, .chart:
         let tables = await FigureVision.tables(image)
@@ -131,15 +141,29 @@ func visionRead(_ c: Case, _ image: CGImage) async -> [String] {
         guard route == .chart else { return [] }
         return FigureVision.chartLines(visionLabels(image), image: pixels(image), kind: .bar)
     case .graph:
-        let labels = visionLabels(image)
-        var lines: [String] = []
-        if let px = pixels(image), GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: labels) { lines = FigureVision.graphLines(g) }
-        return lines + FigureVision.pointLines(labels.map(\.text).joined(separator: " "))
+        let labels = await appLabels(image)
+        let px = pixels(image)
+        var graph: GraphAnalysis?
+        if let px, GraphReader.findAxes(px) != nil, let g = GraphReader.analyze(px, labels: labels), g.kind != .unknown { graph = g }
+        // 원인 찾기: 글자, 축, 곡선 점 수, 적힌 값
+        print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " "))
+        if let px {
+            let axes = GraphReader.findAxes(px)
+            let curve = GraphReader.curvePixels(px, axes: axes, labels: labels).points.count
+            print("   축: \(axes.map { "x축 y=\(Int($0.xAxisY)) y축 x=\(Int($0.yAxisX))" } ?? "없음") · 곡선 점 \(curve) · 판독 \(graph?.equation ?? "-") · 적힌 값 \(FigureVision.axisLines(labels, pixels: px, problem: c.problem))")
+        }
+        return FigureVision.graphFacts(labels, pixels: px, graph: graph, problem: c.problem)
     case .geometry, .none:
         guard let px = pixels(image) else { return [] }
         let minArea = Double(px.width * px.height) * 0.03
-        let shapes = ShapeReader.analyze(px, labels: visionLabels(image)).filter { $0.bounds.w * $0.bounds.h >= minArea }
-        return FigureVision.shapeLines(shapes)
+        let labels = await appLabels(image)
+        do { print("   글자: " + labels.map { "\($0.text)@\(Int($0.box.midX)),\(Int($0.box.midY))" }.joined(separator: " ")) }
+        let all = ShapeReader.analyze(px, labels: labels)
+        let shapes = all.filter { $0.bounds.w * $0.bounds.h >= minArea }
+        print("   글자 상자: " + labels.map { "\($0.text)[\(Int($0.box.minX)),\(Int($0.box.minY)) \(Int($0.box.w))x\(Int($0.box.h))]" }.joined(separator: " "))
+        print("   글자 없이 찾은 도형: \(ShapeReader.analyze(px, labels: []).filter { $0.bounds.w * $0.bounds.h >= minArea }.map(\.name))")
+        print("   도형: " + all.prefix(4).map { "\($0.name) \(Int($0.bounds.w))x\(Int($0.bounds.h)) 이름\($0.vertexNames.sorted { $0.key < $1.key }.map(\.value).joined()) 변\($0.sideLabels.count) 각\($0.angleLabels.count) 안\($0.innerNumbers.count)" }.joined(separator: " · "))
+        return FigureVision.shapeLines(shapes, problem: c.problem)
     }
 }
 

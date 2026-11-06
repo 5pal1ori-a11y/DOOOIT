@@ -20,7 +20,7 @@ echo "▶ 읽기 도구 빌드 (앱 코드 그대로)"
 SRC="$BUILD/src"
 mkdir -p "$SRC"
 cd "$ROOT/DOOOIT"
-for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Mistake/*.swift Services/DoitAI/ProblemTypes/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/GeometryText.swift Services/OCRText.swift Services/SubjectOCRText.swift Services/FractionFinder.swift Services/TextSkew.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
+for f in Services/DoitAI/*.swift Services/DoitAI/Curriculum/*.swift Services/DoitAI/Study/*.swift Services/DoitAI/Grammar/*.swift Services/DoitAI/Mistake/*.swift Services/DoitAI/ProblemTypes/*.swift Services/DoitBrain/*.swift Services/StudyContentModels.swift Services/WordParser.swift Services/WordReview.swift Services/MathOCRFixer.swift Services/GeometryText.swift Services/OCRText.swift Services/SubjectOCRText.swift Services/HandwritingFilter.swift Services/FractionFinder.swift Services/TextSkew.swift Services/ProblemSplitter.swift Utilities/DateHelpers.swift; do
   case "$f" in *DoitActions.swift) continue;; esac
   sed 's/^import UIKit$/import Foundation/' "$f" > "$SRC/$(basename "$f")"
 done
@@ -30,7 +30,7 @@ sed -e '/^struct OCRLine /d' -e '/static func printedText(from lines/d' -e 's/^e
   "$ROOT/Tests/DoitAI/Support/Stubs.swift" > "$SRC/Stubs.swift"
 cp "$HERE/Shared/CaseSpec.swift" "$HERE/Shared/Checks.swift" "$SRC/"
 cp "$HERE/Runner/main.swift" "$SRC/main.swift"
-swiftc -swift-version 5 "$SRC"/*.swift -o "$BUILD/ocr-runner"
+swiftc -O -swift-version 5 "$SRC"/*.swift -o "$BUILD/ocr-runner"
 
 echo "▶ 읽기"
 "$BUILD/ocr-runner" "$OUT" "$FILTER"

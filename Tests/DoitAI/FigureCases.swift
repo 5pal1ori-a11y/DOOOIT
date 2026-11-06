@@ -107,6 +107,8 @@ func runFigureCases() {
         ("이차함수 y = x² - 2x의 그래프의 꼭짓점은?", .graph),
         ("그림의 직각삼각형 ABC에서 BC의 길이를 구하시오.", .geometry),
         ("그림에서 l ∥ m일 때, ∠x의 크기는?", .geometry),
+        ("그림과 같은 직선의 방정식을 구하시오.", .graph),
+        ("그림에서 직선 l과 m이 평행할 때, ∠x의 크기는?", .geometry),
         ("자료 3, 5, 7의 표준편차를 구하시오.", .none),
         ("2x + 3 = 7을 푸시오.", .none),
     ]
@@ -114,6 +116,10 @@ func runFigureCases() {
         check("그림 종류: \(text)", DoitFigureFacts.route(text) == expected, DoitFigureFacts.route(text).rawValue)
     }
     check("그림 있음: 그래프", DoitFigureFacts.mentionsFigure("다음 그래프에서 x절편은?"))
+    // 그림에 적힌 좌표: 쉼표를 마침표로 읽은 "(1.-2)", 소수 좌표는 그대로
+    check("그림 좌표: (1.-2) → (1, -2)", DoitFigureFacts.normalizedPoints("(1.-2)") == "(1, -2)", DoitFigureFacts.normalizedPoints("(1.-2)"))
+    check("그림 좌표: 소수는 그대로", DoitFigureFacts.normalizedPoints("(1.5, 2)") == "(1.5, 2)")
+    check("그림 글자: 끝 구두점 정리", DoitFigureFacts.cleanedLabel("-1.") == "-1" && DoitFigureFacts.cleanedLabel("'7") == "7" && DoitFigureFacts.cleanedLabel("A") == "A")
     check("그림 없음: 식만", !DoitFigureFacts.mentionsFigure("x² - 5x + 6 = 0을 푸시오."))
     let chatShown = DoitFigureFacts.chatBlock("문제\n" + DoitFigureFacts.block(["\(ab) = 10", "∠C = 90°"]))
     check("대화: 그림에서 읽은 것 먼저", chatShown?.contains("그림에서 읽은 것") == true && chatShown?.contains("· ∠C = 90°") == true, chatShown ?? "nil")

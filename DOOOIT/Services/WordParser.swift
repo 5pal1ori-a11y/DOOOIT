@@ -803,12 +803,15 @@ enum AnswerChecker {
 /// 수학 오답 자동 채점 (정답이 있을 때만)
 enum MathGrader {
     /// 문제 사진 텍스트에서 "정답: 3" / "답 ④" 같은 표기를 찾음
+    /// 줄 맨 앞의 표기만: 문장 끝에 붙은 "…해는? 답: 3"은 학생이 사진에 써 넣은 답일 때가 많아서
     static func extractAnswer(from text: String) -> String? {
-        guard let regex = try? NSRegularExpression(pattern: #"(?:정답|답)\s*[:：)]?\s*([^\n]+)"#) else { return nil }
+        guard let regex = try? NSRegularExpression(pattern: #"(?m)^\s*\[?(?:정답|답)\]?\s*[:：)]?\s*([^\n]+)"#) else { return nil }
         let range = NSRange(text.startIndex..., in: text)
         guard let match = regex.firstMatch(in: text, range: range),
               let r = Range(match.range(at: 1), in: text) else { return nil }
         let value = text[r].trimmingCharacters(in: .whitespaces)
+        // "답을 고르시오" 같은 문장은 아님
+        guard let first = value.first, !"을를이가은는과와".contains(first) else { return nil }
         return value.isEmpty ? nil : String(value.prefix(30))
     }
 

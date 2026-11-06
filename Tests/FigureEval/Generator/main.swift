@@ -365,6 +365,40 @@ add("table-grid", "table", "다음 표는 두 반의 과목별 평균 점수이�
     table(ctx, [["과목", "1반", "2반"], ["국어", "78", "72"], ["수학", "65", "81"], ["영어", "88", "77"]])
 }
 
+// 더: 단위가 붙은 길이, 직사각형, 직각 표시 + 꼭짓점 이름, 기울기가 음수인 직선, 아래로 볼록한 포물선의 절편
+add("geo-rect-cm", "geometry", "그림의 직사각형 ABCD의 넓이를 구하시오.", facts: ["ab=5", "bc=8"]) { ctx in
+    let p = [CGPoint(x: 220, y: 220), CGPoint(x: 220, y: 520), CGPoint(x: 700, y: 520), CGPoint(x: 700, y: 220)]
+    ctx.setLineWidth(3); ctx.move(to: p[0]); for q in p.dropFirst() { ctx.addLine(to: q) }; ctx.closePath(); ctx.strokePath()
+    let c = centroid(p)
+    for (i, n) in ["A", "B", "C", "D"].enumerated() { vertexLabel(ctx, p[i], n, from: c) }
+    sideLabel(ctx, p[0], p[1], "5 cm", away: c); sideLabel(ctx, p[1], p[2], "8 cm", away: c)
+}
+add("geo-right-cm", "geometry", "그림의 직각삼각형에서 빗변 AC의 길이를 구하시오.", facts: ["∠b=90°", "ab=6", "bc=8"]) { ctx in
+    let p = [CGPoint(x: 240, y: 200), CGPoint(x: 240, y: 580), CGPoint(x: 740, y: 580)]
+    triangle(ctx, p, names: ["A", "B", "C"])
+    rightMark(ctx, p[1], toward: p[0], p[2], size: 26)
+    sideLabel(ctx, p[0], p[1], "6cm", away: centroid(p)); sideLabel(ctx, p[1], p[2], "8cm", away: centroid(p))
+}
+add("geo-tri-angle-b", "geometry", "그림의 삼각형 ABC에서 ∠A의 크기를 구하시오.", facts: ["∠b=65°", "∠c=45°"]) { ctx in
+    let p = [CGPoint(x: 470, y: 180), CGPoint(x: 160, y: 600), CGPoint(x: 760, y: 600)]
+    triangle(ctx, p, names: ["A", "B", "C"])
+    text(ctx, "65°", p[1].x + 80, p[1].y - 28, size: 24)
+    text(ctx, "45°", p[2].x - 80, p[2].y - 26, size: 24)
+}
+add("graph-line-neg", "graph", "그림과 같은 일차함수의 그래프의 식을 구하시오.", equation: "y=-x+4") { ctx in
+    let pl = Plane(origin: CGPoint(x: 300, y: 520), unit: 70, xr: -2...6, yr: -2...6)
+    axes(ctx, pl, ticks: false)
+    curve(ctx, pl, from: -1.0, to: 5.0) { -$0 + 4 }
+    text(ctx, "4", pl.pt(0, 4).x - 22, pl.pt(0, 4).y - 10, size: 22); text(ctx, "4", pl.pt(4, 0).x + 4, pl.pt(4, 0).y + 26, size: 22)
+}
+add("graph-parabola-down", "graph", "그림과 같은 포물선을 그래프로 하는 이차함수의 식을 구하시오.", equation: "y=-x²+2x+3") { ctx in
+    let pl = Plane(origin: CGPoint(x: 380, y: 470), unit: 55, xr: -3...5, yr: -3...6)
+    axes(ctx, pl, ticks: false)
+    curve(ctx, pl, from: -1.7, to: 3.7) { -$0 * $0 + 2 * $0 + 3 }
+    text(ctx, "-1", pl.pt(-1, 0).x - 18, pl.pt(-1, 0).y + 24, size: 22); text(ctx, "3", pl.pt(3, 0).x + 16, pl.pt(3, 0).y + 24, size: 22)
+    text(ctx, "3", pl.pt(0, 3).x - 18, pl.pt(0, 3).y + 18, size: 22)
+}
+
 let data = try JSONEncoder().encode(cases)
 try data.write(to: out.appendingPathComponent("cases.json"))
 print("그림 \(cases.count)장 → \(out.path)")

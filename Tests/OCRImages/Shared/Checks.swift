@@ -51,6 +51,19 @@ struct CaseResult: Codable {
     /// 수학이 아닌 과목: 사진마다 (펜 지운 사진, 원래 사진) 합치기 전 두 번 읽은 줄 + 동그라미 → 리눅스에서 합치기부터 다시 채점
     var subjectReadings: [SubjectReadingDump]? = nil
     var subjectChosen: Int? = nil
+    /// 학생 필기 사진: 읽은 글에 섞인 필기, 필기 지우기 기록, 지우기 없이 읽은 결과(전)
+    var leaked: [String]? = nil
+    var handwriting: [String]? = nil
+    var before: BeforeResult? = nil
+}
+
+/// 필기 지우기 없이 읽은 결과 (고치기 전과 비교)
+struct BeforeResult: Codable {
+    var text: String
+    var leaked: [String]
+    var checks: [Check]
+    var score: Double
+    var passed: Bool
 }
 
 struct SubjectReadingDump: Codable {
@@ -125,6 +138,17 @@ func evaluateProblem(_ spec: CaseSpec, text: String, unsure: [String], result: i
         let ok = flatText.contains(norm(phrase))
         checks.append(Check(name: "문장 \(phrase)", ok: ok, detail: ok ? "" : "없음"))
     }
+    if let leaks = e.leaks {
+        let flat = flatText.lowercased()
+        let found = leaks.filter { leak in leak.split(separator: "|").contains { flat.contains(norm(String($0)).lowercased()) } }
+        result.leaked = found
+        checks.append(Check(name: "필기 안 섞임", ok: found.isEmpty, detail: found.isEmpty ? "" : "섞인 필기: \(found)"))
+    }
+    if let hand = e.handAnswer {
+        let printed = spec.kind == "subject" ? DoitSubjectNote.printedAnswer(in: text) : MathGrader.extractAnswer(from: text)
+        let caught = printed.map { norm($0).hasPrefix(norm(hand)) } ?? false
+        checks.append(Check(name: "필기 답 안 잡힘", ok: !caught, detail: caught ? "정답으로 잡힘: \(printed ?? "")" : ""))
+    }
     if let items = e.boxItems {
         let got = (scan.boxItems ?? []).map(norm), want = items.map(norm)
         checks.append(Check(name: "<보기> \(want.count)개", ok: got == want, detail: got == want ? "" : "읽음 \(scan.boxItems ?? [])"))
@@ -172,6 +196,18 @@ func printResult(_ result: CaseResult) {
         print("    글: \(result.text.replacingOccurrences(of: "\n", with: " ⏎ ").prefix(300))")
         if !result.words.isEmpty { print("    단어: \(result.words.joined(separator: " | ").prefix(400))") }
     }
+    // 필기가 없는 사진인데 지운 것이 있으면 (잘못 지운 것 찾기)
+    if !result.category.hasPrefix("hw-"), let hw = result.handwriting, let last = hw.last, !last.hasPrefix("지움 0px") {
+        for line in hw { print("    필기?: \(line)") }
+    }
+    // 학생 필기 사진: 지우기 판단과 지우기 전 결과 (기준 맞추기용)
+    if result.category.hasPrefix("hw-") {
+        for line in result.handwriting ?? [] { print("    필기: \(line)") }
+        if let b = result.before {
+            print("    전: \(b.passed ? "✓" : "✗") 섞임 \(b.leaked) 글: \(b.text.replacingOccurrences(of: "\n", with: " ⏎ ").prefix(240))")
+        }
+        if result.passed { print("    글: \(result.text.replacingOccurrences(of: "\n", with: " ⏎ ").prefix(240))") }
+    }
 }
 
 /// 분류별 · 손상별 합계 (마크다운)
@@ -197,4 +233,79 @@ func summarize(_ results: [CaseResult], title: String) -> String {
         summary += "- `\(r.id)`: " + r.checks.filter { !$0.ok }.map { "\($0.name) — \($0.detail)" }.joined(separator: "; ") + "\n"
     }
     return summary
+}
+
+// MARK: - 학생 필기 사진 요약 (전: 필기 지우기 없이 · 후: 지금 코드)
+
+func editDistance(_ a: [Character], _ b: [Character]) -> Int {
+    guard !a.isEmpty else { return b.count }
+    guard !b.isEmpty else { return a.count }
+    var previous = Array(0...b.count)
+    for i in 1...a.count {
+        var current = [i] + Array(repeating: 0, count: b.count)
+        for j in 1...b.count {
+            current[j] = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+        }
+        previous = current
+    }
+    return previous[b.count]
+}
+
+func handwritingSummary(_ results: [CaseResult]) -> String {
+    let hw = results.filter { $0.category.hasPrefix("hw-") }
+    guard !hw.isEmpty else { return "" }
+    let marked = hw.filter { !$0.id.contains("-none__") }
+    let plain = hw.filter { $0.id.contains("-none__") }
+    func base(_ id: String) -> String {
+        // hw-<문제>-<필기>__<손상> → hw-<문제>-none__clean
+        let head = id.components(separatedBy: "__")[0]
+        let parts = head.components(separatedBy: "-")
+        return parts.dropLast().joined(separator: "-") + "-none__clean"
+    }
+    let reference = Dictionary(plain.map { ($0.id, norm($0.text)) }, uniquingKeysWith: { a, _ in a })
+    func printedRate(_ checks: [[Check]]) -> (Int, Int) {
+        let printed = checks.flatMap { $0.filter { !$0.name.hasPrefix("필기") } }
+        return (printed.filter(\.ok).count, printed.count)
+    }
+    func leakRate(_ leaked: [[String]]) -> Int { leaked.filter { !$0.isEmpty }.count }
+    func answerCaught(_ checks: [[Check]]) -> Int { checks.filter { $0.contains { $0.name == "필기 답 안 잡힘" && !$0.ok } }.count }
+    func diff(_ texts: [(String, String)]) -> Double {
+        let rates = texts.compactMap { id, text -> Double? in
+            guard let ref = reference[base(id)], !ref.isEmpty else { return nil }
+            return Double(editDistance(Array(norm(text)), Array(ref))) / Double(ref.count)
+        }
+        return rates.isEmpty ? 0 : rates.reduce(0, +) / Double(rates.count)
+    }
+    let afterChecks = marked.map(\.checks), beforeChecks = marked.compactMap { $0.before?.checks }
+    let pa = printedRate(afterChecks), pb = printedRate(beforeChecks)
+    let leakTotal = marked.map { ($0.leaked ?? []).count }.reduce(0, +)
+    let leakTokens = marked.compactMap { r -> Int? in r.checks.contains { $0.name == "필기 안 섞임" } ? 1 : nil }.count
+    let beforeLeakTotal = marked.compactMap { $0.before?.leaked.count }.reduce(0, +)
+    let withAnswer = marked.filter { $0.checks.contains { $0.name == "필기 답 안 잡힘" } }.count
+    let plainPrinted = printedRate(plain.map(\.checks)), plainBefore = printedRate(plain.compactMap { $0.before?.checks })
+    func pct(_ a: Int, _ b: Int) -> String { b == 0 ? "-" : String(format: "%.1f%%", Double(a) * 100 / Double(b)) }
+    var out = "## 학생 필기 사진 (필기 \(marked.count)장 · 필기 없는 같은 문제 \(plain.count)장)\n\n"
+    out += "| | 전 (지우기 없음) | 후 |\n|---|---|---|\n"
+    out += "| 필기 글이 섞인 사진 | \(leakRate(marked.compactMap { $0.before?.leaked }))/\(marked.count) (\(pct(leakRate(marked.compactMap { $0.before?.leaked }), marked.count))) | \(leakRate(marked.map { $0.leaked ?? [] }))/\(marked.count) (\(pct(leakRate(marked.map { $0.leaked ?? [] }), marked.count))) |\n"
+    out += "| 섞인 필기 조각 | \(beforeLeakTotal) | \(leakTotal) |\n"
+    out += "| 써 넣은 답이 정답으로 잡힘 | \(answerCaught(beforeChecks))/\(withAnswer) | \(answerCaught(afterChecks))/\(withAnswer) |\n"
+    out += "| 인쇄 검사 (필기 사진) | \(pb.0)/\(pb.1) (\(pct(pb.0, pb.1))) | \(pa.0)/\(pa.1) (\(pct(pa.0, pa.1))) |\n"
+    out += "| 인쇄 검사 (필기 없는 사진) | \(plainBefore.0)/\(plainBefore.1) | \(plainPrinted.0)/\(plainPrinted.1) |\n"
+    out += "| 필기 없는 읽기와 글자 차이 | \(String(format: "%.1f%%", diff(marked.compactMap { r in r.before.map { (r.id, $0.text) } }) * 100)) | \(String(format: "%.1f%%", diff(marked.map { ($0.id, $0.text) }) * 100)) |\n"
+    out += "\n필기 검사가 있는 사진 \(leakTokens)장\n\n### 필기가 섞인 사진 (후)\n\n"
+    for r in marked where !(r.leaked ?? []).isEmpty { out += "- `\(r.id)`: \(r.leaked ?? [])\n" }
+    // 펜·손상별
+    var byTag: [String: (n: Int, before: Int, after: Int)] = [:]
+    for r in marked {
+        let head = r.id.components(separatedBy: "__")
+        let tag = (head[0].components(separatedBy: "-").last ?? "") + "/" + (head.count > 1 ? head[1] : "")
+        var e = byTag[tag] ?? (0, 0, 0)
+        e.n += 1
+        if !(r.before?.leaked ?? []).isEmpty { e.before += 1 }
+        if !(r.leaked ?? []).isEmpty { e.after += 1 }
+        byTag[tag] = e
+    }
+    out += "\n| 필기/손상 | 사진 | 섞임 전 | 섞임 후 |\n|---|---|---|---|\n"
+    for (tag, e) in byTag.sorted(by: { $0.key < $1.key }) { out += "| \(tag) | \(e.n) | \(e.before) | \(e.after) |\n" }
+    return out
 }
