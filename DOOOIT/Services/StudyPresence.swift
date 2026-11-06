@@ -493,9 +493,15 @@ enum PresenceText {
         return String(format: "%d:%02d", s / 3600, (s % 3600) / 60)
     }
 
+    /// 1분이 안 되면 초로 ("57초"), 아니면 시간:분 — 짧은 공부가 "0:00"으로 보이지 않게
+    static func span(_ seconds: Int, unit: String = "초") -> String {
+        let s = max(0, seconds)
+        return s < 60 ? "\(s)\(unit)" : hm(s)
+    }
+
     /// 결과 한 줄: "총 1:00 · 순공부 0:52 · 집중도 87%"
     static func result(totalSeconds: Int, summary: PresenceSummary) -> String {
-        "총 \(hm(totalSeconds)) · 순공부 \(hm(summary.netSeconds)) · 집중도 \(summary.focusPercent)%"
+        "총 \(span(totalSeconds)) · 순공부 \(span(summary.netSeconds)) · 집중도 \(summary.focusPercent)%"
     }
 
     /// 순공부가 아닌 시간 요약: "자리 비움 5분 · 멈춤 3분" (1분이 안 되는 것은 뺌)
