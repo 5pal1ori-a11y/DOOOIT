@@ -81,4 +81,20 @@ func runHandwritingLayoutCases() {
         page("① 첫째 보기", 20, 260, 300, 40)
     ]
     check("필기 자리: 위아래와 떨어져 홀로 선 줄", HandwritingFilter.layoutCues(gap, lineHeight: 40)[1].isolated && !HandwritingFilter.layoutCues(gap, lineHeight: 40)[0].isolated)
+
+    // 7) 보기가 2×2 격자로 놓여 아랫줄의 번호를 못 읽은 문제 (실제 사진 줄 상자): 아랫줄 보기를 필기로 보지 않음
+    let gridChoices = [
+        page("11. x=2일 때, 식 3x - 1의 값과 같은 것은?", 55, 93, 580, 38, conf: 0.3),
+        page("① 2+3", 57, 169, 116, 34, conf: 0.5), page("4 × 2", 546, 173, 76, 27, conf: 0.3),
+        page("3×3", 97, 236, 74, 28, conf: 0.3), page("15 ÷ 3", 545, 235, 92, 29, conf: 0.5),
+        page("③", 954, 171, 32, 30), page("10 - 4", 994, 175, 91, 24, conf: 0.5)
+    ]
+    let gridRef = HandwritingFilter.Reference(contrast: 0.85, peak: 0.95, chroma: 6, hue: .neutral, lineHeight: 30, angle: 0, thickness: 3)
+    check("필기 자리: 격자 보기의 아랫줄을 알아봄", HandwritingFilter.gridChoiceLines(gridChoices, lineHeight: 30) == [3, 4], "\(HandwritingFilter.gridChoiceLines(gridChoices, lineHeight: 30))")
+    let tGrid = HandwritingFilter.tokens(gridChoices, reference: gridRef, mode: .text)
+    check("필기 자리: 격자 보기 아랫줄(3×3, 15 ÷ 3)은 인쇄", tGrid.allSatisfy { !$0.hand }, tGrid.filter(\.hand).map { "\($0.text) \($0.reasons)" }.joined(separator: " / "))
+    let withNote = gridChoices + [page("x=4", 97, 300, 60, 28, conf: 0.3)]
+    let tNote = HandwritingFilter.tokens(withNote, reference: gridRef, mode: .text)
+    check("필기 자리: 격자 보기 아래 한 칸짜리 풀이는 필기", tNote.filter { $0.line == 7 }.allSatisfy(\.hand) && tNote.filter { $0.line < 7 }.allSatisfy { !$0.hand },
+          tNote.map { "\($0.text)\($0.hand ? "✗" : "·") \($0.reasons)" }.joined(separator: " / "))
 }

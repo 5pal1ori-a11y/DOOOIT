@@ -439,7 +439,7 @@ enum HandwritingFilter {
                 let englishWords = line.text.split(separator: " ").filter { $0.range(of: #"^[A-Za-z]{2,}[,.?!]?$"#, options: .regularExpression) != nil }.count
                 let prose = englishWords >= 3 || (sentenceEnd && nonSpace >= 8)
                 let cue = cues[index]
-                if below, !circled, !labelChoice, !prose, !startsStructured {
+                if below, !circled, !labelChoice, !prose, !startsStructured, !cue.gridChoice {
                     score += lineWork || hangul == 0 ? 1.7 : 1.5; reasons.append("보기 아래")
                 } else if !below, let end = proseBottom, !startsStructured, !labelChoice, !prose, nonSpace >= 5, nonSpace <= 16,
                           Double(line.box.midY) > end + ref.lineHeight * 0.3, Double(line.box.minY) > end - ref.lineHeight * 0.5 {

@@ -15,6 +15,8 @@ extension HandwritingFilter {
         var bullet = false
         /// 위아래 인쇄 줄과 멀리 떨어져 홀로 선 줄
         var isolated = false
+        /// 보기가 2×2·2×3 격자로 놓인 문제의 아랫줄 (번호를 못 읽었어도 윗줄 보기와 세로 칸이 둘 이상 맞음)
+        var gridChoice = false
     }
 
     static let circledNumbers: Set<Character> = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"]
@@ -68,6 +70,38 @@ extension HandwritingFilter {
         return best
     }
 
+    /// 격자 보기의 아랫줄: 윗줄 보기(번호로 시작하는 줄)의 세로 칸(번호 왼쪽 끝, 번호 뒤 내용 왼쪽 끝)에 맞춰 같은 높이에 둘 이상 놓인 짧은 줄
+    /// 학생 풀이는 한 칸에 한 줄씩 쓰므로 같은 높이에서 서로 다른 두 칸에 맞는 일이 거의 없음. 맞는 줄의 차례를 돌려줌
+    static func gridChoiceLines(_ lines: [Line], lineHeight lh: Double) -> Set<Int> {
+        let tol = lh * 0.4
+        // 윗줄 보기: 번호로 시작하는 줄 → 칸 위치 후보 (줄 왼쪽 끝, 번호 뒤 내용 왼쪽 끝), 번호 없이 읽힌 짧은 보기도 줄 왼쪽 끝
+        var columns: [(x: Double, bottom: Double)] = []
+        for line in lines {
+            let t = line.text.trimmingCharacters(in: .whitespaces)
+            guard nonSpaceCount(t) <= 14 else { continue }
+            columns.append((Double(line.box.minX), Double(line.box.maxY)))
+            if let first = t.first, circledNumbers.contains(first),
+               let content = line.glyphs.first(where: { !$0.char.isWhitespace && !circledNumbers.contains($0.char) })?.box {
+                columns.append((Double(content.minX), Double(line.box.maxY)))
+            }
+        }
+        var result: Set<Int> = []
+        let candidates = lines.indices.filter { nonSpaceCount(lines[$0].text) <= 12 && !isStructuredStart(lines[$0].text) }
+        for i in candidates {
+            let row = candidates.filter { abs(Double(lines[$0].box.midY) - Double(lines[i].box.midY)) <= lh * 0.45 }
+            guard row.count >= 2 else { continue }
+            // 이 줄 바로 위(한 줄 반 안)에 있는 줄의 칸에 맞는 줄만
+            let aligned = row.filter { j in
+                columns.contains { col in
+                    abs(col.x - Double(lines[j].box.minX)) <= tol && col.bottom <= Double(lines[j].box.minY) + lh * 0.3
+                        && Double(lines[j].box.minY) - col.bottom <= lh * 2.2
+                }
+            }
+            if aligned.count >= 2, aligned.contains(i) { result.insert(i) }
+        }
+        return result
+    }
+
     private static let bulletStarts = ["->", "→", "⇒", "∴", "∵", "ㄴ", "-", "–", "−"]
 
     /// 줄머리 기호 메모: "- 기울기 3", "→ 개념 부족" (한글·영문 글이 이어져야 함. "-3" 같은 음수는 아님)
@@ -119,6 +153,7 @@ extension HandwritingFilter {
             for j in order[(rank + 1)...] { if let g = gapTo(j) { down = g; break } }
             if let up, let down, up >= lh * 0.5, down >= lh * 0.5 { cues[i].isolated = true }
         }
+        for i in gridChoiceLines(lines, lineHeight: lh) { cues[i].gridChoice = true }
         return cues
     }
 }
