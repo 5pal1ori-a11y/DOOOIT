@@ -300,6 +300,13 @@ func emitHandwriting(_ all: [Content], degrades: [Degrade]) {
         guard var content = byID[base.id] else { print("✗ 필기 문제 없음: \(base.id)"); continue }
         let printed = handNorm(printedPlain(content))
         let variants = content.kind == "subject" ? subjectVariants(answer: base.answer) : mathVariants(answer: base.answer)
+        // 필터에 걸리는 사진이 없으면 그리지 않고 씨앗만 진행 (아래 반복과 같은 만큼)
+        let picked = [variants[k % variants.count], variants[(k + 2) % variants.count]]
+        var anyWanted = wanted("hw-\(base.id)-none__clean")
+        for (j, variant) in picked.enumerated() {
+            for d in [Degrade.clean, degrades[(k + j) % degrades.count]] where wanted("hw-\(base.id)-\(variant.tag)__\(d.name)") { anyWanted = true }
+        }
+        if !anyWanted { seed &+= 5; handSeed &+= 34; continue }
         // 풀이를 쓸 빈 곳
         content.lines.append(.space(4.2))
         var style = variantStyle(content.style, index: k)
@@ -312,11 +319,14 @@ func emitHandwriting(_ all: [Content], degrades: [Degrade]) {
         plainExpect.leaks = []
         seed &+= 1
         let plainName = "hw-\(base.id)-none__clean.jpg"
-        if writeJPEG(degrade(page, .clean, seed: seed), to: imageDir.appendingPathComponent(plainName), quality: Degrade.clean.jpeg) {
+        if wanted("hw-\(base.id)-none__clean"), writeJPEG(degrade(page, .clean, seed: seed), to: imageDir.appendingPathComponent(plainName), quality: Degrade.clean.jpeg) {
             specs.append(CaseSpec(id: "hw-\(base.id)-none__clean", category: category, kind: content.kind, degrade: "clean", image: "images/\(plainName)", expect: plainExpect))
         }
-        for (j, variant) in [variants[k % variants.count], variants[(k + 2) % variants.count]].enumerated() {
+        for (j, variant) in picked.enumerated() {
             handSeed &+= 17
+            let id = "hw-\(base.id)-\(variant.tag)"
+            let ds = [Degrade.clean, degrades[(k + j) % degrades.count]]
+            if !ds.contains(where: { wanted("\(id)__\($0.name)") }) { seed &+= 2; continue }
             guard let marked = overlayHandwriting(page, marks: variant.marks, items: items, size: style.size, seed: handSeed) else { continue }
             let leaks = variant.leaks.filter { leak in
                 let found = leak.split(separator: "|").contains { printed.contains(handNorm(String($0))) }
@@ -326,9 +336,9 @@ func emitHandwriting(_ all: [Content], degrades: [Degrade]) {
             var expect = content.expect
             expect.leaks = leaks
             expect.handAnswer = variant.answer
-            let id = "hw-\(base.id)-\(variant.tag)"
-            for d in [Degrade.clean, degrades[(k + j) % degrades.count]] {
+            for d in ds {
                 seed &+= 1
+                guard wanted("\(id)__\(d.name)") else { continue }
                 let image = degrade(marked, d, seed: seed)
                 let name = "\(id)__\(d.name).jpg"
                 guard writeJPEG(image, to: imageDir.appendingPathComponent(name), quality: d.jpeg) else { continue }

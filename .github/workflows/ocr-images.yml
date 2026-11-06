@@ -50,7 +50,7 @@ jobs:
           }
           EOF
           xcrun --sdk iphonesimulator swiftc -typecheck -swift-version 5 -sdk "$SDK" -target arm64-apple-ios26.0-simulator \
-            DOOOIT/Services/OCRService.swift DOOOIT/Services/OCRCore.swift DOOOIT/Services/OCRText.swift DOOOIT/Services/SubjectOCRText.swift DOOOIT/Services/HandwritingFilter.swift DOOOIT/Services/FractionFinder.swift DOOOIT/Services/TextSkew.swift DOOOIT/Services/MathOCRFixer.swift DOOOIT/Services/GeometryText.swift \
+            DOOOIT/Services/OCRService.swift DOOOIT/Services/OCRCore.swift DOOOIT/Services/OCRText.swift DOOOIT/Services/SubjectOCRText.swift DOOOIT/Services/HandwritingFilter.swift DOOOIT/Services/HandwritingLayout.swift DOOOIT/Services/FractionFinder.swift DOOOIT/Services/TextSkew.swift DOOOIT/Services/MathOCRFixer.swift DOOOIT/Services/GeometryText.swift \
             DOOOIT/Services/WordParser.swift DOOOIT/Services/ProblemSplitter.swift DOOOIT/Services/SubjectOCR.swift \
             DOOOIT/Services/PaddleOCR/PaddleOCRSupport.swift DOOOIT/Services/PaddleOCR/PaddleOCRText.swift "$RUNNER_TEMP/PaddleStub.swift"
 

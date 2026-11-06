@@ -25,13 +25,22 @@ func variantStyle(_ base: Style, index: Int) -> Style {
 var specs: [CaseSpec] = []
 var seed: UInt64 = 7
 
+/// 사진 이름 필터 (읽기 쪽 필터와 같은 규칙: 부분 일치, 앞에 !를 붙이면 제외). 필터에 안 걸리는 사진은 그리지 않음 (손상 씨앗은 그대로 진행하므로
+/// 걸린 사진은 필터 없이 만든 것과 똑같음) → 일부만 읽을 때 사진 만드는 시간이 줄어듦
+let genFilter = ProcessInfo.processInfo.environment["OCR_GEN_FILTER"] ?? ""
+func wanted(_ id: String) -> Bool {
+    idMatches(id, filter: genFilter)
+}
+
 func emit(_ content: Content, style: Style, degrades: [Degrade]) {
+    if !degrades.contains(where: { wanted("\(content.id)__\($0.name)") }) { seed &+= UInt64(degrades.count); return }
     guard let page = renderPage(content.lines, style: style, width: content.width, margin: style.size * 1.4) else {
         print("✗ 그리기 실패: \(content.id)")
         return
     }
     for d in degrades {
         seed &+= 1
+        guard wanted("\(content.id)__\(d.name)") else { continue }
         let image = degrade(page, d, seed: seed)
         let name = "\(content.id)__\(d.name).jpg"
         guard writeJPEG(image, to: imageDir.appendingPathComponent(name), quality: d.jpeg) else {

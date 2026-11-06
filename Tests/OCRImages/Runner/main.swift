@@ -208,7 +208,7 @@ func run(_ spec: CaseSpec, dir: URL) async -> CaseResult {
 let data = try Data(contentsOf: casesDir.appendingPathComponent("cases.json"))
 // 필터 앞에 !를 붙이면 그 글이 든 사진을 뺌 (예: !hw- = 학생 필기 사진 빼고)
 let specs = try JSONDecoder().decode([CaseSpec].self, from: data).filter {
-    filter.isEmpty || (filter.hasPrefix("!") ? !$0.id.contains(filter.dropFirst()) : $0.id.contains(filter))
+    idMatches($0.id, filter: filter)
 }
 print("사진 \(specs.count)장 · 동시에 \(jobs)장씩")
 
