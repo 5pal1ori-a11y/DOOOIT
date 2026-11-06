@@ -354,8 +354,9 @@ enum HandwritingFilter {
                 let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
                 let lineNative = lineKnown.filter { tints[$0] == .native }.count
                 let belowChoices = choiceBottom.map { Double(line.box.minY) > $0 + ref.lineHeight * 0.3 } ?? false
-                // 보기 번호(①~⑤)가 든 줄의 부호 한 조각(-3의 −, (A)-(B)의 -)은 가는 인쇄 획. 색이 없으면 필기 아님
-                if core == 0, !reasons.contains("색"), line.text.contains(where: { "①②③④⑤".contains($0) }) {
+                // 보기 번호(①~⑤)가 든 줄의 부호 조각, 또는 줄 속에 낀 괄호·빼기 한두 글자는 가는 인쇄 획. 색이 없으면 필기 아님
+                if core == 0, !reasons.contains("색"),
+                   line.text.contains(where: { "①②③④⑤".contains($0) }) || (glyphs.count <= 2 && text.allSatisfy { ")(-−–—.,".contains($0) }) {
                     score = 0; reasons = ["보기 줄 속 부호"]
                 }
                 if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
