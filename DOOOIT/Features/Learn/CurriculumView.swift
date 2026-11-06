@@ -359,7 +359,7 @@ struct CurriculumView: View {
                 Spacer(minLength: 0)
                 Image(systemName: "play.fill")
                     .font(.pt(.subheadline))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .frame(width: 40, height: 40)
                     .background(Theme.accent, in: .circle)
             }
@@ -405,7 +405,7 @@ struct CurriculumView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
-                    .foregroundStyle(isOn ? Color.white : Color.secondary)
+                    .foregroundStyle(isOn ? Theme.onAccent : Color.secondary)
                     .background(isOn ? Theme.accent : Color.clear, in: .rect(cornerRadius: 14))
                     .contentShape(Rectangle())
                 }
@@ -593,7 +593,7 @@ struct UnitRow: View {
                 if progress?.isComplete == true {
                     Image(systemName: "checkmark")
                         .font(.pt(.caption).weight(.heavy))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 30, height: 30)
                         .background(Palette.success, in: .circle)
                 } else {

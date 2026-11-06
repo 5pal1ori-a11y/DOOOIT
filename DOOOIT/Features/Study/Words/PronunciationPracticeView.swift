@@ -81,7 +81,7 @@ struct SpeakPracticeView: View {
                     } label: {
                         Image(systemName: checker.isListening ? "stop.fill" : "mic.fill")
                             .font(.pt(size: 34, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .frame(width: 96, height: 96)
                             .background(checker.isListening ? Palette.danger : Theme.accent, in: .circle)
                             .symbolEffect(.pulse, isActive: checker.isListening)

@@ -170,7 +170,7 @@ struct UnitStudyView: View {
                             } else {
                                 Text("\(index + 1)")
                                     .font(.pt(.subheadline).weight(.bold))
-                                    .foregroundStyle(isCurrent ? Color.white : Color.secondary)
+                                    .foregroundStyle(isCurrent ? Theme.onAccent : Color.secondary)
                             }
                         }
                         .frame(width: 32, height: 32)
@@ -301,7 +301,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
                 VStack(spacing: 12) {
                     Image(systemName: "lightbulb")
                         .font(.pt(size: 34, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 72, height: 72)
                         .background(Theme.accent, in: .circle)
                     Text("모티 AI가 학습 자료를 만들고 있어요").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
@@ -450,7 +450,7 @@ struct ConceptStepView: View {
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(index + 1)")
                                 .font(.pt(.caption).weight(.bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.onAccent)
                                 .frame(width: 24, height: 24)
                                 .background(Theme.accent, in: .circle)
                             Text(point)
@@ -779,7 +779,7 @@ struct ProblemStepView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("\(stepIndex + 1)단계 풀이")
                                             .font(.pt(.caption).weight(.bold))
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Theme.onAccent)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 3)
                                             .background(Theme.accent, in: .rect(cornerRadius: 6))

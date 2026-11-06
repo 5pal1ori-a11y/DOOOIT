@@ -60,7 +60,8 @@ struct TimerView: View {
     /// 어두운 화면의 버튼 바탕
     private let panel = Color(white: 0.11)
     private let line = Color(white: 0.22)
-    private let green = Color(hex: "#34C759")
+    /// 어두운 화면의 강조색 (테마마다 다름 · 위의 글자는 검정)
+    private var green: Color { Theme.current.timerAccent }
 
     var body: some View {
         ZStack {

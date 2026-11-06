@@ -561,7 +561,7 @@ struct SubjectRetryCard: View {
             withAnimation(.snappy) { result = nil }
         } label: {
             Text(title).font(.pt(.subheadline).weight(.bold)).frame(maxWidth: .infinity).padding(.vertical, 9)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .background(correct ? Palette.success : Palette.danger, in: .rect(cornerRadius: 12))
         }
         .buttonStyle(.plain)

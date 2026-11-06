@@ -207,7 +207,7 @@ struct WordHomeView: View {
             addMenu {
                 Label("단어 추가", systemImage: "plus")
                     .font(.pt(.body).weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
                     .background(Theme.accent, in: .rect(cornerRadius: 14, style: .continuous))
@@ -262,7 +262,7 @@ struct WordHomeView: View {
         } label: {
             Text("학습 시작")
                 .font(.pt(.title3).weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
                 .background(Theme.accent, in: .rect(cornerRadius: 14))

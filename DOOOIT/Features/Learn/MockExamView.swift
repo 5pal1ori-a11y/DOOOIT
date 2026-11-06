@@ -166,7 +166,7 @@ struct MockExamView: View {
         } label: {
             Label(title, systemImage: symbol)
                 .font(.pt(.subheadline).weight(.semibold))
-                .foregroundStyle(on ? .white : Palette.ink)
+                .foregroundStyle(on ? Theme.onAccent : Palette.ink)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .background(on ? Theme.accent : Palette.card, in: .capsule)
@@ -263,7 +263,7 @@ struct MockExamView: View {
                 Button { withAnimation(.snappy) { index = i } } label: {
                     Text("\(i + 1)")
                         .font(.pt(.caption).weight(.bold).monospacedDigit())
-                        .foregroundStyle(i == index ? .white : (done ? Theme.accent : .secondary))
+                        .foregroundStyle(i == index ? Theme.onAccent : (done ? Theme.accent : .secondary))
                         .frame(maxWidth: .infinity)
                         .frame(height: 28)
                         .background(i == index ? Theme.accent : (done ? Theme.accent.pastel : Color.primary.opacity(0.05)),
@@ -323,10 +323,10 @@ struct MockExamView: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(number <= marks.count ? marks[number - 1] : "\(number)")
                     .font(.pt(.headline))
-                    .foregroundStyle(on ? .white : Theme.accent)
+                    .foregroundStyle(on ? Theme.onAccent : Theme.accent)
                 Text(MathSymbolBar.pretty(text))
                     .font(.pt(.subheadline))
-                    .foregroundStyle(on ? .white : Palette.ink)
+                    .foregroundStyle(on ? Theme.onAccent : Palette.ink)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)

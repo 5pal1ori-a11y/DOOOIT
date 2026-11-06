@@ -56,7 +56,7 @@ struct BrandBackdrop: View {
         let theme = ThemeColor.from(themeRaw)
         ZStack(alignment: .top) {
             Theme.base
-            LinearGradient(colors: [theme.accent.opacity((scheme == .dark ? 0.16 : 0.07) * intensity), theme.accent.opacity(0)],
+            LinearGradient(colors: [theme.secondary.opacity((scheme == .dark ? 0.16 : 0.10) * intensity), theme.secondary.opacity(0)],
                            startPoint: .top, endPoint: .bottom)
                 .frame(height: 260)
         }

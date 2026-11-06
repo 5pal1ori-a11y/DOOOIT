@@ -123,7 +123,7 @@ jobs:
           mkdir -p "$OUT"
           LIST="${SCREENS:-$SCREENS_ALL}"
           # 다국어 브랜치: 한국어는 밝게만 몇 화면
-          case "$GITHUB_REF_NAME" in ui-shots-i18n*) LIST="${SCREENS:-home planner timer appSettings}"; MODES="light" ;; *) MODES="light dark" ;; esac
+          case "$GITHUB_REF_NAME" in ui-shots-i18n*) LIST="${SCREENS:-home planner timer appSettings}"; MODES="light" ;; ui-shots-redesign-theme*) LIST="${SCREENS:-home planner account ai}"; MODES="light dark" ;; *) MODES="light dark" ;; esac
           for mode in $MODES; do
             xcrun simctl ui "$UDID" appearance "$mode" || true
             for screen in $LIST; do
@@ -145,15 +145,19 @@ jobs:
           # 테마 사진: 브랜치 이름에 theme가 들어 있을 때만 (테마 넷 × 홈·앱 설정·오답노트·타이머, 밝게)
           case "$GITHUB_REF_NAME" in
             *theme*)
-              xcrun simctl ui "$UDID" appearance light || true
-              for theme in midnight forest twilight ocean; do
-                for screen in home appSettings study timer; do
-                  xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
-                  xcrun simctl launch "$UDID" "$BUNDLE" -uiShot "$screen" -themeColor "$theme" -AppleLanguages "(ko)" -AppleLocale ko_KR >/dev/null
-                  sleep 7
-                  xcrun simctl io "$UDID" screenshot --type=png "$OUT/theme-$theme-$screen.png" >/dev/null 2>&1 || echo "::warning::theme-$theme-$screen 사진 실패"
-                  sips -Z 1200 "$OUT/theme-$theme-$screen.png" >/dev/null 2>&1 || true
-                  echo "theme-$theme-$screen"
+              for mode in light dark; do
+                xcrun simctl ui "$UDID" appearance "$mode" || true
+                for theme in mono candy forest ocean; do
+                  for screen in home study ranking timer; do
+                    xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
+                    TARGS=(-uiShot "$screen" -themeColor "$theme" -AppleLanguages "(ko)" -AppleLocale ko_KR)
+                    [ "$mode" = dark ] && TARGS+=(-uiDark)
+                    xcrun simctl launch "$UDID" "$BUNDLE" "${TARGS[@]}" >/dev/null
+                    sleep 7
+                    xcrun simctl io "$UDID" screenshot --type=png "$OUT/theme-$theme-$screen-$mode.png" >/dev/null 2>&1 || echo "::warning::theme-$theme-$screen-$mode 사진 실패"
+                    sips -Z 1200 "$OUT/theme-$theme-$screen-$mode.png" >/dev/null 2>&1 || true
+                    echo "theme-$theme-$screen-$mode"
+                  done
                 done
               done
               ;;

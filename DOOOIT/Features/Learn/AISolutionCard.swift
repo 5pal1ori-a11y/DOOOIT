@@ -118,7 +118,7 @@ struct AISolutionCard: View {
                     HStack(alignment: .top, spacing: 10) {
                         Text("\(index + 1)")
                             .font(.pt(.caption).weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .frame(width: 22, height: 22)
                             .background(Theme.accent, in: .circle)
                         VStack(alignment: .leading, spacing: 4) {

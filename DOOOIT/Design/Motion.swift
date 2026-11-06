@@ -156,7 +156,7 @@ struct PillSegmentedControl<Item: Hashable>: View {
             }
         }
         .padding(2)
-        .background(Palette.ink.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
+        .background(Theme.secondaryFill, in: .rect(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -171,7 +171,7 @@ struct StepProgressBar: View {
             GeometryReader { proxy in
                 let fraction = titles.count > 1 ? CGFloat(current) / CGFloat(titles.count - 1) : 1
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Palette.ink.opacity(0.07))
+                    Capsule().fill(Theme.secondaryFill)
                     Capsule()
                         .fill(Theme.accent)
                         .frame(width: max(8, proxy.size.width * fraction))

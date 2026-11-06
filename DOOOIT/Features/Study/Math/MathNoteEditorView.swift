@@ -373,7 +373,7 @@ struct MathNoteEditorView: View {
                                     .font(.pt(size: 9, weight: .semibold))
                             }
                             .frame(width: 46, height: 44)
-                            .foregroundStyle(tool == item ? Color.white : Color.primary)
+                            .foregroundStyle(tool == item ? Theme.onAccent : Color.primary)
                             .background(tool == item ? Theme.accent : Color.clear, in: .rect(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)

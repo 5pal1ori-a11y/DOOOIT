@@ -29,16 +29,16 @@ struct DDayChip: View {
             let diff = Calendar.current.dateComponents([.day], from: Date().startOfDay,
                                                        to: Date(timeIntervalSince1970: date).startOfDay).day ?? 0
             HStack(spacing: 5) {
-                Text(title).foregroundStyle(.secondary)
+                Text(title).foregroundStyle(Theme.onHighlight.opacity(0.7))
                 Text(diff > 0 ? "D-\(diff)" : (diff == 0 ? "D-DAY" : "D+\(-diff)"))
                     .fontWeight(.heavy)
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(Theme.onHighlight)
             }
             .font(.pt(.caption).weight(.semibold))
             .lineLimit(1)
             .padding(.horizontal, 11)
             .frame(height: 28)
-            .background(Palette.card, in: .capsule)
+            .background(Theme.highlight, in: .capsule)
         }
     }
 }
@@ -70,8 +70,8 @@ struct WeekStrip: View {
                             .font(.pt(.callout).weight(.bold))
                             .monospacedDigit()
                             .frame(width: 34, height: 34)
-                            .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.accent : Palette.ink))
-                            .background(isSelected ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.clear), in: .circle)
+                            .foregroundStyle(isSelected ? Theme.onAccent : (isToday ? Theme.onHighlight : Palette.ink))
+                            .background(isSelected ? AnyShapeStyle(Theme.accent) : (isToday ? AnyShapeStyle(Theme.highlight) : AnyShapeStyle(Color.clear)), in: .circle)
                             .overlay(Circle().strokeBorder(isToday && !isSelected ? Theme.accent.opacity(0.4) : Color.clear, lineWidth: 1.5))
                         HStack(spacing: 3) {
                             ForEach(Array(plans.occurrences(on: day).prefix(3).enumerated()), id: \.offset) { _, o in

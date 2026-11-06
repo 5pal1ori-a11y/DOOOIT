@@ -262,7 +262,7 @@ struct HomeView: View {
                 Chart(stats) { stat in
                     BarMark(x: .value("요일", stat.label), y: .value("분", chartShown ? stat.minutes : 0))
                         .cornerRadius(3)
-                        .foregroundStyle(stat.isToday ? Theme.accent : Theme.accent.opacity(0.28))
+                        .foregroundStyle(stat.isToday ? Theme.accent : Theme.secondary.opacity(0.55))
                 }
                 .chartYAxis { AxisMarks(position: .leading) }
                 .chartYAxisLabel("분")

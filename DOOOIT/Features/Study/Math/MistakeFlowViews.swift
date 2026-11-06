@@ -321,7 +321,7 @@ struct MistakeGradingCard: View {
                             Text("\(number)")
                                 .font(.pt(.headline))
                                 .frame(width: 44, height: 44)
-                                .foregroundStyle(picked ? .white : Palette.ink)
+                                .foregroundStyle(picked ? Theme.onAccent : Palette.ink)
                                 .background(picked ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
                         }
                         .buttonStyle(.plain)
@@ -339,7 +339,7 @@ struct MistakeGradingCard: View {
                         Text(mark)
                             .font(.pt(.headline))
                             .frame(width: 44, height: 44)
-                            .foregroundStyle(picked ? .white : Palette.ink)
+                            .foregroundStyle(picked ? Theme.onAccent : Palette.ink)
                             .background(picked ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
                     }
                     .buttonStyle(.plain)
@@ -403,7 +403,7 @@ struct MistakeGradingCard: View {
             finish(result)
         } label: {
             Text(title).font(.pt(.subheadline).weight(.bold)).frame(maxWidth: .infinity).padding(.vertical, 10)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .background(correct ? Palette.success : Palette.danger, in: .rect(cornerRadius: 12))
         }
         .buttonStyle(.plain)

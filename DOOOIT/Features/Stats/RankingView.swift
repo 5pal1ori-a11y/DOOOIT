@@ -198,22 +198,22 @@ struct RankingView: View {
         HStack(spacing: 12) {
             Text("\(entry.rank)")
                 .font(.pt(size: 17, weight: entry.rank <= 3 ? .bold : .regular))
-                .foregroundStyle(entry.rank <= 3 ? Theme.accent : Color.secondary)
+                .foregroundStyle(entry.isMe ? Theme.onHighlight : (entry.rank <= 3 ? Theme.accent : Color.secondary))
                 .monospacedDigit()
                 .frame(width: 28, alignment: .trailing)
             Text(entry.isMe ? L("\(entry.name) (나)") : entry.name)
                 .font(.pt(.body).weight(entry.isMe ? .semibold : .regular))
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(entry.isMe ? Theme.onHighlight : Palette.ink)
                 .lineLimit(1)
             Spacer(minLength: 8)
             Text(TimeText.durationL(seconds: entry.seconds))
                 .font(.pt(.body).weight(entry.rank == 1 ? .bold : .regular))
-                .foregroundStyle(Palette.ink)
+                .foregroundStyle(entry.isMe ? Theme.onHighlight : Palette.ink)
                 .monospacedDigit()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(entry.isMe ? Theme.accent.opacity(0.09) : .clear)
+        .background(entry.isMe ? Theme.highlight : .clear)
     }
 
     // MARK: 불러오기

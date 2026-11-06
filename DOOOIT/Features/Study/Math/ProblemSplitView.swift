@@ -170,7 +170,7 @@ struct ProblemSplitView: View {
         Text("\(number)")
             .font(.pt(.caption).weight(.bold))
             .monospacedDigit()
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, 7)
             .frame(minWidth: 22, minHeight: 22)
             .background(isOn ? Theme.accent : Color.gray, in: .capsule)

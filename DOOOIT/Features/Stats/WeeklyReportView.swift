@@ -136,7 +136,7 @@ struct WeeklyReportView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
                         .font(.pt(.caption).weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 22, height: 22)
                         .background(Theme.accent, in: .circle)
                     Text(line).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
@@ -328,7 +328,7 @@ struct WeeklyReportView: View {
                 .foregroundStyle(weak ? Palette.danger : Palette.success)
             Text(weak ? L("보완") : L("탄탄"))
                 .font(.pt(.caption2).weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(weak ? Palette.danger : Palette.success, in: .capsule)
@@ -344,7 +344,7 @@ struct WeeklyReportView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
                         .font(.pt(.caption).weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 22, height: 22)
                         .background(Theme.accent, in: .circle)
                     Text(line).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)

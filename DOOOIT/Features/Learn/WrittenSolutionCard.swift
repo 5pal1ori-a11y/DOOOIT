@@ -191,7 +191,7 @@ struct WrittenSolutionCard: View {
         VStack(spacing: 0) {
             Text("\(index + 1)")
                 .font(.pt(.subheadline).weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .frame(width: 28, height: 28)
                 .background(Theme.accent, in: .circle)
             if !isLast {
@@ -304,7 +304,7 @@ struct WrittenSolutionCard: View {
                 Text(MathSymbolBar.pretty(solution.finalAnswer))
                     .font(.pt(.title3).weight(.bold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
             .background(AccentGradient.linear, in: .capsule)

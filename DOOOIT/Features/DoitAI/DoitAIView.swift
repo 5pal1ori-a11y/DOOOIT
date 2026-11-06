@@ -156,7 +156,7 @@ struct DoitAIView: View {
                 if !message.text.isEmpty {
                     Text(message.text)
                         .font(.pt(.body))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 10)
                         .background(Theme.accent, in: UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 5, topTrailingRadius: 18))
@@ -358,7 +358,7 @@ struct DoitAIView: View {
                     Button { submit() } label: {
                         Image(systemName: "arrow.up")
                             .font(.pt(.subheadline).weight(.bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .frame(width: 32, height: 32)
                             .background(canSend ? Theme.accent : Color.secondary.opacity(0.35), in: .circle)
                     }
@@ -398,7 +398,7 @@ struct DoitAIView: View {
                 }
                 Image(systemName: voice.isListening ? "waveform" : "mic")
                     .font(.pt(.subheadline).weight(voice.isListening ? .bold : .regular))
-                    .foregroundStyle(voice.isListening ? .white : Palette.ink)
+                    .foregroundStyle(voice.isListening ? Theme.onAccent : Palette.ink)
                     .symbolEffect(.variableColor.iterative, isActive: voice.isListening)
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 32, height: 32)

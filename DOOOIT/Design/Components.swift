@@ -113,7 +113,8 @@ struct TagLabel: View {
         .foregroundStyle(color)
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
-        .background(color.opacity(0.10), in: .rect(cornerRadius: Radius.chip, style: .continuous))
+        .background(color == Theme.accent ? Theme.secondaryFill : color.opacity(0.10),
+                    in: .rect(cornerRadius: Radius.chip, style: .continuous))
     }
 }
 
@@ -125,7 +126,7 @@ struct ProgressRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(Palette.ink.opacity(0.07), lineWidth: lineWidth)
+            Circle().stroke(Theme.secondaryFill, lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: min(max(progress, 0), 1))
                 .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -200,7 +201,7 @@ struct ThemePicker: View {
             HStack(spacing: 12) {
                 Image(systemName: "paintpalette")
                     .font(.pt(size: 17, weight: .regular))
-                    .foregroundStyle(Palette.ink.opacity(0.62))
+                    .foregroundStyle(Theme.secondary)
                     .frame(width: 24)
                 Text("테마")
                 Spacer(minLength: 0)
@@ -229,9 +230,9 @@ struct ThemePicker: View {
             VStack(spacing: 7) {
                 // 진한 색 · 강조색 · 연한 색 세 줄
                 HStack(spacing: 0) {
-                    Rectangle().fill(theme.deep)
-                    Rectangle().fill(theme.accent)
-                    Rectangle().fill(theme.light)
+                    ForEach(Array(theme.swatches.enumerated()), id: \.offset) { _, color in
+                        Rectangle().fill(color)
+                    }
                 }
                 .frame(height: 38)
                 .clipShape(.rect(cornerRadius: 8, style: .continuous))
@@ -241,7 +242,7 @@ struct ThemePicker: View {
                     if isOn {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.pt(size: 15, weight: .bold))
-                            .foregroundStyle(.white, theme.accent)
+                            .foregroundStyle(theme.onAccent, theme.accent)
                             .offset(x: 5, y: -5)
                     }
                 }
@@ -301,7 +302,7 @@ struct RowLabel: View {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
                 .font(.pt(size: 18, weight: .regular))
-                .foregroundStyle(color == Palette.danger ? color : Palette.ink.opacity(0.62))
+                .foregroundStyle(color == Palette.danger ? color : Theme.secondary)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.pt(.body)).foregroundStyle(Palette.ink)
@@ -358,7 +359,7 @@ struct LinearProgressBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Palette.ink.opacity(0.07))
+                Capsule().fill(Theme.secondaryFill)
                 Capsule().fill(color).frame(width: max(height, geo.size.width * min(max(value, 0), 1)))
             }
         }
@@ -372,7 +373,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.pt(.body).weight(.semibold))
-            .foregroundStyle(.white)
+            .foregroundStyle(Theme.onAccent)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(Theme.current.fill, in: .rect(cornerRadius: Radius.button, style: .continuous))
@@ -386,11 +387,11 @@ extension ButtonStyle where Self == PrimaryButtonStyle {
 }
 
 
-/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (트와일라이트가 기본 아이콘, 나머지는 대체 아이콘)
+/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (모노가 기본 아이콘, 나머지는 대체 아이콘)
 /// iOS가 바꿀 때마다 "아이콘을 변경했습니다" 안내를 한 번 보여 줘요
 enum AppIconSwitcher {
     static func iconName(for theme: ThemeColor) -> String? {
-        theme.resolved == .twilight ? nil : "AppIcon-\(theme.resolved.rawValue)"
+        theme.resolved == .mono ? nil : "AppIcon-\(theme.resolved.rawValue)"
     }
 
     @MainActor static func apply(_ theme: ThemeColor) {

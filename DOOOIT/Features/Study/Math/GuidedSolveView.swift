@@ -163,7 +163,7 @@ struct GuidedSolveView: View {
                 Spacer(minLength: 48)
                 Text(MathSymbolBar.pretty(message.text))
                     .font(.pt(.subheadline).weight(.medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(Theme.accent, in: .rect(cornerRadius: 14))
@@ -400,7 +400,7 @@ struct GuidedSolveView: View {
             Button(action: submitInput) {
                 Image(systemName: "arrow.up")
                     .font(.pt(.headline).weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .frame(width: 40, height: 40)
                     .background(canSend ? Theme.accent : Color.secondary.opacity(0.4), in: .circle)
             }

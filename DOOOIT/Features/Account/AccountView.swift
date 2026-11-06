@@ -320,7 +320,7 @@ struct AccountView: View {
         return HStack(spacing: 16) {
             Text(String(user?.name.loc.prefix(1) ?? "D"))
                 .font(.pt(size: 26, weight: .bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .frame(width: 60, height: 60)
                 .background(Theme.accent, in: .circle)
                 .padding(3)
