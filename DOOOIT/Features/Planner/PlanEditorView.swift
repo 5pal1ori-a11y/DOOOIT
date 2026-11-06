@@ -46,6 +46,10 @@ struct PlanEditorView: View {
     }
 
     var body: some View {
+        content.contentFadeIn()
+    }
+
+    private var content: some View {
         NavigationStack {
             Form {
                 Section {
@@ -73,7 +77,7 @@ struct PlanEditorView: View {
                                         .foregroundStyle(isOn ? Color.white : Color.primary)
                                         .background(isOn ? item.color : Color.primary.opacity(0.06), in: .capsule)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.pressable)
                             }
                             Button { showNewCategory = true } label: {
                                 Label(kind == .study ? L("과목 추가") : L("추가"), systemImage: "plus")
@@ -239,7 +243,7 @@ struct PlanEditorView: View {
                             .stroke(isOn ? Theme.accent : Color.clear, lineWidth: 2)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
     }

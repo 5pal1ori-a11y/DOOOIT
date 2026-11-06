@@ -17,7 +17,7 @@ struct BadgeShelfView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 summary
-                    .appearAnimation()
+                    .staggerIn(index: 0)
                 LazyVGrid(columns: columns, spacing: 18) {
                     ForEach(BadgeBook.all) { badge in
                         Button { selected = badge } label: {
@@ -26,7 +26,7 @@ struct BadgeShelfView: View {
                         .buttonStyle(.pressable)
                     }
                 }
-                .appearAnimation(delay: 0.08)
+                .staggerIn(index: 1)
             }
             .padding(.horizontal, 16)
             .padding(.top, 8)
@@ -52,7 +52,7 @@ struct BadgeShelfView: View {
                 Text("\(count)")
                     .font(.pt(size: 34, weight: .bold))
                     .foregroundStyle(Palette.ink)
-                    .contentTransition(.numericText())
+                    .numberRoll(Double(count))
                 Text("/ \(BadgeBook.all.count)개 모았어요")
                     .font(.pt(.subheadline).weight(.semibold))
                     .foregroundStyle(.secondary)

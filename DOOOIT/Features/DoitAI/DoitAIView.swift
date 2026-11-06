@@ -39,17 +39,19 @@ struct DoitAIView: View {
                             ForEach(assistant.messages) { message in
                                 bubble(message)
                                     .id(message.id)
-                                    .transition(.opacity)
+                                    .transition(.rise(8))
                             }
                             if assistant.isResponding && !isStreamingText {
                                 TypingIndicator(status: assistant.status.loc).id("typing")
+                                    .transition(.rise(8))
                             }
                             Color.clear.frame(height: 1).id(Self.bottomID)
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
                         .padding(.bottom, 16)
-                        .animation(.snappy, value: assistant.messages.count)
+                        .animation(Motion.spring, value: assistant.messages.count)
+                        .animation(Motion.quick, value: assistant.isResponding && !isStreamingText)
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .simultaneousGesture(TapGesture().onEnded { focused = false })
@@ -129,11 +131,14 @@ struct DoitAIView: View {
         VStack(alignment: .leading, spacing: 14) {
             Spacer(minLength: 56)
             AIOrb(size: 44)
+                .staggerIn(index: 0)
             Text("무엇을 도와드릴까요?")
                 .font(.pt(size: 28, weight: .bold))
                 .foregroundStyle(Palette.ink)
+                .staggerIn(index: 1)
             ModelDownloadCard()
                 .padding(.top, 8)
+                .staggerIn(index: 2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
@@ -277,7 +282,7 @@ struct DoitAIView: View {
                             .background(Palette.card, in: .capsule)
                             .overlay(Capsule().strokeBorder(Theme.accent.opacity(0.25), lineWidth: 1))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
                     .disabled(assistant.isResponding)
                 }
             }
@@ -362,7 +367,8 @@ struct DoitAIView: View {
                             .frame(width: 32, height: 32)
                             .background(canSend ? Theme.accent : Color.secondary.opacity(0.35), in: .circle)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.pressable)
+                    .animation(Motion.quick, value: canSend)
                     .disabled(!canSend)
                     .padding(.trailing, 5)
                     .padding(.bottom, 5)
@@ -468,6 +474,7 @@ private struct AIOrb: View {
 private struct TypingIndicator: View {
     var status: String
     @State private var phase = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -478,8 +485,8 @@ private struct TypingIndicator: View {
                         Circle()
                             .fill(Theme.accent)
                             .frame(width: 7, height: 7)
-                            .offset(y: phase == index ? -3 : 0)
-                            .opacity(phase == index ? 1 : 0.45)
+                            .offset(y: phase == index && !reduceMotion ? -2.5 : 0)
+                            .opacity(phase == index ? 1 : 0.4)
                     }
                 }
                 if !status.isEmpty {
@@ -492,8 +499,8 @@ private struct TypingIndicator: View {
         }
         .task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(320))
-                withAnimation(.easeInOut(duration: 0.25)) { phase = (phase + 1) % 3 }
+                try? await Task.sleep(for: .milliseconds(300))
+                withAnimation(.easeInOut(duration: 0.3)) { phase = (phase + 1) % 3 }
             }
         }
     }

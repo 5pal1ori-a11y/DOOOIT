@@ -459,7 +459,7 @@ struct ConceptStepView: View {
                                 .lineSpacing(2)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
-                        .appearAnimation(delay: Double(index) * 0.06)
+                        .staggerIn(index: index)
                     }
                 }
                 .softCard()
@@ -471,7 +471,7 @@ struct ConceptStepView: View {
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 14))
-                    .appearAnimation(delay: 0.3)
+                    .staggerIn(index: (note.keyPoints.count) + 1)
                 }
                 if !note.principles.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
@@ -673,12 +673,12 @@ struct OXStepView: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 76)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .background((value ? Palette.success : Palette.danger).opacity(0.08), in: .rect(cornerRadius: 14))
         .background(Palette.card, in: .rect(cornerRadius: 14))
         .opacity(picked == nil || picked == value ? 1 : 0.4)
-        .scaleEffect(picked == value ? 1.04 : 1)
-        .animation(Motion.bouncy, value: picked)
+        .feedbackGlow(picked == nil ? nil : (value == item.isTrue ? true : (picked == value ? false : nil)), cornerRadius: 14)
+        .animation(Motion.quick, value: picked)
     }
 
     private func resultView(total: Int, retry: @escaping () -> Void) -> some View {
@@ -764,13 +764,10 @@ struct ProblemStepView: View {
                             }
                             .padding(12)
                             .background(Palette.card, in: .rect(cornerRadius: 14))
-                            .scaleEffect(picked == number ? 1.02 : 1)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 14).stroke(choiceColor(number, answer: item.answerNumber), lineWidth: picked == nil ? 0 : 1.5)
-                            }
+                            .feedbackGlow(picked == nil ? nil : (number == item.answerNumber ? true : (picked == number ? false : nil)), cornerRadius: 14)
                         }
                         .buttonStyle(.pressable)
-                        .appearAnimation(delay: Double(choiceIndex) * 0.04)
+                        .staggerIn(index: choiceIndex)
                     }
                     if picked != nil {
                         DisclosureGroup(isExpanded: $showSteps.animation(Motion.spring)) {
@@ -953,7 +950,7 @@ struct ResultSummaryCard: View {
         }
         .softCard(cornerRadius: 22, padding: 18)
         .onAppear {
-            withAnimation(.easeOut(duration: 0.9).delay(0.15)) { shown = ratio }
+            withAnimation(Motion.fill.delay(0.15)) { shown = ratio }
         }
         .sensoryFeedback(.success, trigger: shown > 0 && ratio >= 0.7)
     }

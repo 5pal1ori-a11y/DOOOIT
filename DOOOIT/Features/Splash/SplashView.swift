@@ -24,9 +24,9 @@ struct SplashView: View {
             VStack(spacing: 0) {
                 BrandLogo(size: 92, glow: false)
                     .shadow(color: .black.opacity(0.10), radius: 22, y: 12)
-                    .scaleEffect(reduceMotion ? 1 : (showLogo ? 1 : 0.9))
+                    .scaleEffect(reduceMotion ? 1 : (showLogo ? 1 : 0.96))
                     .opacity(showLogo ? 1 : 0)
-                    .offset(y: reduceMotion || showLogo ? 0 : 10)
+                    .offset(y: reduceMotion || showLogo ? 0 : 6)
                     .padding(.bottom, 30)
 
                 // 워드마크: 굵고 둥근 글씨 대신 가늘고 넓은 자간 → 자간이 좁혀지며 또렷해짐
@@ -72,7 +72,7 @@ struct SplashView: View {
             return
         }
 
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.86)) { showLogo = true }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.9)) { showLogo = true }
 
         try? await Task.sleep(for: .milliseconds(180))
         withAnimation(.easeOut(duration: 0.7)) { showWordmark = true }

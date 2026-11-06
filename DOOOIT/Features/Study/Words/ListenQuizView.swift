@@ -70,6 +70,7 @@ struct ListenQuizView: View {
             .font(.pt(.subheadline).weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(.secondary)
+            .numberRoll(Double(index + 1))
 
         VStack(spacing: 14) {
             SpeakButton(text: word.term, size: 84)
@@ -101,6 +102,8 @@ struct ListenQuizView: View {
                                 RoundedRectangle(cornerRadius: 14)
                                     .strokeBorder(choiceStroke(choice, word: word), lineWidth: 2)
                             }
+                            .popOnce(when: result != nil && choice == word.meaning)
+                            .shake(trigger: result == false && picked == choice)
                     }
                     .buttonStyle(.pressable)
                     .disabled(result != nil)
@@ -118,6 +121,7 @@ struct ListenQuizView: View {
                     .padding(.horizontal, 16)
                     .frame(height: 52)
                     .background(Palette.cardInset, in: .rect(cornerRadius: 14))
+                    .shake(trigger: result == false)
                 if result == nil {
                     Button("확인") { check(word) }
                         .font(.pt(.headline))

@@ -75,7 +75,7 @@ struct WordSessionView: View {
                 Text("\(min(index + 1, queue.count))/\(queue.count)")
                     .font(.pt(.subheadline).weight(.semibold).monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .contentTransition(.numericText())
+                    .numberRoll(Double(min(index + 1, queue.count)))
             }
             HStack {
                 Button {
@@ -198,6 +198,8 @@ struct WordSessionView: View {
                 }
                 .opacity(state == .dimmed ? 0.5 : 1)
                 .contentShape(.rect(cornerRadius: 14))
+                .popOnce(when: state == .correct)
+                .shake(trigger: state == .wrong)
         }
         .buttonStyle(.pressable)
         .disabled(answered)

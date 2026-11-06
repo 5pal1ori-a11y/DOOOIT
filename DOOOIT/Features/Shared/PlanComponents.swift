@@ -84,7 +84,7 @@ struct WeekStrip: View {
                     .padding(.vertical, 8)
                     .contentShape(.rect(cornerRadius: 14))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
             }
         }
         .padding(.horizontal, 4)
@@ -112,12 +112,9 @@ struct PlanTimelineRow: View {
                 try? context.save()
                 Haptics.tap()
             } label: {
-                Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                    .font(.pt(.title2))
-                    .foregroundStyle(done ? plan.color : Color.secondary.opacity(0.6))
-                    .contentTransition(.symbolEffect(.replace))
+                CompletionCheck(isOn: done, size: 24, color: plan.color)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel(done ? L("완료 취소") : L("완료로 표시"))
 
             VStack(alignment: .leading, spacing: 2) {
@@ -126,6 +123,7 @@ struct PlanTimelineRow: View {
                     .strikethrough(done)
                     .foregroundStyle(done ? Color.secondary : Palette.ink)
                     .lineLimit(1)
+                    .animation(Motion.quick, value: done)
                 subtitle
                     .font(.pt(.footnote))
                     .foregroundStyle(.secondary)
@@ -136,6 +134,7 @@ struct PlanTimelineRow: View {
                 .fill(plan.color)
                 .frame(width: 4, height: 26)
                 .opacity(done ? 0.4 : 1)
+                .animation(Motion.quick, value: done)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -168,6 +167,7 @@ struct PlanListCard<Row: View>: View {
             }
         }
         .softCardBackground(cornerRadius: 20)
+        .animation(Motion.quick, value: occurrences.map(\.id))
     }
 }
 
@@ -187,12 +187,9 @@ struct PlanRow: View {
                 try? context.save()
                 Haptics.tap()
             } label: {
-                Image(systemName: completed ? "checkmark.circle.fill" : "circle")
-                    .font(.pt(.title3))
-                    .foregroundStyle(completed ? plan.color : Color.secondary)
-                    .contentTransition(.symbolEffect(.replace))
+                CompletionCheck(isOn: completed, size: 22, color: plan.color, offColor: Color.secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
 
             RoundedRectangle(cornerRadius: 2)
                 .fill(plan.color)
@@ -204,6 +201,7 @@ struct PlanRow: View {
                     .strikethrough(completed)
                     .foregroundStyle(completed ? Color.secondary : Color.primary)
                     .lineLimit(1)
+                    .animation(Motion.quick, value: completed)
                 HStack(spacing: 6) {
                     Text(occurrence.timeText)
                     if let category = plan.category {
@@ -260,5 +258,6 @@ struct TodayPlansSheet: View {
                 PlanEditorView(target: .edit(plan))
             }
         }
+        .contentFadeIn()
     }
 }

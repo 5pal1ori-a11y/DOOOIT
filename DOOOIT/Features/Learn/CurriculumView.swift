@@ -121,10 +121,10 @@ struct CurriculumView: View {
                     searchResults
                 } else {
                     exampleChips
-                        .appearAnimation()
+                        .staggerIn(index: 0)
                     if let resume = progresses.first(where: { !$0.isComplete }) {
                         resumeCard(resume)
-                            .appearAnimation(delay: 0.05)
+                            .staggerIn(index: 1)
                     }
                 }
             }
@@ -212,7 +212,7 @@ struct CurriculumView: View {
                         } label: {
                             unitRow(subject: match.subject.name, unit: match.unit.title, caption: match.subject.name)
                         }
-                        .buttonStyle(.pressable)
+                        .buttonStyle(.pressableRow)
                         if index < matches.count - 1 { RowDivider() }
                     }
                 }
@@ -480,7 +480,7 @@ struct CurriculumView: View {
                         } label: {
                             unitRow(subject: item.subject, unit: item.unit, caption: item.subject)
                         }
-                        .buttonStyle(.pressable)
+                        .buttonStyle(.pressableRow)
                         if index < weak.count - 1 { RowDivider() }
                     }
                 }
@@ -684,7 +684,7 @@ struct SubjectUnitsView: View {
                                     UnitRow(progress: progresses.first { $0.unit == unit.title }, title: unit.title,
                                             accuracy: unitAccuracy(records, subject: subject.name, unit: unit.title))
                                 }
-                                .buttonStyle(.pressable)
+                                .buttonStyle(.pressableRow)
                                 if index < chapter.units.count - 1 { RowDivider() }
                             }
                         }
