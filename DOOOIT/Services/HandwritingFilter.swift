@@ -266,6 +266,12 @@ enum HandwritingFilter {
             .range(of: #"^(답|정답)\s*[:：=)]?\s*[①②③④⑤0-9a-zA-Z.\-−/]{1,6}$"#, options: .regularExpression) != nil
     }
 
+    /// 인쇄한 문제 줄 맨 끝에 덧붙여 쓴 답("... 크기는? 정답 ②")이 시작하는 글자 자리 (없으면 nil)
+    static func trailingAnswerNoteStart(_ text: String) -> Int? {
+        guard let r = text.range(of: #"\s(답|정답)\s*[:：=)]?\s*[①②③④⑤1-5]\s*$"#, options: .regularExpression) else { return nil }
+        return text.distance(from: text.startIndex, to: r.lowerBound) + 1
+    }
+
     static func tokens(_ lines: [Line], reference ref: Reference, mode: Mode) -> [Token] {
         var out: [Token] = []
         // 보기 줄(①②가 둘 이상)이 끝나는 아래: 그 밑에 쓴 계산은 대개 학생 풀이
@@ -336,8 +342,10 @@ enum HandwritingFilter {
                 // 줄 전체가 계산(2x=8)·써 넣은 답(답: 3)이면 조각마다 더함 (검정 펜 풀이는 색으로 못 가름)
                 let lineWork = looksLikeWork(line.text)
                 if lineWork, text != line.text { score += 0.6; reasons.append("풀이 줄") }
-                let answerNote = looksLikeAnswerNote(line.text)
-                if answerNote { score += 1.2; reasons.append("써 넣은 답") }
+                let lineChars = String(line.glyphs.map(\.char))
+                let tailStart = trailingAnswerNoteStart(lineChars)
+                let answerNote = looksLikeAnswerNote(line.text) || (tailStart.map { run.lowerBound >= $0 } ?? false)
+                if answerNote { score += (tailStart.map { run.lowerBound >= $0 } ?? false) ? 2.0 : 1.2; reasons.append("써 넣은 답") }
                 if let bottom = choiceBottom, Double(line.box.minY) > bottom + ref.lineHeight * 0.3, !circled {
                     score += lineWork || hangul == 0 ? 0.8 : 0.4; reasons.append("보기 아래")
                 }

@@ -145,6 +145,8 @@ func runHandwritingCases() {
     }
 
     // 6-4) 써 넣은 답 줄
+    check("필기 내용: 문제 줄 끝에 덧붙인 답 자리", HandwritingFilter.trailingAnswerNoteStart("크기는? 정답 ②") == 5 && HandwritingFilter.trailingAnswerNoteStart("크기는? 답 3") == 5
+          && HandwritingFilter.trailingAnswerNoteStart("정답을 고르시오") == nil && HandwritingFilter.trailingAnswerNoteStart("크기는? ②") == nil)
     check("필기 내용: 써 넣은 답 줄", HandwritingFilter.looksLikeAnswerNote("답: 3") && HandwritingFilter.looksLikeAnswerNote("정답 ④")
           && !HandwritingFilter.looksLikeAnswerNote("답을 고르시오.") && !HandwritingFilter.looksLikeAnswerNote("정답과 가장 가까운 것은?"))
 
