@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// 타이머 위에 보이는 작은 칩: "공부 중 · 순공부 42:10" / "자리 비움"
+/// 타이머 위에 보이는 작은 칩: "공부 중" / "자리 비움"
 struct PresenceChip: View {
     @State private var monitor = StudyPresenceMonitor.shared
 
@@ -28,7 +28,7 @@ struct PresenceChip: View {
         }
         .buttonStyle(.plain)
         .animation(.smooth(duration: 0.25), value: monitor.state)
-        .accessibilityLabel("AI 순공부 측정")
+        .accessibilityLabel("집중 측정")
         .accessibilityValue(monitor.chipText)
     }
 
@@ -95,7 +95,7 @@ struct PresenceLiveCard: View {
     }
 }
 
-/// 공부를 마친 뒤 결과 줄: "총 1:00 · 순공부 0:52 · 집중도 87%"
+/// 공부를 마친 뒤 결과 줄: "총 1:00 · 집중도 87%"
 struct PresenceResultView: View {
     let totalSeconds: Int
     let summary: PresenceSummary
@@ -168,7 +168,7 @@ struct PresenceGuideSheet: View {
             Image(systemName: "viewfinder")
                 .font(.pt(size: 30, weight: .semibold))
                 .foregroundStyle(green)
-            Text("AI 순공부 측정")
+            Text("집중 측정")
                 .font(.pt(.title2).weight(.bold))
             Text("공부한 시간만 똑똑하게 재요")
                 .font(.pt(.subheadline))

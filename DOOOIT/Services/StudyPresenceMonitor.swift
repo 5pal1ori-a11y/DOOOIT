@@ -371,7 +371,7 @@ final class StudyPresenceMonitor {
         switch status {
         case .unavailable(let message): return message.loc
         case .suspended: return L("측정 멈춤 · 눌러서 켜기")
-        case .paused: return L("일시정지 · 순공부 \(PresenceText.clock(netSeconds))")
+        case .paused: return L("일시정지")
         default: return PresenceText.chipL(state: state, netSeconds: netSeconds)
         }
     }

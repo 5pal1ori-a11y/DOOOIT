@@ -169,11 +169,11 @@ enum WeeklyReportBuilder {
         var highlights: [String] = []
         if previous > 0, total > previous { highlights.append(L("지난주보다 \(TimeText.durationL(minutes: total - previous)) 더 공부했어요")) }
         if streak >= 3 { highlights.append(L("\(streak)일 연속으로 공부하고 있어요")) }
-        // AI 순공부 측정을 쓴 공부가 있으면 순공부 시간과 집중도
+        // 집중 측정을 쓴 공부가 있으면 집중도
         let measured = PresenceStore().totals(from: start, to: afterEnd)
         if measured.count > 0, measured.measured >= 600 {
             let focus = Int((Double(measured.net) / Double(measured.measured) * 100).rounded())
-            highlights.append(L("AI가 잰 순공부 \(TimeText.durationL(minutes: measured.net / 60)), 집중도 \(focus)%예요"))
+            highlights.append(L("카메라로 잰 집중도 \(focus)%예요"))
         }
         if goalDays >= 3 { highlights.append(L("하루 목표를 \(goalDays)일이나 달성했어요")) }
         if let best = strong.first { highlights.append(L("\(best.unit) 정답률 \(Int((best.rate * 100).rounded()))%로 탄탄해요")) }

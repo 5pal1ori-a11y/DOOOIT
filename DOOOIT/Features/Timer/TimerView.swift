@@ -283,7 +283,7 @@ struct TimerView: View {
     /// AI 순공부 측정 스위치 (켜면 카메라 위치를 맞추는 안내가 나옴)
     private var presenceToggle: some View {
         HStack(spacing: 10) {
-            Label("AI 순공부 측정", systemImage: "viewfinder")
+            Label("집중 측정", systemImage: "viewfinder")
                 .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(.white)
             Spacer(minLength: 0)
@@ -292,7 +292,7 @@ struct TimerView: View {
                     .font(.pt(.footnote).weight(.semibold))
                     .foregroundStyle(green)
             }
-            Toggle("AI 순공부 측정", isOn: Binding(get: { aiMeasure }, set: { on in
+            Toggle("집중 측정", isOn: Binding(get: { aiMeasure }, set: { on in
                 aiMeasure = on
                 if on { showPresenceGuide = true }
             }))

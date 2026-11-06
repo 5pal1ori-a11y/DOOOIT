@@ -478,11 +478,11 @@ enum PresenceText {
         return String(format: "%d:%02d", s / 60, s % 60)
     }
 
-    /// 타이머 위 칩: "공부 중 · 순공부 42:10"
+    /// 타이머 위 칩: "공부 중" / "자리 비움" (순공부 시간은 보여 주지 않아요)
     static func chip(state: StudyPresenceState, netSeconds: Int) -> String {
         switch state {
-        case .waiting: "준비 중 · 순공부 \(clock(netSeconds))"
-        case .studying, .still, .distracted: "\(state.label) · 순공부 \(clock(netSeconds))"
+        case .waiting: "준비 중"
+        case .studying, .still, .distracted: state.label
         case .away: "자리 비움"
         }
     }
@@ -499,9 +499,9 @@ enum PresenceText {
         return s < 60 ? "\(s)\(unit)" : hm(s)
     }
 
-    /// 결과 한 줄: "총 1:00 · 순공부 0:52 · 집중도 87%"
+    /// 결과 한 줄: "총 1:00 · 집중도 87%"
     static func result(totalSeconds: Int, summary: PresenceSummary) -> String {
-        "총 \(span(totalSeconds)) · 순공부 \(span(summary.netSeconds)) · 집중도 \(summary.focusPercent)%"
+        "총 \(span(totalSeconds)) · 집중도 \(summary.focusPercent)%"
     }
 
     /// 순공부가 아닌 시간 요약: "자리 비움 5분 · 멈춤 3분" (1분이 안 되는 것은 뺌)

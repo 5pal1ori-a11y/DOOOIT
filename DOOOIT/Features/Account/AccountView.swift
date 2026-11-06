@@ -1,4 +1,5 @@
 import AuthenticationServices
+import PhotosUI
 import SwiftData
 import SwiftUI
 import UserNotifications
@@ -25,6 +26,11 @@ struct AccountView: View {
     @State private var pendingLanguage: AppLanguage?
 
     @State private var showNameEdit = false
+    /// 프로필 사진 고르기 · 바꾼 뒤 다시 그리기
+    @State private var photoItem: PhotosPickerItem?
+    @State private var showPhotoMenu = false
+    @State private var showPhotoPicker = false
+    @State private var photoVersion = 0
     @State private var nameDraft = ""
     @State private var showSignOut = false
     @State private var showDelete = false
@@ -318,13 +324,42 @@ struct AccountView: View {
     private var profileHeader: some View {
         let user = auth.currentUser
         return HStack(spacing: 16) {
-            Text(String(user?.name.loc.prefix(1) ?? "D"))
-                .font(.pt(size: 26, weight: .bold))
-                .foregroundStyle(.white)
-                .frame(width: 60, height: 60)
-                .background(Theme.accent, in: .circle)
-                .padding(3)
-                .background(Theme.accent.pastel, in: .circle)
+            Button { showPhotoMenu = true } label: {
+                ProfileAvatar(accountID: user?.id ?? "", name: user?.name ?? "D", size: 60, version: photoVersion)
+                    .padding(3)
+                    .background(Theme.accent.pastel, in: .circle)
+                    .overlay(alignment: .bottomTrailing) {
+                        Image(systemName: "camera.fill")
+                            .font(.pt(size: 10, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 22, height: 22)
+                            .background(Theme.accent, in: .circle)
+                            .overlay(Circle().strokeBorder(Palette.card, lineWidth: 2))
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("프로필 사진 바꾸기")
+            .confirmationDialog("프로필 사진", isPresented: $showPhotoMenu, titleVisibility: .visible) {
+                Button("앨범에서 고르기") { showPhotoPicker = true }
+                if ProfilePhotoStore.load(for: user?.id ?? "") != nil {
+                    Button("사진 지우기", role: .destructive) {
+                        ProfilePhotoStore.remove(for: user?.id ?? "")
+                        photoVersion += 1
+                    }
+                }
+                Button("취소", role: .cancel) {}
+            }
+            .photosPicker(isPresented: $showPhotoPicker, selection: $photoItem, matching: .images)
+            .onChange(of: photoItem) {
+                guard let item = photoItem, let id = auth.currentUser?.id else { return }
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self), ProfilePhotoStore.save(data, for: id) {
+                        photoVersion += 1
+                        Haptics.success()
+                    }
+                    photoItem = nil
+                }
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(user?.name.loc ?? "")

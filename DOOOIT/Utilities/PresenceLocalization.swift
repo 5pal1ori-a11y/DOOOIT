@@ -8,15 +8,15 @@ extension StudyPresenceState {
 }
 
 extension PresenceText {
-    /// 타이머 위 칩: "공부 중 · 순공부 42:10"
+    /// 타이머 위 칩: "공부 중" / "자리 비움"
     static func chipL(state: StudyPresenceState, netSeconds: Int) -> String {
         if state == .away { return L("자리 비움") }
-        return L("\(state.label.loc) · 순공부 \(clock(netSeconds))")
+        return state.label.loc
     }
 
-    /// 결과 한 줄: "총 1:00 · 순공부 0:52 · 집중도 87%"
+    /// 결과 한 줄: "총 1:00 · 집중도 87%"
     static func resultL(totalSeconds: Int, summary: PresenceSummary) -> String {
-        L("총 \(span(totalSeconds, unit: "초".loc)) · 순공부 \(span(summary.netSeconds, unit: "초".loc)) · 집중도 \(summary.focusPercent)%")
+        L("총 \(span(totalSeconds, unit: "초".loc)) · 집중도 \(summary.focusPercent)%")
     }
 
     /// 순공부가 아닌 시간: "자리 비움 5분 · 멈춤 3분"
