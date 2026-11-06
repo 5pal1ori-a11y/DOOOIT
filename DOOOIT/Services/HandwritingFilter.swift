@@ -42,6 +42,23 @@ enum HandwritingFilter {
         var char: Character
         var box: CGRect?
         var ink: Ink?
+
+        init(char: Character, box: CGRect?, ink: Ink?) { self.char = char; self.box = box; self.ink = ink }
+
+        // Character는 Codable이 아니라 한 글자 문자열로 저장 (사진 테스트가 판정 입력을 로그에 남길 때만 씀)
+        private enum Keys: String, CodingKey { case c, b, i }
+        init(from decoder: Decoder) throws {
+            let k = try decoder.container(keyedBy: Keys.self)
+            char = Character(try k.decode(String.self, forKey: .c))
+            box = try k.decodeIfPresent(CGRect.self, forKey: .b)
+            ink = try k.decodeIfPresent(Ink.self, forKey: .i)
+        }
+        func encode(to encoder: Encoder) throws {
+            var k = encoder.container(keyedBy: Keys.self)
+            try k.encode(String(char), forKey: .c)
+            try k.encodeIfPresent(box, forKey: .b)
+            try k.encodeIfPresent(ink, forKey: .i)
+        }
     }
 
     /// Vision이 읽은 한 줄 (angle: 줄 기울기, 도)
