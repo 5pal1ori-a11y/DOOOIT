@@ -354,6 +354,10 @@ enum HandwritingFilter {
                 let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
                 let lineNative = lineKnown.filter { tints[$0] == .native }.count
                 let belowChoices = choiceBottom.map { Double(line.box.minY) > $0 + ref.lineHeight * 0.3 } ?? false
+                // 보기 번호(①~⑤)가 든 줄의 부호 한 조각(-3의 −, (A)-(B)의 -)은 가는 인쇄 획. 색이 없으면 필기 아님
+                if core == 0, !reasons.contains("색"), line.text.contains(where: { "①②③④⑤".contains($0) }) {
+                    score = 0; reasons = ["보기 줄 속 부호"]
+                }
                 if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
                    !lineWork, !answerNote, !belowChoices {
                     score = 0; reasons = ["인쇄 줄 속 조각"]
@@ -523,6 +527,7 @@ enum HandwritingFilter {
         let imageArea = Double(w * h)
         let sizable = Int(ref.lineHeight * ref.lineHeight * 0.15)
         var wipes: [Int] = []
+        var strongWipes: Set<Int> = []   // 그 자체로 필기 근거가 되는 큰 덩어리
         var partial: [Int] = []
         var evidence = tokens.contains(where: \.hand)
         for (index, b) in blobs.enumerated() where b.count >= 3 {
@@ -547,7 +552,7 @@ enum HandwritingFilter {
             }
             if wipe {
                 wipes.append(index)
-                if (foreign && (isBig || b.count >= sizable) && !inPrinted) || (strongForeign && isBig) { evidence = true }
+                if (foreign && (isBig || b.count >= sizable) && !inPrinted) || (strongForeign && isBig) { evidence = true; strongWipes.insert(index) }
             } else if mode == .text, isBig || inHand {
                 // 인쇄 글자·선에 붙은 다른 색 잉크가 넉넉하면 (보기 번호에 닿은 동그라미, 글자를 지나는 줄)
                 let foreignCount = b.pixels.reduce(0) { $0 + (foreignPixel($1) ? 1 : 0) }
@@ -566,6 +571,8 @@ enum HandwritingFilter {
             report.tokens.append(Token(text: "(지울 양이 너무 많아 그대로 둠)", box: .zero, line: -1, score: 0, reasons: [], hand: false))
             return (pixels, report)
         }
+        // 글자 판정 없이 덩어리만으로 필기라고 본 사진(책상 그림자·종이 얼룩 사진)은 근거가 된 큰 덩어리만 지우고 잔잔한 잡티는 건드리지 않음
+        if !tokens.contains(where: \.hand) { wipes = wipes.filter { strongWipes.contains($0) } }
         for index in wipes {
             report.marks += 1
             for i in blobs[index].pixels { erase(i) }
