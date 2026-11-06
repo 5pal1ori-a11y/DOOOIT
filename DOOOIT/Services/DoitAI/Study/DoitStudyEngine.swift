@@ -94,9 +94,10 @@ extension DoitStudy {
         if !grammar.isEmpty { return ClozeSet(items: DoitGrammar.pickCloze(grammar, count: count)) }
         var items: [ClozeItem] = []
         if await modelAvailable() {
+            let deadline = Date().addingTimeInterval(modelBudget)
             items = await verified(count: count, attempts: maxRetries + 1) { missing in
                 let prompt = DoitMind.clozePrompt(subject: pack.scope.label, unit: pack.scope.unit, context: modelContext(pack), count: missing)
-                return (try? await DoitBrain.shared.complete(system: systemPrompt, prompt: prompt, maxTokens: 500, temperature: 0.5))
+                return (await brainComplete(system: systemPrompt, prompt: prompt, maxTokens: 500, temperature: 0.5, until: deadline))
                     .flatMap(DoitMind.parseCloze)?.items ?? []
             } check: { DoitStudyCheck.check($0, basis: pack.basis).isEmpty }
         }
@@ -111,9 +112,10 @@ extension DoitStudy {
         if !grammar.isEmpty { return OXSet(items: DoitGrammar.pickOX(grammar, count: count)) }
         var items: [OXItem] = []
         if await modelAvailable() {
+            let deadline = Date().addingTimeInterval(modelBudget)
             items = await verified(count: count, attempts: maxRetries + 1) { missing in
                 let prompt = DoitMind.oxPrompt(subject: pack.scope.label, unit: pack.scope.unit, context: modelContext(pack), count: missing)
-                return (try? await DoitBrain.shared.complete(system: systemPrompt, prompt: prompt, maxTokens: 600, temperature: 0.5))
+                return (await brainComplete(system: systemPrompt, prompt: prompt, maxTokens: 600, temperature: 0.5, until: deadline))
                     .flatMap(DoitMind.parseOX)?.items ?? []
             } check: { DoitStudyCheck.check($0, basis: pack.basis).isEmpty }
         }
@@ -130,9 +132,10 @@ extension DoitStudy {
         // 수학 계산 문제는 정답이 항상 맞는 생성기로 (모델이 만든 계산 문제는 쓰지 않음)
         let mathUnit = pack.scope.subject == "수학" && mathTopics(for: pack.scope) != nil
         if !mathUnit, await modelAvailable() {
+            let deadline = Date().addingTimeInterval(modelBudget)
             items = await verified(count: count, attempts: maxRetries + 1) { missing in
                 let prompt = DoitMind.problemPrompt(subject: pack.scope.label, unit: pack.scope.unit, context: modelContext(pack), count: missing, hard: hard)
-                return (try? await DoitBrain.shared.complete(system: systemPrompt, prompt: prompt, maxTokens: 900, temperature: 0.5))
+                return (await brainComplete(system: systemPrompt, prompt: prompt, maxTokens: 900, temperature: 0.5, until: deadline))
                     .flatMap(DoitMind.parseProblems)?.items ?? []
             } check: { problem in
                 // 개념 문제: 정답 보기가 단원 개념 이름이어야 검증할 수 있음 (확인할 수 없는 문제는 버림)
@@ -251,9 +254,11 @@ extension DoitStudy {
 
     /// 모델 개념 정리: 검증 실패 → 최대 2번 다시. 모자란 부분은 자료로 직접 정리한 것(fallback)으로 채움
     static func modelConcept(scope: StudyScope, basis: DoitStudyCheck.Basis, booster: Bool, fallback: ConceptNote) async -> ConceptNote? {
+        let deadline = Date().addingTimeInterval(modelBudget)
         for _ in 0...maxRetries {
-            guard let raw = try? await DoitBrain.shared.complete(system: systemPrompt, prompt: conceptPrompt(scope: scope, basis: basis, booster: booster),
-                                                               maxTokens: 800, temperature: 0.4),
+            if Task.isCancelled || deadline.timeIntervalSinceNow <= 3 { break }
+            guard let raw = await brainComplete(system: systemPrompt, prompt: conceptPrompt(scope: scope, basis: basis, booster: booster),
+                                                maxTokens: 800, temperature: 0.4, until: deadline),
                   var note = parseConcept(raw, scope: scope) else { continue }
             // 문장마다 검증해서 통과한 것만
             note.keyPoints = note.keyPoints.filter { DoitStudyCheck.checkSentence($0, basis: basis, label: "포인트").isEmpty }
@@ -268,10 +273,28 @@ extension DoitStudy {
         return nil
     }
 
+    /// 모델 글 한 번 받기: 정해 둔 시간 안에 못 끝나면 멈추고 nil (그러면 자료로 직접 정리한 내용으로 바꿔요)
+    /// 휴대폰에서 모델이 느려도 화면이 "시간이 너무 오래 걸려요"로 멈추지 않게 하는 안전장치
+    static func brainComplete(system: String, prompt: String, maxTokens: Int, temperature: Float, until deadline: Date) async -> String? {
+        let seconds = deadline.timeIntervalSinceNow
+        guard seconds > 3 else { return nil }
+        return await withTaskGroup(of: String?.self) { group in
+            group.addTask { try? await DoitBrain.shared.complete(system: system, prompt: prompt, maxTokens: maxTokens, temperature: temperature) }
+            group.addTask { try? await Task.sleep(for: .seconds(seconds)); return nil }
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
+    }
+
+    /// 모델 글 만들기에 쓰는 최대 시간 (초): 개념 · 문제 만들기 각각
+    static let modelBudget: TimeInterval = 35
+
     /// 검증을 통과한 것만 모으고, 모자라면 모자란 만큼만 다시 만듦 (최대 attempts번)
     static func verified<T>(count: Int, attempts: Int, make: (Int) async -> [T], check: (T) -> Bool) async -> [T] {
         var kept: [T] = []
         for _ in 0..<attempts where kept.count < count {
+            if Task.isCancelled { break }
             let made = await make(count - kept.count)
             kept += made.filter(check).prefix(count - kept.count)
         }

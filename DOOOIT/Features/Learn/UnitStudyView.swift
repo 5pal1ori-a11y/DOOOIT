@@ -348,7 +348,7 @@ struct AIContentLoader<T: Codable, Content: View>: View {
 
         // 90초가 지나도 안 끝나면 멈추고 다시 시도할 수 있게
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(90))
+            try? await Task.sleep(for: .seconds(150))
             if loading && value == nil && error == nil {
                 work.cancel()
                 loading = false
