@@ -29,9 +29,8 @@ extension String {
 
 /// 강조 색 (예전엔 그라데이션 — 깔끔하게 한 색으로 통일. 이름은 그대로 두어 모든 화면에 한 번에 적용)
 enum AccentGradient {
-    static var linear: LinearGradient {
-        LinearGradient(colors: [Theme.accent, Theme.accent], startPoint: .top, endPoint: .bottom)
-    }
+    /// 테마의 세 색(진한 → 강조 → 밝은 색)이 이어지는 그라데이션
+    static var linear: LinearGradient { Theme.current.fill }
 }
 
 /// 섹션 제목 (아이콘 + 제목 + 우측 액세서리)
