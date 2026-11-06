@@ -78,6 +78,8 @@ enum HandwritingFilter {
         var hue: Hue
         var lineHeight: Double
         var angle: Double
+        /// 인쇄 글자 획 굵기 (픽셀, 한글 본문의 중앙값. 못 재면 0)
+        var thickness: Double = 0
     }
 
     /// 판정한 글자 조각 (한 줄 안에서 띄어쓰기·잉크 색이 바뀌는 곳마다 나눔)
@@ -242,8 +244,9 @@ enum HandwritingFilter {
             refLines = sure
         }
         guard glyphs.count >= 3 else { return nil }
+        // 색 세기는 못 읽은 줄까지 모든 글자로 (믿을 만한 줄이 적을 때 파란 펜 메모 줄만 남아 파랑을 인쇄 색으로 잡던 것)
         var hues: [Hue: Int] = [:]
-        for g in glyphs { if let h = g.ink?.hue { hues[h, default: 0] += 1 } }
+        for line in lines { for g in line.glyphs where !g.char.isWhitespace && (g.ink?.count ?? 0) >= 6 { if let h = g.ink?.hue { hues[h, default: 0] += 1 } } }
         // 인쇄는 대부분 검정: 다른 색 글자가 검정의 2배(그리고 6자) 이상일 때만 색 인쇄 페이지로 봄
         // (파란 펜 메모의 한글이 몇 자 많다고 파랑을 인쇄로 보지 않게)
         let neutralCount = hues[.neutral] ?? 0
@@ -259,7 +262,8 @@ enum HandwritingFilter {
         let weighted = angleLines.flatMap { line in Array(repeating: line.angle, count: line.text.filter { !$0.isWhitespace }.count) }
         let angle = median(weighted) ?? median(lines.map(\.angle)) ?? 0
         let peak = median((sameHue.isEmpty ? glyphs : sameHue).compactMap { $0.ink?.peak }) ?? contrast
-        return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle)
+        let thickness = median(glyphs.compactMap { $0.ink?.thickness }.filter { $0 > 0 }) ?? 0
+        return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle, thickness: thickness)
     }
 
     /// 인쇄 기준과 비교한 잉크 색: 다른 색 펜 / 훨씬 연한 연필 / 인쇄와 같음
@@ -283,6 +287,8 @@ enum HandwritingFilter {
     static func looksLikeWork(_ text: String) -> Bool {
         let t = text.replacingOccurrences(of: " ", with: "")
         if t.range(of: #"^(답|정답|풀이|ans|Ans|sol)\s*[:=)]?"#, options: .regularExpression) != nil { return true }
+        // (A)-(C)-(B) 같은 순서 보기는 계산이 아님
+        if t.range(of: #"\([A-Ea-e가-라]\)"#, options: .regularExpression) != nil { return false }
         // 한글 없는 짧은 계산: x=4, 2x=8, 3×4=12, 8÷2
         return !t.contains(where: isHangul) && t.count <= 12 && t.range(of: #"^[0-9a-zA-Z().,+\-−×÷*/=√^²]+$"#, options: .regularExpression) != nil
             && t.contains(where: { "=×÷+−-".contains($0) })
@@ -313,7 +319,22 @@ enum HandwritingFilter {
     static func tokens(_ lines: [Line], reference ref: Reference, mode: Mode) -> [Token] {
         var out: [Token] = []
         // 보기 줄(①②가 둘 이상)이 끝나는 아래: 그 밑에 쓴 계산은 대개 학생 풀이
-        let choiceBottom = lines.filter { $0.text.filter { "①②③④⑤".contains($0) }.count >= 2 }.map { Double($0.box.maxY) }.max()
+        // 보기 한 줄에 ①②가 몰려 있거나, 보기가 줄마다 ①로 시작하는 문제 둘 다 (줄마다 하나씩이면 한 줄에 둘이 없어서 못 찾던 것)
+        let circledSet: Set<Character> = ["①", "②", "③", "④", "⑤"]
+        let choiceLines = lines.filter { line in
+            line.text.filter { circledSet.contains($0) }.count >= 2
+                || (line.text.trimmingCharacters(in: .whitespaces).first.map { circledSet.contains($0) } ?? false)
+        }
+        let choiceBottom = choiceLines.count >= 2 || choiceLines.contains(where: { $0.text.filter { circledSet.contains($0) }.count >= 2 })
+            ? choiceLines.map { Double($0.box.maxY) }.max() : nil
+        // 보기가 없는 문제(주관식·빈칸): 문장·번호로 끝나는 마지막 인쇄 줄. 그 아래 따로 선 짧은 줄은 풀이를 쓰는 빈 자리
+        let proseBottom: Double? = choiceBottom == nil ? lines.filter { line in
+            let t = line.text.trimmingCharacters(in: .whitespaces)
+            let n = t.filter { !$0.isWhitespace }.count
+            return t.range(of: #"^\d+\s*[.)]"#, options: .regularExpression) != nil
+                || t.range(of: #"[.?!다요]$"#, options: .regularExpression) != nil
+                || n >= 18
+        }.map { Double($0.box.maxY) }.max() : nil
         for (index, line) in lines.enumerated() {
             let tints = line.glyphs.map { $0.char.isWhitespace ? Tint.unknown : tint($0.ink, ref) }
             // 띄어쓰기와 색이 바뀌는 곳에서 나눔 (모르는 글자는 앞 조각에 붙임)
@@ -334,6 +355,19 @@ enum HandwritingFilter {
             }
             if let s = start { runs.append(s..<line.glyphs.count) }
             let nonSpace = line.glyphs.filter { !$0.char.isWhitespace }.count
+            // 줄 단위 단서 (색이 같은 검정 펜 풀이·메모를 인쇄와 가르는 데 씀)
+            // - 획 굵기: 줄의 평균 획 굵기가 인쇄 본문보다 굵음 (펜은 인쇄 활자보다 굵고 고르지 않음)
+            // - 메모 모양: 번호·보기로 시작하지 않고, 문장 끝(. ? ! 다 요)이 없는 짧은 줄
+            let thicknessRatio: Double? = {
+                let ts = line.glyphs.filter { !$0.char.isWhitespace }.compactMap { $0.ink?.thickness }.filter { $0 > 0 }
+                guard ref.thickness > 0, ts.count >= 2 else { return nil }
+                return ts.reduce(0, +) / Double(ts.count) / ref.thickness
+            }()
+            let trimmedLine = line.text.trimmingCharacters(in: .whitespaces)
+            let startsStructured = trimmedLine.first.map { circledSet.contains($0) } ?? false
+                || trimmedLine.range(of: #"^\d+\s*[.)]"#, options: .regularExpression) != nil
+            let sentenceEnd = trimmedLine.range(of: #"[.?!다요]$"#, options: .regularExpression) != nil
+            let noteShaped = !startsStructured && !sentenceEnd && nonSpace <= 14 && line.text.filter(isHangul).count >= 2
             for run in runs {
                 let glyphs = Array(line.glyphs[run])
                 let text = String(glyphs.map(\.char))
@@ -384,24 +418,51 @@ enum HandwritingFilter {
                 let tailStart = trailingAnswerNoteStart(lineChars)
                 let answerNote = looksLikeAnswerNote(line.text) || (tailStart.map { run.lowerBound >= $0 } ?? false)
                 if answerNote { score += (tailStart.map { run.lowerBound >= $0 } ?? false) ? 2.0 : 1.2; reasons.append("써 넣은 답") }
-                if let bottom = choiceBottom, Double(line.box.minY) > bottom + ref.lineHeight * 0.3, !circled {
-                    score += lineWork || hangul == 0 ? 0.8 : 0.4; reasons.append("보기 아래")
+                // 보기 블록 아래 빈 자리에 쓴 줄: 줄 가운데가 마지막 보기 아래 (기운 글씨는 상자가 위로 겹치므로 윗변이 아닌 가운데로 봄)
+                let below = choiceBottom.map { Double(line.box.midY) > $0 + ref.lineHeight * 0.15 && Double(line.box.minY) > $0 - ref.lineHeight * 0.5 } ?? false
+                // (A)-(C)-(B) 같은 순서 보기 줄은 번호를 못 읽었어도 보기
+                let labelChoice = line.text.range(of: #"\([A-Ea-e가-라]\)"#, options: .regularExpression) != nil
+                // 문장으로 읽히는 줄(영어 낱말 셋 이상, 마침표로 끝나는 긴 줄)은 번호를 못 읽은 보기·본문
+                let englishWords = line.text.split(separator: " ").filter { $0.range(of: #"^[A-Za-z]{2,}[,.?!]?$"#, options: .regularExpression) != nil }.count
+                let prose = englishWords >= 3 || (sentenceEnd && nonSpace >= 8)
+                if below, !circled, !labelChoice, !prose {
+                    score += lineWork || hangul == 0 ? 1.7 : 1.5; reasons.append("보기 아래")
+                } else if !below, let end = proseBottom, !startsStructured, !labelChoice, !prose, nonSpace >= 5, nonSpace <= 16,
+                          Double(line.box.midY) > end + ref.lineHeight * 0.3, Double(line.box.minY) > end - ref.lineHeight * 0.5 {
+                    score += lineWork || hangul == 0 ? 1.1 : 0.9; reasons.append("글 아래")
                 }
                 if let w = wobble(glyphs, height: ref.lineHeight), w > 0.045 { score += w > 0.08 ? 0.9 : 0.6; reasons.append(String(format: "들쭉날쭉 %.2f", w)) }
+                if let t = thicknessRatio, t >= 1.2, !startsStructured { score += t >= 1.35 ? 0.7 : 0.4; reasons.append(String(format: "굵은 획 %.2f", t)) }
+                if noteShaped, score > 0 { score += 0.3; reasons.append("메모 모양") }
                 // 인쇄 줄 안에 낀 한두 글자 조각(+, −, 괄호, ②)은 가는 획이라 연해 보일 뿐 (줄 대부분이 인쇄면 필기 아님)
                 let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
                 let lineNative = lineKnown.filter { tints[$0] == .native }.count
-                let belowChoices = choiceBottom.map { Double(line.box.minY) > $0 + ref.lineHeight * 0.3 } ?? false
+                let belowChoices = below && !prose
                 // 줄 속에 낀 괄호·빼기 한두 글자는 가는 인쇄 획. 색이 없으면 필기 아님 (=, ÷ 같은 계산 부호는 풀이일 수 있어 제외)
                 if core == 0, !reasons.contains("색"), glyphs.count <= 2, text.allSatisfy({ ")(-−–—.,".contains($0) }) {
                     score = 0; reasons = ["보기 줄 속 부호"]
                 }
-                if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
+                // 따로 떨어진 계산 부호 한 글자(=, ×, ÷)가 연해 보이는 것만으론 필기 아님: 분수 막대 옆·곱셈 줄에서 인쇄 부호가 이렇게 읽힘
+                if glyphs.count == 1, core == 0, !reasons.contains("색"), !reasons.contains("보기 아래"), !reasons.contains("글 아래"), !reasons.contains("써 넣은 답") {
+                    score = 0; reasons = ["따로 선 부호"]
+                }
+                if (glyphs.count <= 2 && hangul == 0) || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
                    !lineWork, !answerNote, !belowChoices {
                     score = 0; reasons = ["인쇄 줄 속 조각"]
                 }
+                // 약한 단서(낮은 신뢰도·계산 모양·들쭉날쭉)만으로는 필기로 보지 않음: 인쇄된 식(분수·곱셈 줄)도 이렇게 보임
+                let weak: Set<String> = ["신뢰도 낮음", "신뢰도 보통", "풀이 모양", "풀이 줄", "한글 없음", "메모 모양"]
+                if score >= 1.8, reasons.allSatisfy({ weak.contains($0) || $0.hasPrefix("들쭉날쭉") }) { score = 1.7; reasons.append("약한 단서뿐") }
                 let threshold = mode == .text ? 1.8 : 2.3
                 out.append(Token(text: text, box: box, line: index, score: score, reasons: reasons, hand: score >= threshold))
+            }
+        }
+        // 이웃이 필기로 판정된 한두 글자 조각(화살표 ->, 빼기 -, 3)은 같은 필기 줄의 일부: 따라서 필기로
+        for i in out.indices where !out[i].hand && out[i].text.count <= 2 {
+            guard out[i].reasons.contains(where: { ["따로 선 부호", "보기 줄 속 부호", "인쇄 줄 속 조각"].contains($0) }) else { continue }
+            let near = [i - 1, i + 1].filter { out.indices.contains($0) && out[$0].line == out[i].line }
+            if near.contains(where: { out[$0].hand && out[$0].score >= 2.4 }) {
+                out[i].hand = true; out[i].reasons.append("필기 옆 조각")
             }
         }
         return out

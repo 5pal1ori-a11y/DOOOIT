@@ -84,7 +84,7 @@ func runHandwritingCases() {
     // 4) 파란색으로 인쇄한 한글 머리말 (반듯·신뢰도 높음) → 남김
     var header = plain
     header.glyphs(20, 150, count: 6, size: 30, blue)
-    let r4 = HandwritingFilter.clean(header.p, lines: [line("개념 확인 문제", x: 20, y: 150, size: 30)] + plainLines, mode: .text)
+    let r4 = HandwritingFilter.clean(header.p, lines: [line("개념 확인 문제", x: 20, y: 150, size: 30), plainLines[0]], mode: .text)
     check("필기: 색으로 인쇄한 머리말은 남김", r4.report.tokens.allSatisfy { !$0.hand } && Paper(p: r4.pixels).color(20 + 30 / 5 + 1, 150 + 12).2 > 150 && Paper(p: r4.pixels).color(27, 162).0 < 80,
           r4.report.lines.joined(separator: " / "))
 
@@ -101,6 +101,22 @@ func runHandwritingCases() {
     memo.glyphs(20, 150, count: 4, size: 30, blue)
     let r4b = HandwritingFilter.clean(memo.p, lines: plainLines + [line("여기 중요", x: 20, y: 150, size: 30)], mode: .text)
     check("필기: 문제 가운데 짧은 파란 한글 메모는 필기", r4b.report.tokens.contains { $0.text.contains("여기") && $0.hand }, r4b.report.lines.joined(separator: " / "))
+
+    // 4-3) 색이 인쇄와 같은 검정 펜 풀이·메모: 보기 블록 아래 빈 자리에 쓴 줄은 필기
+    //  - 보기가 줄마다 ①로 시작해도 (한 줄에 ①②가 둘 없어도) 보기 블록으로 봄
+    //  - 기운 글씨는 상자가 위로 겹쳐도 줄 가운데로 판정
+    let choiceRows = [line("3. 윗글과 일치하지 않는 것은?", x: 20, y: 20, size: 30), line("① 글쓴이는 시골에서 자랐다.", x: 20, y: 70, size: 30),
+                      line("② 할머니는 매일 아침 밭에 나가셨다.", x: 20, y: 120, size: 30), line("③ 마을 앞에는 큰 강이 흘렀다.", x: 20, y: 170, size: 30)]
+    let noteBelow = line("오답 이유: 개념 부족", x: 40, y: 190, size: 36, confidence: 0.5, angle: 4.8)
+    let r4c = HandwritingFilter.tokens(choiceRows + [noteBelow], reference: HandwritingFilter.Reference(contrast: 0.9, peak: 0.9, chroma: 5, hue: .neutral, lineHeight: 30, angle: 0), mode: .text)
+    check("필기: 줄마다 ①로 시작하는 보기 아래 검정 펜 메모는 필기", r4c.filter { $0.line == 4 }.allSatisfy(\.hand), r4c.filter { $0.line == 4 }.map { "\($0.text) \($0.score) \($0.reasons)" }.joined(separator: " / "))
+    check("필기: 보기 줄 자체는 필기 아님", r4c.filter { $0.line < 4 }.allSatisfy { !$0.hand })
+    // 보기 아래라도 영어 문장·(A)-(C)-(B) 순서 보기는 인쇄
+    let engRows = [line("5. 어법상 올바른 것은?", x: 20, y: 20, size: 30), line("① She go to school every day.", x: 20, y: 70, size: 30),
+                   line("② He enjoyed to swim in the lake.", x: 20, y: 120, size: 30), line("(A)-(C)-(B)", x: 20, y: 200, size: 30, confidence: 0.3),
+                   line("I enjoyed to swim in the lake.", x: 20, y: 250, size: 30, confidence: 0.5)]
+    let r4d = HandwritingFilter.tokens(engRows, reference: HandwritingFilter.Reference(contrast: 0.9, peak: 0.9, chroma: 5, hue: .neutral, lineHeight: 30, angle: 0), mode: .text)
+    check("필기: 보기 아래 영어 문장·순서 보기는 인쇄", r4d.allSatisfy { !$0.hand }, r4d.filter(\.hand).map(\.text).joined(separator: " / "))
 
     // 6) 그림 읽기: 파란 선(인쇄 그림일 수 있음)은 남기고, 필기로 판정한 글자만 지움
     var figure = plain
