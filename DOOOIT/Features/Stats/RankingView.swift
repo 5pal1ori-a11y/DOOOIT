@@ -55,6 +55,14 @@ struct RankingView: View {
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // 내가 목록 밖(아래쪽 순위)이면 내 줄을 아래에 고정
+            if let board, let me = board.me, !board.entries.contains(where: { $0.isMe }) {
+                row(me)
+                    .background(Palette.card)
+                    .overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 0.5) }
+            }
+        }
         .navigationTitle("모티 랭킹")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(submit: true) }
@@ -160,13 +168,7 @@ struct RankingView: View {
     // MARK: 목록
 
     private func list(_ board: RankingService.Board) -> some View {
-        var rows = board.entries
-        var showsMeBelow = false
-        if let me = board.me, !rows.contains(where: { $0.isMe }) {
-            rows.append(me)
-            showsMeBelow = true
-        }
-        let allRows = rows, meBelow = showsMeBelow
+        let allRows = board.entries
         return VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(L("참여 \(board.total.formatted())명"))
@@ -180,9 +182,7 @@ struct RankingView: View {
             VStack(spacing: 0) {
                 ForEach(Array(allRows.enumerated()), id: \.element.id) { index, entry in
                     if index > 0 {
-                        // 목록 밖에 있는 내 줄은 한 칸 띄워서 붙임
-                        Rectangle().fill(Palette.line).frame(height: 0.5)
-                            .padding(.leading, meBelow && index == allRows.count - 1 ? 0 : 52)
+                        Rectangle().fill(Palette.line).frame(height: 0.5).padding(.leading, 52)
                     }
                     row(entry)
                 }

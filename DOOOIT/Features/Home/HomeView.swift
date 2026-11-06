@@ -154,7 +154,7 @@ struct HomeView: View {
                 .buttonStyle(.primaryFill)
 
                 NavigationLink { RankingView() } label: {
-                    Image(systemName: "chart.bar")
+                    Image(systemName: "trophy")
                         .font(.pt(.title3).weight(.regular))
                         .foregroundStyle(Palette.ink)
                         .frame(width: 52, height: 52)

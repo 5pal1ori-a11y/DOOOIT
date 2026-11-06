@@ -247,7 +247,7 @@ struct TimerView: View {
                         .foregroundStyle(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
-                        .background(green, in: .capsule)
+                        .background(green, in: .rect(cornerRadius: Radius.button, style: .continuous))
                 }
                 .buttonStyle(.pressable)
                 .padding(.top, 4)
@@ -480,7 +480,7 @@ struct TimerView: View {
                     .foregroundStyle(.black)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
-                    .background(Color.white, in: .capsule)
+                    .background(Color.white, in: .rect(cornerRadius: Radius.button, style: .continuous))
             }
             .buttonStyle(.pressable)
         }
