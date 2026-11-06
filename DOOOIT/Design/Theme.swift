@@ -107,6 +107,9 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
     var id: String { resolved.rawValue }
 
+    /// 이 테마 색으로 만든 앱 로고 (Assets의 AppLogo-테마이름)
+    var logoName: String { "AppLogo-\(resolved.rawValue)" }
+
     /// 예전 값을 새 테마로 바꾼 것
     var resolved: ThemeColor {
         switch self {
