@@ -21,10 +21,10 @@ enum HandwritingFilter {
         var rgba: [UInt8]
     }
 
-    enum Hue: String { case neutral, blue, red, green, other }
+    enum Hue: String, Codable { case neutral, blue, red, green, other }
 
     /// 상자 안 잉크: 진한 쪽 40%의 대비(0~1, 바탕보다 얼마나 어두운지)와 색
-    struct Ink: Equatable {
+    struct Ink: Equatable, Codable {
         var count = 0
         var contrast: Double = 0
         var chroma: Double = 0
@@ -33,17 +33,36 @@ enum HandwritingFilter {
         var peak: Double = 0
         /// 진한 잉크가 끝나는 아래 줄 (픽셀, 글씨 밑선이 들쭉날쭉한지 볼 때)
         var bottom: Double? = nil
+        /// 획 굵기 (픽셀, 진한 잉크 넓이 ÷ 둘레 × 2). 인쇄는 굵기가 고르고 펜 글씨는 들쭉날쭉
+        var thickness: Double = 0
     }
 
     /// 읽은 글자 하나 (box: 픽셀, 위가 0)
-    struct Glyph {
+    struct Glyph: Codable {
         var char: Character
         var box: CGRect?
         var ink: Ink?
+
+        init(char: Character, box: CGRect?, ink: Ink?) { self.char = char; self.box = box; self.ink = ink }
+
+        // Character는 Codable이 아니라 한 글자 문자열로 저장 (사진 테스트가 판정 입력을 로그에 남길 때만 씀)
+        private enum Keys: String, CodingKey { case c, b, i }
+        init(from decoder: Decoder) throws {
+            let k = try decoder.container(keyedBy: Keys.self)
+            char = Character(try k.decode(String.self, forKey: .c))
+            box = try k.decodeIfPresent(CGRect.self, forKey: .b)
+            ink = try k.decodeIfPresent(Ink.self, forKey: .i)
+        }
+        func encode(to encoder: Encoder) throws {
+            var k = encoder.container(keyedBy: Keys.self)
+            try k.encode(String(char), forKey: .c)
+            try k.encodeIfPresent(box, forKey: .b)
+            try k.encodeIfPresent(ink, forKey: .i)
+        }
     }
 
     /// Vision이 읽은 한 줄 (angle: 줄 기울기, 도)
-    struct Line {
+    struct Line: Codable {
         var text: String
         var confidence: Float
         var box: CGRect
@@ -52,23 +71,29 @@ enum HandwritingFilter {
     }
 
     /// 페이지 인쇄 글자의 기준 (한글 본문에서 잼)
-    struct Reference: Equatable {
+    struct Reference: Equatable, Codable {
         var contrast: Double
         var peak: Double = 0
         var chroma: Double
         var hue: Hue
         var lineHeight: Double
         var angle: Double
+        /// 인쇄 글자 획 굵기 (픽셀, 한글 본문의 중앙값. 못 재면 0)
+        var thickness: Double = 0
+        /// 믿을 만한 줄이 하나도 없는 흐린·작은 사진 (신뢰도 낮음은 모든 줄에 해당하므로 필기 단서로 안 씀)
+        var dimPage = false
     }
 
     /// 판정한 글자 조각 (한 줄 안에서 띄어쓰기·잉크 색이 바뀌는 곳마다 나눔)
-    struct Token {
+    struct Token: Codable {
         var text: String
         var box: CGRect
         var line: Int
         var score: Double
         var reasons: [String]
         var hand: Bool
+        /// 줄 안 글자 차례 범위 (글자 상자로 지울 자리를 정할 때 씀)
+        var glyphRange: Range<Int> = 0..<0
     }
 
     enum Tint { case native, colored, light, unknown }
@@ -149,7 +174,7 @@ enum HandwritingFilter {
         guard x1 > x0, y1 > y0 else { return nil }
         let area = (x1 - x0) * (y1 - y0)
         let step = area > 40_000 ? 2 : 1
-        var samples: [(c: Double, r: Int, g: Int, b: Int, y: Int)] = []
+        var samples: [(c: Double, r: Int, g: Int, b: Int, x: Int, y: Int)] = []
         p.rgba.withUnsafeBufferPointer { px in
             var y = y0
             while y < y1 {
@@ -160,7 +185,7 @@ enum HandwritingFilter {
                     let bg = paper.at(x, y)
                     let c = (bg - Double(luminance(r, g, b))) / bg
                     let chroma = max(r, g, b) - min(r, g, b)
-                    if c > 0.2 || (chroma > 50 && c > 0.08) { samples.append((c, r, g, b, y)) }
+                    if c > 0.2 || (chroma > 50 && c > 0.08) { samples.append((c, r, g, b, x, y)) }
                     x += step
                 }
                 y += step
@@ -179,7 +204,26 @@ enum HandwritingFilter {
         let peak = top.reduce(0) { $0 + $1.c } / m
         let strong = samples.filter { $0.c >= peak * 0.5 }
         let bottom = strong.map(\.y).max().map(Double.init)
-        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak, bottom: bottom)
+        // 획 굵기: 진한 잉크 칸 수 ÷ 가장자리 칸 수 × 2 (띄엄띄엄 센 칸 크기만큼 곱함)
+        var thickness = 0.0
+        if strong.count >= 8 {
+            let bw = (x1 - x0 + step - 1) / step, bh = (y1 - y0 + step - 1) / step
+            var mask = [Bool](repeating: false, count: bw * bh)
+            for sample in strong {
+                let cx = (sample.x - x0) / step, cy = (sample.y - y0) / step
+                if cx >= 0, cx < bw, cy >= 0, cy < bh { mask[cy * bw + cx] = true }
+            }
+            var area = 0, edge = 0
+            for cy in 0..<bh {
+                for cx in 0..<bw where mask[cy * bw + cx] {
+                    area += 1
+                    if cx == 0 || cy == 0 || cx == bw - 1 || cy == bh - 1 || !mask[cy * bw + cx - 1] || !mask[cy * bw + cx + 1]
+                        || !mask[(cy - 1) * bw + cx] || !mask[(cy + 1) * bw + cx] { edge += 1 }
+                }
+            }
+            if edge > 0 { thickness = 2 * Double(area) / Double(edge) * Double(step) }
+        }
+        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak, bottom: bottom, thickness: thickness)
     }
 
     // MARK: - 기준 · 색 판정
@@ -196,7 +240,13 @@ enum HandwritingFilter {
 
     /// 인쇄 기준: 믿을 만한 줄의 한글 글자 (적으면 믿을 만한 줄의 모든 글자)
     static func reference(_ lines: [Line]) -> Reference? {
-        let sure = lines.filter { $0.confidence >= 0.5 }
+        var sure = lines.filter { $0.confidence >= 0.5 }
+        // 믿을 만한 줄이 거의 없는 흐린 사진: 신뢰도가 조금 낮은 줄까지 인쇄 기준으로 씀 (기준이 없으면 필기를 하나도 못 지움)
+        var dim = false
+        if sure.flatMap({ $0.glyphs }).filter({ !$0.char.isWhitespace && ($0.ink?.count ?? 0) >= 6 }).count < 3 {
+            sure = lines.filter { $0.confidence >= 0.25 }
+            dim = true
+        }
         var glyphs = sure.flatMap { line in line.glyphs.filter { isHangul($0.char) && ($0.ink?.count ?? 0) >= 6 } }
         var refLines = sure.filter { $0.text.filter(isHangul).count >= 2 }
         if glyphs.count < 6 {
@@ -204,8 +254,9 @@ enum HandwritingFilter {
             refLines = sure
         }
         guard glyphs.count >= 3 else { return nil }
+        // 색 세기는 못 읽은 줄까지 모든 글자로 (믿을 만한 줄이 적을 때 파란 펜 메모 줄만 남아 파랑을 인쇄 색으로 잡던 것)
         var hues: [Hue: Int] = [:]
-        for g in glyphs { if let h = g.ink?.hue { hues[h, default: 0] += 1 } }
+        for line in lines { for g in line.glyphs where !g.char.isWhitespace && (g.ink?.count ?? 0) >= 6 { if let h = g.ink?.hue { hues[h, default: 0] += 1 } } }
         // 인쇄는 대부분 검정: 다른 색 글자가 검정의 2배(그리고 6자) 이상일 때만 색 인쇄 페이지로 봄
         // (파란 펜 메모의 한글이 몇 자 많다고 파랑을 인쇄로 보지 않게)
         let neutralCount = hues[.neutral] ?? 0
@@ -221,7 +272,8 @@ enum HandwritingFilter {
         let weighted = angleLines.flatMap { line in Array(repeating: line.angle, count: line.text.filter { !$0.isWhitespace }.count) }
         let angle = median(weighted) ?? median(lines.map(\.angle)) ?? 0
         let peak = median((sameHue.isEmpty ? glyphs : sameHue).compactMap { $0.ink?.peak }) ?? contrast
-        return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle)
+        let thickness = median(glyphs.compactMap { $0.ink?.thickness }.filter { $0 > 0 }) ?? 0
+        return Reference(contrast: contrast, peak: peak, chroma: chroma, hue: hue, lineHeight: height, angle: angle, thickness: thickness, dimPage: dim)
     }
 
     /// 인쇄 기준과 비교한 잉크 색: 다른 색 펜 / 훨씬 연한 연필 / 인쇄와 같음
@@ -245,6 +297,8 @@ enum HandwritingFilter {
     static func looksLikeWork(_ text: String) -> Bool {
         let t = text.replacingOccurrences(of: " ", with: "")
         if t.range(of: #"^(답|정답|풀이|ans|Ans|sol)\s*[:=)]?"#, options: .regularExpression) != nil { return true }
+        // (A)-(C)-(B) 같은 순서 보기는 계산이 아님
+        if t.range(of: #"\([A-Ea-e가-라]\)"#, options: .regularExpression) != nil { return false }
         // 한글 없는 짧은 계산: x=4, 2x=8, 3×4=12, 8÷2
         return !t.contains(where: isHangul) && t.count <= 12 && t.range(of: #"^[0-9a-zA-Z().,+\-−×÷*/=√^²]+$"#, options: .regularExpression) != nil
             && t.contains(where: { "=×÷+−-".contains($0) })
@@ -275,7 +329,25 @@ enum HandwritingFilter {
     static func tokens(_ lines: [Line], reference ref: Reference, mode: Mode) -> [Token] {
         var out: [Token] = []
         // 보기 줄(①②가 둘 이상)이 끝나는 아래: 그 밑에 쓴 계산은 대개 학생 풀이
-        let choiceBottom = lines.filter { $0.text.filter { "①②③④⑤".contains($0) }.count >= 2 }.map { Double($0.box.maxY) }.max()
+        // 보기 한 줄에 ①②가 몰려 있거나, 보기가 줄마다 ①로 시작하는 문제 둘 다 (줄마다 하나씩이면 한 줄에 둘이 없어서 못 찾던 것)
+        let circledSet: Set<Character> = ["①", "②", "③", "④", "⑤"]
+        let choiceLines = lines.filter { line in
+            line.text.filter { circledSet.contains($0) }.count >= 2
+                || (line.text.trimmingCharacters(in: .whitespaces).first.map { circledSet.contains($0) } ?? false)
+        }
+        let numberedBottom = choiceLines.count >= 2 || choiceLines.contains(where: { $0.text.filter { circledSet.contains($0) }.count >= 2 })
+            ? choiceLines.map { Double($0.box.maxY) }.max() : nil
+        // 번호를 못 읽어도 가로로 늘어선 보기 줄(360° 540° 720°)이 있으면 그것이 보기 블록
+        let choiceBottom = numberedBottom ?? choiceRowBottom(lines, lineHeight: ref.lineHeight)
+        let cues = layoutCues(lines, lineHeight: ref.lineHeight)
+        // 보기가 없는 문제(주관식·빈칸): 문장·번호로 끝나는 마지막 인쇄 줄. 그 아래 따로 선 짧은 줄은 풀이를 쓰는 빈 자리
+        let proseBottom: Double? = choiceBottom == nil ? lines.filter { line in
+            let t = line.text.trimmingCharacters(in: .whitespaces)
+            let n = t.filter { !$0.isWhitespace }.count
+            return t.range(of: #"^\d+\s*[.)]"#, options: .regularExpression) != nil
+                || t.range(of: #"[.?!다요]$"#, options: .regularExpression) != nil
+                || n >= 18
+        }.map { Double($0.box.maxY) }.max() : nil
         for (index, line) in lines.enumerated() {
             let tints = line.glyphs.map { $0.char.isWhitespace ? Tint.unknown : tint($0.ink, ref) }
             // 띄어쓰기와 색이 바뀌는 곳에서 나눔 (모르는 글자는 앞 조각에 붙임)
@@ -296,6 +368,19 @@ enum HandwritingFilter {
             }
             if let s = start { runs.append(s..<line.glyphs.count) }
             let nonSpace = line.glyphs.filter { !$0.char.isWhitespace }.count
+            // 줄 단위 단서 (색이 같은 검정 펜 풀이·메모를 인쇄와 가르는 데 씀)
+            // - 획 굵기: 줄의 평균 획 굵기가 인쇄 본문보다 굵음 (펜은 인쇄 활자보다 굵고 고르지 않음)
+            // - 메모 모양: 번호·보기로 시작하지 않고, 문장 끝(. ? ! 다 요)이 없는 짧은 줄
+            let thicknessRatio: Double? = {
+                let ts = line.glyphs.filter { !$0.char.isWhitespace }.compactMap { $0.ink?.thickness }.filter { $0 > 0 }
+                guard ref.thickness > 0, ts.count >= 2 else { return nil }
+                return ts.reduce(0, +) / Double(ts.count) / ref.thickness
+            }()
+            let trimmedLine = line.text.trimmingCharacters(in: .whitespaces)
+            let startsStructured = trimmedLine.first.map { circledSet.contains($0) } ?? false
+                || trimmedLine.range(of: #"^\d+\s*[.)]"#, options: .regularExpression) != nil
+            let sentenceEnd = trimmedLine.range(of: #"[.?!다요]$"#, options: .regularExpression) != nil
+            let noteShaped = !startsStructured && !sentenceEnd && nonSpace <= 14 && line.text.filter(isHangul).count >= 2
             for run in runs {
                 let glyphs = Array(line.glyphs[run])
                 let text = String(glyphs.map(\.char))
@@ -333,9 +418,9 @@ enum HandwritingFilter {
                 }
                 if score > 0, hangul == 0, core >= 2, !circled { score += 0.4; reasons.append("한글 없음") }
                 if measurable, tilt > 3 { score += tilt > 6 ? 1.0 : 0.6; reasons.append("기울기 \(Int(tilt.rounded()))°") }
-                if whole, ratio >= 1.45 { score += ratio >= 1.9 ? 0.9 : 0.6; reasons.append("큰 글씨") }
+                if whole, ratio >= 1.45, !startsStructured { score += ratio >= 1.9 ? 0.9 : 0.6; reasons.append("큰 글씨") }
                 // Vision은 ①~⑤ 든 줄의 신뢰도를 늘 낮게 줌 → 보기 번호 조각은 신뢰도로 깎지 않음
-                if !circled {
+                if !circled, !ref.dimPage {
                     if line.confidence < 0.4 { score += 0.6; reasons.append("신뢰도 낮음") } else if line.confidence < 0.6 { score += 0.3; reasons.append("신뢰도 보통") }
                 }
                 if looksLikeWork(text) { score += 0.4; reasons.append("풀이 모양") }
@@ -346,25 +431,70 @@ enum HandwritingFilter {
                 let tailStart = trailingAnswerNoteStart(lineChars)
                 let answerNote = looksLikeAnswerNote(line.text) || (tailStart.map { run.lowerBound >= $0 } ?? false)
                 if answerNote { score += (tailStart.map { run.lowerBound >= $0 } ?? false) ? 2.0 : 1.2; reasons.append("써 넣은 답") }
-                if let bottom = choiceBottom, Double(line.box.minY) > bottom + ref.lineHeight * 0.3, !circled {
-                    score += lineWork || hangul == 0 ? 0.8 : 0.4; reasons.append("보기 아래")
+                // 보기 블록 아래 빈 자리에 쓴 줄: 줄 가운데가 마지막 보기 아래 (기운 글씨는 상자가 위로 겹치므로 윗변이 아닌 가운데로 봄)
+                let below = choiceBottom.map { Double(line.box.midY) > $0 + ref.lineHeight * 0.15 && Double(line.box.minY) > $0 - ref.lineHeight * 0.5 } ?? false
+                // (A)-(C)-(B) 같은 순서 보기 줄은 번호를 못 읽었어도 보기
+                let labelChoice = line.text.range(of: #"\([A-Ea-e가-라]\)"#, options: .regularExpression) != nil
+                // 문장으로 읽히는 줄(영어 낱말 셋 이상, 마침표로 끝나는 긴 줄)은 번호를 못 읽은 보기·본문
+                let englishWords = line.text.split(separator: " ").filter { $0.range(of: #"^[A-Za-z]{2,}[,.?!]?$"#, options: .regularExpression) != nil }.count
+                let prose = englishWords >= 3 || (sentenceEnd && nonSpace >= 8)
+                let cue = cues[index]
+                if below, !circled, !labelChoice, !prose, !startsStructured, !cue.gridChoice, nonSpace >= 2 {
+                    score += lineWork || hangul == 0 ? 1.7 : 1.5; reasons.append("보기 아래")
+                } else if !below, let end = proseBottom, !startsStructured, !labelChoice, !prose, nonSpace >= 5, nonSpace <= 16,
+                          Double(line.box.midY) > end + ref.lineHeight * 0.3, Double(line.box.minY) > end - ref.lineHeight * 0.5 {
+                    score += lineWork || hangul == 0 ? 1.1 : 0.9; reasons.append("글 아래")
                 }
+                if cue.sideNote, score > 0 || lineWork || answerNote { score += 0.8; reasons.append("줄 끝 옆") }
+                if cue.bullet, nonSpace <= 24 { score += 0.5; reasons.append("줄머리 기호") }
+                if cue.isolated, hangul >= 2, nonSpace <= 14, !sentenceEnd { score += 0.4; reasons.append("홀로 선 줄") }
                 if let w = wobble(glyphs, height: ref.lineHeight), w > 0.045 { score += w > 0.08 ? 0.9 : 0.6; reasons.append(String(format: "들쭉날쭉 %.2f", w)) }
+                if let t = thicknessRatio, t >= 1.2, !startsStructured { score += t >= 1.35 ? 0.7 : 0.4; reasons.append(String(format: "굵은 획 %.2f", t)) }
+                if noteShaped, score > 0 { score += 0.3; reasons.append("메모 모양") }
                 // 인쇄 줄 안에 낀 한두 글자 조각(+, −, 괄호, ②)은 가는 획이라 연해 보일 뿐 (줄 대부분이 인쇄면 필기 아님)
                 let lineKnown = line.glyphs.indices.filter { tints[$0] != .unknown }
                 let lineNative = lineKnown.filter { tints[$0] == .native }.count
-                let belowChoices = choiceBottom.map { Double(line.box.minY) > $0 + ref.lineHeight * 0.3 } ?? false
+                let belowChoices = below && !prose
                 // 줄 속에 낀 괄호·빼기 한두 글자는 가는 인쇄 획. 색이 없으면 필기 아님 (=, ÷ 같은 계산 부호는 풀이일 수 있어 제외)
                 if core == 0, !reasons.contains("색"), glyphs.count <= 2, text.allSatisfy({ ")(-−–—.,".contains($0) }) {
                     score = 0; reasons = ["보기 줄 속 부호"]
                 }
-                if glyphs.count <= 2 || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
+                // 따로 떨어진 계산 부호 한 글자(=, ×, ÷)가 연해 보이는 것만으론 필기 아님: 분수 막대 옆·곱셈 줄에서 인쇄 부호가 이렇게 읽힘
+                if glyphs.count == 1, core == 0, !reasons.contains("색"), !reasons.contains("보기 아래"), !reasons.contains("글 아래"), !reasons.contains("써 넣은 답") {
+                    score = 0; reasons = ["따로 선 부호"]
+                }
+                if (glyphs.count <= 2 && hangul == 0) || core <= 1, lineKnown.count >= 4, Double(lineNative) >= Double(lineKnown.count) * 0.6,
                    !lineWork, !answerNote, !belowChoices {
                     score = 0; reasons = ["인쇄 줄 속 조각"]
                 }
+                // 약한 단서(낮은 신뢰도·계산 모양·들쭉날쭉)만으로는 필기로 보지 않음: 인쇄된 식(분수·곱셈 줄)도 이렇게 보임
+                let weak: Set<String> = ["신뢰도 낮음", "신뢰도 보통", "풀이 모양", "풀이 줄", "한글 없음", "메모 모양"]
+                if score >= 1.8, reasons.allSatisfy({ weak.contains($0) || $0.hasPrefix("들쭉날쭉") }) { score = 1.7; reasons.append("약한 단서뿐") }
                 let threshold = mode == .text ? 1.8 : 2.3
-                out.append(Token(text: text, box: box, line: index, score: score, reasons: reasons, hand: score >= threshold))
+                out.append(Token(text: text, box: box, line: index, score: score, reasons: reasons, hand: score >= threshold, glyphRange: run))
             }
+        }
+        // 이웃이 필기로 판정된 한두 글자 조각(화살표 ->, 빼기 -, 3)은 같은 필기 줄의 일부: 따라서 필기로
+        for i in out.indices where !out[i].hand && out[i].text.count <= 2 {
+            guard out[i].reasons.contains(where: { ["따로 선 부호", "보기 줄 속 부호", "인쇄 줄 속 조각"].contains($0) }) else { continue }
+            let near = [i - 1, i + 1].filter { out.indices.contains($0) && out[$0].line == out[i].line }
+            if near.contains(where: { out[$0].hand && out[$0].score >= 1.8 }) {
+                out[i].hand = true; out[i].reasons.append("필기 옆 조각")
+            }
+        }
+        // 필기 줄 바로 위·아래에 붙은 줄: 학생은 풀이를 여러 줄 이어 씀. 확실한 필기 줄에 붙어 있고 자기도 단서가 있으면 같은 덩어리
+        let strongLines = Set(out.filter { $0.hand && $0.score >= 2.4 }.map(\.line))
+        let placeCues: Set<String> = ["보기 아래", "글 아래", "줄 끝 옆", "줄머리 기호"]
+        for i in out.indices where !out[i].hand && out[i].score >= 1.1 && !strongLines.contains(out[i].line) && out[i].reasons.contains(where: { placeCues.contains($0) }) {
+            let own = lines[out[i].line]
+            guard !isStructuredStart(own.text) else { continue }
+            let near = strongLines.contains { other in
+                let b = lines[other].box
+                let vgap = Double(max(own.box.minY - b.maxY, b.minY - own.box.maxY))
+                let across = Double(min(own.box.maxX, b.maxX) - max(own.box.minX, b.minX))
+                return vgap <= ref.lineHeight * 0.9 && vgap >= -ref.lineHeight * 0.8 && (across > 0 || abs(Double(own.box.minX - b.minX)) <= ref.lineHeight * 3)
+            }
+            if near { out[i].hand = true; out[i].reasons.append("필기 줄 이웃") }
         }
         return out
     }
@@ -379,6 +509,10 @@ enum HandwritingFilter {
         var erased = 0
         /// 지운 잉크 덩어리 수 (글자로 읽히지 않은 동그라미·줄 포함)
         var marks = 0
+        /// 판정에 쓴 줄 (글자 상자마다 잉크를 잰 것). 사진 테스트가 저장해 두고 리눅스에서 다시 판정해 볼 때 씀
+        var inputLines: [Line] = []
+        /// 지우기를 멈춘 까닭 같은 기록
+        var notes: [String] = []
 
         /// 원인 찾기용 한 줄씩
         var lines: [String] {
@@ -389,6 +523,7 @@ enum HandwritingFilter {
             for t in tokens where t.score > 0 {
                 out.append("\(t.hand ? "✗" : "·") \(t.text) \(String(format: "%.1f", t.score)) \(t.reasons.joined(separator: ","))")
             }
+            out += notes
             out.append("지움 \(erased)px 덩어리 \(marks)")
             return out
         }
@@ -404,6 +539,7 @@ enum HandwritingFilter {
             }
         }
         var report = Report()
+        report.inputLines = lines
         guard let ref = reference(lines) else { return (pixels, report) }
         report.reference = ref
         let tokens = tokens(lines, reference: ref, mode: mode)
@@ -497,7 +633,10 @@ enum HandwritingFilter {
             }
             return Double(best / area)
         }
+        var erased = [Bool](repeating: false, count: w * h)
         func erase(_ i: Int) {
+            guard !erased[i] else { return }
+            erased[i] = true
             let v = UInt8(max(0, min(255, paper.at(i % w, i / w))))
             out.rgba[i * 4] = v; out.rgba[i * 4 + 1] = v; out.rgba[i * 4 + 2] = v
             report.erased += 1
@@ -528,6 +667,7 @@ enum HandwritingFilter {
         let sizable = Int(ref.lineHeight * ref.lineHeight * 0.15)
         var wipes: [Int] = []
         var strongWipes: Set<Int> = []   // 지울 덩어리 중 색 펜 덩어리
+        var handWipes: Set<Int> = []     // 지울 덩어리 중 필기로 판정한 글자 자리 안의 덩어리
         var partial: [Int] = []
         var evidence = tokens.contains(where: \.hand)
         for (index, b) in blobs.enumerated() where b.count >= 3 {
@@ -553,6 +693,7 @@ enum HandwritingFilter {
             if wipe {
                 wipes.append(index)
                 if t == .colored { strongWipes.insert(index) }
+                if inHand { handWipes.insert(index) }
                 if (foreign && (isBig || b.count >= sizable) && !inPrinted) || (strongForeign && isBig) {
                     evidence = true
                 }
@@ -567,11 +708,28 @@ enum HandwritingFilter {
         }
         // 필기라고 볼 근거가 없으면 (인쇄만 있는 쪽: 잡티·흐린 가장자리뿐) 사진을 그대로 둠
         guard evidence else { return (pixels, report) }
-        // 지울 양이 페이지 잉크의 40%를 넘으면 판단이 잘못된 것 (색 인쇄 페이지 등) → 그대로 둠
+        // 지울 양이 페이지 잉크의 40%를 넘으면 판단이 잘못된 것 (색 인쇄 페이지 등) → 그대로 둠.
+        // 다만 글자 판정이 믿을 만하면 (필기로 본 글자가 페이지 글자의 65% 이하) 80%까지 지움:
+        // 인쇄 글이 두어 줄뿐인 쪽에 큰 글씨 풀이를 쓰면 지울 잉크가 인쇄보다 많을 수 있음
         let totalInk = max(1, isInk.reduce(0) { $0 + ($1 ? 1 : 0) })
         let wipeTotal = wipes.reduce(0) { $0 + blobs[$1].count }
-        guard Double(wipeTotal) <= Double(totalInk) * 0.4 else {
-            report.tokens.append(Token(text: "(지울 양이 너무 많아 그대로 둠)", box: .zero, line: -1, score: 0, reasons: [], hand: false))
+        let handChars = tokens.filter(\.hand).reduce(0) { $0 + nonSpaceCount($1.text) }
+        let allChars = max(1, lines.reduce(0) { $0 + nonSpaceCount($1.text) })
+        let trusted = handChars > 0 && Double(handChars) <= Double(allChars) * 0.65
+        let limit = trusted ? 0.8 : 0.4
+        var overLimit = Double(wipeTotal) > Double(totalInk) * limit
+        if overLimit {
+            // 책상 그림자·종이 결 같은 넓은 연한 덩어리가 섞여 양이 많아진 경우: 글자 자리 안 덩어리와 색 펜 덩어리만 남기고 다시 셈
+            let firm = wipes.filter { handWipes.contains($0) || strongWipes.contains($0) }
+            let firmTotal = firm.reduce(0) { $0 + blobs[$1].count }
+            if firm.count < wipes.count, Double(firmTotal) <= Double(totalInk) * limit {
+                report.notes.append("지울 양이 페이지 잉크의 \(wipeTotal * 100 / totalInk)%라 글자 자리 안 덩어리만 지움")
+                wipes = firm
+                overLimit = false
+            }
+        }
+        guard !overLimit else {
+            report.notes.append("지울 양이 페이지 잉크의 \(wipeTotal * 100 / totalInk)%라 그대로 둠")
             return (pixels, report)
         }
         // 글자 판정 없이 덩어리만으로 필기라고 본 사진(책상 그림자·종이 얼룩 사진)은 색 펜 덩어리만 지우고 흐린 잡티는 건드리지 않음
@@ -587,6 +745,81 @@ enum HandwritingFilter {
             var any = false
             for i in foreignPixels where !nearPrintCore(i) { erase(i); any = true }
             if any { report.marks += 1 }
+        }
+        // 필기로 판정한 글자 상자 안은 덩어리 모양과 상관없이 비움: 인쇄 글자 상자만 빼고 흐린 가장자리(번짐)까지.
+        // 덩어리가 인쇄에 붙었거나 가장자리가 흐리면 덩어리 지우기만으론 글자 꼴이 남아 다시 읽힘
+        var printedGlyphBoxes: [CGRect] = []
+        var handTokens: [Token] = []
+        for t in tokens where t.line >= 0 && t.line < lines.count {
+            if t.hand { handTokens.append(t); continue }
+            let glyphs = lines[t.line].glyphs
+            for k in t.glyphRange where k < glyphs.count { if let b = glyphs[k].box { printedGlyphBoxes.append(b) } }
+        }
+        if !handTokens.isEmpty {
+            let before = report.erased
+            for t in handTokens {
+                let box = t.box.insetBy(dx: -pad, dy: -pad * 0.6)
+                let x0 = max(0, Int(box.minX)), x1 = min(w, Int(box.maxX.rounded(.up)))
+                let y0 = max(0, Int(box.minY)), y1 = min(h, Int(box.maxY.rounded(.up)))
+                guard x1 > x0, y1 > y0 else { continue }
+                // 이 조각 둘레에 걸친 인쇄 글자 상자만 (한 칸씩 넓혀서 가장자리까지 지킴)
+                let keep = printedGlyphBoxes.filter { $0.insetBy(dx: -2, dy: -2).intersects(box) }.map { $0.insetBy(dx: -2, dy: -1) }
+                for y in y0..<y1 {
+                    for x in x0..<x1 {
+                        let i = y * w + x
+                        if erased[i] || Double(contrastOf[i]) <= 0.07 { continue }
+                        let px = CGFloat(x), py = CGFloat(y)
+                        if keep.contains(where: { $0.minX <= px && px < $0.maxX && $0.minY <= py && py < $0.maxY }) { continue }
+                        erase(i)
+                    }
+                }
+            }
+            if report.erased > before { report.marks += 1 }
+        }
+        // 지운 자리 둘레의 번짐 (한두 칸): 흐릿한 글자 윤곽이 남아 다시 읽히지 않게. 필기로 판정한 글자 자리 안에서만,
+        // 아직 남은 잉크에 붙은 픽셀은 건드리지 않음 (동그라미·X 표시가 지나간 인쇄 글자 둘레는 그대로)
+        let halo = max(1, min(3, Int((ref.lineHeight * 0.05).rounded())))
+        if report.erased > 0, !handTokens.isEmpty {
+            let zones = handTokens.map { $0.box.insetBy(dx: -pad, dy: -pad * 0.6) }
+            for zone in zones {
+                let x0 = max(0, Int(zone.minX)), x1 = min(w, Int(zone.maxX.rounded(.up)))
+                let y0 = max(0, Int(zone.minY)), y1 = min(h, Int(zone.maxY.rounded(.up)))
+                guard x1 > x0, y1 > y0 else { continue }
+                var fringe: [Int] = []
+                for y in y0..<y1 {
+                    for x in x0..<x1 {
+                        let k = y * w + x
+                        if erased[k] || isInk[k] || Double(contrastOf[k]) <= 0.05 { continue }
+                        // 지운 픽셀이 halo 칸 안에 있는지
+                        var near = false
+                        for dy in -halo...halo where !near {
+                            let ny = y + dy
+                            guard ny >= 0, ny < h else { continue }
+                            for dx in -halo...halo {
+                                let nx = x + dx
+                                if nx >= 0, nx < w, erased[ny * w + nx] { near = true; break }
+                            }
+                        }
+                        if near { fringe.append(k) }
+                    }
+                }
+                for k in fringe {
+                    let x = k % w, y = k / w
+                    // 바로 옆(8방향)에 아직 남은 잉크가 있으면 인쇄 글자의 가장자리 → 그대로
+                    var touchesKept = false
+                    for dy in -1...1 where !touchesKept {
+                        let ny = y + dy
+                        guard ny >= 0, ny < h else { continue }
+                        for dx in -1...1 {
+                            let nx = x + dx
+                            guard nx >= 0, nx < w else { continue }
+                            let n = ny * w + nx
+                            if isInk[n], !erased[n] { touchesKept = true; break }
+                        }
+                    }
+                    if !touchesKept { erase(k) }
+                }
+            }
         }
         return (out, report)
     }

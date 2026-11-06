@@ -2,6 +2,17 @@ import Foundation
 
 // 사진 테스트 한 건의 정답 (생성기가 쓰고, 실행기가 읽음)
 
+/// 사진 이름 필터: 부분 일치. 앞에 !를 붙이면 그 글이 든 사진을 뺌.
+/// 쉼표로 이으면 모두 만족 (!hw-,m- = 필기 사진 빼고 m-), 세로줄(|)로 이으면 하나라도 만족 (m-|g-)
+func idMatches(_ id: String, filter: String) -> Bool {
+    if filter.isEmpty { return true }
+    return filter.split(separator: "|").contains { group in
+        group.split(separator: ",").allSatisfy { term in
+            term.hasPrefix("!") ? !id.contains(term.dropFirst()) : id.contains(term)
+        }
+    }
+}
+
 struct WordPair: Codable {
     var term: String
     /// 뜻의 핵심 (읽은 뜻에 이 글이 들어 있으면 맞음, 띄어쓰기 무시)
