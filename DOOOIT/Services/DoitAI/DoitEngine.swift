@@ -136,7 +136,10 @@ enum DoitEngine {
         if has(t, ["완료", "끝냈", "다 했", "했어", "끝났", "체크해"]) && !has(t, ["추가", "타이머"]),
            let reply = updatePlan(text, action: "complete") { return reply }
         // ("공부 계획 세워줘"처럼 날짜·시간이 없으면 일정 추가가 아니라 계획 상담)
-        if has(t, ["추가", "넣어", "잡아", "등록", "예약", "일정 잡"])
+        // ("몇 ml 넣어야 해?", "소금은 언제 넣어?" 같은 물어보는 말은 일정 추가가 아님 — 분명한 부탁말("추가해줘" "넣어줘")이 있을 때만)
+        let asksQuestion = has(t, ["몇", "얼마", "어떻게", "어디", "언제 넣", "넣어야", "넣으면", "넣어도", "넣는", "넣나", "넣어?", "넣어 ?", "레시피", "만드는 법"])
+        let clearCommand = has(t, ["추가해", "추가 해", "넣어줘", "넣어 줘", "잡아줘", "잡아 줘", "등록해", "예약해", "일정 잡"])
+        if (has(t, ["추가", "넣어", "잡아", "등록", "예약", "일정 잡"]) && (clearCommand || !asksQuestion))
             || (has(t, ["만들어", "계획 세워"]) && (findDate(in: text) != nil || findTime(in: text) != nil)) {
             return addPlan(text)
         }

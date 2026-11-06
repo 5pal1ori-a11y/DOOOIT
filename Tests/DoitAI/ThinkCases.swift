@@ -130,4 +130,12 @@ func runThinkCases() async {
     check("자유 주제: 원리·실수 읽기", free?.principles.count == 1 && free?.mistakes.count == 1 && free?.example.contains("출석부") == true, "\(String(describing: free))")
     let freePrompt = DoitStudy.freeConceptPrompt(topic: "블록체인", references: "")
     check("자유 주제 프롬프트: 왜 그런지·실수 칸", freePrompt.contains("왜 그런지:") && freePrompt.contains("자주 하는 실수:"), freePrompt)
+
+    // 물어보는 말은 일정 추가가 아님 ("몇 ml 넣어야 해?" → 플랜 추가로 가던 오류)
+    for question in ["몇미리 넣어야해", "몇ml넣어? 데리야끼 소수레시피", "소금은 언제 넣어?", "간장 얼마나 넣어야 돼"] {
+        let reply = await DoitEngine.respond(to: question, photo: nil)
+        check("일정 아님: \(question)", !reply.text.contains("[ADD PLAN]") && !reply.text.contains("하루 종일 일정"), reply.text)
+    }
+    let added = await DoitEngine.respond(to: "내일 오후 4시에 영어 공부 1시간 추가해줘", photo: nil)
+    check("일정 추가는 그대로", added.text.contains("[ADD PLAN]"), added.text)
 }
