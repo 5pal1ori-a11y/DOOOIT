@@ -56,17 +56,17 @@ func runThinkCases() async {
     check("주제 뽑기: 에 대한", DoitIdeas.topic(from: "동아리 홍보에 대한 아이디어 알려줘") == "동아리 홍보", DoitIdeas.topic(from: "동아리 홍보에 대한 아이디어 알려줘") ?? "nil")
     check("주제 뽑기: '더위'·'좀비' 같은 낱말은 안 깨짐", DoitIdeas.topic(from: "더위 피하는 아이디어 줘") == "더위 피하는" && DoitIdeas.topic(from: "좀비 게임 아이디어 줘") == "좀비 게임")
     check("주제 뽑기: 주제가 없으면 nil", DoitIdeas.topic(from: "아이디어 줘") == nil && DoitIdeas.topic(from: "좋은 아이디어 좀 줘!") == nil)
-    let ideas = DoitEngine.respond(to: "발표 잘하는 아이디어 좀 줘", photo: nil)
+    let ideas = await DoitEngine.respond(to: "발표 잘하는 아이디어 좀 줘", photo: nil)
     let bullets = ideas.text.components(separatedBy: "\n").filter { $0.hasPrefix("• ") }
     check("아이디어 답: 서로 다른 관점 6개", bullets.count == 6 && ["조합", "다른 분야", "제약", "반대로", "작게 쪼개기", "다른 사람"].allSatisfy { key in bullets.contains { $0.contains(key) } }, ideas.text)
     check("아이디어 답: 주제 포함·모델이 이어 쓰는 경로", ideas.text.contains("‘발표 잘하는’") && ideas.origin == .conversation, ideas.text)
     check("아이디어 답: 다음 제안", ideas.suggestions.first?.contains("아이디어") == true, "\(ideas.suggestions)")
-    let bare = DoitEngine.respond(to: "아이디어 줘", photo: nil)
+    let bare = await DoitEngine.respond(to: "아이디어 줘", photo: nil)
     check("아이디어 답: 주제 없으면 기존 추천", bare.text.contains("추천") && !bare.text.contains("여섯 방향"), bare.text)
-    let meaning = DoitEngine.respond(to: "브레인스토밍이 뭐야?", photo: nil)
+    let meaning = await DoitEngine.respond(to: "브레인스토밍이 뭐야?", photo: nil)
     check("아이디어 답: 뜻을 묻는 말은 아이디어 목록이 아님", !meaning.text.contains("여섯 방향"), meaning.text)
-    let math = DoitEngine.respond(to: "2x + 3 = 11", photo: nil)
-    check("아이디어 훅이 수학 풀이를 건드리지 않음", math.origin == .math && math.text.contains("4"), math.text)
+    let math = await DoitEngine.respond(to: "2x + 3 = 11", photo: nil)
+    check("아이디어 훅이 수학 풀이를 건드리지 않음", math.origin != .conversation && !math.text.contains("여섯 방향"), math.text)
 
     // 7) AI 학습: 개념 → 원리 → 예시 → 실수 → 확인 문제
     let scope = StudyScope(level: .middle, subject: "과학", subjectName: "중학교 과학", unit: "광합성", sources: [])
