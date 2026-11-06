@@ -8,6 +8,10 @@ on:
         description: "사진 이름 필터 (비우면 전부)"
         required: false
         default: ""
+      dump:
+        description: "1이면 읽기 대신 필기 판정 입력만 로그로 저장 (리눅스 hwreplay.sh로 규칙만 다시 돌려 봄)"
+        required: false
+        default: ""
   push:
     branches:
       - "ocr-harness*"
@@ -54,15 +58,16 @@ jobs:
         env:
           OCR_JOBS: "3"
           FILTER: ${{ github.event.inputs.filter }}
+          OCR_HWDUMP: ${{ github.event.inputs.dump }}
         run: |
           set -o pipefail
           bash Tests/OCRImages/run.sh "$RUNNER_TEMP/ocr" "$FILTER" 2>&1 | tee "$RUNNER_TEMP/ocr-log.txt"
-          cat "$RUNNER_TEMP/ocr/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$RUNNER_TEMP/ocr/summary.md" ]; then cat "$RUNNER_TEMP/ocr/summary.md" >> "$GITHUB_STEP_SUMMARY"; fi
           cp "$RUNNER_TEMP/ocr-log.txt" "$RUNNER_TEMP/ocr/"
 
       # 아티팩트를 못 받는 환경에서도 다시 채점(replay.sh)할 수 있게 결과와 작게 줄인 사진을 로그에 담음
       - name: Dump results to log
-        if: always()
+        if: always() && github.event.inputs.dump == ''
         run: |
           cd "$RUNNER_TEMP/ocr"
           echo "=====RESULTS-BEGIN====="

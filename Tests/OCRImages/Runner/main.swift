@@ -138,11 +138,61 @@ func runWords(_ spec: CaseSpec, image: CGImage, result: inout CaseResult) async 
     evaluateWords(spec, words: words, result: &result)
 }
 
+/// 필기 판정 입력 저장 모드 (OCR_HWDUMP=1): 사진마다 Vision이 읽은 줄(글자 상자·잉크 잰 값)을 로그로 내보내서
+/// 리눅스(Tests/OCRImages/hwreplay.sh)에서 판정 규칙만 빠르게 다시 돌려 볼 수 있게 함
+let dumpMode = !(ProcessInfo.processInfo.environment["OCR_HWDUMP"] ?? "").isEmpty
+
+func r1(_ v: Double) -> Double { (v * 10).rounded() / 10 }
+func r3(_ v: Double) -> Double { (v * 1000).rounded() / 1000 }
+func roundedRect(_ r: CGRect) -> CGRect { CGRect(x: r1(r.origin.x), y: r1(r.origin.y), width: r1(r.width), height: r1(r.height)) }
+
+struct HwDump: Codable {
+    var id: String
+    var category: String
+    var leaks: [String]?
+    var answer: String?
+    var lines: [HandwritingFilter.Line]
+}
+
+func hwDump(_ spec: CaseSpec, image: CGImage) async -> String {
+    let flat = await OCRService.straightened(image)
+    let source = flat ?? OCRService.scaled(image, maxDimension: 3000)
+    let straight = await OCRService.deskew(source)
+    let detailed = await OCRService.printedOnlyDetailed(straight.image)
+    let lines = detailed.report.inputLines.map { line -> HandwritingFilter.Line in
+        var l = line
+        l.box = roundedRect(l.box); l.angle = r1(l.angle); l.confidence = Float(r3(Double(l.confidence)))
+        l.glyphs = l.glyphs.map { g in
+            var g = g
+            g.box = g.box.map(roundedRect)
+            if var ink = g.ink {
+                ink.contrast = r3(ink.contrast); ink.chroma = r1(ink.chroma); ink.peak = r3(ink.peak); ink.thickness = r1(ink.thickness)
+                ink.bottom = ink.bottom.map(r1)
+                g.ink = ink
+            }
+            return g
+        }
+        return l
+    }
+    let dump = HwDump(id: spec.id, category: spec.category, leaks: spec.expect.leaks, answer: spec.expect.handAnswer, lines: lines)
+    let json = String(data: (try? JSONEncoder().encode(dump)) ?? Data(), encoding: .utf8) ?? ""
+    let chunks = stride(from: 0, to: json.count, by: 30000).map { i -> String in
+        let a = json.index(json.startIndex, offsetBy: i), b = json.index(a, offsetBy: min(30000, json.count - i))
+        return String(json[a..<b])
+    }
+    return chunks.enumerated().map { "HWDUMP\t\(spec.id)\t\($0.offset + 1)/\(chunks.count)\t\($0.element)" }.joined(separator: "\n")
+}
+
 func run(_ spec: CaseSpec, dir: URL) async -> CaseResult {
     let start = Date()
     var result = CaseResult(id: spec.id, category: spec.category, degrade: spec.degrade, passed: false, score: 0, seconds: 0, checks: [])
     guard let image = loadImage(dir.appendingPathComponent(spec.image)) else {
         result.checks = [Check(name: "사진 열기", ok: false, detail: spec.image)]
+        return result
+    }
+    if dumpMode {
+        if spec.kind != "words" { print(await hwDump(spec, image: image)) }
+        result.passed = true
         return result
     }
     switch spec.kind {
@@ -181,6 +231,7 @@ await withTaskGroup(of: CaseResult.self) { group in
 }
 results.sort { $0.id < $1.id }
 
+if dumpMode { print("필기 판정 입력 저장 끝: \(results.count)장"); exit(0) }
 let summary = summarize(results.filter { !$0.category.hasPrefix("hw-") }, title: "사진 OCR 테스트") + "\n" + handwritingSummary(results)
 print("\n" + summary)
 let encoder = JSONEncoder()

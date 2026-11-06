@@ -21,10 +21,10 @@ enum HandwritingFilter {
         var rgba: [UInt8]
     }
 
-    enum Hue: String { case neutral, blue, red, green, other }
+    enum Hue: String, Codable { case neutral, blue, red, green, other }
 
     /// 상자 안 잉크: 진한 쪽 40%의 대비(0~1, 바탕보다 얼마나 어두운지)와 색
-    struct Ink: Equatable {
+    struct Ink: Equatable, Codable {
         var count = 0
         var contrast: Double = 0
         var chroma: Double = 0
@@ -33,17 +33,19 @@ enum HandwritingFilter {
         var peak: Double = 0
         /// 진한 잉크가 끝나는 아래 줄 (픽셀, 글씨 밑선이 들쭉날쭉한지 볼 때)
         var bottom: Double? = nil
+        /// 획 굵기 (픽셀, 진한 잉크 넓이 ÷ 둘레 × 2). 인쇄는 굵기가 고르고 펜 글씨는 들쭉날쭉
+        var thickness: Double = 0
     }
 
     /// 읽은 글자 하나 (box: 픽셀, 위가 0)
-    struct Glyph {
+    struct Glyph: Codable {
         var char: Character
         var box: CGRect?
         var ink: Ink?
     }
 
     /// Vision이 읽은 한 줄 (angle: 줄 기울기, 도)
-    struct Line {
+    struct Line: Codable {
         var text: String
         var confidence: Float
         var box: CGRect
@@ -52,7 +54,7 @@ enum HandwritingFilter {
     }
 
     /// 페이지 인쇄 글자의 기준 (한글 본문에서 잼)
-    struct Reference: Equatable {
+    struct Reference: Equatable, Codable {
         var contrast: Double
         var peak: Double = 0
         var chroma: Double
@@ -62,7 +64,7 @@ enum HandwritingFilter {
     }
 
     /// 판정한 글자 조각 (한 줄 안에서 띄어쓰기·잉크 색이 바뀌는 곳마다 나눔)
-    struct Token {
+    struct Token: Codable {
         var text: String
         var box: CGRect
         var line: Int
@@ -149,7 +151,7 @@ enum HandwritingFilter {
         guard x1 > x0, y1 > y0 else { return nil }
         let area = (x1 - x0) * (y1 - y0)
         let step = area > 40_000 ? 2 : 1
-        var samples: [(c: Double, r: Int, g: Int, b: Int, y: Int)] = []
+        var samples: [(c: Double, r: Int, g: Int, b: Int, x: Int, y: Int)] = []
         p.rgba.withUnsafeBufferPointer { px in
             var y = y0
             while y < y1 {
@@ -160,7 +162,7 @@ enum HandwritingFilter {
                     let bg = paper.at(x, y)
                     let c = (bg - Double(luminance(r, g, b))) / bg
                     let chroma = max(r, g, b) - min(r, g, b)
-                    if c > 0.2 || (chroma > 50 && c > 0.08) { samples.append((c, r, g, b, y)) }
+                    if c > 0.2 || (chroma > 50 && c > 0.08) { samples.append((c, r, g, b, x, y)) }
                     x += step
                 }
                 y += step
@@ -179,7 +181,26 @@ enum HandwritingFilter {
         let peak = top.reduce(0) { $0 + $1.c } / m
         let strong = samples.filter { $0.c >= peak * 0.5 }
         let bottom = strong.map(\.y).max().map(Double.init)
-        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak, bottom: bottom)
+        // 획 굵기: 진한 잉크 칸 수 ÷ 가장자리 칸 수 × 2 (띄엄띄엄 센 칸 크기만큼 곱함)
+        var thickness = 0.0
+        if strong.count >= 8 {
+            let bw = (x1 - x0 + step - 1) / step, bh = (y1 - y0 + step - 1) / step
+            var mask = [Bool](repeating: false, count: bw * bh)
+            for sample in strong {
+                let cx = (sample.x - x0) / step, cy = (sample.y - y0) / step
+                if cx >= 0, cx < bw, cy >= 0, cy < bh { mask[cy * bw + cx] = true }
+            }
+            var area = 0, edge = 0
+            for cy in 0..<bh {
+                for cx in 0..<bw where mask[cy * bw + cx] {
+                    area += 1
+                    if cx == 0 || cy == 0 || cx == bw - 1 || cy == bh - 1 || !mask[cy * bw + cx - 1] || !mask[cy * bw + cx + 1]
+                        || !mask[(cy - 1) * bw + cx] || !mask[(cy + 1) * bw + cx] { edge += 1 }
+                }
+            }
+            if edge > 0 { thickness = 2 * Double(area) / Double(edge) * Double(step) }
+        }
+        return Ink(count: samples.count * step * step, contrast: contrast, chroma: h.chroma, hue: h.hue, peak: peak, bottom: bottom, thickness: thickness)
     }
 
     // MARK: - 기준 · 색 판정
@@ -379,6 +400,8 @@ enum HandwritingFilter {
         var erased = 0
         /// 지운 잉크 덩어리 수 (글자로 읽히지 않은 동그라미·줄 포함)
         var marks = 0
+        /// 판정에 쓴 줄 (글자 상자마다 잉크를 잰 것). 사진 테스트가 저장해 두고 리눅스에서 다시 판정해 볼 때 씀
+        var inputLines: [Line] = []
 
         /// 원인 찾기용 한 줄씩
         var lines: [String] {
@@ -404,6 +427,7 @@ enum HandwritingFilter {
             }
         }
         var report = Report()
+        report.inputLines = lines
         guard let ref = reference(lines) else { return (pixels, report) }
         report.reference = ref
         let tokens = tokens(lines, reference: ref, mode: mode)
