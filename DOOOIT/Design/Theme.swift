@@ -201,7 +201,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
     /// 보조 색 바탕 (칩 · 진행 막대 바탕 · 옅은 칸)
     var secondaryFill: Color {
-        pick(mono: ("#E4E4E7", "#2C2C2E"), candy: ("#FFE0EC", "#3A1626"),
+        pick(mono: ("#E4E4E7", "#2C2C2E"), candy: ("#FFE0EC", "#2B1A22"),
              forest: ("#E3EEDD", "#1F2E25"), ocean: ("#E0F0FD", "#1A2C3E"))
     }
 

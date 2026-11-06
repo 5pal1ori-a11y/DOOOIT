@@ -220,6 +220,7 @@ struct RecentBadgeChip: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 9)
+                .background(Theme.highlight.opacity(0.3), in: .rect(cornerRadius: Radius.card, style: .continuous))
                 .softCardBackground(cornerRadius: 18)
             }
             .buttonStyle(.pressable)
