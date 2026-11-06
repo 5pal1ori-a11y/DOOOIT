@@ -8,6 +8,6 @@ if [ -z "${INSIDE_RUNNER:-}" ] && ! command -v swiftc >/dev/null 2>&1; then
   exec docker run --rm -e INSIDE_RUNNER=1 -v "$ROOT":/src -v "$(dirname "$FILE")":/data -w /src mirror.gcr.io/library/swift:6.1 bash Tests/OCRImages/hwreplay.sh "/data/$(basename "$FILE")" "${@:2}"
 fi
 BUILD="$(mktemp -d)"
-cp "$ROOT/DOOOIT/Services/HandwritingFilter.swift" "$ROOT/Tests/OCRImages/HwReplay/main.swift" "$BUILD/"
+cp "$ROOT/DOOOIT/Services/HandwritingFilter.swift" "$ROOT/DOOOIT/Services/HandwritingLayout.swift" "$ROOT/Tests/OCRImages/HwReplay/main.swift" "$BUILD/"
 swiftc -O -swift-version 5 "$BUILD"/*.swift -o "$BUILD/hwreplay"
 "$BUILD/hwreplay" "$FILE" "${@:2}"

@@ -325,8 +325,11 @@ enum HandwritingFilter {
             line.text.filter { circledSet.contains($0) }.count >= 2
                 || (line.text.trimmingCharacters(in: .whitespaces).first.map { circledSet.contains($0) } ?? false)
         }
-        let choiceBottom = choiceLines.count >= 2 || choiceLines.contains(where: { $0.text.filter { circledSet.contains($0) }.count >= 2 })
+        let numberedBottom = choiceLines.count >= 2 || choiceLines.contains(where: { $0.text.filter { circledSet.contains($0) }.count >= 2 })
             ? choiceLines.map { Double($0.box.maxY) }.max() : nil
+        // 번호를 못 읽어도 가로로 늘어선 보기 줄(360° 540° 720°)이 있으면 그것이 보기 블록
+        let choiceBottom = numberedBottom ?? choiceRowBottom(lines, lineHeight: ref.lineHeight)
+        let cues = layoutCues(lines, lineHeight: ref.lineHeight)
         // 보기가 없는 문제(주관식·빈칸): 문장·번호로 끝나는 마지막 인쇄 줄. 그 아래 따로 선 짧은 줄은 풀이를 쓰는 빈 자리
         let proseBottom: Double? = choiceBottom == nil ? lines.filter { line in
             let t = line.text.trimmingCharacters(in: .whitespaces)
@@ -425,12 +428,16 @@ enum HandwritingFilter {
                 // 문장으로 읽히는 줄(영어 낱말 셋 이상, 마침표로 끝나는 긴 줄)은 번호를 못 읽은 보기·본문
                 let englishWords = line.text.split(separator: " ").filter { $0.range(of: #"^[A-Za-z]{2,}[,.?!]?$"#, options: .regularExpression) != nil }.count
                 let prose = englishWords >= 3 || (sentenceEnd && nonSpace >= 8)
-                if below, !circled, !labelChoice, !prose {
+                let cue = cues[index]
+                if below, !circled, !labelChoice, !prose, !startsStructured {
                     score += lineWork || hangul == 0 ? 1.7 : 1.5; reasons.append("보기 아래")
                 } else if !below, let end = proseBottom, !startsStructured, !labelChoice, !prose, nonSpace >= 5, nonSpace <= 16,
                           Double(line.box.midY) > end + ref.lineHeight * 0.3, Double(line.box.minY) > end - ref.lineHeight * 0.5 {
                     score += lineWork || hangul == 0 ? 1.1 : 0.9; reasons.append("글 아래")
                 }
+                if cue.sideNote, score > 0 || lineWork || answerNote { score += 0.8; reasons.append("줄 끝 옆") }
+                if cue.bullet, nonSpace <= 24 { score += 0.5; reasons.append("줄머리 기호") }
+                if cue.isolated, hangul >= 2, nonSpace <= 14, !sentenceEnd { score += 0.4; reasons.append("홀로 선 줄") }
                 if let w = wobble(glyphs, height: ref.lineHeight), w > 0.045 { score += w > 0.08 ? 0.9 : 0.6; reasons.append(String(format: "들쭉날쭉 %.2f", w)) }
                 if let t = thicknessRatio, t >= 1.2, !startsStructured { score += t >= 1.35 ? 0.7 : 0.4; reasons.append(String(format: "굵은 획 %.2f", t)) }
                 if noteShaped, score > 0 { score += 0.3; reasons.append("메모 모양") }
@@ -461,7 +468,7 @@ enum HandwritingFilter {
         for i in out.indices where !out[i].hand && out[i].text.count <= 2 {
             guard out[i].reasons.contains(where: { ["따로 선 부호", "보기 줄 속 부호", "인쇄 줄 속 조각"].contains($0) }) else { continue }
             let near = [i - 1, i + 1].filter { out.indices.contains($0) && out[$0].line == out[i].line }
-            if near.contains(where: { out[$0].hand && out[$0].score >= 2.4 }) {
+            if near.contains(where: { out[$0].hand && out[$0].score >= 1.8 }) {
                 out[i].hand = true; out[i].reasons.append("필기 옆 조각")
             }
         }
