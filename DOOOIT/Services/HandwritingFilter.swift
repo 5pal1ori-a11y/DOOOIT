@@ -268,7 +268,7 @@ enum HandwritingFilter {
 
     /// 인쇄한 문제 줄 맨 끝에 덧붙여 쓴 답("... 크기는? 정답 ②")이 시작하는 글자 자리 (없으면 nil)
     static func trailingAnswerNoteStart(_ text: String) -> Int? {
-        guard let r = text.range(of: #"\s(답|정답)\s*[:：=)]?\s*[①②③④⑤1-5]\s*$"#, options: .regularExpression) else { return nil }
+        guard let r = text.range(of: #"\s(답|정답)\s*[:：=)]?\s*[①②③④⑤0-9.\-−]{1,4}\s*$"#, options: .regularExpression) else { return nil }
         return text.distance(from: text.startIndex, to: r.lowerBound) + 1
     }
 
