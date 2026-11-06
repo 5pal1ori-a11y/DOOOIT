@@ -418,7 +418,7 @@ enum HandwritingFilter {
                 }
                 if score > 0, hangul == 0, core >= 2, !circled { score += 0.4; reasons.append("한글 없음") }
                 if measurable, tilt > 3 { score += tilt > 6 ? 1.0 : 0.6; reasons.append("기울기 \(Int(tilt.rounded()))°") }
-                if whole, ratio >= 1.45 { score += ratio >= 1.9 ? 0.9 : 0.6; reasons.append("큰 글씨") }
+                if whole, ratio >= 1.45, !startsStructured { score += ratio >= 1.9 ? 0.9 : 0.6; reasons.append("큰 글씨") }
                 // Vision은 ①~⑤ 든 줄의 신뢰도를 늘 낮게 줌 → 보기 번호 조각은 신뢰도로 깎지 않음
                 if !circled, !ref.dimPage {
                     if line.confidence < 0.4 { score += 0.6; reasons.append("신뢰도 낮음") } else if line.confidence < 0.6 { score += 0.3; reasons.append("신뢰도 보통") }
@@ -439,7 +439,7 @@ enum HandwritingFilter {
                 let englishWords = line.text.split(separator: " ").filter { $0.range(of: #"^[A-Za-z]{2,}[,.?!]?$"#, options: .regularExpression) != nil }.count
                 let prose = englishWords >= 3 || (sentenceEnd && nonSpace >= 8)
                 let cue = cues[index]
-                if below, !circled, !labelChoice, !prose, !startsStructured, !cue.gridChoice {
+                if below, !circled, !labelChoice, !prose, !startsStructured, !cue.gridChoice, nonSpace >= 2 {
                     score += lineWork || hangul == 0 ? 1.7 : 1.5; reasons.append("보기 아래")
                 } else if !below, let end = proseBottom, !startsStructured, !labelChoice, !prose, nonSpace >= 5, nonSpace <= 16,
                           Double(line.box.midY) > end + ref.lineHeight * 0.3, Double(line.box.minY) > end - ref.lineHeight * 0.5 {
@@ -763,7 +763,7 @@ enum HandwritingFilter {
                 let y0 = max(0, Int(box.minY)), y1 = min(h, Int(box.maxY.rounded(.up)))
                 guard x1 > x0, y1 > y0 else { continue }
                 // 이 조각 둘레에 걸친 인쇄 글자 상자만 (한 칸씩 넓혀서 가장자리까지 지킴)
-                let keep = printedGlyphBoxes.filter { $0.insetBy(dx: -1, dy: -1).intersects(box) }.map { $0.insetBy(dx: -1, dy: 0) }
+                let keep = printedGlyphBoxes.filter { $0.insetBy(dx: -2, dy: -2).intersects(box) }.map { $0.insetBy(dx: -2, dy: -1) }
                 for y in y0..<y1 {
                     for x in x0..<x1 {
                         let i = y * w + x
@@ -776,39 +776,49 @@ enum HandwritingFilter {
             }
             if report.erased > before { report.marks += 1 }
         }
-        // 지운 자리 둘레의 번짐 (한두 칸): 흐릿한 글자 윤곽이 남아 다시 읽히지 않게. 아직 남은 잉크에 붙은 픽셀은 건드리지 않음
+        // 지운 자리 둘레의 번짐 (한두 칸): 흐릿한 글자 윤곽이 남아 다시 읽히지 않게. 필기로 판정한 글자 자리 안에서만,
+        // 아직 남은 잉크에 붙은 픽셀은 건드리지 않음 (동그라미·X 표시가 지나간 인쇄 글자 둘레는 그대로)
         let halo = max(1, min(3, Int((ref.lineHeight * 0.05).rounded())))
-        if report.erased > 0 {
-            var fringe: [Int] = []
-            for i in 0..<(w * h) where erased[i] {
-                let x = i % w, y = i / w
-                for dy in -halo...halo {
-                    let ny = y + dy
-                    guard ny >= 0, ny < h else { continue }
-                    for dx in -halo...halo {
-                        let nx = x + dx
-                        guard nx >= 0, nx < w else { continue }
-                        let k = ny * w + nx
+        if report.erased > 0, !handTokens.isEmpty {
+            let zones = handTokens.map { $0.box.insetBy(dx: -pad, dy: -pad * 0.6) }
+            for zone in zones {
+                let x0 = max(0, Int(zone.minX)), x1 = min(w, Int(zone.maxX.rounded(.up)))
+                let y0 = max(0, Int(zone.minY)), y1 = min(h, Int(zone.maxY.rounded(.up)))
+                guard x1 > x0, y1 > y0 else { continue }
+                var fringe: [Int] = []
+                for y in y0..<y1 {
+                    for x in x0..<x1 {
+                        let k = y * w + x
                         if erased[k] || isInk[k] || Double(contrastOf[k]) <= 0.05 { continue }
-                        fringe.append(k)
+                        // 지운 픽셀이 halo 칸 안에 있는지
+                        var near = false
+                        for dy in -halo...halo where !near {
+                            let ny = y + dy
+                            guard ny >= 0, ny < h else { continue }
+                            for dx in -halo...halo {
+                                let nx = x + dx
+                                if nx >= 0, nx < w, erased[ny * w + nx] { near = true; break }
+                            }
+                        }
+                        if near { fringe.append(k) }
                     }
                 }
-            }
-            for k in Set(fringe) {
-                let x = k % w, y = k / w
-                // 바로 옆(8방향)에 아직 남은 잉크가 있으면 인쇄 글자의 가장자리 → 그대로
-                var touchesKept = false
-                for dy in -1...1 where !touchesKept {
-                    let ny = y + dy
-                    guard ny >= 0, ny < h else { continue }
-                    for dx in -1...1 {
-                        let nx = x + dx
-                        guard nx >= 0, nx < w else { continue }
-                        let n = ny * w + nx
-                        if isInk[n], !erased[n] { touchesKept = true; break }
+                for k in fringe {
+                    let x = k % w, y = k / w
+                    // 바로 옆(8방향)에 아직 남은 잉크가 있으면 인쇄 글자의 가장자리 → 그대로
+                    var touchesKept = false
+                    for dy in -1...1 where !touchesKept {
+                        let ny = y + dy
+                        guard ny >= 0, ny < h else { continue }
+                        for dx in -1...1 {
+                            let nx = x + dx
+                            guard nx >= 0, nx < w else { continue }
+                            let n = ny * w + nx
+                            if isInk[n], !erased[n] { touchesKept = true; break }
+                        }
                     }
+                    if !touchesKept { erase(k) }
                 }
-                if !touchesKept { erase(k) }
             }
         }
         return (out, report)

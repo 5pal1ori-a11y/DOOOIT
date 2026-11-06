@@ -73,7 +73,7 @@ extension HandwritingFilter {
     /// 격자 보기의 아랫줄: 윗줄 보기(번호로 시작하는 줄)의 세로 칸(번호 왼쪽 끝, 번호 뒤 내용 왼쪽 끝)에 맞춰 같은 높이에 둘 이상 놓인 짧은 줄
     /// 학생 풀이는 한 칸에 한 줄씩 쓰므로 같은 높이에서 서로 다른 두 칸에 맞는 일이 거의 없음. 맞는 줄의 차례를 돌려줌
     static func gridChoiceLines(_ lines: [Line], lineHeight lh: Double) -> Set<Int> {
-        let tol = lh * 0.4
+        let tol = lh * 0.6
         // 윗줄 보기: 번호로 시작하는 줄 → 칸 위치 후보 (줄 왼쪽 끝, 번호 뒤 내용 왼쪽 끝), 번호 없이 읽힌 짧은 보기도 줄 왼쪽 끝
         var columns: [(x: Double, bottom: Double)] = []
         for line in lines {
