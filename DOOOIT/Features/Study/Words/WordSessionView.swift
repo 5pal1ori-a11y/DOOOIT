@@ -368,6 +368,7 @@ struct WordSessionView: View {
             if kind == .daily { wordGoalDoneKey = now.dayKey }
         }
         try? context.save()
+        Haptics.celebrate()
         withAnimation(reduceMotion ? nil : .smooth(duration: 0.35)) { finished = true }
     }
 
