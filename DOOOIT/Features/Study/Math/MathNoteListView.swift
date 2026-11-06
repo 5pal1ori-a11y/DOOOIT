@@ -78,7 +78,7 @@ struct MathNoteListView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 4)
             .padding(.bottom, 32)
             .animation(Motion.spring, value: filter)
@@ -193,7 +193,7 @@ struct MathNoteListView: View {
                     .font(.pt(.headline))
                     .foregroundStyle(Theme.accent)
                     .frame(width: 52, height: 52)
-                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 20, style: .continuous))
+                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("앨범에서 선택")

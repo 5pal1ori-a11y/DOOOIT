@@ -111,7 +111,7 @@ struct WeaknessView: View {
                         .appearAnimation(delay: Double(index) * 0.07)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
@@ -127,7 +127,7 @@ struct WeaknessView: View {
                 if item.total > 0 { TagLabel(text: L("정답률 \(Int(item.accuracy * 100))%"), color: Theme.accent) }
                 if item.wrongNotes > 0 { TagLabel(text: L("오답노트 \(item.wrongNotes)"), color: Palette.danger) }
             }
-            Label(item.unit, systemImage: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
+            Label(item.unit, systemImage: "lightbulb").font(.pt(.headline)).foregroundStyle(Theme.accent)
             Text("\(item.headline)\n\(item.plan)")
                 .font(.pt(.title3).weight(.bold))
                 .foregroundStyle(Palette.ink)
@@ -160,7 +160,7 @@ struct WeaknessView: View {
             HStack {
                 Text("현재 내 실력은?").font(.pt(.caption)).foregroundStyle(.secondary)
                 Spacer()
-                Label("예상 도달: \(labels[min(level + 1, 2)])", systemImage: "sparkles")
+                Label("예상 도달: \(labels[min(level + 1, 2)])", systemImage: "lightbulb")
                     .font(.pt(.caption).weight(.semibold))
                     .foregroundStyle(Theme.accent)
             }
@@ -176,7 +176,7 @@ struct WeaknessView: View {
             }
         }
         .padding(14)
-        .background(Theme.accent.opacity(0.05), in: .rect(cornerRadius: 16))
+        .background(Theme.accent.opacity(0.05), in: .rect(cornerRadius: 14))
     }
 }
 
@@ -191,7 +191,7 @@ private struct LevelFillBar: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.08))
                 Capsule().fill(Theme.accent.opacity(0.25)).frame(width: geo.size.width * (filled ? target : 0))
-                Capsule().fill(AccentGradient.linear).frame(width: geo.size.width * (filled ? current : 0))
+                Capsule().fill(Theme.accent).frame(width: geo.size.width * (filled ? current : 0))
             }
         }
         .onAppear {

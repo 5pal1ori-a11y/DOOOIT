@@ -83,7 +83,7 @@ struct SubjectTag: View {
     var body: some View {
         let color = Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: label)))
         HStack(spacing: 2) {
-            if auto { Image(systemName: "sparkles").font(.pt(size: 8, weight: .bold)) }
+            if auto { Image(systemName: "lightbulb").font(.pt(size: 8, weight: .bold)) }
             Text(label.loc).lineLimit(1)
         }
         .font(.pt(.caption2).weight(.bold))
@@ -103,7 +103,7 @@ struct SubjectMenuItems: View {
 
     var body: some View {
         if includeAuto, let onAuto {
-            Button(action: onAuto) { Label("자동으로 정하기", systemImage: "sparkles") }
+            Button(action: onAuto) { Label("자동으로 정하기", systemImage: "lightbulb") }
             Divider()
         }
         ForEach(DoitSubjectNote.subjectOptions, id: \.broad) { option in
@@ -158,7 +158,7 @@ struct ProblemTypeChip: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
-        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
     }
 
     private var hint: String { open ? L("설명 접기") : L("푸는 법 보기") }
@@ -386,7 +386,7 @@ struct SubjectExplainCard: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let aiText {
                     HStack(spacing: 6) {
-                        Label("AI 해설", systemImage: "sparkles").font(.pt(.caption).weight(.bold)).foregroundStyle(Theme.accent)
+                        Label("AI 해설", systemImage: "lightbulb").font(.pt(.caption).weight(.bold)).foregroundStyle(Theme.accent)
                         Text("틀릴 수 있어요").font(.pt(.caption2)).foregroundStyle(.secondary)
                     }
                     Text(aiText).font(.pt(.subheadline)).foregroundStyle(Palette.ink).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
@@ -397,7 +397,7 @@ struct SubjectExplainCard: View {
                     }
                 } else {
                     Button { Task { await explain() } } label: {
-                        Label("AI 해설", systemImage: "sparkles").frame(maxWidth: .infinity).frame(height: 36)
+                        Label("AI 해설", systemImage: "lightbulb").frame(maxWidth: .infinity).frame(height: 36)
                     }
                     .buttonStyle(.glass)
                     if aiFailed { Text("지금은 만들 수 없어요").font(.pt(.caption)).foregroundStyle(.secondary) }
@@ -561,7 +561,7 @@ struct SubjectRetryCard: View {
             withAnimation(.snappy) { result = nil }
         } label: {
             Text(title).font(.pt(.subheadline).weight(.bold)).frame(maxWidth: .infinity).padding(.vertical, 9)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .background(correct ? Palette.success : Palette.danger, in: .rect(cornerRadius: 12))
         }
         .buttonStyle(.plain)

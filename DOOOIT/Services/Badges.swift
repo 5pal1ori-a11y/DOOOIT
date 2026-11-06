@@ -86,7 +86,7 @@ enum BadgeBook {
         Badge(id: "notes10", title: "오답노트 10", detail: "오답노트 10개", symbol: "pencil.and.list.clipboard", colorHex: fix, metric: .notes, target: 10),
         Badge(id: "fixed10", title: "다시 맞힘 10", detail: "틀린 문제 10번 다시 맞힘", symbol: "arrow.uturn.backward", colorHex: fix, metric: .fixed, target: 10),
         Badge(id: "fixed50", title: "다시 맞힘 50", detail: "틀린 문제 50번 다시 맞힘", symbol: "checkmark.seal", colorHex: fix, metric: .fixed, target: 50),
-        Badge(id: "firstAI", title: "첫 AI 풀이", detail: "AI 풀이 처음 써 봄", symbol: "sparkles", colorHex: ai, metric: .ai, target: 1),
+        Badge(id: "firstAI", title: "첫 AI 풀이", detail: "AI 풀이 처음 써 봄", symbol: "lightbulb", colorHex: ai, metric: .ai, target: 1),
         Badge(id: "mockFirst", title: "첫 모의고사", detail: "AI 모의고사 처음 봄", symbol: "doc.text", colorHex: exam, metric: .mock, target: 1),
         Badge(id: "mockPerfect", title: "모의고사 만점", detail: "AI 모의고사 만점", symbol: "star", colorHex: exam, metric: .perfect, target: 1)
     ]

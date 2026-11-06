@@ -321,8 +321,8 @@ struct MistakeGradingCard: View {
                             Text("\(number)")
                                 .font(.pt(.headline))
                                 .frame(width: 44, height: 44)
-                                .foregroundStyle(picked ? .white : Palette.ink)
-                                .background(picked ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
+                                .foregroundStyle(picked ? Theme.onAccent : Palette.ink)
+                                .background(picked ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
                         }
                         .buttonStyle(.plain)
                     }
@@ -339,8 +339,8 @@ struct MistakeGradingCard: View {
                         Text(mark)
                             .font(.pt(.headline))
                             .frame(width: 44, height: 44)
-                            .foregroundStyle(picked ? .white : Palette.ink)
-                            .background(picked ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
+                            .foregroundStyle(picked ? Theme.onAccent : Palette.ink)
+                            .background(picked ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .circle)
                     }
                     .buttonStyle(.plain)
                 }
@@ -390,7 +390,7 @@ struct MistakeGradingCard: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(color(result.verdict).opacity(0.08), in: .rect(cornerRadius: 16))
+        .background(color(result.verdict).opacity(0.08), in: .rect(cornerRadius: 14))
         .transition(.opacity.combined(with: .scale(scale: 0.98)))
     }
 
@@ -403,7 +403,7 @@ struct MistakeGradingCard: View {
             finish(result)
         } label: {
             Text(title).font(.pt(.subheadline).weight(.bold)).frame(maxWidth: .infinity).padding(.vertical, 10)
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .background(correct ? Palette.success : Palette.danger, in: .rect(cornerRadius: 12))
         }
         .buttonStyle(.plain)
@@ -544,7 +544,7 @@ struct MasteryBar: View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.08))
-                Capsule().fill(AccentGradient.linear).frame(width: geo.size.width * min(max(value, 0.02), 1))
+                Capsule().fill(Theme.accent).frame(width: geo.size.width * min(max(value, 0.02), 1))
             }
         }
         .frame(height: 8)

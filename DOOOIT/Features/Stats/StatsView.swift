@@ -99,7 +99,7 @@ struct StatsView: View {
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 40)
             .animation(Motion.spring, value: period)
         }
@@ -192,7 +192,7 @@ struct StatsView: View {
                     .foregroundStyle(Theme.accent)
                 PointMark(x: .value("기간", point.label), y: .value("분", point.minutes))
                     .symbolSize(point.isCurrent ? 110 : 55)
-                    .foregroundStyle(point.isCurrent ? Theme.accent : Theme.accent.opacity(0.55))
+                    .foregroundStyle(point.isCurrent ? Theme.accent : Theme.secondary.opacity(0.6))
                     .annotation(position: .top, spacing: 6) {
                         Text(String(format: "%02d:%02d", point.minutes / 60, point.minutes % 60))
                             .font(.pt(.caption2).weight(point.isCurrent ? .heavy : .regular))

@@ -137,7 +137,7 @@ struct PlannerView: View {
                 } label: {
                     Image(systemName: mode.symbol)
                         .font(.pt(.subheadline).weight(.semibold))
-                        .foregroundStyle(isOn ? Color.white : Color.secondary)
+                        .foregroundStyle(isOn ? Theme.onAccent : Color.secondary)
                         .frame(width: 40, height: 30)
                         .background(isOn ? Theme.accent : Color.clear, in: .capsule)
                 }
@@ -356,7 +356,7 @@ struct DayTimelineView: View {
                                 Text(context.date.ui("HH:mm"))
                                     .font(.pt(size: 10, weight: .heavy))
                                     .monospacedDigit()
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(Theme.onAccent)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 2)
                                     .background(Palette.danger, in: .rect(cornerRadius: 6))
@@ -527,7 +527,7 @@ private struct DayCell: View {
                     if isSelected {
                         Circle().fill(Theme.accent)
                     } else if isToday {
-                        Circle().fill(Theme.accent.opacity(0.14))
+                        Circle().fill(Theme.highlight)
                     }
                 }
 
@@ -556,14 +556,14 @@ private struct DayCell: View {
         .padding(.horizontal, 2)
         .padding(.top, 4)
         .frame(maxWidth: .infinity, minHeight: 74, alignment: .top)
-        .background(isSelected ? Theme.accent.opacity(0.06) : Color.clear, in: .rect(cornerRadius: 10))
+        .background(isSelected ? Theme.secondaryFill.opacity(0.7) : Color.clear, in: .rect(cornerRadius: 10))
         .opacity(inMonth ? 1 : 0.3)
         .contentShape(Rectangle())
     }
 
     private func textColor(weekday: Int) -> Color {
-        if isSelected { return .white }
-        if isToday { return Theme.accent }
+        if isSelected { return Theme.onAccent }
+        if isToday { return Theme.onHighlight }
         if weekday == 1 { return Palette.danger }
         if weekday == 7 { return Theme.accent }
         return Palette.ink

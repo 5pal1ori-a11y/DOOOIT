@@ -138,7 +138,7 @@ struct WordHomeView: View {
             tabButton(L("학습"), .study)
             tabButton(L("내 단어장"), .book)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 1)
         }
@@ -190,7 +190,7 @@ struct WordHomeView: View {
                 menuRows
                     .padding(.top, 36)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
@@ -207,10 +207,10 @@ struct WordHomeView: View {
             addMenu {
                 Label("단어 추가", systemImage: "plus")
                     .font(.pt(.body).weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Theme.onAccent)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Theme.accent, in: .rect(cornerRadius: 20, style: .continuous))
+                    .background(Theme.accent, in: .rect(cornerRadius: 14, style: .continuous))
             }
             .padding(.top, 14)
         }
@@ -262,10 +262,10 @@ struct WordHomeView: View {
         } label: {
             Text("학습 시작")
                 .font(.pt(.title3).weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
-                .background(Theme.accent, in: .rect(cornerRadius: 20))
+                .background(Theme.accent, in: .rect(cornerRadius: 14))
         }
         .buttonStyle(.pressable)
     }
@@ -303,7 +303,7 @@ struct WordHomeView: View {
             }
         }
         .buttonStyle(.pressable)
-        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 24, style: .continuous))
+        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 14, style: .continuous))
     }
 
     private func addMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {

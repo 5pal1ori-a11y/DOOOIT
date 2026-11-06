@@ -13,7 +13,6 @@ private struct GameResultView: View {
             Image(systemName: symbol)
                 .font(.pt(size: 64, weight: .bold))
                 .foregroundStyle(Theme.accent)
-                .symbolEffect(.bounce, value: title)
             Text(title).font(.pt(.title).weight(.bold))
             Button(action: again) {
                 Label("다시 하기", systemImage: "arrow.counterclockwise")
@@ -64,7 +63,7 @@ struct SpeakPracticeView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 26)
-                    .background(Palette.cardInset, in: .rect(cornerRadius: 26))
+                    .background(Palette.cardInset, in: .rect(cornerRadius: 14))
 
                     Button {
                         if checker.isListening {
@@ -82,7 +81,7 @@ struct SpeakPracticeView: View {
                     } label: {
                         Image(systemName: checker.isListening ? "stop.fill" : "mic.fill")
                             .font(.pt(size: 34, weight: .bold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Theme.onAccent)
                             .frame(width: 96, height: 96)
                             .background(checker.isListening ? Palette.danger : Theme.accent, in: .circle)
                             .symbolEffect(.pulse, isActive: checker.isListening)

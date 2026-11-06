@@ -96,9 +96,9 @@ struct ListenQuizView: View {
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(16)
-                            .background(choiceBackground(choice, word: word), in: .rect(cornerRadius: 16))
+                            .background(choiceBackground(choice, word: word), in: .rect(cornerRadius: 14))
                             .overlay {
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: 14)
                                     .strokeBorder(choiceStroke(choice, word: word), lineWidth: 2)
                             }
                     }
@@ -117,7 +117,7 @@ struct ListenQuizView: View {
                     .disabled(result != nil)
                     .padding(.horizontal, 16)
                     .frame(height: 52)
-                    .background(Palette.cardInset, in: .rect(cornerRadius: 16))
+                    .background(Palette.cardInset, in: .rect(cornerRadius: 14))
                 if result == nil {
                     Button("확인") { check(word) }
                         .font(.pt(.headline))

@@ -1,7 +1,7 @@
 import SwiftData
 import SwiftUI
 
-/// 공부 랭킹: 일간·주간·월간 → 날짜 → Top3 메달 → 참여 인원·내 등수 → 순위 목록 (1등 대비 막대)
+/// 공부 랭킹: 기간 선택 → 날짜 → 내 순위 요약 → 순위 목록 (순위 · 이름 · 공부 시간, 내 줄만 강조색 바탕)
 struct RankingView: View {
     @Query private var sessions: [StudySession]
     @State private var ranking = RankingService.shared
@@ -11,14 +11,25 @@ struct RankingView: View {
     @State private var loading = false
     @State private var message: String?
 
+    /// 화면 사진용: Game Center 없이 가짜 순위를 보여 줌 (Debug 빌드에서만)
+    private var isDemo: Bool {
+        #if DEBUG
+        return UIShot.matches(.ranking, .rankingFar)
+        #else
+        return false
+        #endif
+    }
+    private var authed: Bool { ranking.isAuthenticated || isDemo }
+    private var joined: Bool { ranking.isJoined || isDemo }
+
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                periodTabs
+            VStack(alignment: .leading, spacing: 12) {
+                PillSegmentedControl(items: RankingService.Period.allCases, selection: $period) { $0.title }
                 dateBar
-                if !ranking.isAuthenticated {
+                if !authed {
                     signInCard
-                } else if !ranking.isJoined {
+                } else if !joined {
                     joinCard
                 }
                 if let board {
@@ -26,25 +37,32 @@ struct RankingView: View {
                         EmptyStateView(symbol: "trophy", title: L("아직 기록이 없어요"))
                             .softCard()
                     } else {
-                        topThree(board)
-                        summaryLine(board)
-                        Divider()
+                        mySummary(board)
                         list(board)
                     }
                 } else if loading {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
                 } else if let message {
-                    Label(message, systemImage: "info.circle")
+                    Text(message)
                         .font(.pt(.subheadline))
                         .foregroundStyle(.secondary)
                         .softCard()
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
             .padding(.bottom, 40)
         }
         .scrollIndicators(.hidden)
-        .background(Palette.card)
+        .background { AppBackground() }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            // 내가 목록 밖(아래쪽 순위)이면 내 줄을 아래에 고정
+            if let board, let me = board.me, !board.entries.contains(where: { $0.isMe }) {
+                row(me)
+                    .background(Palette.card)
+                    .overlay(alignment: .top) { Rectangle().fill(Palette.line).frame(height: 0.5) }
+            }
+        }
         .navigationTitle("모티 랭킹")
         .navigationBarTitleDisplayMode(.inline)
         .refreshable { await reload(submit: true) }
@@ -56,43 +74,21 @@ struct RankingView: View {
 
     // MARK: 위쪽
 
-    private var periodTabs: some View {
-        HStack(spacing: 0) {
-            ForEach(RankingService.Period.allCases) { item in
-                Button {
-                    withAnimation(.snappy) { period = item }
-                    Haptics.tap()
-                } label: {
-                    VStack(spacing: 8) {
-                        Text(item.title)
-                            .font(.pt(.body).weight(period == item ? .bold : .regular))
-                            .foregroundStyle(period == item ? Palette.ink : .secondary)
-                        Capsule()
-                            .fill(period == item ? Palette.ink : .clear)
-                            .frame(width: 28, height: 3)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 30)
-        .padding(.top, 8)
-    }
-
+    /// 날짜 이동: ‹ 11월 6일 ›
     private var dateBar: some View {
         let range = board.map { ($0.start, $0.end) } ?? period.fallbackRange(back: back)
-        return HStack {
-            Button { back += 1 } label: { Image(systemName: "chevron.left").frame(width: 44, height: 40) }
-            Spacer()
-            Text(dateText(range.0, range.1)).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
-            Spacer()
-            Button { back = max(0, back - 1) } label: { Image(systemName: "chevron.right").frame(width: 44, height: 40) }
+        return HStack(spacing: 0) {
+            Button { back += 1 } label: { Image(systemName: "chevron.left").frame(width: 40, height: 36) }
+            Text(dateText(range.0, range.1))
+                .font(.pt(.subheadline).weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .monospacedDigit()
+                .frame(maxWidth: .infinity)
+            Button { back = max(0, back - 1) } label: { Image(systemName: "chevron.right").frame(width: 40, height: 36) }
                 .disabled(back == 0)
         }
+        .font(.pt(.subheadline).weight(.semibold))
         .foregroundStyle(.secondary)
-        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12))
     }
 
     private func dateText(_ start: Date, _ end: Date) -> String {
@@ -105,106 +101,119 @@ struct RankingView: View {
 
     private var signInCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Game Center에 로그인해 주세요", systemImage: "gamecontroller.fill").font(.pt(.headline))
+            Text("Game Center에 로그인해 주세요").font(.pt(.headline))
             Text(ranking.authMessage ?? L("모티 랭킹은 Apple Game Center로 순위를 모아요. 로그인하면 다른 학생들과 공부 시간을 겨룰 수 있어요."))
-                .font(.pt(.subheadline))
+                .font(.pt(.footnote))
                 .foregroundStyle(.secondary)
             Button("로그인") { ranking.authenticate() }
                 .buttonStyle(.primaryFill)
+                .padding(.top, 4)
         }
         .softCard()
     }
 
     private var joinCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("랭킹에 참여할까요?", systemImage: "trophy.fill").font(.pt(.headline))
+            Text("랭킹에 참여할까요?").font(.pt(.headline))
             Text("참여하면 \(ranking.playerName.isEmpty ? L("내 Game Center 닉네임") : "'\(ranking.playerName)'")과 공부 시간이 다른 사람에게 보여요. 언제든 끌 수 있어요.")
-                .font(.pt(.subheadline))
+                .font(.pt(.footnote))
                 .foregroundStyle(.secondary)
             Button("참여하기") {
                 ranking.isJoined = true
                 Task { await reload(submit: true) }
             }
             .buttonStyle(.primaryFill)
+            .padding(.top, 4)
         }
         .softCard()
     }
 
-    // MARK: Top3
+    // MARK: 내 순위
 
-    private func topThree(_ board: RankingService.Board) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("\(period.title) Top3").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
-            HStack(alignment: .top, spacing: 0) {
-                ForEach(Array(board.entries.prefix(3))) { entry in
-                    VStack(spacing: 6) {
-                        Medal(rank: entry.rank)
-                        Text(entry.name).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
-                        Text(clock(entry.seconds)).font(.pt(.footnote)).foregroundStyle(Theme.accent).monospacedDigit()
+    /// 내 순위 요약: 큰 순위 숫자 + 상위 % · 내 공부 시간 (참여 인원은 아래 목록 머리글)
+    @ViewBuilder
+    private func mySummary(_ board: RankingService.Board) -> some View {
+        if let me = board.me {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("내 등수").font(.pt(.footnote)).foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    Text(L("\(me.rank.formatted())등"))
+                        .font(.pt(size: 36, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                        .monospacedDigit()
+                    Spacer(minLength: 12)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(TimeText.durationL(seconds: me.seconds))
+                            .font(.pt(.headline))
+                            .foregroundStyle(Palette.ink)
+                            .monospacedDigit()
+                        if let percent = board.topPercent {
+                            Text(L("상위 \(percent)%"))
+                                .font(.pt(.footnote))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
                     }
-                    .frame(maxWidth: .infinity)
                 }
             }
-        }
-    }
-
-    private func summaryLine(_ board: RankingService.Board) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("참여 \(board.total.formatted())명").font(.pt(.subheadline)).foregroundStyle(Palette.ink)
-            if let me = board.me {
-                HStack(spacing: 4) {
-                    Text("내 등수").foregroundStyle(Palette.ink)
-                    Text("\(me.rank.formatted())등").foregroundStyle(Theme.accent)
-                    if let percent = board.topPercent {
-                        Text("  상위").foregroundStyle(Palette.ink)
-                        Text("\(percent)%").foregroundStyle(Theme.accent)
-                    }
-                }
+            .softCard()
+        } else if joined {
+            Text("이 기간에 공부하면 내 등수가 나와요")
                 .font(.pt(.subheadline))
-            } else if ranking.isJoined {
-                Text("이 기간에 공부하면 내 등수가 나와요").font(.pt(.subheadline)).foregroundStyle(.secondary)
-            }
+                .foregroundStyle(.secondary)
+                .softCard()
         }
     }
 
     // MARK: 목록
 
     private func list(_ board: RankingService.Board) -> some View {
-        let best = max(board.entries.first?.seconds ?? 1, 1)
-        var rows = board.entries
-        if let me = board.me, !rows.contains(where: { $0.isMe }) { rows.append(me) }
-        return VStack(spacing: 22) {
-            ForEach(rows) { entry in
-                HStack(alignment: .center, spacing: 14) {
-                    ZStack(alignment: .top) {
-                        Circle()
-                            .strokeBorder(Theme.accent, lineWidth: 1.5)
-                            .frame(width: 40, height: 40)
-                            .overlay(Text("\(entry.rank)").font(.pt(.headline)).foregroundStyle(Theme.accent))
-                        if entry.rank == 1 {
-                            Image(systemName: "crown.fill").font(.pt(.caption2)).foregroundStyle(Theme.accent).offset(y: -10)
-                        }
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(entry.isMe ? L("\(entry.name) (나)") : entry.name)
-                                .font(.pt(.body).weight(entry.isMe ? .bold : .regular))
-                                .foregroundStyle(Palette.ink)
-                                .lineLimit(1)
-                            Spacer()
-                            Text(clock(entry.seconds)).font(.pt(.body)).foregroundStyle(Theme.accent).monospacedDigit()
-                        }
-                        LinearProgressBar(value: Double(entry.seconds) / Double(best), height: 5)
-                    }
-                }
-                .padding(entry.isMe ? 10 : 0)
-                .background(entry.isMe ? Theme.accent.opacity(0.06) : .clear, in: .rect(cornerRadius: 14))
+        let allRows = board.entries
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(L("참여 \(board.total.formatted())명"))
+                Spacer()
+                Text("공부 시간")
             }
+            .font(.pt(.footnote))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 0) {
+                ForEach(Array(allRows.enumerated()), id: \.element.id) { index, entry in
+                    if index > 0 {
+                        Rectangle().fill(Palette.line).frame(height: 0.5).padding(.leading, 52)
+                    }
+                    row(entry)
+                }
+            }
+            .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
+            .clipShape(.rect(cornerRadius: Radius.card, style: .continuous))
         }
     }
 
-    private func clock(_ seconds: Int) -> String {
-        String(format: "%02d:%02d:%02d", seconds / 3600, seconds / 60 % 60, seconds % 60)
+    /// 한 줄: 순위(1~3위만 강조색) · 이름 · 공부 시간 (오른쪽 정렬 숫자)
+    private func row(_ entry: RankingService.Entry) -> some View {
+        HStack(spacing: 12) {
+            Text("\(entry.rank)")
+                .font(.pt(size: 17, weight: entry.rank <= 3 ? .bold : .regular))
+                .foregroundStyle(entry.isMe ? Theme.onHighlight : (entry.rank <= 3 ? Theme.accent : Color.secondary))
+                .monospacedDigit()
+                .frame(width: 28, alignment: .trailing)
+            Text(entry.isMe ? L("\(entry.name) (나)") : entry.name)
+                .font(.pt(.body).weight(entry.isMe ? .semibold : .regular))
+                .foregroundStyle(entry.isMe ? Theme.onHighlight : Palette.ink)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Text(TimeText.durationL(seconds: entry.seconds))
+                .font(.pt(.body).weight(entry.rank == 1 ? .bold : .regular))
+                .foregroundStyle(entry.isMe ? Theme.onHighlight : Palette.ink)
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(entry.isMe ? Theme.highlight : .clear)
     }
 
     // MARK: 불러오기
@@ -214,6 +223,9 @@ struct RankingView: View {
     }
 
     private func reload(submit: Bool) async {
+        #if DEBUG
+        if isDemo { board = RankingService.demoBoard(period, far: UIShot.matches(.rankingFar)); return }
+        #endif
         guard ranking.isAuthenticated else { board = nil; return }
         loading = true
         defer { loading = false }
@@ -225,34 +237,5 @@ struct RankingView: View {
             board = nil
             message = (error as? RankingService.RankingError)?.errorDescription ?? RankingService.RankingError.notReady.errorDescription
         }
-    }
-}
-
-/// 금·은·동 메달
-private struct Medal: View {
-    let rank: Int
-
-    private var colors: [Color] {
-        switch rank {
-        case 1: return [Color(hex: "#FFD54F"), Color(hex: "#F5B300")]
-        case 2: return [Color(hex: "#E0E0E0"), Color(hex: "#B8B8B8")]
-        default: return [Color(hex: "#F0A07A"), Color(hex: "#D9774B")]
-        }
-    }
-
-    var body: some View {
-        ZStack(alignment: .top) {
-            // 리본
-            HStack(spacing: 4) {
-                Capsule().fill(colors[1].opacity(0.45)).frame(width: 10, height: 26).rotationEffect(.degrees(18))
-                Capsule().fill(colors[1].opacity(0.45)).frame(width: 10, height: 26).rotationEffect(.degrees(-18))
-            }
-            Circle()
-                .fill(LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 60, height: 60)
-                .overlay(Text("\(rank)").font(.pt(.title2).weight(.semibold)).foregroundStyle(.white.opacity(0.9)))
-                .padding(.top, 16)
-        }
-        .frame(height: 80)
     }
 }

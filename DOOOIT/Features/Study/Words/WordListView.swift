@@ -123,7 +123,7 @@ struct WordListView: View {
                         } label: {
                             Text(item.rawValue.loc)
                                 .font(.pt(.subheadline).weight(.semibold))
-                                .foregroundStyle(selected ? .white : Palette.ink.opacity(0.75))
+                                .foregroundStyle(selected ? Theme.onAccent : Palette.ink.opacity(0.75))
                                 .padding(.horizontal, 14)
                                 .frame(height: 32)
                                 .background(selected ? Theme.accent : Palette.cardInset, in: .capsule)

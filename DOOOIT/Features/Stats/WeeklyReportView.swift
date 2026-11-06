@@ -46,48 +46,40 @@ struct WeeklyReportView: View {
     // MARK: 머리 카드
 
     private func hero(_ r: WeeklyReport) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Label("\(r.start.ui("M월 d일")) ~ \(r.end.ui("M월 d일"))", systemImage: "calendar")
-                    .font(.pt(.caption).weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                Spacer()
-                Image(systemName: "sparkles")
-                    .foregroundStyle(.white)
-                    .symbolEffect(.pulse)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(r.start.ui("M월 d일")) ~ \(r.end.ui("M월 d일"))")
+                .font(.pt(.footnote))
+                .foregroundStyle(.secondary)
             Text("이번 주 공부 시간")
-                .font(.pt(.subheadline).weight(.semibold))
-                .foregroundStyle(.white.opacity(0.9))
+                .font(.pt(.subheadline))
+                .foregroundStyle(.secondary)
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(r.totalMinutes / 60)")
-                    .font(.pt(size: 46, weight: .heavy))
+                    .font(.pt(size: 40, weight: .bold))
+                    .monospacedDigit()
                     .contentTransition(.numericText())
-                Text(L("시간(단위)")).font(.pt(.title3).weight(.bold))
+                Text(L("시간(단위)")).font(.pt(.subheadline)).foregroundStyle(.secondary)
                 Text("\(r.totalMinutes % 60)")
-                    .font(.pt(size: 46, weight: .heavy))
+                    .font(.pt(size: 40, weight: .bold))
+                    .monospacedDigit()
                     .contentTransition(.numericText())
-                Text("분").font(.pt(.title3).weight(.bold))
+                    .padding(.leading, 4)
+                Text("분").font(.pt(.subheadline)).foregroundStyle(.secondary)
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(Palette.ink)
             if let change = r.change {
-                Label("지난주보다 \(change >= 0 ? "+" : "")\(Int((change * 100).rounded()))%",
-                      systemImage: change >= 0 ? "arrow.up.right" : "arrow.down.right")
-                    .font(.pt(.subheadline).weight(.bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(.white.opacity(0.2), in: .capsule)
+                Text("지난주보다 \(change >= 0 ? "+" : "")\(Int((change * 100).rounded()))%")
+                    .font(.pt(.subheadline).weight(.semibold))
+                    .foregroundStyle(change >= 0 ? Theme.accent : Color.secondary)
+                    .monospacedDigit()
             } else {
                 Text("다음 주부터 지난주와 비교해 줘요")
-                    .font(.pt(.caption))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .font(.pt(.footnote))
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AccentGradient.linear, in: .rect(cornerRadius: 26))
-        .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
+        .softCard()
     }
 
     // MARK: 날마다
@@ -98,7 +90,7 @@ struct WeeklyReportView: View {
             Chart {
                 ForEach(Array(r.dailyMinutes.enumerated()), id: \.offset) { _, item in
                     BarMark(x: .value("요일", item.day.ui("E")), y: .value("분", chartShown ? item.minutes : 0))
-                        .foregroundStyle(item.minutes >= r.goalMinutes ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Theme.accent.opacity(0.35)))
+                        .foregroundStyle(item.minutes >= r.goalMinutes ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Theme.accent.opacity(0.35)))
                         .cornerRadius(6)
                 }
                 RuleMark(y: .value("목표", r.goalMinutes))
@@ -122,7 +114,7 @@ struct WeeklyReportView: View {
 
     private func summaryCard(_ r: WeeklyReport) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            SectionHeader(title: L("이번 주 한마디"), symbol: "sparkles") { EmptyView() }
+            SectionHeader(title: L("이번 주 한마디"), symbol: "lightbulb") { EmptyView() }
             if let aiComment { Text(aiComment).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true) }
             ForEach(r.highlights.prefix(2), id: \.self) { line in
                 Label(line, systemImage: "star.fill")
@@ -144,9 +136,9 @@ struct WeeklyReportView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
                         .font(.pt(.caption).weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 22, height: 22)
-                        .background(AccentGradient.linear, in: .circle)
+                        .background(Theme.accent, in: .circle)
                     Text(line).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -211,7 +203,7 @@ struct WeeklyReportView: View {
 
     private var aiCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("모티 AI 한마디", systemImage: "sparkles")
+            Label("모티 AI 한마디", systemImage: "lightbulb")
                 .font(.pt(.caption).weight(.bold))
                 .foregroundStyle(Theme.accent)
             Text(aiComment ?? "")
@@ -300,7 +292,7 @@ struct WeeklyReportView: View {
                     GeometryReader { proxy in
                         Capsule().fill(Theme.accent.opacity(0.12))
                             .overlay(alignment: .leading) {
-                                Capsule().fill(AccentGradient.linear)
+                                Capsule().fill(Theme.accent)
                                     .frame(width: chartShown ? proxy.size.width * CGFloat(subject.minutes) / CGFloat(maxMinutes) : 0)
                             }
                     }
@@ -336,7 +328,7 @@ struct WeeklyReportView: View {
                 .foregroundStyle(weak ? Palette.danger : Palette.success)
             Text(weak ? L("보완") : L("탄탄"))
                 .font(.pt(.caption2).weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.onAccent)
                 .padding(.horizontal, 7)
                 .padding(.vertical, 3)
                 .background(weak ? Palette.danger : Palette.success, in: .capsule)
@@ -352,9 +344,9 @@ struct WeeklyReportView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Text("\(index + 1)")
                         .font(.pt(.caption).weight(.bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 22, height: 22)
-                        .background(AccentGradient.linear, in: .circle)
+                        .background(Theme.accent, in: .circle)
                     Text(line).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -421,11 +413,10 @@ struct WeeklyReportLink: View {
     var body: some View {
         NavigationLink { WeeklyReportView() } label: {
             HStack(spacing: 14) {
-                Image(systemName: "newspaper.fill")
-                    .font(.pt(.title3).weight(.bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 46, height: 46)
-                    .background(AccentGradient.linear, in: .rect(cornerRadius: 14))
+                Image(systemName: "newspaper")
+                    .font(.pt(size: 18, weight: .regular))
+                    .foregroundStyle(Palette.ink.opacity(0.62))
+                    .frame(width: 24)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("주간 AI 리포트").font(.pt(.headline)).foregroundStyle(Palette.ink)
                     Text("한 주 정리 · 다음 주 추천").font(.pt(.caption)).foregroundStyle(.secondary)
@@ -433,7 +424,7 @@ struct WeeklyReportLink: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.pt(.footnote).weight(.bold)).foregroundStyle(.tertiary)
             }
-            .softCard(cornerRadius: 22, padding: 14)
+            .softCard(padding: 14)
         }
         .buttonStyle(.pressable)
     }

@@ -29,12 +29,12 @@ struct HomeView: View {
             TimelineView(.everyMinute) { timeline in
                 let now = timeline.date
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    VStack(alignment: .leading, spacing: 20) {
                         header(now: now)
                             .appearAnimation()
                         focusPanel(now: now)
                             .appearAnimation(delay: 0.06)
-                        VStack(spacing: 10) {
+                        VStack(spacing: 8) {
                             quickTiles(now: now)
                             RecentBadgeChip()
                         }
@@ -44,7 +44,7 @@ struct HomeView: View {
                         weekSection(now: now)
                             .appearAnimation(delay: 0.24)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 32)
                 }
@@ -69,14 +69,11 @@ struct HomeView: View {
     private func header(now: Date) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
-                Image(systemName: Greeting.symbol(at: now))
-                    .symbolRenderingMode(.multicolor)
-                    .symbolEffect(.bounce, value: Greeting.symbol(at: now))
                 Text(now.ui("M월 d일 EEEE"))
                 Spacer()
                 DDayChip()
             }
-            .font(.pt(.subheadline).weight(.semibold))
+            .font(.pt(.subheadline))
             .foregroundStyle(.secondary)
 
             Text(Greeting.textL(name: auth.currentUser?.name.loc ?? L("유저"), at: now))
@@ -113,10 +110,10 @@ struct HomeView: View {
         let progress = Double(seconds) / Double(goal)
         let left = max(0, goal - seconds)
 
-        return VStack(spacing: 20) {
+        return VStack(spacing: 16) {
             HStack(spacing: 20) {
                 ZStack {
-                    ProgressRing(progress: progress, lineWidth: 13, color: Theme.accent)
+                    ProgressRing(progress: progress, lineWidth: 9, color: Theme.accent)
                     VStack(spacing: 0) {
                         Text("\(Int(min(progress, 9.99) * 100))%")
                             .font(.pt(.title3).weight(.bold))
@@ -126,20 +123,21 @@ struct HomeView: View {
                         Text("목표").font(.pt(.caption2)).foregroundStyle(.secondary)
                     }
                 }
-                .frame(width: 104, height: 104)
+                .frame(width: 96, height: 96)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(studyTimer.isActive ? L("집중하는 중") : L("오늘 공부"))
-                        .font(.pt(.subheadline).weight(.semibold))
+                        .font(.pt(.subheadline))
                         .foregroundStyle(studyTimer.isActive ? Palette.success : .secondary)
                     Text(TimeText.durationL(seconds: seconds))
-                        .font(.pt(size: 30, weight: .bold))
+                        .font(.pt(size: 34, weight: .bold))
+                        .monospacedDigit()
                         .foregroundStyle(Palette.ink)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
                         .contentTransition(.numericText())
                         .animation(Motion.spring, value: seconds / 60)
-                    Text(left == 0 ? L("오늘 목표 달성! 🎉") : L("목표까지 \(TimeText.durationL(seconds: left))"))
+                    Text(left == 0 ? L("오늘 목표 달성") : L("목표까지 \(TimeText.durationL(seconds: left))"))
                         .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                 }
@@ -158,14 +156,14 @@ struct HomeView: View {
                 NavigationLink { RankingView() } label: {
                     Image(systemName: "trophy")
                         .font(.pt(.title3).weight(.regular))
-                        .foregroundStyle(Palette.butter)
-                        .frame(width: 54, height: 54)
-                        .background(Palette.butter.pastel, in: .rect(cornerRadius: 20, style: .continuous))
+                        .foregroundStyle(Palette.ink)
+                        .frame(width: 52, height: 52)
+                        .background(Palette.ink.opacity(0.06), in: .rect(cornerRadius: Radius.button, style: .continuous))
                 }
                 .accessibilityLabel("공부 랭킹")
             }
         }
-        .softCard(cornerRadius: 26, padding: 20)
+        .softCard()
     }
 
     /// 작은 타일 셋: 연속 공부 · 외울 단어 · 복습할 오답
@@ -177,39 +175,24 @@ struct HomeView: View {
         let due = words.filter(\.isDueForReview).count
         let wordValue = wordsLeft + due == 0 ? L("완료") : L("\(wordsLeft + due)개")
         let unsolved = mathNotes.filter { $0.status != .correct }.count
-        return HStack(spacing: 10) {
-            tile(symbol: "flame.fill", color: Palette.peach, value: L("\(streak(now: now))일"), label: L("연속 공부"))
+        return HStack(spacing: 0) {
+            tile(value: L("\(streak(now: now))일"), label: L("연속 공부"))
+            Rectangle().fill(Palette.line).frame(width: 0.5, height: 36)
             NavigationLink { WordHomeView() } label: {
-                tile(symbol: "book.closed.fill", color: Theme.accent, value: wordValue, label: L("오늘 단어"))
+                tile(value: wordValue, label: L("오늘 단어"))
             }
-            .buttonStyle(.pressable)
+            Rectangle().fill(Palette.line).frame(width: 0.5, height: 36)
             NavigationLink { MathNoteListView() } label: {
-                tile(symbol: "pencil", color: Palette.pink, value: L("\(unsolved)개"), label: L("복습할 오답"))
+                tile(value: L("\(unsolved)개"), label: L("복습할 오답"))
             }
-            .buttonStyle(.pressable)
         }
+        .buttonStyle(.pressable)
+        .softCard(padding: 14)
     }
 
-    private func tile(symbol: String, color: Color, value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: symbol.outlineSymbol)
-                .environment(\.symbolVariants, .none)
-                .font(.pt(.subheadline).weight(.regular))
-                .foregroundStyle(color)
-                .frame(width: 34, height: 34)
-                .background(color.pastel, in: .rect(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(value)
-                    .font(.pt(.title3).weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                    .contentTransition(.numericText())
-                Text(label).font(.pt(.caption)).foregroundStyle(.secondary)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .softCard(cornerRadius: 20, padding: 14)
+    private func tile(value: String, label: String) -> some View {
+        StatColumn(value: value, label: label)
+            .padding(.horizontal, 6)
     }
 
     // MARK: Plans (타임라인, 카드 없음)
@@ -278,8 +261,8 @@ struct HomeView: View {
                 }
                 Chart(stats) { stat in
                     BarMark(x: .value("요일", stat.label), y: .value("분", chartShown ? stat.minutes : 0))
-                        .cornerRadius(7)
-                        .foregroundStyle(stat.isToday ? Theme.accent : Theme.accent.opacity(0.28))
+                        .cornerRadius(3)
+                        .foregroundStyle(stat.isToday ? Theme.accent : Theme.secondary.opacity(0.55))
                 }
                 .chartYAxis { AxisMarks(position: .leading) }
                 .chartYAxisLabel("분")

@@ -292,8 +292,7 @@ struct MathNoteEditorView: View {
             }
         }
         .frame(width: width, height: height)
-        .clipShape(.rect(cornerRadius: 18))
-        .shadow(color: .black.opacity(0.08), radius: 10, y: 4)
+        .clipShape(.rect(cornerRadius: 14))
         // 필기 종이는 다크 모드에서도 흰 종이 그대로 (검은 펜 글씨가 보이도록)
         .environment(\.colorScheme, .light)
     }
@@ -374,7 +373,7 @@ struct MathNoteEditorView: View {
                                     .font(.pt(size: 9, weight: .semibold))
                             }
                             .frame(width: 46, height: 44)
-                            .foregroundStyle(tool == item ? Color.white : Color.primary)
+                            .foregroundStyle(tool == item ? Theme.onAccent : Color.primary)
                             .background(tool == item ? Theme.accent : Color.clear, in: .rect(cornerRadius: 14))
                         }
                         .buttonStyle(.plain)
@@ -391,7 +390,7 @@ struct MathNoteEditorView: View {
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .glassEffect(.regular, in: .rect(cornerRadius: 24))
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
             }
         }
     }
@@ -492,14 +491,13 @@ struct MathNoteEditorView: View {
             }
         }
         .padding(18)
-        .background(Palette.card, in: .rect(cornerRadius: 22))
+        .background(Palette.card, in: .rect(cornerRadius: 14))
         .overlay(alignment: .leading) {
             UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 22)
                 .fill(Theme.accent)
                 .frame(width: 5)
         }
-        .clipShape(.rect(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.07), radius: 14, y: 6)
+        .clipShape(.rect(cornerRadius: 14))
     }
 
     private func insertSymbol(_ symbol: MathSymbolBar.Symbol) {

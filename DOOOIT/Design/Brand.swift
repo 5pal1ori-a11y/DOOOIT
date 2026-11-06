@@ -6,7 +6,7 @@ import SwiftUI
 struct BrandLogo: View {
     var size: CGFloat = 96
     /// 뒤에 테마 색 빛 번짐
-    var glow = true
+    var glow = false
 
     var body: some View {
         let radius = size * 0.26
@@ -18,10 +18,9 @@ struct BrandLogo: View {
             .clipShape(.rect(cornerRadius: radius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.55), lineWidth: 0.75)
+                    .strokeBorder(Palette.line, lineWidth: 0.5)
             }
-            .shadow(color: Theme.accent.opacity(glow ? 0.38 : 0), radius: size * 0.22, y: size * 0.12)
-            .shadow(color: .black.opacity(0.08), radius: size * 0.04, y: size * 0.02)
+            .shadow(color: Theme.accent.opacity(glow ? 0.2 : 0), radius: size * 0.12, y: size * 0.05)
             .accessibilityHidden(true)
     }
 }
@@ -43,49 +42,27 @@ struct BrandWordmark: View {
     }
 }
 
-/// 바탕 + 테마 색 빛 두 덩이가 아주 천천히 흐르는 배경 (동작 줄이기 설정이면 멈춤)
+/// 바탕: 단색 + 맨 위에만 테마 색이 아주 옅게 (예전엔 빛 두 덩이가 흘렀음 → 움직임 없음)
 struct BrandBackdrop: View {
-    /// 빛이 천천히 움직이는지
-    var animated = true
-    /// 빛 세기 (0...1)
+    /// 예전 호출 모양을 위해 남김 (움직이지 않음)
+    var animated = false
+    /// 색조 세기 (0...1)
     var intensity: Double = 1
 
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
     @Environment(\.colorScheme) private var scheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var drift = false
 
     var body: some View {
         let theme = ThemeColor.from(themeRaw)
-        let strength = (scheme == .dark ? 0.42 : 0.30) * intensity
-
-        GeometryReader { geo in
-            let w = geo.size.width
-            ZStack {
-                Theme.base
-                glowBlob(theme.accent.opacity(strength), diameter: w * 1.25)
-                    .offset(x: drift ? w * 0.22 : -w * 0.18, y: drift ? -geo.size.height * 0.30 : -geo.size.height * 0.22)
-                // 두 번째 빛: 밝은 화면은 연한 색, 어두운 화면은 강조색
-                glowBlob((scheme == .dark ? theme.accent : theme.light).opacity(strength * (scheme == .dark ? 0.6 : 1.5)),
-                         diameter: w * 1.1)
-                    .offset(x: drift ? -w * 0.25 : w * 0.2, y: drift ? geo.size.height * 0.12 : geo.size.height * 0.2)
-            }
-            .frame(width: geo.size.width, height: geo.size.height)
+        ZStack(alignment: .top) {
+            Theme.base
+            LinearGradient(colors: [theme.secondary.opacity((scheme == .dark ? 0.16 : 0.10) * intensity), theme.secondary.opacity(0)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: 260)
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onAppear {
-            guard animated, !reduceMotion, !drift else { return }
-            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) { drift = true }
-        }
-    }
-
-    private func glowBlob(_ color: Color, diameter: CGFloat) -> some View {
-        Circle()
-            .fill(RadialGradient(colors: [color, color.opacity(0)], center: .center,
-                                 startRadius: 0, endRadius: diameter / 2))
-            .frame(width: diameter, height: diameter)
     }
 }
 

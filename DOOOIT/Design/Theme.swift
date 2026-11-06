@@ -55,6 +55,14 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     static let key = "appearanceMode"
 }
 
+/// 모서리 반지름 (한 종류씩만 씀)
+enum Radius {
+    static let card: CGFloat = 14
+    static let field: CGFloat = 10
+    static let button: CGFloat = 14
+    static let chip: CGFloat = 6
+}
+
 enum Palette {
     static let swatches = [
         "#6C63FF", "#3B82F6", "#06B6D4", "#10B981", "#84CC16", "#F59E0B",
@@ -66,11 +74,13 @@ enum Palette {
     static let notePage = Color(hex: "#FFFFFF")
     static let noteGrid = Color(hex: "#E7ECF3")
     /// 글자 색 (다크 모드에서는 밝게)
-    static let ink = Color(light: "#1F2433", dark: "#F2F3F7")
+    static var ink: Color { Theme.current.ink }
     /// 카드 바탕 (흰색 / 다크 모드 진회색)
     static let card = Color(light: "#FFFFFF", dark: "#1C1C1E")
     /// 카드 안 한 단계 더 들어간 칸
     static let cardInset = Color(light: "#F2F3F6", dark: "#2C2C2E")
+    /// 줄 · 카드 테두리 (헤어라인)
+    static var line: Color { Theme.current.line }
     static let success = Color(hex: "#22C55E")
     static let danger = Color(hex: "#EF4444")
     static let warning = Color(hex: "#F59E0B")
@@ -84,7 +94,7 @@ enum Palette {
 }
 
 extension Color {
-    /// 아이콘 바탕용 옅은 파스텔 (어두운 화면에서는 조금 더 옅게)
+    /// 옅은 색 바탕 (어두운 화면에서는 조금 더 옅게)
     var pastel: Color {
         let base = UIColor(self)
         return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? base.withAlphaComponent(0.16) : base.withAlphaComponent(0.14) })
@@ -93,17 +103,21 @@ extension Color {
 
 // MARK: - Background
 
-/// 테마: 색 세 가지씩 (진한 색 · 강조색 · 연한 색). 바탕은 눈부시지 않은 흰색으로 고정
-/// - 진한 색: 버튼 그라데이션의 어두운 쪽 · 강조색: 버튼·아이콘·그래프 · 연한 색: 바탕 빛 번짐·옅은 칸
+/// 테마 넷: 모노(옅은 회색 · 하양 · 검정) · 캔디(노랑 · 핑크 · 찐한 핑크) · 포레스트 · 오션
+/// 색은 "역할"별로 나눠 화면 곳곳에 씀 (한 가지 강조색에 몰아 쓰지 않음)
+/// - primary(accent): 주요 버튼 · 선택 · 진행 채움 · 링크 글자 (이 위의 글자는 onAccent)
+/// - secondary: 아이콘 · 보조 칩 · 진행 중간 색 · 그래프의 지난 값
+/// - highlight: 오늘 표시 · 랭킹의 내 줄 · 달성 표시 (이 위의 글자는 onHighlight)
+/// - 바탕(base) · 글자(ink) · 선(line)도 테마마다 다름
 enum ThemeColor: String, CaseIterable, Identifiable {
-    case midnight, forest, twilight, ocean
-    /// 예전(한 가지 색) 테마 값: 지금 값을 지우지 않고 가장 비슷한 새 테마로 이어서 씀
-    case lavender, sky, mint
+    case mono, candy, forest, ocean
+    /// 예전 테마 값: 지우지 않고 가장 비슷한 새 테마로 이어서 씀 (보라 계열은 모노로)
+    case midnight, twilight, lavender, sky, mint
 
     /// 고르는 화면에 보이는 테마 (예전 값은 제외)
-    static var allCases: [ThemeColor] { [.midnight, .forest, .twilight, .ocean] }
-    /// 처음 쓰는 테마 (앱 로고와 같은 보라 계열)
-    static let standard: ThemeColor = .twilight
+    static var allCases: [ThemeColor] { [.mono, .candy, .forest, .ocean] }
+    /// 처음 쓰는 테마
+    static let standard: ThemeColor = .mono
 
     var id: String { resolved.rawValue }
 
@@ -113,7 +127,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
     /// 예전 값을 새 테마로 바꾼 것
     var resolved: ThemeColor {
         switch self {
-        case .lavender: return .twilight
+        case .midnight, .twilight, .lavender: return .mono
         case .sky: return .ocean
         case .mint: return .forest
         default: return self
@@ -127,131 +141,180 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
     var title: String {
         switch resolved {
-        case .midnight: return L("미드나잇")
+        case .mono: return L("모노")
+        case .candy: return L("캔디")
         case .forest: return L("포레스트")
-        case .twilight: return L("트와일라이트")
         default: return L("오션")
         }
     }
 
-    /// 진한 색 (딥네이비 · 다크그린 · 차콜 · 네이비)
-    var deep: Color {
+    private func pick(mono: (String, String), candy: (String, String), forest: (String, String), ocean: (String, String)) -> Color {
+        let v: (String, String)
         switch resolved {
-        case .midnight: return Color(hex: "#151B52")
-        case .forest: return Color(hex: "#14532D")
-        case .twilight: return Color(hex: "#2B2B3D")
-        default: return Color(hex: "#10306B")
+        case .mono: v = mono
+        case .candy: v = candy
+        case .forest: v = forest
+        default: v = ocean
         }
+        return Color(light: v.0, dark: v.1)
     }
 
-    /// 버튼·강조에 쓰는 색 (인디고 · 민트 · 퍼플 · 스카이블루, 흰 글자가 읽히도록 살짝 진하게)
+    // MARK: 바탕 · 글자 · 선
+
+    /// 화면 바탕
+    var base: Color {
+        pick(mono: ("#F2F2F4", "#000000"), candy: ("#FFF7FA", "#0D0709"),
+             forest: ("#F5F6F8", "#000000"), ocean: ("#F5F6F8", "#000000"))
+    }
+
+    /// 글자 색
+    var ink: Color {
+        pick(mono: ("#111111", "#F2F3F7"), candy: ("#1A1418", "#F7F1F4"),
+             forest: ("#1F2433", "#F2F3F7"), ocean: ("#1F2433", "#F2F3F7"))
+    }
+
+    /// 카드 테두리 · 구분선 (헤어라인)
+    var line: Color {
+        pick(mono: ("#E0E0E4", "#2E2E31"), candy: ("#F3DCE6", "#33222B"),
+             forest: ("#E3E5EA", "#2E2E31"), ocean: ("#E3E5EA", "#2E2E31"))
+    }
+
+    // MARK: 역할 색
+
+    /// 주요 버튼 · 선택 표시 · 진행 채움 (모노: 밝게 검정 / 어둡게 흰색)
     var accent: Color {
+        pick(mono: ("#111111", "#FFFFFF"), candy: ("#D81B60", "#D81B60"),
+             forest: ("#1E9E74", "#1E9E74"), ocean: ("#2E8FE6", "#2E8FE6"))
+    }
+
+    /// accent 위에 얹는 글자 · 아이콘 색 (모노 어둡게만 검정)
+    var onAccent: Color {
+        pick(mono: ("#FFFFFF", "#111111"), candy: ("#FFFFFF", "#FFFFFF"),
+             forest: ("#FFFFFF", "#FFFFFF"), ocean: ("#FFFFFF", "#FFFFFF"))
+    }
+
+    /// 보조: 아이콘 · 칩 · 그래프의 지난 값 · 진행 중간 색
+    var secondary: Color {
+        pick(mono: ("#8E8E93", "#8E8E93"), candy: ("#FF6FA5", "#FF7FB0"),
+             forest: ("#5BAF88", "#5BAF88"), ocean: ("#70B4F0", "#70B4F0"))
+    }
+
+    /// 보조 색 바탕 (칩 · 진행 막대 바탕 · 옅은 칸)
+    var secondaryFill: Color {
+        pick(mono: ("#E4E4E7", "#2C2C2E"), candy: ("#FFE0EC", "#2B1A22"),
+             forest: ("#E3EEDD", "#1F2E25"), ocean: ("#E0F0FD", "#1A2C3E"))
+    }
+
+    /// 하이라이트: 오늘 · 내 줄 · 달성 (캔디는 노랑, 모노는 회색 바탕)
+    var highlight: Color {
+        pick(mono: ("#E4E4E7", "#3A3A3C"), candy: ("#FFD84D", "#FFD84D"),
+             forest: ("#CFE3B8", "#2E4A3A"), ocean: ("#CFE6FB", "#1F3C5E"))
+    }
+
+    /// highlight 위의 글자
+    var onHighlight: Color {
+        pick(mono: ("#111111", "#F2F3F7"), candy: ("#1A1418", "#1A1418"),
+             forest: ("#14301F", "#E6F2DD"), ocean: ("#0E2A55", "#E1EEFB"))
+    }
+
+    // MARK: 예전 이름 (역할 색에서 유도 · 계속 동작)
+
+    /// 진한 색 (그라데이션 시작)
+    var deep: Color {
+        pick(mono: ("#111111", "#FFFFFF"), candy: ("#D81B60", "#D81B60"),
+             forest: ("#14532D", "#14532D"), ocean: ("#10306B", "#10306B"))
+    }
+
+    /// 연한 색 (견본 · 옅은 칸)
+    var light: Color {
+        pick(mono: ("#D1D1D6", "#3A3A3C"), candy: ("#FFB3D1", "#FFB3D1"),
+             forest: ("#B7C9A8", "#B7C9A8"), ocean: ("#D4ECFF", "#D4ECFF"))
+    }
+
+    /// 그라데이션 끝 색 (흰 글자가 올라가는 곳의 세 번째 색)
+    var lift: Color {
+        pick(mono: ("#6B6B72", "#C7C7CC"), candy: ("#F27AA8", "#F27AA8"),
+             forest: ("#5BAF88", "#5BAF88"), ocean: ("#70B4F0", "#70B4F0"))
+    }
+
+    /// 그라데이션 가운데 색
+    private var mid: Color {
+        pick(mono: ("#34343A", "#E4E4E7"), candy: ("#E8407F", "#E8407F"),
+             forest: ("#1E9E74", "#1E9E74"), ocean: ("#2E8FE6", "#2E8FE6"))
+    }
+
+    /// 항상 어두운 화면(타이머)에서 쓰는 강조색 (위의 글자는 검정)
+    var timerAccent: Color {
         switch resolved {
-        case .midnight: return Color(hex: "#4F5BD5")
-        case .forest: return Color(hex: "#1E9E74")
-        case .twilight: return Color(hex: "#7C4DDB")
-        default: return Color(hex: "#2E8FE6")
+        case .mono: return Color(hex: "#FFFFFF")
+        case .candy: return Color(hex: "#FF5C93")
+        case .forest: return Color(hex: "#3DD68C")
+        default: return Color(hex: "#4DA3FF")
         }
     }
 
-    /// 연한 색 (라벤더 · 세이지 · 라이트 바이올렛 · 아이스)
-    var light: Color {
+    /// 견본 세 칸 (고르는 화면)
+    var swatches: [Color] {
         switch resolved {
-        case .midnight: return Color(hex: "#B8B5F5")
-        case .forest: return Color(hex: "#B7C9A8")
-        case .twilight: return Color(hex: "#CBB8F7")
-        default: return Color(hex: "#D4ECFF")
+        case .mono: return [Color(hex: "#111111"), Color(hex: "#E4E4E7"), Color(hex: "#FFFFFF")]
+        case .candy: return [Color(hex: "#D81B60"), Color(hex: "#FF6FA5"), Color(hex: "#FFD84D")]
+        default: return [deep, accent, light]
         }
     }
 
     /// 세 색이 이어지는 그라데이션 (진한 → 강조 → 연한)
     var spectrum: LinearGradient {
-        LinearGradient(colors: [deep, accent, light], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [deep, mid, lift], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
-    /// 연한 색을 강조색에 40%쯤 섞은 색 (흰 글자가 올라가는 곳의 세 번째 색)
-    var lift: Color {
-        switch resolved {
-        case .midnight: return Color(hex: "#797FE2")
-        case .forest: return Color(hex: "#5BAF88")
-        case .twilight: return Color(hex: "#9C72E6")
-        default: return Color(hex: "#70B4F0")
-        }
-    }
-
-    /// 꽉 찬 버튼 바탕: 세 색 그라데이션 (진한 → 강조 → 살짝 밝은 색). 흰 글자가 읽히도록 밝은 색은 끝에만
+    /// 꽉 찬 버튼 바탕: 세 색 그라데이션 (진한 → 가운데 → 끝 색). 위의 글자는 onAccent
     var fill: LinearGradient {
-        LinearGradient(stops: [.init(color: deep, location: 0), .init(color: accent, location: 0.58), .init(color: lift, location: 1)],
+        LinearGradient(stops: [.init(color: deep, location: 0), .init(color: mid, location: 0.58), .init(color: lift, location: 1)],
                        startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     /// 배경에 은은하게 깔리는 색
-    var soft: Color {
-        switch resolved {
-        case .midnight: return Color(hex: "#E7E6FB")
-        case .forest: return Color(hex: "#E3EEDD")
-        case .twilight: return Color(hex: "#EEE8FC")
-        default: return Color(hex: "#E0F0FD")
-        }
-    }
+    var soft: Color { secondaryFill }
 
     var softer: Color {
-        switch resolved {
-        case .midnight: return Color(hex: "#F1F0FD")
-        case .forest: return Color(hex: "#EEF5EA")
-        case .twilight: return Color(hex: "#F6F2FE")
-        default: return Color(hex: "#EDF7FE")
-        }
+        pick(mono: ("#EEEEF0", "#1C1C1E"), candy: ("#FFF0F6", "#2A121C"),
+             forest: ("#EEF5EA", "#18241D"), ocean: ("#EDF7FE", "#15222F"))
     }
 
-    /// 위젯·워치에 넘기는 강조색
+    /// 위젯·워치에 넘기는 강조색 (모노 #111111 · 캔디 #D81B60)
     var accentHex: String {
         switch resolved {
-        case .midnight: return "#4F5BD5"
+        case .mono: return "#111111"
+        case .candy: return "#D81B60"
         case .forest: return "#1E9E74"
-        case .twilight: return "#7C4DDB"
         default: return "#2E8FE6"
         }
     }
 }
 
 enum Theme {
-    /// 눈부시지 않은 흰색 바탕
-    static let base = Color(light: "#F5F6F8", dark: "#000000")
+    /// 화면 바탕 (테마마다 다름)
+    static var base: Color { current.base }
 
     static var current: ThemeColor {
         ThemeColor.from(UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? "")
     }
 
     static var accent: Color { current.accent }
+    static var onAccent: Color { current.onAccent }
+    static var secondary: Color { current.secondary }
+    static var secondaryFill: Color { current.secondaryFill }
+    static var highlight: Color { current.highlight }
+    static var onHighlight: Color { current.onHighlight }
 }
 
-/// 깔끔한 바탕: 차분한 회색 위에, 맨 위에만 테마 색이 아주 옅게 (카드가 또렷하게 보이도록)
+/// 바탕: 단색 (빛 번짐 없음). 카드와 헤어라인이 또렷하게 보이도록 밝은 회색 / 검정
 struct AppBackground: View {
+    /// 테마를 고르면 바로 바뀌도록 구독
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
 
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        let theme = ThemeColor.from(themeRaw)
-        ZStack(alignment: .top) {
-            Theme.base
-            if scheme == .dark {
-                // 어두운 화면: 테마 색을 아주 살짝만 (왼쪽 강조색 · 오른쪽 진한 색)
-                LinearGradient(colors: [theme.accent.opacity(0.18), theme.deep.opacity(0.22), theme.accent.opacity(0)],
-                               startPoint: .topLeading, endPoint: .bottom)
-                    .frame(height: 340)
-            } else {
-                // 밝은 화면: 옅은 바탕 위에 연한 색 빛이 오른쪽 위에서 번짐
-                LinearGradient(colors: [theme.soft.opacity(0.9), theme.softer.opacity(0.5), Theme.base.opacity(0)],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 320)
-                RadialGradient(colors: [theme.light.opacity(0.45), theme.light.opacity(0)],
-                               center: .topTrailing, startRadius: 0, endRadius: 280)
-                    .frame(height: 320)
-            }
-        }
-        .ignoresSafeArea()
+        ThemeColor.from(themeRaw).base.ignoresSafeArea()
     }
 }
 
@@ -265,20 +328,23 @@ func makeGlass(tint: Color? = nil, interactive: Bool = false) -> Glass {
 }
 
 extension View {
-    /// 리퀴드 글라스 카드
-    func glassCard(cornerRadius: CGFloat = 26, padding: CGFloat = 18, tint: Color? = nil, interactive: Bool = false) -> some View {
+    /// 카드 (이름은 예전 그대로 · 이제는 유리 대신 단색 카드 + 헤어라인). tint가 있으면 아주 옅게 깔림
+    func glassCard(cornerRadius: CGFloat = 14, padding: CGFloat = 16, tint: Color? = nil, interactive: Bool = false) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(makeGlass(tint: tint, interactive: interactive), in: .rect(cornerRadius: cornerRadius))
+            .background {
+                if let tint { RoundedRectangle(cornerRadius: min(cornerRadius, Radius.card), style: .continuous).fill(tint.opacity(0.08)) }
+            }
+            .softCardBackground(cornerRadius: cornerRadius)
     }
 
-    /// 리퀴드 글라스 입력 필드
+    /// 입력 필드: 회색 칸 (유리 아님)
     func glassField() -> some View {
         self
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
     }
 
     func errorAlert(_ message: Binding<String?>, title: String? = nil) -> some View {

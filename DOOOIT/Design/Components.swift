@@ -3,22 +3,20 @@ import SwiftUI
 // MARK: - 카드 스타일 (모티 AI 화면과 같은 흰 카드)
 
 extension View {
-    /// 흰 카드: 얇은 테두리 + 아주 옅은 그림자 + 둥근 모서리 (또렷하고 가볍게)
-    func softCard(cornerRadius: CGFloat = 24, padding: CGFloat = 18) -> some View {
+    /// 카드: 단색 면 + 헤어라인 테두리 (그림자 없음)
+    func softCard(cornerRadius: CGFloat = Radius.card, padding: CGFloat = 16) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .softCardBackground(cornerRadius: cornerRadius)
     }
 
-    /// 패딩 없이 흰 카드 배경만 (목록 묶음 등)
-    /// (모서리는 조금 더 둥글게: 큰 카드일수록 4pt 더)
-    func softCardBackground(cornerRadius: CGFloat = 24) -> some View {
-        let radius = cornerRadius >= 18 ? cornerRadius + 4 : cornerRadius
+    /// 패딩 없이 카드 배경만 (목록 묶음 등). 예전에 큰 반지름을 넘긴 곳도 한 종류(14)로 맞춤
+    func softCardBackground(cornerRadius: CGFloat = Radius.card) -> some View {
+        let radius = min(cornerRadius, Radius.card)
         return self
             .background(Palette.card, in: .rect(cornerRadius: radius, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Color.primary.opacity(0.05), lineWidth: 0.5))
-            .shadow(color: Color(light: "#5B4BC4", dark: "#000000").opacity(0.06), radius: 14, y: 5)
+            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
     }
 }
 
@@ -33,7 +31,7 @@ enum AccentGradient {
     static var linear: LinearGradient { Theme.current.fill }
 }
 
-/// 섹션 제목 (아이콘 + 제목 + 우측 액세서리)
+/// 섹션 제목 (제목 + 우측 액세서리). symbol은 예전 호출 모양을 위해 남겨 두고 그리지 않음
 struct SectionHeader<Trailing: View>: View {
     let title: String
     let symbol: String
@@ -41,12 +39,6 @@ struct SectionHeader<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: symbol.outlineSymbol)
-                .environment(\.symbolVariants, .none)
-                .font(.pt(.caption).weight(.regular))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 26, height: 26)
-                .background(Theme.accent.pastel, in: .rect(cornerRadius: 8, style: .continuous))
             Text(title)
                 .font(.pt(.headline).weight(.bold))
                 .foregroundStyle(Palette.ink)
@@ -62,42 +54,36 @@ extension SectionHeader where Trailing == EmptyView {
     }
 }
 
-/// 빈 상태 화면
+/// 빈 상태 화면: 회색 아이콘 + 한 줄
 struct EmptyStateView: View {
     let symbol: String
     let title: String
     var message: String? = nil
 
-    @State private var appeared = false
-
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 8) {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
-                .font(.pt(size: 28, weight: .regular))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 72, height: 72)
-                .background(Theme.accent.pastel, in: .rect(cornerRadius: 24, style: .continuous))
-                .symbolEffect(.bounce, value: appeared)
-                .padding(.bottom, 2)
+                .font(.pt(size: 26, weight: .light))
+                .foregroundStyle(.tertiary)
+                .padding(.bottom, 4)
             Text(title)
-                .font(.pt(.headline))
+                .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
             if let message {
                 Text(message)
-                    .font(.pt(.subheadline))
+                    .font(.pt(.footnote))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 32)
-        .onAppear { appeared = true }
+        .padding(.vertical, 28)
     }
 }
 
-/// 아이콘이 들어간 원형 배지
+/// 아이콘 (예전엔 색 있는 칸 안에 넣었음 → 칸 없이 아이콘만. 카테고리 색처럼 뜻이 있는 색은 그대로)
 struct IconBadge: View {
     let symbol: String
     var color: Color = Theme.accent
@@ -106,10 +92,9 @@ struct IconBadge: View {
     var body: some View {
         Image(systemName: symbol.outlineSymbol)
             .environment(\.symbolVariants, .none)
-            .font(.pt(size: size * 0.42, weight: .regular))
+            .font(.pt(size: size * 0.5, weight: .regular))
             .foregroundStyle(color)
-            .frame(width: size, height: size)
-            .background(color.pastel, in: .rect(cornerRadius: size * 0.34, style: .continuous))
+            .frame(width: size * 0.7, height: size * 0.7)
     }
 }
 
@@ -124,11 +109,12 @@ struct TagLabel: View {
             if let symbol { Image(systemName: symbol) }
             Text(text)
         }
-        .font(.pt(.caption2).weight(.bold))
+        .font(.pt(.caption2).weight(.semibold))
         .foregroundStyle(color)
-        .padding(.horizontal, 9)
-        .padding(.vertical, 4)
-        .background(color.opacity(0.13), in: .capsule)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(color == Theme.accent ? Theme.secondaryFill : color.opacity(0.10),
+                    in: .rect(cornerRadius: Radius.chip, style: .continuous))
     }
 }
 
@@ -140,7 +126,7 @@ struct ProgressRing: View {
 
     var body: some View {
         ZStack {
-            Circle().stroke(color.opacity(0.18), lineWidth: lineWidth)
+            Circle().stroke(Theme.secondaryFill, lineWidth: lineWidth)
             Circle()
                 .trim(from: 0, to: min(max(progress, 0), 1))
                 .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
@@ -197,8 +183,8 @@ struct ProcessingOverlay: View {
                 Text(message).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
             }
             .padding(28)
-            .background(Palette.card, in: .rect(cornerRadius: 26))
-            .shadow(color: .black.opacity(0.12), radius: 20, y: 8)
+            .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
         }
         .transition(.opacity)
     }
@@ -214,10 +200,9 @@ struct ThemePicker: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 12) {
                 Image(systemName: "paintpalette")
-                    .font(.pt(size: 14, weight: .regular))
-                    .foregroundStyle(current.accent)
-                    .frame(width: 30, height: 30)
-                    .background(current.accent.pastel, in: .rect(cornerRadius: 10, style: .continuous))
+                    .font(.pt(size: 17, weight: .regular))
+                    .foregroundStyle(Theme.secondary)
+                    .frame(width: 24)
                 Text("테마")
                 Spacer(minLength: 0)
                 Text(current.title)
@@ -245,19 +230,19 @@ struct ThemePicker: View {
             VStack(spacing: 7) {
                 // 진한 색 · 강조색 · 연한 색 세 줄
                 HStack(spacing: 0) {
-                    Rectangle().fill(theme.deep)
-                    Rectangle().fill(theme.accent)
-                    Rectangle().fill(theme.light)
+                    ForEach(Array(theme.swatches.enumerated()), id: \.offset) { _, color in
+                        Rectangle().fill(color)
+                    }
                 }
                 .frame(height: 38)
-                .clipShape(.rect(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isOn ? theme.accent : Color.primary.opacity(0.08), lineWidth: isOn ? 2.5 : 1))
+                .clipShape(.rect(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(isOn ? theme.accent : Palette.line, lineWidth: isOn ? 2 : 0.5))
                 .overlay(alignment: .topTrailing) {
                     if isOn {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.pt(size: 15, weight: .bold))
-                            .foregroundStyle(.white, theme.accent)
+                            .foregroundStyle(theme.onAccent, theme.accent)
                             .offset(x: 5, y: -5)
                     }
                 }
@@ -285,14 +270,14 @@ struct SectionTitle<Trailing: View>: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.pt(.title3).weight(.bold))
+                .font(.pt(size: 20, weight: .semibold))
                 .foregroundStyle(Palette.ink)
             Spacer(minLength: 8)
             trailing
-                .font(.pt(.subheadline).weight(.medium))
+                .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 2)
     }
 }
 
@@ -302,7 +287,8 @@ extension SectionTitle where Trailing == EmptyView {
     }
 }
 
-/// 목록 한 줄: 아이콘 · 제목 · 설명 · 오른쪽 값 · 꺾쇠
+/// 목록 한 줄: 단색 아이콘 · 제목 · 설명 · 오른쪽 값 · 꺾쇠
+/// (color는 예전 호출 모양 그대로 받지만, 빨강(위험)만 쓰고 나머지는 단색으로 맞춤)
 struct RowLabel: View {
     let symbol: String
     var color: Color = Theme.accent
@@ -312,36 +298,35 @@ struct RowLabel: View {
     var chevron = true
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Image(systemName: symbol.outlineSymbol)
                 .environment(\.symbolVariants, .none)
-                .font(.pt(size: 17, weight: .regular))
-                .foregroundStyle(color)
-                .frame(width: 40, height: 40)
-                .background(color.pastel, in: .rect(cornerRadius: 14, style: .continuous))
+                .font(.pt(size: 18, weight: .regular))
+                .foregroundStyle(color == Palette.danger ? color : Theme.secondary)
+                .frame(width: 24)
             VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.pt(.body).weight(.semibold)).foregroundStyle(Palette.ink)
+                Text(title).font(.pt(.body)).foregroundStyle(Palette.ink)
                 if let subtitle {
-                    Text(subtitle).font(.pt(.subheadline)).foregroundStyle(.secondary).lineLimit(2)
+                    Text(subtitle).font(.pt(.footnote)).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
             Spacer(minLength: 8)
             if let value {
-                Text(value).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                Text(value).font(.pt(.subheadline)).foregroundStyle(.secondary).monospacedDigit()
             }
             if chevron {
                 Image(systemName: "chevron.right").font(.pt(.footnote).weight(.semibold)).foregroundStyle(.tertiary)
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 13)
         .contentShape(Rectangle())
     }
 }
 
 /// 카드 안 줄 사이 구분선 (아이콘 너비만큼 들여씀)
 struct RowDivider: View {
-    var body: some View { Divider().padding(.leading, 70) }
+    var body: some View { Rectangle().fill(Palette.line).frame(height: 0.5).padding(.leading, 52) }
 }
 
 /// 큰 숫자 + 작은 설명 (요약 카드 아래 칸)
@@ -353,13 +338,13 @@ struct StatColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value)
-                .font(.pt(.title3).weight(.bold))
+                .font(.pt(size: 22, weight: .bold))
                 .foregroundStyle(color)
                 .monospacedDigit()
                 .contentTransition(.numericText())
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
-            Text(label).font(.pt(.caption)).foregroundStyle(.secondary)
+            Text(label).font(.pt(.footnote)).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -374,7 +359,7 @@ struct LinearProgressBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(color.opacity(0.14))
+                Capsule().fill(Theme.secondaryFill)
                 Capsule().fill(color).frame(width: max(height, geo.size.width * min(max(value, 0), 1)))
             }
         }
@@ -387,15 +372,13 @@ struct LinearProgressBar: View {
 struct PrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.pt(.body).weight(.bold))
-            .foregroundStyle(.white)
+            .font(.pt(.body).weight(.semibold))
+            .foregroundStyle(Theme.onAccent)
             .frame(maxWidth: .infinity)
-            .frame(height: 54)
-            .background(Theme.current.fill, in: .rect(cornerRadius: 20, style: .continuous))
-            .shadow(color: Theme.accent.opacity(0.25), radius: 10, y: 4)
-            .opacity(configuration.isPressed ? 0.88 : 1)
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: configuration.isPressed)
+            .frame(height: 52)
+            .background(Theme.current.fill, in: .rect(cornerRadius: Radius.button, style: .continuous))
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -404,11 +387,11 @@ extension ButtonStyle where Self == PrimaryButtonStyle {
 }
 
 
-/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (트와일라이트가 기본 아이콘, 나머지는 대체 아이콘)
+/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (모노가 기본 아이콘, 나머지는 대체 아이콘)
 /// iOS가 바꿀 때마다 "아이콘을 변경했습니다" 안내를 한 번 보여 줘요
 enum AppIconSwitcher {
     static func iconName(for theme: ThemeColor) -> String? {
-        theme.resolved == .twilight ? nil : "AppIcon-\(theme.resolved.rawValue)"
+        theme.resolved == .mono ? nil : "AppIcon-\(theme.resolved.rawValue)"
     }
 
     @MainActor static func apply(_ theme: ThemeColor) {

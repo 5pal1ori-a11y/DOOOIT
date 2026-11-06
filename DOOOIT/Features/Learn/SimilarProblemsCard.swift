@@ -56,7 +56,7 @@ struct SimilarProblemsCard: View {
                 Text("같은 핵심 개념을 단계별로 연습해요. 숫자만 바꾼 문제가 아니라 개념 확인 → 쉬운 유형 → 비슷한 문제 → 응용 → 최종 복습 순서로, 맞히면 어려워지고 틀리면 개념을 다시 보여줘요.")
                     .font(.pt(.subheadline)).foregroundStyle(.secondary)
                 Button { Task { await start() } } label: {
-                    Label("단계 학습 시작", systemImage: "sparkles").frame(maxWidth: .infinity).frame(height: 38)
+                    Label("단계 학습 시작", systemImage: "lightbulb").frame(maxWidth: .infinity).frame(height: 38)
                 }
                 .buttonStyle(.glassProminent)
                 .disabled(note.recognizedText.isEmpty || working)
@@ -77,7 +77,7 @@ struct SimilarProblemsCard: View {
             ForEach(1...5, id: \.self) { level in
                 let passed = ladder.history.contains { $0.level == level && $0.correct }
                 Capsule()
-                    .fill(passed ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(level == ladder.level ? Theme.accent.opacity(0.35) : Color.primary.opacity(0.08)))
+                    .fill(passed ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(level == ladder.level ? Theme.accent.opacity(0.35) : Color.primary.opacity(0.08)))
                     .frame(height: 8)
             }
         }

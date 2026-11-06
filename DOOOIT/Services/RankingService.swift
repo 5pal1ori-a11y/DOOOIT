@@ -167,6 +167,26 @@ final class RankingService {
     }
 }
 
+#if DEBUG
+extension RankingService {
+    /// 화면 사진용 가짜 순위 (Game Center 없이)
+    static func demoBoard(_ period: Period, far: Bool) -> Board {
+        let names = ["하늘", "서준", "지민", "도윤", "유나", "민재", "수아", "현우", "채원", "지호", "예린", "태양"]
+        let base = period == .daily ? 21_600 : (period == .weekly ? 108_000 : 410_000)
+        var entries = names.enumerated().map { i, name in
+            Entry(id: "demo\(i)", rank: i + 1, name: name, seconds: base - i * (base / 16) - i * 37, isMe: false)
+        }
+        let range = period.fallbackRange(back: 0)
+        if far {
+            let me = Entry(id: "me", rank: 87, name: "김모티", seconds: base / 6, isMe: true)
+            return Board(period: period, start: range.start, end: range.end, entries: entries, me: me, total: 412)
+        }
+        entries[4] = Entry(id: "me", rank: 5, name: "김모티", seconds: entries[4].seconds, isMe: true)
+        return Board(period: period, start: range.start, end: range.end, entries: entries, me: entries[4], total: 412)
+    }
+}
+#endif
+
 extension UIApplication {
     /// 지금 맨 위에 보이는 화면 (Game Center 로그인 화면을 띄울 곳)
     var topViewController: UIViewController? {

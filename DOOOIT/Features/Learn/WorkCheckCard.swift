@@ -45,8 +45,7 @@ struct WorkCheckCard: View {
             if isOpen { content }
         }
         .padding(18)
-        .background(Palette.card, in: .rect(cornerRadius: 26))
-        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .background(Palette.card, in: .rect(cornerRadius: 14))
         .animation(Motion.spring, value: note.workCheckData)
         .animation(Motion.spring, value: reading)
         .imageInput(showScanner: $showScanner, showPhotoPicker: $showPhotoPicker, photoItems: $photoItems, maxPhotos: 1) { images in
@@ -242,7 +241,6 @@ private struct ReportView: View {
                 Image(systemName: report.allGood ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .font(.pt(.title2))
                     .foregroundStyle(report.allGood ? Palette.success : Palette.warning)
-                    .symbolEffect(.bounce, value: report.verdict)
                 Text(report.verdict)
                     .font(.pt(.subheadline).weight(.bold))
                     .foregroundStyle(Palette.ink)

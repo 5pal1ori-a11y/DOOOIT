@@ -52,7 +52,6 @@ struct SpeakButton: View {
             Image(systemName: "speaker.wave.2.fill")
                 .font(.pt(size: size * 0.4, weight: .semibold))
                 .foregroundStyle(Theme.accent)
-                .symbolEffect(.bounce, value: tick)
                 .frame(width: size, height: size)
                 .background(Theme.accent.opacity(0.12), in: .circle)
         }

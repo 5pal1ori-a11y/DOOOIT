@@ -104,7 +104,7 @@ struct UnitStudyView: View {
                     }
                     if DoitStudy.isFree(subject) {
                         // 교과서 자료 없이 모델이 만든 내용
-                        Label("AI가 만든 내용 · 틀릴 수 있어요", systemImage: "sparkles")
+                        Label("AI가 만든 내용 · 틀릴 수 있어요", systemImage: "info.circle")
                             .font(.pt(.caption).weight(.semibold))
                             .foregroundStyle(Palette.warning)
                             .padding(.horizontal, 10)
@@ -170,7 +170,7 @@ struct UnitStudyView: View {
                             } else {
                                 Text("\(index + 1)")
                                     .font(.pt(.subheadline).weight(.bold))
-                                    .foregroundStyle(isCurrent ? Color.white : Color.secondary)
+                                    .foregroundStyle(isCurrent ? Theme.onAccent : Color.secondary)
                             }
                         }
                         .frame(width: 32, height: 32)
@@ -235,7 +235,7 @@ struct UnitStudyView: View {
                         .font(.pt(.headline))
                         .foregroundStyle(Theme.accent)
                         .frame(width: 52, height: 52)
-                        .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 16))
+                        .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("처음부터 다시")
@@ -299,13 +299,11 @@ struct AIContentLoader<T: Codable, Content: View>: View {
             } else {
                 // 처음부터 이 화면을 보여줘야 .task가 실행됨 (빈 화면이면 시작되지 않음)
                 VStack(spacing: 12) {
-                    Image(systemName: "sparkles")
+                    Image(systemName: "lightbulb")
                         .font(.pt(size: 34, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Theme.onAccent)
                         .frame(width: 72, height: 72)
-                        .background(AccentGradient.linear, in: .circle)
-                        .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
-                        .symbolEffect(.pulse, options: .repeating)
+                        .background(Theme.accent, in: .circle)
                     Text("모티 AI가 학습 자료를 만들고 있어요").font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
                     TimelineView(.periodic(from: .now, by: 1)) { context in
                         Text(loading ? L("\(Int(context.date.timeIntervalSince(startedAt)))초째 만드는 중 · 보통 몇 초면 돼요") : L("준비 중"))
@@ -430,7 +428,7 @@ struct ConceptStepView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
                 }
                 if !note.details.isEmpty {
                     DisclosureGroup {
@@ -444,7 +442,7 @@ struct ConceptStepView: View {
                         Label("자세히 알아보기", systemImage: "book.closed").font(.pt(.subheadline).weight(.bold))
                     }
                     .padding(14)
-                    .background(Palette.card, in: .rect(cornerRadius: 16))
+                    .background(Palette.card, in: .rect(cornerRadius: 14))
                 }
                 Text("핵심 학습 포인트").font(.pt(.subheadline).weight(.bold)).foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 14) {
@@ -452,9 +450,9 @@ struct ConceptStepView: View {
                         HStack(alignment: .top, spacing: 12) {
                             Text("\(index + 1)")
                                 .font(.pt(.caption).weight(.bold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Theme.onAccent)
                                 .frame(width: 24, height: 24)
-                                .background(AccentGradient.linear, in: .circle)
+                                .background(Theme.accent, in: .circle)
                             Text(point)
                                 .font(.pt(.body))
                                 .foregroundStyle(Palette.ink)
@@ -472,7 +470,7 @@ struct ConceptStepView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
+                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 14))
                     .appearAnimation(delay: 0.3)
                 }
                 if !note.principles.isEmpty {
@@ -484,7 +482,7 @@ struct ConceptStepView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
                 }
                 if !note.mistakes.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
@@ -495,7 +493,7 @@ struct ConceptStepView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
+                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 14))
                 }
                 if !note.checkQuestion.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
@@ -512,7 +510,7 @@ struct ConceptStepView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 16))
+                    .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 14))
                 }
                 if !note.sources.isEmpty {
                     Label("근거: " + note.sources.joined(separator: " · "), systemImage: "books.vertical")
@@ -560,7 +558,6 @@ struct ClozeStepView: View {
                             if checked {
                                 Image(systemName: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                                     .foregroundStyle(ok ? Palette.success : Palette.danger)
-                                    .symbolEffect(.bounce, value: checked)
                                     .transition(.scale.combined(with: .opacity))
                             }
                         }
@@ -634,12 +631,11 @@ struct OXStepView: View {
                             Label(ok ? L("맞았어요!") : L("틀렸어요 · 정답은 \(item.isTrue ? "O" : "X")"), systemImage: ok ? "checkmark.circle.fill" : "xmark.circle.fill")
                                 .font(.pt(.headline))
                                 .foregroundStyle(ok ? Palette.success : Palette.danger)
-                                .symbolEffect(.bounce, value: picked)
                             Text(item.explanation).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background((ok ? Palette.success : Palette.danger).opacity(0.12), in: .rect(cornerRadius: 16))
+                        .background((ok ? Palette.success : Palette.danger).opacity(0.12), in: .rect(cornerRadius: 14))
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         primaryButton(index + 1 < set.items.count ? L("다음") : L("결과 보기")) {
                             if index + 1 < set.items.count {
@@ -678,9 +674,8 @@ struct OXStepView: View {
                 .frame(height: 76)
         }
         .buttonStyle(.plain)
-        .background((value ? Palette.success : Palette.danger).opacity(0.08), in: .rect(cornerRadius: 22))
-        .background(Palette.card, in: .rect(cornerRadius: 22))
-        .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+        .background((value ? Palette.success : Palette.danger).opacity(0.08), in: .rect(cornerRadius: 14))
+        .background(Palette.card, in: .rect(cornerRadius: 14))
         .opacity(picked == nil || picked == value ? 1 : 0.4)
         .scaleEffect(picked == value ? 1.04 : 1)
         .animation(Motion.bouncy, value: picked)
@@ -769,7 +764,6 @@ struct ProblemStepView: View {
                             }
                             .padding(12)
                             .background(Palette.card, in: .rect(cornerRadius: 14))
-                            .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                             .scaleEffect(picked == number ? 1.02 : 1)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 14).stroke(choiceColor(number, answer: item.answerNumber), lineWidth: picked == nil ? 0 : 1.5)
@@ -785,7 +779,7 @@ struct ProblemStepView: View {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text("\(stepIndex + 1)단계 풀이")
                                             .font(.pt(.caption).weight(.bold))
-                                            .foregroundStyle(.white)
+                                            .foregroundStyle(Theme.onAccent)
                                             .padding(.horizontal, 8)
                                             .padding(.vertical, 3)
                                             .background(Theme.accent, in: .rect(cornerRadius: 6))
@@ -799,7 +793,7 @@ struct ProblemStepView: View {
                             Label("단계별 풀이 보기", systemImage: "lightbulb.fill").font(.pt(.subheadline).weight(.bold))
                         }
                         .padding(14)
-                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
 
                         if let picked, picked != item.answerNumber {
                             Button { saveToNotes(item, picked: picked) } label: {
@@ -894,14 +888,13 @@ struct WeakStepView: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Palette.card, in: .rect(cornerRadius: 16))
+                .background(Palette.card, in: .rect(cornerRadius: 14))
                 .overlay(alignment: .leading) {
                     UnevenRoundedRectangle(topLeadingRadius: 16, bottomLeadingRadius: 16)
                         .fill(Palette.danger.opacity(0.7))
                         .frame(width: 4)
                 }
-                .clipShape(.rect(cornerRadius: 16))
-                .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+                .clipShape(.rect(cornerRadius: 14))
                 .transition(.asymmetric(insertion: .opacity, removal: .move(edge: .trailing).combined(with: .opacity)))
             }
             primaryButton(L("이 단원 학습 완료"), symbol: "checkmark") { onDone(.weak) }

@@ -96,8 +96,8 @@ struct AuthView: View {
                     .foregroundStyle(Palette.ink)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
+                    .background(Palette.card, in: .rect(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.primary.opacity(0.12), lineWidth: 1))
             }
             .buttonStyle(.pressable)
             .padding(.top, 12)
@@ -235,7 +235,6 @@ struct AuthView: View {
             .animation(Motion.quick, value: isSubmitting)
         }
         .buttonStyle(.primaryFill)
-        .shadow(color: Theme.accent.opacity(0.32), radius: 14, y: 6)
         .disabled(isSubmitting)
         .accessibilityLabel(mode == .signUp ? L("가입하고 시작하기") : L("로그인"))
     }
@@ -265,7 +264,7 @@ struct AuthView: View {
         }
         .signInWithAppleButtonStyle(scheme == .dark ? .white : .black)
         .frame(height: 52)
-        .clipShape(.rect(cornerRadius: 20, style: .continuous))
+        .clipShape(.rect(cornerRadius: 14, style: .continuous))
         .id(scheme) // 다크모드 전환 시 버튼 스타일 갱신
         .disabled(isSubmitting)
         // 동의 전에는 Apple 창을 띄우지 않고 동의 칸을 알려 줌
@@ -343,7 +342,7 @@ private struct AuthField<Content: View, Trailing: View>: View {
         self.trailing = trailing()
     }
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 20, style: .continuous) }
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 14, style: .continuous) }
 
     private var borderColor: Color {
         if message != nil { return Palette.danger.opacity(0.85) }
@@ -368,8 +367,6 @@ private struct AuthField<Content: View, Trailing: View>: View {
             .frame(height: 54)
             .background(Palette.card, in: shape)
             .overlay(shape.strokeBorder(borderColor, lineWidth: isFocused || message != nil ? 1.5 : 0.75))
-            .shadow(color: isFocused ? Theme.accent.opacity(0.18) : .black.opacity(0.04),
-                    radius: isFocused ? 12 : 6, y: isFocused ? 4 : 2)
 
             if let message {
                 Label(message, systemImage: "exclamationmark.circle.fill")
@@ -444,10 +441,9 @@ struct NameSetupView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(Palette.card, in: .rect(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .background(Palette.card, in: .rect(cornerRadius: 14, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.75))
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                     .appearAnimation(delay: 0.14)
 
                 Spacer(minLength: 24)
@@ -456,7 +452,6 @@ struct NameSetupView: View {
                     Text("시작하기")
                 }
                 .buttonStyle(.primaryFill)
-                .shadow(color: Theme.accent.opacity(isEmpty ? 0 : 0.32), radius: 14, y: 6)
                 .opacity(isEmpty ? 0.5 : 1)
                 .disabled(isEmpty)
                 .animation(Motion.quick, value: isEmpty)
