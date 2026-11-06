@@ -116,13 +116,13 @@ struct MemoEditorView: View {
                 .focused($focus, equals: .title)
                 .submitLabel(.next)
                 .onSubmit { focus = .content }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
 
             Text(memo.updatedAt.ui("yyyy년 M월 d일 a h:mm"))
                 .font(.pt(.caption))
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 4)
 
             TextEditor(text: $memo.content)

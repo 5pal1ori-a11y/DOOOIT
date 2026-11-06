@@ -128,7 +128,7 @@ struct CurriculumView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 40)
             .animation(.smooth(duration: 0.25), value: trimmed.isEmpty)
@@ -192,7 +192,7 @@ struct CurriculumView: View {
         }
         return VStack(alignment: .leading, spacing: 12) {
             Button(action: startTyped) {
-                RowLabel(symbol: "sparkles", color: Theme.accent, title: L("'\(trimmed)'(으)로 학습 시작"),
+                RowLabel(symbol: "lightbulb", color: Theme.accent, title: L("'\(trimmed)'(으)로 학습 시작"),
                          subtitle: L("과목·학년·단원을 알아서 찾아요"))
                     .softCardBackground(cornerRadius: 18)
             }
@@ -545,8 +545,8 @@ struct FreeStudyOption: View {
         if brain.isAvailable {
             if let start {
                 Button(action: start) {
-                    RowLabel(symbol: "sparkles", title: L("AI로 학습해 보기"), subtitle: L("AI가 만든 내용 · 틀릴 수 있어요"))
-                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                    RowLabel(symbol: "lightbulb", title: L("AI로 학습해 보기"), subtitle: L("AI가 만든 내용 · 틀릴 수 있어요"))
+                        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
                 }
                 .buttonStyle(.pressable)
             }
@@ -557,8 +557,8 @@ struct FreeStudyOption: View {
                 Task { await brain.prepare() }
                 start?()
             } label: {
-                RowLabel(symbol: "sparkles", title: L("\(model.title) 켜고 AI로 학습"), subtitle: L("AI가 만든 내용 · 틀릴 수 있어요"))
-                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                RowLabel(symbol: "lightbulb", title: L("\(model.title) 켜고 AI로 학습"), subtitle: L("AI가 만든 내용 · 틀릴 수 있어요"))
+                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
             }
             .buttonStyle(.pressable)
         } else if DoitBrain.isSupported {
@@ -692,7 +692,7 @@ struct SubjectUnitsView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 40)
         }

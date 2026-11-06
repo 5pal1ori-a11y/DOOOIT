@@ -60,7 +60,7 @@ struct WrittenSolutionCard: View {
             }
         }
         .padding(18)
-        .glassEffect(.regular, in: .rect(cornerRadius: 26))
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
         .errorAlert($error)
         .onAppear { myAnswers = note.stepAnswers }
         .onChange(of: myAnswers) { _, value in note.stepAnswers = value }
@@ -107,7 +107,7 @@ struct WrittenSolutionCard: View {
                 .font(.pt(.subheadline))
                 .foregroundStyle(.secondary)
             Button { Task { await generate() } } label: {
-                Label("AI 단계별 풀이 만들기", systemImage: "sparkles")
+                Label("AI 단계별 풀이 만들기", systemImage: "lightbulb")
                     .font(.pt(.body).weight(.bold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 36)
@@ -193,8 +193,7 @@ struct WrittenSolutionCard: View {
                 .font(.pt(.subheadline).weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: 28, height: 28)
-                .background(AccentGradient.linear, in: .circle)
-                .shadow(color: Theme.accent.opacity(0.3), radius: 4, y: 2)
+                .background(Theme.accent, in: .circle)
             if !isLast {
                 Rectangle()
                     .fill(Theme.accent.opacity(0.25))
@@ -247,7 +246,7 @@ struct WrittenSolutionCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 18))
+        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
     }
 
     private func modelAnswer(_ solution: WrittenSolution) -> some View {
@@ -301,7 +300,6 @@ struct WrittenSolutionCard: View {
             HStack {
                 Label("최종 답", systemImage: "checkmark.seal.fill")
                     .font(.pt(.subheadline).weight(.bold))
-                    .symbolEffect(.bounce, value: tab)
                 Spacer()
                 Text(MathSymbolBar.pretty(solution.finalAnswer))
                     .font(.pt(.title3).weight(.bold))
@@ -310,7 +308,6 @@ struct WrittenSolutionCard: View {
             .padding(.horizontal, 18)
             .padding(.vertical, 14)
             .background(AccentGradient.linear, in: .capsule)
-            .shadow(color: Theme.accent.opacity(0.16), radius: 8, y: 3)
             .appearAnimation(delay: 0.25)
 
             if note.correctAnswer.isEmpty {

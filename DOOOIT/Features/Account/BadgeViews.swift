@@ -28,7 +28,7 @@ struct BadgeShelfView: View {
                 }
                 .appearAnimation(delay: 0.08)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
@@ -120,7 +120,6 @@ struct BadgeMedal: View {
             .environment(\.symbolVariants, .none)
             .font(.pt(size: size * 0.38, weight: .regular))
             .foregroundStyle(isOn ? badge.color : Color.secondary.opacity(0.55))
-            .symbolEffect(.bounce, value: bounce)
             .frame(width: size, height: size)
             .background {
                 if isOn {
@@ -188,7 +187,7 @@ struct BadgeToastHost: View {
                     .softCardBackground(cornerRadius: 22)
                 }
                 .buttonStyle(.pressable)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .transition(.move(edge: .top).combined(with: .opacity).combined(with: .scale(scale: 0.9)))
                 .task(id: toast.id) {
                     try? await Task.sleep(for: .milliseconds(350))

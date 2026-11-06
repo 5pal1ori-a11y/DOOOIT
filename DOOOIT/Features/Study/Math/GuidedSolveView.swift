@@ -166,7 +166,7 @@ struct GuidedSolveView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
-                    .background(Theme.accent, in: .rect(cornerRadius: 18))
+                    .background(Theme.accent, in: .rect(cornerRadius: 14))
             }
         } else if message.tone == .explain {
             explainCard(message)
@@ -186,8 +186,8 @@ struct GuidedSolveView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(toneBackground(message.tone), in: .rect(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
+                .background(toneBackground(message.tone), in: .rect(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06), lineWidth: 0.5))
                 Spacer(minLength: 36)
             }
         }
@@ -235,7 +235,7 @@ struct GuidedSolveView: View {
     private func toneSymbol(_ tone: GuidedSolveSession.Message.Tone) -> String {
         switch tone {
         case .hint: return "lightbulb.fill"
-        case .ai: return "sparkles"
+        case .ai: return "lightbulb"
         case .good: return "checkmark.circle.fill"
         case .retry: return "arrow.uturn.backward.circle.fill"
         case .concept: return "book.fill"
@@ -396,7 +396,7 @@ struct GuidedSolveView: View {
                 .onSubmit(submitInput)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
             Button(action: submitInput) {
                 Image(systemName: "arrow.up")
                     .font(.pt(.headline).weight(.bold))

@@ -11,13 +11,12 @@ enum Motion {
 
 /// 카드·행을 누르면 살짝 작아졌다 돌아오는 버튼 스타일
 struct PressableCardStyle: ButtonStyle {
-    var scale: CGFloat = 0.97
+    var scale: CGFloat = 1
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? scale : 1)
-            .opacity(configuration.isPressed ? 0.92 : 1)
-            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.7 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 
@@ -36,8 +35,7 @@ private struct AppearAnimation: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(shown ? 1 : 0)
-            .offset(y: shown || reduceMotion ? 0 : offset)
-            .scaleEffect(shown || reduceMotion ? 1 : 0.98)
+            .offset(y: shown || reduceMotion ? 0 : min(offset, 6))
             .onAppear {
                 guard !shown else { return }
                 if reduceMotion {
@@ -99,7 +97,6 @@ struct FeedbackGlow: ViewModifier {
                     .strokeBorder(color, lineWidth: result == nil ? 0 : 2.5)
                     .animation(Motion.quick, value: result)
             }
-            .shadow(color: color.opacity(result == nil ? 0 : 0.35), radius: result == nil ? 0 : 12)
             .animation(Motion.spring, value: result)
     }
 
@@ -119,7 +116,7 @@ extension View {
     }
 }
 
-/// 알약 모양 선택기 (선택 표시가 미끄러지듯 이동)
+/// 분할 선택기 (시스템 분할 선택기처럼: 회색 바탕 위에 흰 칸이 미끄러지듯 이동)
 struct PillSegmentedControl<Item: Hashable>: View {
     let items: [Item]
     @Binding var selection: Item
@@ -133,34 +130,33 @@ struct PillSegmentedControl<Item: Hashable>: View {
     }
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(items, id: \.self) { item in
                 let selected = item == selection
                 Button {
-                    withAnimation(Motion.spring) { selection = item }
+                    withAnimation(Motion.quick) { selection = item }
                     Haptics.tap()
                 } label: {
                     Text(title(item))
-                        .font(.pt(.subheadline).weight(.bold))
-                        .foregroundStyle(selected ? Color.white : Color.secondary)
+                        .font(.pt(.subheadline).weight(selected ? .semibold : .regular))
+                        .foregroundStyle(selected ? Palette.ink : Color.secondary)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 9)
+                        .padding(.vertical, 8)
                         .background {
                             if selected {
-                                Capsule()
-                                    .fill(AccentGradient.linear)
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Palette.card)
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
                                     .matchedGeometryEffect(id: "pill", in: namespace)
-                                    .shadow(color: Theme.accent.opacity(0.3), radius: 6, y: 3)
                             }
                         }
-                        .contentShape(Capsule())
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
-        .background(Palette.card, in: .capsule)
-        .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
+        .padding(2)
+        .background(Palette.ink.opacity(0.06), in: .rect(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -175,9 +171,9 @@ struct StepProgressBar: View {
             GeometryReader { proxy in
                 let fraction = titles.count > 1 ? CGFloat(current) / CGFloat(titles.count - 1) : 1
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Theme.accent.opacity(0.14))
+                    Capsule().fill(Palette.ink.opacity(0.07))
                     Capsule()
-                        .fill(AccentGradient.linear)
+                        .fill(Theme.accent)
                         .frame(width: max(8, proxy.size.width * fraction))
                         .animation(Motion.spring, value: current)
                 }

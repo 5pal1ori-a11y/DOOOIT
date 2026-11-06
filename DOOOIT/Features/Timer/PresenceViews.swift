@@ -184,7 +184,7 @@ struct PresenceGuideSheet: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
-        .background(panel, in: .rect(cornerRadius: 18))
+        .background(panel, in: .rect(cornerRadius: 14))
     }
 
     private func step(_ symbol: String, _ text: String) -> some View {
@@ -354,9 +354,9 @@ struct PresenceCanvas: View {
             }
             .frame(width: size.width, height: size.height)
         }
-        .clipShape(.rect(cornerRadius: 18, style: .continuous))
+        .clipShape(.rect(cornerRadius: 14, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color(white: 0.22), lineWidth: 1)
         }
     }

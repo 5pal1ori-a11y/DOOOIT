@@ -126,19 +126,17 @@ struct DoitAIView: View {
     // MARK: 시작 화면
 
     private var welcome: some View {
-        VStack(spacing: 18) {
-            Spacer(minLength: 70)
-            AIOrb(size: 96)
-            VStack(spacing: 8) {
-                Text("무엇을 도와드릴까요?")
-                    .font(.pt(.title2).weight(.bold))
-                    .foregroundStyle(Palette.ink)
-            }
+        VStack(alignment: .leading, spacing: 14) {
+            Spacer(minLength: 56)
+            AIOrb(size: 44)
+            Text("무엇을 도와드릴까요?")
+                .font(.pt(size: 28, weight: .bold))
+                .foregroundStyle(Palette.ink)
             ModelDownloadCard()
                 .padding(.top, 8)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
     }
 
     // MARK: 말풍선
@@ -153,8 +151,7 @@ struct DoitAIView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(maxWidth: 210, maxHeight: 210)
-                        .clipShape(.rect(cornerRadius: 18))
-                        .shadow(color: .black.opacity(0.08), radius: 8, y: 3)
+                        .clipShape(.rect(cornerRadius: 14))
                 }
                 if !message.text.isEmpty {
                     Text(message.text)
@@ -162,7 +159,7 @@ struct DoitAIView: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 15)
                         .padding(.vertical, 10)
-                        .background(Theme.accent, in: UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 22, bottomTrailingRadius: 8, topTrailingRadius: 22))
+                        .background(Theme.accent, in: UnevenRoundedRectangle(topLeadingRadius: 18, bottomLeadingRadius: 18, bottomTrailingRadius: 5, topTrailingRadius: 18))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .trailing)
@@ -207,12 +204,8 @@ struct DoitAIView: View {
                             feedbackButtons(message)
                         }
                     }
-                    .padding(14)
+                    .padding(.vertical, 2)
                     .frame(maxWidth: message.isStreaming && message.text.isEmpty ? nil : .infinity, alignment: .leading)
-                    .background(Palette.card, in: UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 22, bottomTrailingRadius: 22, topTrailingRadius: 22))
-                    .overlay(UnevenRoundedRectangle(topLeadingRadius: 8, bottomLeadingRadius: 22, bottomTrailingRadius: 22, topTrailingRadius: 22)
-                        .strokeBorder(Color.black.opacity(0.05), lineWidth: 0.5))
-                    .shadow(color: .black.opacity(0.04), radius: 6, y: 2)
                 }
                 .padding(.trailing, 18)
                 if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
@@ -313,7 +306,7 @@ struct DoitAIView: View {
                     .buttonStyle(.plain)
                 }
                 .padding(8)
-                .background(Palette.card, in: .rect(cornerRadius: 16))
+                .background(Palette.card, in: .rect(cornerRadius: 14))
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             HStack(alignment: .bottom, spacing: 8) {
@@ -366,7 +359,6 @@ struct DoitAIView: View {
                         Image(systemName: "arrow.up")
                             .font(.pt(.subheadline).weight(.bold))
                             .foregroundStyle(.white)
-                            .symbolEffect(.bounce, value: assistant.messages.count)
                             .frame(width: 32, height: 32)
                             .background(canSend ? Theme.accent : Color.secondary.opacity(0.35), in: .circle)
                     }
@@ -375,7 +367,7 @@ struct DoitAIView: View {
                     .padding(.trailing, 5)
                     .padding(.bottom, 5)
                 }
-                .glassEffect(.regular, in: .rect(cornerRadius: 22))
+                .glassEffect(.regular, in: .rect(cornerRadius: 14))
             }
         }
         .padding(.horizontal, 12)
@@ -460,19 +452,12 @@ private struct AIOrb: View {
     /// 모티 AI 프로필 = 앱 아이콘(DOOIT 로고)을 둥글게
     var body: some View {
         ZStack {
-            if size > 50 {
-                Circle()
-                    .fill(Theme.accent.opacity(0.2))
-                    .frame(width: size * 1.4, height: size * 1.4)
-                    .blur(radius: size * 0.2)
-            }
             Image(Theme.current.logoName)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size, height: size)
                 .clipShape(.circle)
-                .overlay(Circle().strokeBorder(Color.white.opacity(0.6), lineWidth: max(1, size * 0.02)))
-                .shadow(color: .black.opacity(0.12), radius: size * 0.08, y: size * 0.03)
+                .overlay(Circle().strokeBorder(Palette.line, lineWidth: 0.5))
         }
         .frame(width: size, height: size)
         .accessibilityLabel("모티 AI")
@@ -504,7 +489,6 @@ private struct TypingIndicator: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
             .background(Palette.card, in: .capsule)
-            .shadow(color: .black.opacity(0.06), radius: 8, y: 3)
         }
         .task {
             while !Task.isCancelled {

@@ -233,9 +233,9 @@ struct PlanEditorView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(14)
-                    .background(isOn ? Theme.accent.opacity(0.14) : Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
+                    .background(isOn ? Theme.accent.opacity(0.14) : Color.primary.opacity(0.05), in: .rect(cornerRadius: 14))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 18)
+                        RoundedRectangle(cornerRadius: 14)
                             .stroke(isOn ? Theme.accent : Color.clear, lineWidth: 2)
                     }
                 }

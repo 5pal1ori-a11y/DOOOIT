@@ -54,7 +54,7 @@ struct WordSessionView: View {
                 Spacer()
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .background(Palette.card.ignoresSafeArea())
         .onAppear {
             guard queue.isEmpty, !finished else { return }
@@ -181,10 +181,10 @@ struct WordSessionView: View {
                 .minimumScaleFactor(0.7)
                 .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, minHeight: 132)
-                .background((tint ?? .clear).opacity(0.08), in: .rect(cornerRadius: 22))
-                .background(Palette.cardInset, in: .rect(cornerRadius: 22))
+                .background((tint ?? .clear).opacity(0.08), in: .rect(cornerRadius: 14))
+                .background(Palette.cardInset, in: .rect(cornerRadius: 14))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22)
+                    RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(tint ?? .clear, lineWidth: 2)
                 }
                 .overlay(alignment: .top) {
@@ -197,7 +197,7 @@ struct WordSessionView: View {
                         .offset(y: -14)
                 }
                 .opacity(state == .dimmed ? 0.5 : 1)
-                .contentShape(.rect(cornerRadius: 22))
+                .contentShape(.rect(cornerRadius: 14))
         }
         .buttonStyle(.pressable)
         .disabled(answered)
@@ -223,7 +223,7 @@ struct WordSessionView: View {
                         .foregroundStyle(Palette.danger)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Palette.danger.opacity(0.1), in: .rect(cornerRadius: 16))
+                        .background(Palette.danger.opacity(0.1), in: .rect(cornerRadius: 14))
                 }
                 .buttonStyle(.pressable)
                 Button { grade(true, word: word, choice: 0) } label: {
@@ -400,7 +400,6 @@ struct WordSessionView: View {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.pt(size: 52))
                     .foregroundStyle(Theme.accent)
-                    .symbolEffect(.bounce, options: .nonRepeating, value: finished)
                 Spacer()
             } else {
                 VStack(alignment: .leading, spacing: 8) {
@@ -423,7 +422,7 @@ struct WordSessionView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .background(Palette.cardInset, in: .rect(cornerRadius: 18))
+                        .background(Palette.cardInset, in: .rect(cornerRadius: 14))
                     }
                     .scrollIndicators(.hidden)
                 }
@@ -439,7 +438,7 @@ struct WordSessionView: View {
                         .foregroundStyle(Theme.accent)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 16))
+                        .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 14))
                 }
                 .buttonStyle(.pressable)
                 Button("완료") { dismiss() }

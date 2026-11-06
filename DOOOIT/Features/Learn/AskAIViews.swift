@@ -161,10 +161,10 @@ struct AIQuestionDetailView: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 18))
+                .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14))
 
                 HStack {
-                    Label("AI 선생님 답변", systemImage: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
+                    Label("AI 선생님 답변", systemImage: "lightbulb").font(.pt(.headline)).foregroundStyle(Theme.accent)
                     Spacer()
                     Text("도움 되었나요?").font(.pt(.caption)).foregroundStyle(.secondary)
                     Button { item.helpful = item.helpful == 1 ? 0 : 1 } label: {
@@ -192,8 +192,7 @@ struct AIQuestionDetailView: View {
                                       isEnabled: false, controller: CanvasController()) { _ in }
                     }
                 }
-                .background(Palette.card, in: .rect(cornerRadius: 22))
-                .shadow(color: .black.opacity(0.06), radius: 10, y: 4)
+                .background(Palette.card, in: .rect(cornerRadius: 14))
 
                 Toggle(isOn: $showNotes.animation()) {
                     Label("답변 위에 내 필기", systemImage: "pencil.tip")

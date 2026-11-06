@@ -62,11 +62,11 @@ struct ProblemSplitView: View {
                             .foregroundStyle(Theme.accent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 48)
-                            .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 16))
+                            .background(Theme.accent.opacity(0.12), in: .rect(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 16)
                 .animation(Motion.spring, value: excluded)
@@ -82,7 +82,7 @@ struct ProblemSplitView: View {
                 .buttonStyle(.primaryFill)
                 .disabled(selectedCrops.isEmpty)
                 .opacity(selectedCrops.isEmpty ? 0.5 : 1)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 16)
                 .padding(.vertical, 10)
             }
             .navigationTitle("문제 나누기")
@@ -126,8 +126,8 @@ struct ProblemSplitView: View {
                     }
                 }
             }
-            .clipShape(.rect(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.08)))
+            .clipShape(.rect(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.08)))
             .frame(height: isPortrait ? 460 : nil)
             .frame(maxWidth: .infinity)
     }
@@ -159,7 +159,7 @@ struct ProblemSplitView: View {
             }
             .padding(10)
             .softCardBackground(cornerRadius: 16)
-            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(isOn ? Theme.accent : Color.clear, lineWidth: 2))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(isOn ? Theme.accent : Color.clear, lineWidth: 2))
         }
         .buttonStyle(.pressable)
         .accessibilityLabel("\(region.number)번 문제")

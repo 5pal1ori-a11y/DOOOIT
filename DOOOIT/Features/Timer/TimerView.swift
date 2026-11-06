@@ -221,7 +221,7 @@ struct TimerView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
-                .background(panel, in: .rect(cornerRadius: 16))
+                .background(panel, in: .rect(cornerRadius: 14))
 
                 lockToggle
                 presenceToggle
@@ -272,7 +272,7 @@ struct TimerView: View {
         .tint(green)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(panel, in: .rect(cornerRadius: 16))
+        .background(panel, in: .rect(cornerRadius: 14))
         .alert("스크린 타임 권한이 필요해요", isPresented: $lockDenied) {
             Button("확인", role: .cancel) {}
         } message: {
@@ -301,7 +301,7 @@ struct TimerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(panel, in: .rect(cornerRadius: 16))
+        .background(panel, in: .rect(cornerRadius: 14))
     }
 
     /// 큰 숫자를 위아래로 스크롤해서 목표 시간 고르기 (가운데가 고른 시간, 위아래는 흐리게)
@@ -455,7 +455,6 @@ struct TimerView: View {
             Image(systemName: seconds >= 10 ? "checkmark.seal.fill" : "clock.fill")
                 .font(.pt(size: 64, weight: .bold))
                 .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
-                .symbolEffect(.bounce, value: seconds)
             VStack(spacing: 8) {
                 Text(seconds >= 10 ? L("수고했어요!") : L("기록이 너무 짧아요"))
                     .font(.pt(.title).weight(.bold))
@@ -498,7 +497,6 @@ struct TimerAccessoryView: View {
             Image(systemName: studyTimer.isActive ? studyTimer.symbol : "timer")
                 .font(.pt(.headline))
                 .foregroundStyle(Theme.accent)
-                .symbolEffect(.pulse, isActive: studyTimer.phase == .running)
 
             VStack(alignment: .leading, spacing: 1) {
                 if studyTimer.isActive {
@@ -577,7 +575,7 @@ struct AmbientSoundSheet: View {
                             }
                         }
                         .padding(.vertical, 4)
-                        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 20, style: .continuous))
+                        .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14, style: .continuous))
                         .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
@@ -623,12 +621,11 @@ struct AmbientSoundSheet: View {
                     .environment(\.symbolVariants, .none)
                     .font(.pt(size: 19, weight: .regular))
                     .foregroundStyle(isOn ? .white : color)
-                    .symbolEffect(.bounce, value: isOn)
                     .frame(width: 52, height: 52)
-                    .background(isOn ? color : color.pastel, in: .rect(cornerRadius: 18, style: .continuous))
+                    .background(isOn ? color : color.pastel, in: .rect(cornerRadius: 14, style: .continuous))
                     .overlay {
                         if selected && !isOn {
-                            RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(color, lineWidth: 1.5)
+                            RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(color, lineWidth: 1.5)
                         }
                     }
                 Text(kind.title.loc)

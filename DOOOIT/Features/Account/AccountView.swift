@@ -308,7 +308,7 @@ struct AccountView: View {
             }
             .signInWithAppleButtonStyle(.black)
             .frame(height: 46)
-            .clipShape(.rect(cornerRadius: 16, style: .continuous))
+            .clipShape(.rect(cornerRadius: 14, style: .continuous))
         }
         .softCard(cornerRadius: 22, padding: 18)
         .errorAlert($guestSignInError, title: L("로그인 실패"))
@@ -349,7 +349,7 @@ struct AccountView: View {
                     .font(.pt(.subheadline).weight(.semibold))
                     .padding(.horizontal, 14)
                     .padding(.vertical, 7)
-                    .background(Color.primary.opacity(0.06), in: .capsule)
+                    .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: Radius.chip + 2, style: .continuous))
             }
             .buttonStyle(.plain)
             .foregroundStyle(Palette.ink)
@@ -361,28 +361,13 @@ struct AccountView: View {
         let totalMinutes = sessions.reduce(0) { $0 + $1.seconds } / 60
         let learned = words.filter(\.isLearned).count
         return HStack(spacing: 0) {
-            stat(value: TimeText.durationL(minutes: totalMinutes), label: L("총 공부 시간"))
-            Divider().frame(height: 36)
-            stat(value: "\(learned)", label: L("외운 단어"))
-            Divider().frame(height: 36)
-            stat(value: "\(notes.count)", label: L("오답노트"))
+            StatColumn(value: TimeText.durationL(minutes: totalMinutes), label: L("총 공부 시간")).padding(.horizontal, 8)
+            Rectangle().fill(Palette.line).frame(width: 0.5, height: 36)
+            StatColumn(value: "\(learned)", label: L("외운 단어")).padding(.horizontal, 8)
+            Rectangle().fill(Palette.line).frame(width: 0.5, height: 36)
+            StatColumn(value: "\(notes.count)", label: L("오답노트")).padding(.horizontal, 8)
         }
-        .softCard(cornerRadius: 22, padding: 16)
-    }
-
-    private func stat(value: String, label: String) -> some View {
-        VStack(spacing: 4) {
-            Text(value)
-                .font(.pt(.headline).monospacedDigit())
-                .foregroundStyle(Palette.ink)
-                .contentTransition(.numericText())
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(label)
-                .font(.pt(.caption2))
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
+        .softCard(padding: 14)
     }
 
     private func settingLabel(_ title: LocalizedStringKey, value: String, symbol: String, color: Color) -> some View {
@@ -396,7 +381,7 @@ struct AccountView: View {
         }
     }
 
-    /// 옅은 파스텔 네모 아이콘 + 제목
+    /// 단색 아이콘 + 제목
     private func item(_ title: LocalizedStringKey, _ symbol: String, _ color: Color) -> some View {
         HStack(spacing: 12) {
             icon(symbol, color)
@@ -407,10 +392,9 @@ struct AccountView: View {
     private func icon(_ symbol: String, _ color: Color) -> some View {
         Image(systemName: symbol.outlineSymbol)
             .environment(\.symbolVariants, .none)
-            .font(.pt(size: 14, weight: .regular))
-            .foregroundStyle(color)
-            .frame(width: 30, height: 30)
-            .background(color.pastel, in: .rect(cornerRadius: 10, style: .continuous))
+            .font(.pt(size: 17, weight: .regular))
+            .foregroundStyle(Palette.ink.opacity(0.62))
+            .frame(width: 24)
     }
 
     // MARK: Helpers

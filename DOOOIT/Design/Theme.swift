@@ -55,6 +55,14 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     static let key = "appearanceMode"
 }
 
+/// 모서리 반지름 (한 종류씩만 씀)
+enum Radius {
+    static let card: CGFloat = 14
+    static let field: CGFloat = 10
+    static let button: CGFloat = 14
+    static let chip: CGFloat = 6
+}
+
 enum Palette {
     static let swatches = [
         "#6C63FF", "#3B82F6", "#06B6D4", "#10B981", "#84CC16", "#F59E0B",
@@ -71,6 +79,8 @@ enum Palette {
     static let card = Color(light: "#FFFFFF", dark: "#1C1C1E")
     /// 카드 안 한 단계 더 들어간 칸
     static let cardInset = Color(light: "#F2F3F6", dark: "#2C2C2E")
+    /// 줄 · 카드 테두리 (헤어라인)
+    static let line = Color(light: "#E3E5EA", dark: "#2E2E31")
     static let success = Color(hex: "#22C55E")
     static let danger = Color(hex: "#EF4444")
     static let warning = Color(hex: "#F59E0B")
@@ -84,7 +94,7 @@ enum Palette {
 }
 
 extension Color {
-    /// 아이콘 바탕용 옅은 파스텔 (어두운 화면에서는 조금 더 옅게)
+    /// 옅은 색 바탕 (어두운 화면에서는 조금 더 옅게)
     var pastel: Color {
         let base = UIColor(self)
         return Color(uiColor: UIColor { $0.userInterfaceStyle == .dark ? base.withAlphaComponent(0.16) : base.withAlphaComponent(0.14) })
@@ -226,32 +236,10 @@ enum Theme {
     static var accent: Color { current.accent }
 }
 
-/// 깔끔한 바탕: 차분한 회색 위에, 맨 위에만 테마 색이 아주 옅게 (카드가 또렷하게 보이도록)
+/// 바탕: 단색 (빛 번짐 없음). 카드와 헤어라인이 또렷하게 보이도록 밝은 회색 / 검정
 struct AppBackground: View {
-    @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
-
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        let theme = ThemeColor.from(themeRaw)
-        ZStack(alignment: .top) {
-            Theme.base
-            if scheme == .dark {
-                // 어두운 화면: 테마 색을 아주 살짝만 (왼쪽 강조색 · 오른쪽 진한 색)
-                LinearGradient(colors: [theme.accent.opacity(0.18), theme.deep.opacity(0.22), theme.accent.opacity(0)],
-                               startPoint: .topLeading, endPoint: .bottom)
-                    .frame(height: 340)
-            } else {
-                // 밝은 화면: 옅은 바탕 위에 연한 색 빛이 오른쪽 위에서 번짐
-                LinearGradient(colors: [theme.soft.opacity(0.9), theme.softer.opacity(0.5), Theme.base.opacity(0)],
-                               startPoint: .top, endPoint: .bottom)
-                    .frame(height: 320)
-                RadialGradient(colors: [theme.light.opacity(0.45), theme.light.opacity(0)],
-                               center: .topTrailing, startRadius: 0, endRadius: 280)
-                    .frame(height: 320)
-            }
-        }
-        .ignoresSafeArea()
+        Theme.base.ignoresSafeArea()
     }
 }
 
@@ -265,20 +253,23 @@ func makeGlass(tint: Color? = nil, interactive: Bool = false) -> Glass {
 }
 
 extension View {
-    /// 리퀴드 글라스 카드
-    func glassCard(cornerRadius: CGFloat = 26, padding: CGFloat = 18, tint: Color? = nil, interactive: Bool = false) -> some View {
+    /// 카드 (이름은 예전 그대로 · 이제는 유리 대신 단색 카드 + 헤어라인). tint가 있으면 아주 옅게 깔림
+    func glassCard(cornerRadius: CGFloat = 14, padding: CGFloat = 16, tint: Color? = nil, interactive: Bool = false) -> some View {
         self
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(makeGlass(tint: tint, interactive: interactive), in: .rect(cornerRadius: cornerRadius))
+            .background {
+                if let tint { RoundedRectangle(cornerRadius: min(cornerRadius, Radius.card), style: .continuous).fill(tint.opacity(0.08)) }
+            }
+            .softCardBackground(cornerRadius: cornerRadius)
     }
 
-    /// 리퀴드 글라스 입력 필드
+    /// 입력 필드: 회색 칸 (유리 아님)
     func glassField() -> some View {
         self
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 18))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
     }
 
     func errorAlert(_ message: Binding<String?>, title: String? = nil) -> some View {

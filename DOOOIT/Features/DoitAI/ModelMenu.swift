@@ -83,7 +83,7 @@ struct ModelDownloadCard: View {
             let model = brain.downloading ?? DoitBrain.Model.recommended
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    Image(systemName: "sparkles").font(.pt(.headline)).foregroundStyle(Theme.accent)
+                    Image(systemName: "lightbulb").font(.pt(.headline)).foregroundStyle(Theme.accent)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(headline(model)).font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
                         Text(detail(model)).font(.pt(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)

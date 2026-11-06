@@ -138,7 +138,7 @@ struct WordHomeView: View {
             tabButton(L("학습"), .study)
             tabButton(L("내 단어장"), .book)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.primary.opacity(0.06)).frame(height: 1)
         }
@@ -190,7 +190,7 @@ struct WordHomeView: View {
                 menuRows
                     .padding(.top, 36)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
@@ -210,7 +210,7 @@ struct WordHomeView: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 52)
-                    .background(Theme.accent, in: .rect(cornerRadius: 20, style: .continuous))
+                    .background(Theme.accent, in: .rect(cornerRadius: 14, style: .continuous))
             }
             .padding(.top, 14)
         }
@@ -265,7 +265,7 @@ struct WordHomeView: View {
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 60)
-                .background(Theme.accent, in: .rect(cornerRadius: 20))
+                .background(Theme.accent, in: .rect(cornerRadius: 14))
         }
         .buttonStyle(.pressable)
     }
@@ -303,7 +303,7 @@ struct WordHomeView: View {
             }
         }
         .buttonStyle(.pressable)
-        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 24, style: .continuous))
+        .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 14, style: .continuous))
     }
 
     private func addMenu<Content: View>(@ViewBuilder label: () -> Content) -> some View {

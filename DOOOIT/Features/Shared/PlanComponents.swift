@@ -39,7 +39,6 @@ struct DDayChip: View {
             .padding(.horizontal, 11)
             .frame(height: 28)
             .background(Palette.card, in: .capsule)
-            .shadow(color: .black.opacity(0.05), radius: 6, y: 2)
         }
     }
 }
@@ -72,9 +71,8 @@ struct WeekStrip: View {
                             .monospacedDigit()
                             .frame(width: 34, height: 34)
                             .foregroundStyle(isSelected ? Color.white : (isToday ? Theme.accent : Palette.ink))
-                            .background(isSelected ? AnyShapeStyle(AccentGradient.linear) : AnyShapeStyle(Color.clear), in: .circle)
+                            .background(isSelected ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.clear), in: .circle)
                             .overlay(Circle().strokeBorder(isToday && !isSelected ? Theme.accent.opacity(0.4) : Color.clear, lineWidth: 1.5))
-                            .shadow(color: isSelected ? Theme.accent.opacity(0.3) : .clear, radius: 6, y: 3)
                         HStack(spacing: 3) {
                             ForEach(Array(plans.occurrences(on: day).prefix(3).enumerated()), id: \.offset) { _, o in
                                 Circle().fill(o.plan.color).frame(width: 5, height: 5)
@@ -84,7 +82,7 @@ struct WeekStrip: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
-                    .contentShape(.rect(cornerRadius: 18))
+                    .contentShape(.rect(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
             }
@@ -118,7 +116,6 @@ struct PlanTimelineRow: View {
                     .font(.pt(.title2))
                     .foregroundStyle(done ? plan.color : Color.secondary.opacity(0.6))
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: done)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(done ? L("완료 취소") : L("완료로 표시"))
@@ -194,7 +191,6 @@ struct PlanRow: View {
                     .font(.pt(.title3))
                     .foregroundStyle(completed ? plan.color : Color.secondary)
                     .contentTransition(.symbolEffect(.replace))
-                    .symbolEffect(.bounce, value: completed)
             }
             .buttonStyle(.plain)
 

@@ -51,7 +51,7 @@ struct AISolutionCard: View {
             }
         }
         .padding(18)
-        .glassEffect(.regular, in: .rect(cornerRadius: 26))
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
         .task(id: problemText) { await solveIfNeeded() }
     }
 
@@ -59,7 +59,7 @@ struct AISolutionCard: View {
 
     private var header: some View {
         HStack(spacing: 10) {
-            Image(systemName: "sparkles")
+            Image(systemName: "lightbulb")
                 .font(.pt(.headline))
                 .foregroundStyle(Theme.accent)
                 .frame(width: 34, height: 34)
@@ -91,7 +91,7 @@ struct AISolutionCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 16))
+        .background(Theme.accent.opacity(0.1), in: .rect(cornerRadius: 14))
 
         if isChoice, !matchesChoice(solution.finalAnswer) {
             Label("선지에 같은 답이 없어요. 문제 글을 확인해 주세요.", systemImage: "exclamationmark.triangle.fill")

@@ -99,7 +99,7 @@ struct StatsView: View {
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 40)
             .animation(Motion.spring, value: period)
         }

@@ -26,6 +26,8 @@ enum UIShotScreen: String, CaseIterable {
     case appSettings
     /// 둘러보기(게스트) 상태의 계정 화면
     case guestAccount
+    /// 공부 랭킹 (가짜 순위 · 내가 목록 안 / 밖)
+    case ranking, rankingFar
 }
 
 @MainActor
@@ -55,7 +57,7 @@ enum UIShot {
     static var tab: AppTab {
         switch screen {
         case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem,
-             .weeklyReport, .wordSession: return .study
+             .weeklyReport, .wordSession, .ranking, .rankingFar: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
         case .account, .accountSettings, .appSettings, .badges, .guestAccount: return .account

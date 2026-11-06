@@ -35,7 +35,7 @@ struct CramListView: View {
                         }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
@@ -135,7 +135,7 @@ struct CramDetailView: View {
                     }
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.bottom, 140)
         }
         .scrollIndicators(.hidden)
@@ -172,7 +172,7 @@ struct CramDetailView: View {
     private var modePicker: some View {
         VStack(alignment: .trailing, spacing: 6) {
             if exam.dDay <= 2 && !exam.isBooster {
-                Label("시험 \(max(exam.dDay, 0))일 전, 핵심만 빠르게", systemImage: "sparkles")
+                Label("시험 \(max(exam.dDay, 0))일 전, 핵심만 빠르게", systemImage: "lightbulb")
                     .font(.pt(.caption).weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -222,7 +222,7 @@ struct CramDetailView: View {
             .scrollIndicators(.hidden)
         }
         .padding(16)
-        .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 20))
+        .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 14))
     }
 
     private var bottomBar: some View {
@@ -246,7 +246,7 @@ struct CramDetailView: View {
             }
         }
         .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .glassEffect(.regular, in: .rect(cornerRadius: 14))
         .padding(.horizontal, 16)
         .padding(.bottom, 8)
     }

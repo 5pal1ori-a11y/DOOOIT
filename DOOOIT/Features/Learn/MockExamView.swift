@@ -151,7 +151,7 @@ struct MockExamView: View {
                 .disabled(stage == .loading)
                 .padding(.top, 4)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 32)
         }
@@ -221,7 +221,7 @@ struct MockExamView: View {
                     questionCard(current, number: index + 1)
                         .id(current.id)
                         .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
-                        .padding(.horizontal, 20)
+                        .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                 }
             }
@@ -234,7 +234,7 @@ struct MockExamView: View {
                     Image(systemName: "chevron.left")
                         .font(.pt(.headline))
                         .frame(width: 54, height: 54)
-                        .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
+                        .background(Palette.card, in: .rect(cornerRadius: 14, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(index == 0)
@@ -250,7 +250,7 @@ struct MockExamView: View {
                     .buttonStyle(.primaryFill)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.vertical, 10)
         }
     }
@@ -272,7 +272,7 @@ struct MockExamView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 16)
     }
 
     private func questionCard(_ q: MockExamQuestion, number: Int) -> some View {
@@ -301,7 +301,7 @@ struct MockExamView: View {
                     .submitLabel(.next)
                     .onSubmit { if index < questions.count - 1 { withAnimation(.snappy) { index += 1 } } }
                     .padding(14)
-                    .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 16, style: .continuous))
+                    .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 14, style: .continuous))
                 if q.item.kind == .math {
                     MathSymbolBar { symbol in
                         let text = (answers[q.id] ?? "") + symbol.insert
@@ -333,7 +333,7 @@ struct MockExamView: View {
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 12)
-            .background(on ? Theme.accent : Color.primary.opacity(0.05), in: .rect(cornerRadius: 16, style: .continuous))
+            .background(on ? Theme.accent : Color.primary.opacity(0.05), in: .rect(cornerRadius: 14, style: .continuous))
         }
         .buttonStyle(.pressable)
     }
@@ -414,12 +414,12 @@ struct MockExamView: View {
                             .font(.pt(.body).weight(.bold))
                             .foregroundStyle(Palette.ink)
                             .frame(width: 96, height: 54)
-                            .background(Palette.card, in: .rect(cornerRadius: 20, style: .continuous))
+                            .background(Palette.card, in: .rect(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 32)
         }

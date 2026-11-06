@@ -4,11 +4,11 @@ import SwiftUI
 /// 공부 탭의 "AI 학습" 영역: 목록 하나로 (단원별 학습 · 취약 유형 · 모의고사 · 주간 리포트)
 struct LearnHubSection: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             SectionTitle("AI")
             VStack(spacing: 0) {
                 NavigationLink { CurriculumView() } label: {
-                    RowLabel(symbol: "sparkles", title: L("AI 학습"))
+                    RowLabel(symbol: "lightbulb", title: L("AI 학습"))
                 }
                 RowDivider()
                 NavigationLink { WeaknessView() } label: {
