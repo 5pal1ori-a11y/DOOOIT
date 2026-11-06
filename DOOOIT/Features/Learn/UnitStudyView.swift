@@ -53,6 +53,8 @@ enum ContentCache {
 
     static func key(_ subject: String, _ unit: String, _ kind: String, booster: Bool = false) -> String {
         let base = "\(subject)|\(unit)|\(kind)|\(booster ? "b" : "s")"
+        // 개념 정리는 원리·실수·확인 문제를 더하면서 새로 만듦 (예전 자료는 지우지 않음)
+        if kind == "concept" { return base + "|" + version + "|x1" }
         return kind == "weak" ? base : base + "|" + version
     }
 
@@ -472,6 +474,45 @@ struct ConceptStepView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
                     .appearAnimation(delay: 0.3)
+                }
+                if !note.principles.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("왜 그럴까요?", systemImage: "questionmark.bubble.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Theme.accent)
+                        ForEach(Array(note.principles.enumerated()), id: \.offset) { _, line in
+                            Text(line).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 16))
+                }
+                if !note.mistakes.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label("자주 하는 실수", systemImage: "exclamationmark.triangle.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.warning)
+                        ForEach(Array(note.mistakes.enumerated()), id: \.offset) { _, line in
+                            Text(line).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.warning.opacity(0.12), in: .rect(cornerRadius: 16))
+                }
+                if !note.checkQuestion.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("확인 문제", systemImage: "checkmark.circle.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.success)
+                        Text(note.checkQuestion).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+                        if !note.checkAnswer.isEmpty {
+                            DisclosureGroup("정답 보기") {
+                                Text(note.checkAnswer).font(.pt(.subheadline)).foregroundStyle(Palette.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.top, 4)
+                            }
+                            .font(.pt(.subheadline).weight(.semibold))
+                        }
+                    }
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.success.opacity(0.1), in: .rect(cornerRadius: 16))
                 }
                 if !note.sources.isEmpty {
                     Label("근거: " + note.sources.joined(separator: " · "), systemImage: "books.vertical")

@@ -148,6 +148,11 @@ enum DoitEngine {
         if let early = DoitChat.earlyReply(text) {
             return Reply(text: early.text, suggestions: early.suggestions, origin: early.kind == "meta" ? .command : .chat)
         }
+        // 아이디어·브레인스토밍 요청: 여러 관점의 질문으로 열어 줌 (모델이 있으면 이걸 참고해 구체적인 아이디어를 6~8개 냄)
+        if let ideas = DoitIdeas.answer(text) {
+            conversationTopic = ideas.topic
+            return Reply(text: ideas.text, suggestions: ideas.suggestions, origin: .conversation)
+        }
         // 알 수 없는 것(실시간 정보·개인 정보·시험에 나올 문제)과 부탁말·과목 이름만 보낸 말: 짐작하지 않고 짧게
         if let guarded = DoitRelevance.check(text, topic: conversationTopic) {
             return Reply(text: guarded.text, suggestions: guarded.suggestions, origin: guarded.modelMayAnswer ? .conversation : .command)
