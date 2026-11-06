@@ -466,7 +466,7 @@ private struct AIOrb: View {
                     .frame(width: size * 1.4, height: size * 1.4)
                     .blur(radius: size * 0.2)
             }
-            Image("AppLogo")
+            Image(Theme.current.logoName)
                 .resizable()
                 .scaledToFill()
                 .frame(width: size, height: size)

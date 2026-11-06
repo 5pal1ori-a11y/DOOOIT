@@ -363,7 +363,7 @@ final class DoitAssistant {
                                                            prompt: DoitMind.answerPrompt(question: question, context: context, history: [],
                                                                                          summary: history.summary, topic: topicHint, style: style),
                                                            history: history.recent,
-                                                           maxTokens: reasoning ? 1400 : DoitMind.maxTokens(for: style),
+                                                           maxTokens: reasoning ? 1400 : DoitMind.maxTokens(for: style, question: question),
                                                            temperature: style == .casual ? 0.7 : (origin == .chat || origin == .conversation ? 0.6 : 0.4),
                                                            thinking: reasoning) {
                 raw += chunk

@@ -113,6 +113,14 @@ enum DoitMind {
             parts.append("[지금 이야기 중인 주제] \(topic)\n질문이 짧거나 '그거', '왜?'처럼 앞 이야기를 가리키면 이 주제와 앞 대화를 이어서 답해요. 다른 이야기로 새지 않아요.")
         }
         parts.append("[질문]\n" + question)
+        // 아이디어 요청: 여러 관점에서 여러 개 (일상 대화 제외)
+        if style != .casual, wantsIdeas(question) {
+            parts.append(ideasInstruction)
+            if let rule = languageRule { parts.append(rule) }
+            return parts.joined(separator: "\n\n")
+        }
+        // 공부 질문: 관점을 골라 짧게 생각한 뒤 핵심 → 이유 → 예시 → 확인 순서로 (마지막 짧은 지시 바로 앞에)
+        if let scaffold = reasoningScaffold(for: question, style: style) { parts.append(scaffold) }
         switch style {
         case .casual:
             // 일상 대화: 짧게, 공감·맞장구 먼저 (참고 답은 떠올릴 거리일 뿐)

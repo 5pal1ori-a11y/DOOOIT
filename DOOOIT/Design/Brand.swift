@@ -10,7 +10,7 @@ struct BrandLogo: View {
 
     var body: some View {
         let radius = size * 0.26
-        Image("AppLogo")
+        Image(Theme.current.logoName)
             .resizable()
             .interpolation(.high)
             .scaledToFit()

@@ -18,9 +18,17 @@ struct ConceptNote: Codable {
     var sources: [String] = []
     /// 통과한 검증 (예: "단원 일치", "자료 근거")
     var checks: [String] = []
+    /// 왜 그런지 (원리·이유)
+    var principles: [String] = []
+    /// 자주 하는 실수 · 헷갈리는 것
+    var mistakes: [String] = []
+    /// 확인 문제 (O/X 문장)와 정답·해설
+    var checkQuestion: String = ""
+    var checkAnswer: String = ""
 
     init(title: String, keyPoints: [String], example: String, summary: String = "", details: [String] = [],
-         scope: String = "", sources: [String] = [], checks: [String] = []) {
+         scope: String = "", sources: [String] = [], checks: [String] = [],
+         principles: [String] = [], mistakes: [String] = [], checkQuestion: String = "", checkAnswer: String = "") {
         self.title = title
         self.keyPoints = keyPoints
         self.example = example
@@ -29,6 +37,10 @@ struct ConceptNote: Codable {
         self.scope = scope
         self.sources = sources
         self.checks = checks
+        self.principles = principles
+        self.mistakes = mistakes
+        self.checkQuestion = checkQuestion
+        self.checkAnswer = checkAnswer
     }
 
     // 예전에 저장한 자료(title·keyPoints·example만 있음)도 읽을 수 있게
@@ -42,6 +54,10 @@ struct ConceptNote: Codable {
         scope = try c.decodeIfPresent(String.self, forKey: .scope) ?? ""
         sources = try c.decodeIfPresent([String].self, forKey: .sources) ?? []
         checks = try c.decodeIfPresent([String].self, forKey: .checks) ?? []
+        principles = try c.decodeIfPresent([String].self, forKey: .principles) ?? []
+        mistakes = try c.decodeIfPresent([String].self, forKey: .mistakes) ?? []
+        checkQuestion = try c.decodeIfPresent(String.self, forKey: .checkQuestion) ?? ""
+        checkAnswer = try c.decodeIfPresent(String.self, forKey: .checkAnswer) ?? ""
     }
 }
 

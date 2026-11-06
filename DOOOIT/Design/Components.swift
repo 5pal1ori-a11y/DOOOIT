@@ -29,9 +29,8 @@ extension String {
 
 /// 강조 색 (예전엔 그라데이션 — 깔끔하게 한 색으로 통일. 이름은 그대로 두어 모든 화면에 한 번에 적용)
 enum AccentGradient {
-    static var linear: LinearGradient {
-        LinearGradient(colors: [Theme.accent, Theme.accent], startPoint: .top, endPoint: .bottom)
-    }
+    /// 테마의 세 색(진한 → 강조 → 밝은 색)이 이어지는 그라데이션
+    static var linear: LinearGradient { Theme.current.fill }
 }
 
 /// 섹션 제목 (아이콘 + 제목 + 우측 액세서리)
@@ -232,7 +231,10 @@ struct ThemePicker: View {
             }
         }
         .padding(.vertical, 4)
-        .onChange(of: themeRaw) { Haptics.tap() }
+        .onChange(of: themeRaw) {
+            Haptics.tap()
+            AppIconSwitcher.apply(ThemeColor.from(themeRaw))
+        }
     }
 
     private func card(_ theme: ThemeColor) -> some View {
@@ -399,4 +401,20 @@ struct PrimaryButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == PrimaryButtonStyle {
     static var primaryFill: PrimaryButtonStyle { PrimaryButtonStyle() }
+}
+
+
+/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (트와일라이트가 기본 아이콘, 나머지는 대체 아이콘)
+/// iOS가 바꿀 때마다 "아이콘을 변경했습니다" 안내를 한 번 보여 줘요
+enum AppIconSwitcher {
+    static func iconName(for theme: ThemeColor) -> String? {
+        theme.resolved == .twilight ? nil : "AppIcon-\(theme.resolved.rawValue)"
+    }
+
+    @MainActor static func apply(_ theme: ThemeColor) {
+        let app = UIApplication.shared
+        let wanted = iconName(for: theme)
+        guard app.supportsAlternateIcons, app.alternateIconName != wanted else { return }
+        app.setAlternateIconName(wanted) { _ in }
+    }
 }

@@ -107,6 +107,9 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
     var id: String { resolved.rawValue }
 
+    /// 이 테마 색으로 만든 앱 로고 (Assets의 AppLogo-테마이름)
+    var logoName: String { "AppLogo-\(resolved.rawValue)" }
+
     /// 예전 값을 새 테마로 바꾼 것
     var resolved: ThemeColor {
         switch self {
@@ -166,9 +169,20 @@ enum ThemeColor: String, CaseIterable, Identifiable {
         LinearGradient(colors: [deep, accent, light], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
-    /// 꽉 찬 버튼 바탕 (진한 → 강조: 흰 글자가 늘 읽힘)
+    /// 연한 색을 강조색에 40%쯤 섞은 색 (흰 글자가 올라가는 곳의 세 번째 색)
+    var lift: Color {
+        switch resolved {
+        case .midnight: return Color(hex: "#797FE2")
+        case .forest: return Color(hex: "#5BAF88")
+        case .twilight: return Color(hex: "#9C72E6")
+        default: return Color(hex: "#70B4F0")
+        }
+    }
+
+    /// 꽉 찬 버튼 바탕: 세 색 그라데이션 (진한 → 강조 → 살짝 밝은 색). 흰 글자가 읽히도록 밝은 색은 끝에만
     var fill: LinearGradient {
-        LinearGradient(colors: [deep, accent], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(stops: [.init(color: deep, location: 0), .init(color: accent, location: 0.58), .init(color: lift, location: 1)],
+                       startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 
     /// 배경에 은은하게 깔리는 색

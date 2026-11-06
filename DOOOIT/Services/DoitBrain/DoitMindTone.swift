@@ -8,7 +8,7 @@ extension DoitMind {
     /// 프롬프트에서 새어 나온 글 빼기: "[질문]" 같은 칸 이름, 시킨 말, 혼자 이어 쓴 다음 대화("학생: …")
     static func stripLeaks(_ text: String) -> String {
         let labels = #"^\s*\[(질문|참고 자료|학생의 오늘 상황|이전 대화|앞선 대화|지금 이야기 중인 주제)\]"#
-        let orders = ["짧고 간단하게 답해 주세요", "자기 말로 짧고 간단하게", "요약이나 결론은 붙이지 마세요", "친구처럼 1~2문장으로", "가벼운 일상 대화예요", "학생 말에 바로 반응해 주세요", "참고 답과 비슷한 느낌으로", "2~4문장으로 다정하게"]
+        let orders = ["짧고 간단하게 답해 주세요", "자기 말로 짧고 간단하게", "요약이나 결론은 붙이지 마세요", "친구처럼 1~2문장으로", "가벼운 일상 대화예요", "학생 말에 바로 반응해 주세요", "참고 답과 비슷한 느낌으로", "2~4문장으로 다정하게", "답하기 전에 속으로", "아이디어를 달라는 요청이에요"]
         var kept: [String] = []
         for line in text.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)

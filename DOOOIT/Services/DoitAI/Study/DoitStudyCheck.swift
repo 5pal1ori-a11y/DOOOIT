@@ -103,6 +103,8 @@ enum DoitStudyCheck {
         if !note.summary.isEmpty { issues += checkSentence(note.summary, basis: basis, label: "핵심 개념") }
         for (index, point) in note.keyPoints.enumerated() { issues += checkSentence(point, basis: basis, label: "학습 포인트 \(index + 1)") }
         for (index, detail) in note.details.enumerated() { issues += checkSentence(detail, basis: basis, label: "상세 설명 \(index + 1)") }
+        for (index, line) in note.principles.enumerated() { issues += checkSentence(line, basis: basis, label: "원리 \(index + 1)") }
+        for (index, line) in note.mistakes.enumerated() { issues += checkSentence(line, basis: basis, label: "실수 \(index + 1)") }
         return issues
     }
 
