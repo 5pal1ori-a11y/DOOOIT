@@ -1,0 +1,4 @@
+en.lproj
+ja.lproj
+ko.lproj
+zh-Hans.lproj
