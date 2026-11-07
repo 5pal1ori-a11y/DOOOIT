@@ -152,6 +152,10 @@ struct MainTabView: View {
             if phase == .idle && !studyTimer.isPresented { BadgeCenter.shared.check(context: context) }
         }
         .onChange(of: tab) { BadgeCenter.shared.check(context: context) }
+        // 친구 초대에 성공하면 바로 배지 확인 (친구 기능이 InviteRewards.recordSuccessfulInvite를 부름)
+        .onReceive(NotificationCenter.default.publisher(for: InviteRewards.changed)) { _ in
+            BadgeCenter.shared.check(context: context)
+        }
         // 새 배지 축하 (어느 탭에서든 위에서 살짝)
         .overlay(alignment: .top) {
             BadgeToastHost()
@@ -207,6 +211,8 @@ struct MainTabView: View {
             #if DEBUG
             if UIShot.isActive { return }
             #endif
+            // 아직 잠긴 테마가 저장돼 있으면(복원한 백업 등) 기본 테마로 되돌림
+            if ThemeColor(rawValue: themeRaw)?.isLocked == true { themeRaw = ThemeColor.standard.rawValue }
             // 바탕화면 아이콘이 지금 테마 색과 다르면 맞춤 (이미 맞으면 아무 일도 없음)
             AppIconSwitcher.apply(Theme.current)
             // 랭킹에 참여 중이면 Game Center에 로그인해 둠 (타이머를 마치면 바로 반영되게)

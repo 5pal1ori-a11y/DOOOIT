@@ -24,7 +24,9 @@ enum AccountStore {
         SettingsKey.autoStartTimer, SettingsKey.appearance, SettingsKey.themeColor,
         SettingsKey.dDayTitle, SettingsKey.dDayDate, "selectedTab", "doitUserName", "dooit.autoStartedPlanKeys",
         // 배지를 처음 받은 날짜
-        BadgeCenter.unlockedKey
+        BadgeCenter.unlockedKey,
+        // 초대에 성공한 친구 수 (배지 · 선셋 테마 잠금)
+        InviteRewards.countKey
     ]
 
     // MARK: iCloud 동기화 (같은 Apple ID 기기끼리 이어짐)

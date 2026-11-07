@@ -33,13 +33,17 @@ struct BadgeShelfView: View {
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
+        #if DEBUG
+        // 화면 사진: 초대 배지는 맨 아래라 아래로 내려서 찍음
+        .defaultScrollAnchor(UIShot.matches(.badgesInvite) ? UnitPoint.bottom : UnitPoint.top)
+        #endif
         .background { AppBackground() }
         .navigationTitle("배지")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { center.check(context: context) }
         .sheet(item: $selected) { badge in
             BadgeDetailSheet(badge: badge, unlockedAt: center.unlocked[badge.id], stats: center.stats)
-                .presentationDetents([.height(320)])
+                .presentationDetents([.height(badge.limited ? 380 : 320)])
                 .presentationCornerRadius(32)
         }
     }
@@ -144,7 +148,16 @@ struct BadgeDetailSheet: View {
             BadgeMedal(badge: badge, isOn: unlockedAt != nil, size: 96, bounce: bounce)
                 .padding(.top, 28)
             Text(badge.title.loc).font(.pt(.title3).weight(.bold)).foregroundStyle(Palette.ink)
+            if badge.limited {
+                TagLabel(text: L("한정 배지"))
+            }
             Text(badge.detail.loc).font(.pt(.subheadline)).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if badge.unlocksTheme {
+                Label(L("보상 · 선셋 테마"), systemImage: "paintpalette")
+                    .font(.pt(.subheadline).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+            }
             if let unlockedAt {
                 TagLabel(text: unlockedAt.ui("yyyy년 M월 d일"), symbol: "checkmark", color: badge.color)
             } else {
@@ -176,6 +189,9 @@ struct BadgeToastHost: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("새 배지!").font(.pt(.caption).weight(.semibold)).foregroundStyle(toast.badge.color)
                             Text(toast.badge.title.loc).font(.pt(.headline)).foregroundStyle(Palette.ink)
+                            if toast.badge.unlocksTheme {
+                                Text("새 테마가 열렸어요").font(.pt(.caption)).foregroundStyle(.secondary)
+                            }
                         }
                         Spacer(minLength: 0)
                         if toast.more > 0 {

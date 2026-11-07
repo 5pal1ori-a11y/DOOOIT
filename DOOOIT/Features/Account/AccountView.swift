@@ -102,8 +102,8 @@ struct AccountView: View {
             .navigationTitle("계정")
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
-            .uiShotPush(.badges) { BadgeShelfView() }
-            .uiShotPush(.appSettings) { appSettings }
+            .uiShotPush(.badges, .badgesInvite) { BadgeShelfView() }
+            .uiShotPush(.appSettings, .themePickerLocked, .themePickerUnlocked) { appSettings }
             #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {

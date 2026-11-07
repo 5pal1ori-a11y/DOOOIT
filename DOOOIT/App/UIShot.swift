@@ -28,6 +28,8 @@ enum UIShotScreen: String, CaseIterable {
     case ranking, rankingFar
     /// 오답노트: 빈 목록 · 수학 문제(문제 탭) · 영어 문제(채점 뒤) · 취약 개념 목록 · 취약 유형 맞춤 학습
     case mathEmpty, mathNoteText, subjectNote, weakList, weakness
+    /// 친구 초대 보상: 테마 고르기(초대 0명 = 선셋 잠김 · 3명 = 열림) · 초대 배지 진열장
+    case themePickerLocked, themePickerUnlocked, badgesInvite
 }
 
 @MainActor
@@ -61,7 +63,8 @@ enum UIShot {
              .mathEmpty, .mathNoteText, .subjectNote, .weakList, .weakness: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
-        case .account, .accountSettings, .appSettings, .badges, .guestAccount: return .account
+        case .account, .accountSettings, .appSettings, .badges, .guestAccount,
+             .themePickerLocked, .themePickerUnlocked, .badgesInvite: return .account
         default: return .home
         }
     }
@@ -73,7 +76,20 @@ enum UIShot {
         if let i = args.firstIndex(of: "-uiLang"), i + 1 < args.count, let lang = AppLanguage(rawValue: args[i + 1]) {
             AppLanguage.override = lang
         }
+        // 초대한 친구 수 (저장되지 않음): -uiInvites N 으로 고르고, 없으면 화면마다 정한 값
+        // (테마 잠김 0명 · 열림 3명 · 초대 배지 1명 = 첫 초대만 받고 나머지는 진행 표시)
+        var invites = 0
+        if let i = args.firstIndex(of: "-uiInvites"), i + 1 < args.count, let n = Int(args[i + 1]) {
+            invites = max(0, n)
+        } else {
+            switch screen {
+            case .themePickerUnlocked: invites = 3
+            case .badgesInvite: invites = 1
+            default: break
+            }
+        }
         UserDefaults.standard.register(defaults: [
+            InviteRewards.countKey: invites,
             "selectedTab": tab.rawValue,
             AppearanceMode.key: isDark ? AppearanceMode.dark.rawValue : AppearanceMode.light.rawValue,
             SettingsKey.notificationsEnabled: false,

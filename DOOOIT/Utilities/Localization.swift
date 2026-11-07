@@ -38,6 +38,7 @@ extension BadgeBook.Badge {
         case .hours, .bestDay: return L("\(v) / \(t)시간")
         case .words, .fixed, .notes: return L("\(v) / \(t)개")
         case .ai, .mock, .perfect, .focus: return L("\(v) / \(t)번")
+        case .invites: return L("\(v) / \(t)명")
         }
     }
 }

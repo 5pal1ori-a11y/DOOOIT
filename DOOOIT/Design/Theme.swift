@@ -103,7 +103,8 @@ extension Color {
 
 // MARK: - Background
 
-/// 테마 넷: 모노(옅은 회색 · 하양 · 검정) · 캔디(노랑 · 핑크 · 찐한 핑크) · 포레스트 · 오션
+/// 테마 다섯: 모노(옅은 회색 · 하양 · 검정) · 캔디(노랑 · 핑크 · 찐한 핑크) · 포레스트 · 오션 · 선셋(코랄 오렌지 · 옅은 복숭아 · 짙은 갈색 글자)
+/// 선셋은 친구 3명을 초대하면 열려요 (InviteRewards). 잠겨 있으면 모노로 보여 줘요
 /// 색은 "역할"별로 나눠 화면 곳곳에 씀 (한 가지 강조색에 몰아 쓰지 않음)
 /// - primary(accent): 주요 버튼 · 선택 · 진행 채움 · 링크 글자 (이 위의 글자는 onAccent)
 /// - secondary: 아이콘 · 보조 칩 · 진행 중간 색 · 그래프의 지난 값
@@ -111,11 +112,13 @@ extension Color {
 /// - 바탕(base) · 글자(ink) · 선(line)도 테마마다 다름
 enum ThemeColor: String, CaseIterable, Identifiable {
     case mono, candy, forest, ocean
+    /// 친구 초대 보상 테마
+    case sunset
     /// 예전 테마 값: 지우지 않고 가장 비슷한 새 테마로 이어서 씀 (보라 계열은 모노로)
     case midnight, twilight, lavender, sky, mint
 
     /// 고르는 화면에 보이는 테마 (예전 값은 제외)
-    static var allCases: [ThemeColor] { [.mono, .candy, .forest, .ocean] }
+    static var allCases: [ThemeColor] { [.mono, .candy, .forest, .ocean, .sunset] }
     /// 처음 쓰는 테마
     static let standard: ThemeColor = .mono
 
@@ -134,9 +137,26 @@ enum ThemeColor: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 저장된 글자 → 테마 (모르는 값이면 기본)
+    /// 저장된 글자 → 테마 (모르는 값이면 기본 · 아직 잠긴 테마(예: 복원한 백업)도 기본)
     static func from(_ raw: String) -> ThemeColor {
-        (ThemeColor(rawValue: raw) ?? .standard).resolved
+        let theme = (ThemeColor(rawValue: raw) ?? .standard).resolved
+        return theme.isLocked ? .standard : theme
+    }
+
+    /// 초대로 여는 테마라면 그 보상 (아니면 nil)
+    var rewardTheme: InviteRewards.RewardTheme? {
+        resolved == .sunset ? .newTheme : nil
+    }
+
+    /// 아직 못 쓰는 테마인지 (친구를 더 초대해야 함)
+    var isLocked: Bool {
+        guard let reward = rewardTheme else { return false }
+        return !InviteRewards.isThemeUnlocked(reward)
+    }
+
+    /// 잠긴 테마가 열릴 때까지 남은 친구 수 (열려 있으면 0)
+    var invitesRemaining: Int {
+        rewardTheme.map { InviteRewards.remaining(for: $0) } ?? 0
     }
 
     var title: String {
@@ -144,16 +164,19 @@ enum ThemeColor: String, CaseIterable, Identifiable {
         case .mono: return L("모노")
         case .candy: return L("캔디")
         case .forest: return L("포레스트")
+        case .sunset: return L("선셋")
         default: return L("오션")
         }
     }
 
-    private func pick(mono: (String, String), candy: (String, String), forest: (String, String), ocean: (String, String)) -> Color {
+    private func pick(mono: (String, String), candy: (String, String), forest: (String, String), ocean: (String, String),
+                      sunset: (String, String)) -> Color {
         let v: (String, String)
         switch resolved {
         case .mono: v = mono
         case .candy: v = candy
         case .forest: v = forest
+        case .sunset: v = sunset
         default: v = ocean
         }
         return Color(light: v.0, dark: v.1)
@@ -164,19 +187,22 @@ enum ThemeColor: String, CaseIterable, Identifiable {
     /// 화면 바탕
     var base: Color {
         pick(mono: ("#F2F2F4", "#000000"), candy: ("#FFF7FA", "#0D0709"),
-             forest: ("#F5F6F8", "#000000"), ocean: ("#F5F6F8", "#000000"))
+             forest: ("#F5F6F8", "#000000"), ocean: ("#F5F6F8", "#000000"),
+             sunset: ("#FFF6EF", "#0E0907"))
     }
 
     /// 글자 색
     var ink: Color {
         pick(mono: ("#111111", "#F2F3F7"), candy: ("#1A1418", "#F7F1F4"),
-             forest: ("#1F2433", "#F2F3F7"), ocean: ("#1F2433", "#F2F3F7"))
+             forest: ("#1F2433", "#F2F3F7"), ocean: ("#1F2433", "#F2F3F7"),
+             sunset: ("#2B1810", "#FBEFE6"))
     }
 
     /// 카드 테두리 · 구분선 (헤어라인)
     var line: Color {
         pick(mono: ("#E0E0E4", "#2E2E31"), candy: ("#F3DCE6", "#33222B"),
-             forest: ("#E3E5EA", "#2E2E31"), ocean: ("#E3E5EA", "#2E2E31"))
+             forest: ("#E3E5EA", "#2E2E31"), ocean: ("#E3E5EA", "#2E2E31"),
+             sunset: ("#F1DCCB", "#34241C"))
     }
 
     // MARK: 역할 색
@@ -184,37 +210,43 @@ enum ThemeColor: String, CaseIterable, Identifiable {
     /// 주요 버튼 · 선택 표시 · 진행 채움 (모노: 밝게 검정 / 어둡게 흰색)
     var accent: Color {
         pick(mono: ("#111111", "#FFFFFF"), candy: ("#D81B60", "#D81B60"),
-             forest: ("#1E9E74", "#1E9E74"), ocean: ("#2E8FE6", "#2E8FE6"))
+             forest: ("#1E9E74", "#1E9E74"), ocean: ("#2E8FE6", "#2E8FE6"),
+             sunset: ("#C2410D", "#FF7F50"))
     }
 
     /// accent 위에 얹는 글자 · 아이콘 색 (모노 어둡게만 검정)
     var onAccent: Color {
         pick(mono: ("#FFFFFF", "#111111"), candy: ("#FFFFFF", "#FFFFFF"),
-             forest: ("#FFFFFF", "#FFFFFF"), ocean: ("#FFFFFF", "#FFFFFF"))
+             forest: ("#FFFFFF", "#FFFFFF"), ocean: ("#FFFFFF", "#FFFFFF"),
+             sunset: ("#FFFFFF", "#2A1007"))
     }
 
     /// 보조: 아이콘 · 칩 · 그래프의 지난 값 · 진행 중간 색
     var secondary: Color {
         pick(mono: ("#8E8E93", "#8E8E93"), candy: ("#FF6FA5", "#FF7FB0"),
-             forest: ("#5BAF88", "#5BAF88"), ocean: ("#70B4F0", "#70B4F0"))
+             forest: ("#5BAF88", "#5BAF88"), ocean: ("#70B4F0", "#70B4F0"),
+             sunset: ("#D9703F", "#FF9C73"))
     }
 
     /// 보조 색 바탕 (칩 · 진행 막대 바탕 · 옅은 칸)
     var secondaryFill: Color {
         pick(mono: ("#E4E4E7", "#2C2C2E"), candy: ("#FFE0EC", "#2B1A22"),
-             forest: ("#E3EEDD", "#1F2E25"), ocean: ("#E0F0FD", "#1A2C3E"))
+             forest: ("#E3EEDD", "#1F2E25"), ocean: ("#E0F0FD", "#1A2C3E"),
+             sunset: ("#FFEBDD", "#2E1C14"))
     }
 
     /// 하이라이트: 오늘 · 내 줄 · 달성 (캔디는 노랑, 모노는 회색 바탕)
     var highlight: Color {
         pick(mono: ("#E4E4E7", "#3A3A3C"), candy: ("#FFD84D", "#FFD84D"),
-             forest: ("#CFE3B8", "#2E4A3A"), ocean: ("#CFE6FB", "#1F3C5E"))
+             forest: ("#CFE3B8", "#2E4A3A"), ocean: ("#CFE6FB", "#1F3C5E"),
+             sunset: ("#FFCFA0", "#5E361D"))
     }
 
     /// highlight 위의 글자
     var onHighlight: Color {
         pick(mono: ("#111111", "#F2F3F7"), candy: ("#1A1418", "#1A1418"),
-             forest: ("#14301F", "#E6F2DD"), ocean: ("#0E2A55", "#E1EEFB"))
+             forest: ("#14301F", "#E6F2DD"), ocean: ("#0E2A55", "#E1EEFB"),
+             sunset: ("#3A1D08", "#FFE9DA"))
     }
 
     // MARK: 예전 이름 (역할 색에서 유도 · 계속 동작)
@@ -222,25 +254,29 @@ enum ThemeColor: String, CaseIterable, Identifiable {
     /// 진한 색 (그라데이션 시작)
     var deep: Color {
         pick(mono: ("#111111", "#FFFFFF"), candy: ("#D81B60", "#D81B60"),
-             forest: ("#14532D", "#14532D"), ocean: ("#10306B", "#10306B"))
+             forest: ("#14532D", "#14532D"), ocean: ("#10306B", "#10306B"),
+             sunset: ("#B0370A", "#F2683A"))
     }
 
     /// 연한 색 (견본 · 옅은 칸)
     var light: Color {
         pick(mono: ("#D1D1D6", "#3A3A3C"), candy: ("#FFB3D1", "#FFB3D1"),
-             forest: ("#B7C9A8", "#B7C9A8"), ocean: ("#D4ECFF", "#D4ECFF"))
+             forest: ("#B7C9A8", "#B7C9A8"), ocean: ("#D4ECFF", "#D4ECFF"),
+             sunset: ("#FFC9A8", "#FFB48C"))
     }
 
     /// 그라데이션 끝 색 (흰 글자가 올라가는 곳의 세 번째 색)
     var lift: Color {
         pick(mono: ("#6B6B72", "#C7C7CC"), candy: ("#F27AA8", "#F27AA8"),
-             forest: ("#5BAF88", "#5BAF88"), ocean: ("#70B4F0", "#70B4F0"))
+             forest: ("#5BAF88", "#5BAF88"), ocean: ("#70B4F0", "#70B4F0"),
+             sunset: ("#E96F2F", "#FFA27A"))
     }
 
     /// 그라데이션 가운데 색
     private var mid: Color {
         pick(mono: ("#34343A", "#E4E4E7"), candy: ("#E8407F", "#E8407F"),
-             forest: ("#1E9E74", "#1E9E74"), ocean: ("#2E8FE6", "#2E8FE6"))
+             forest: ("#1E9E74", "#1E9E74"), ocean: ("#2E8FE6", "#2E8FE6"),
+             sunset: ("#D9531C", "#FF7F50"))
     }
 
     /// 항상 어두운 화면(타이머)에서 쓰는 강조색 (위의 글자는 검정)
@@ -249,6 +285,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
         case .mono: return Color(hex: "#FFFFFF")
         case .candy: return Color(hex: "#FF5C93")
         case .forest: return Color(hex: "#3DD68C")
+        case .sunset: return Color(hex: "#FF8A57")
         default: return Color(hex: "#4DA3FF")
         }
     }
@@ -258,6 +295,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
         switch resolved {
         case .mono: return [Color(hex: "#111111"), Color(hex: "#E4E4E7"), Color(hex: "#FFFFFF")]
         case .candy: return [Color(hex: "#D81B60"), Color(hex: "#FF6FA5"), Color(hex: "#FFD84D")]
+        case .sunset: return [Color(hex: "#C2410D"), Color(hex: "#F59B6B"), Color(hex: "#FFD9BF")]
         default: return [deep, accent, light]
         }
     }
@@ -278,15 +316,17 @@ enum ThemeColor: String, CaseIterable, Identifiable {
 
     var softer: Color {
         pick(mono: ("#EEEEF0", "#1C1C1E"), candy: ("#FFF0F6", "#2A121C"),
-             forest: ("#EEF5EA", "#18241D"), ocean: ("#EDF7FE", "#15222F"))
+             forest: ("#EEF5EA", "#18241D"), ocean: ("#EDF7FE", "#15222F"),
+             sunset: ("#FFF1E7", "#1F130E"))
     }
 
-    /// 위젯·워치에 넘기는 강조색 (모노 #111111 · 캔디 #D81B60)
+    /// 위젯·워치에 넘기는 강조색 (모노 #111111 · 캔디 #D81B60 · 선셋 #C2410D)
     var accentHex: String {
         switch resolved {
         case .mono: return "#111111"
         case .candy: return "#D81B60"
         case .forest: return "#1E9E74"
+        case .sunset: return "#C2410D"
         default: return "#2E8FE6"
         }
     }

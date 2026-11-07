@@ -61,7 +61,8 @@ final class BadgeCenter {
     }
 
     private func showNext() {
-        guard toast == nil, let first = queue.first else { return }
+        // 여러 개를 한꺼번에 받으면 새 테마가 열리는 배지를 먼저 보여 줌
+        guard toast == nil, let first = queue.first(where: \.unlocksTheme) ?? queue.first else { return }
         // 한꺼번에 많이 받으면 하나로 모아서 (처음 업데이트했을 때 등)
         let more = queue.count - 1
         queue.removeAll()
@@ -97,6 +98,7 @@ final class BadgeCenter {
 
     static func stats(context: ModelContext) -> BadgeBook.Stats {
         var s = BadgeBook.Stats()
+        s.invites = InviteRewards.count()
         let sessions = (try? context.fetch(FetchDescriptor<StudySession>())) ?? []
         var byDay: [Date: Int] = [:]
         for session in sessions {
