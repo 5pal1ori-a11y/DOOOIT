@@ -188,7 +188,7 @@ struct NeisClient: Sendable {
 
     private func fetch(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15)
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        // 주의: Accept: application/json 헤더를 보내면 NEIS가 HTTP 500을 돌려줘요 (CI에서 확인). 형식은 Type=json 으로만 정해요.
         do {
             let (data, response) = try await session.data(for: request)
             if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
