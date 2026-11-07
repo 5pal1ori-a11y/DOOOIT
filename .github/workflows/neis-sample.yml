@@ -17,7 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Fetch samples
-        run: bash .github/scripts/neis-sample.sh
+        run: |
+          bash .github/scripts/neis-sample.sh
+          bash .github/scripts/neis-sample2.sh
       - name: Push neis-samples
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,5 +30,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           cp -r "$GITHUB_WORKSPACE/samples/." .
+          mkdir -p round2 && cp -r "$GITHUB_WORKSPACE/samples2/." round2/
           git add -A && git commit -q -m "NEIS 샘플 $(date -u +%F)"
           git push -f "$URL" neis-samples
