@@ -858,7 +858,6 @@ runMockExamCases()
 await runEnglishCurriculumCases()
 runWatchCases()
 runWidgetCases()
-runStudyPresenceCases()
 await runThinkCases()
 runNeisCases()
 

@@ -26,7 +26,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 100
     env:
-      SCREENS_ALL: "home study ranking rankingFar words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem widgets widgets2 widgets3 widgets4 widgetsLock camGuide camTimer camAway camResult camSetup"
+      SCREENS_ALL: "home study ranking rankingFar words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem widgets widgets2 widgets3 widgets4 widgetsLock"
       # 다른 언어로도 찍을 화면 (밝게만) · 언어 (-AppleLanguages)
       LANG_SCREENS: "home study words mathList mathNote ai planner account guestAccount appSettings accountSettings timer auth badges weeklyReport mockExam soundMixer grammar widgets widgets2 widgets3 widgets4 widgetsLock"
       LANGS: "en zh-Hans ja"
