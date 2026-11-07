@@ -73,6 +73,17 @@ for (k, content) in geometryContents.enumerated() {
 // 학생 필기가 있는 문제 (연필·펜 풀이, 동그라미, 써 넣은 답 …) — 앞 사진들의 손상 씨앗이 바뀌지 않게 맨 뒤에
 emitHandwriting(problemContents + moreSubjectContents + geometryContents, degrades: [.photo, .mild, .desk, .lowres, .tilted])
 
+// 미적분 기호 문제 (∑ ∫ lim ′ √ …) — 글꼴(영문·한글)·크기를 바꿔 가며, 맨 뒤에
+let calcLatinFonts: [(String, String)] = [("TimesNewRomanPSMT", "TimesNewRomanPS-ItalicMT"), ("Palatino-Roman", "Palatino-Italic"),
+                                          ("Georgia", "Georgia-Italic"), ("Helvetica", "Helvetica-Oblique")]
+for (k, content) in calculusContents.enumerated() {
+    var style = variantStyle(content.style, index: k + 3)
+    let font = calcLatinFonts[k % calcLatinFonts.count]
+    style.latin = font.0
+    style.italic = font.1
+    emit(content, style: style, degrades: [.clean, problemDegrades[(k + 1) % problemDegrades.count], problemDegrades[(k + 3) % problemDegrades.count]])
+}
+
 let encoder = JSONEncoder()
 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 try encoder.encode(specs).write(to: outDir.appendingPathComponent("cases.json"))
