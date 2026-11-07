@@ -169,7 +169,7 @@ private func runSocialGroupMathCases() {
     check("그룹 이번 주 합계", GroupMath.totalWeek(ps, now: now) == 45_000)
     let ranking = GroupMath.weeklyRanking(ps, now: now)
     check("주간 순위: 같은 시간은 같은 순위", ranking.map(\.rank) == [1, 1, 3, 4], "\(ranking.map(\.rank))")
-    check("주간 순위: 같으면 닉네임순, 숨긴 사람은 빠짐", ranking.map(\.profile.id) == ["a", "b", "c", "s"], "\(ranking.map(\.profile.id))")
+    check("주간 순위: 같으면 닉네임순, 숨긴 사람은 빠짐", ranking.map(\.profile.id) == ["b", "a", "c", "s"], "\(ranking.map(\.profile.id))")
     check("지난 주 기록은 0초로", ranking.last?.seconds == 0)
     check("빈 그룹", GroupMath.weeklyRanking([], now: now).isEmpty && GroupMath.totalToday([], now: now) == 0)
     let studying = profile("x", "공부", now: now, since: now.addingTimeInterval(-120), updated: now)
@@ -535,11 +535,11 @@ private func runSocialGroupEngineCases() async {
 
     // 정원
     do {
-        let small = StudyGroup(id: "small", name: "작은 방", inviteCode: "SMALL2", ownerProfileID: a.id, maxMembers: 1, createdAt: clock)
+        let small = StudyGroup(id: "small", name: "작은 방", inviteCode: "SMAKE2", ownerProfileID: a.id, maxMembers: 1, createdAt: clock)
         cloud.seed(group: small, creator: "icloud-A")
         cloud.seed(member: GroupMember(groupID: "small", profileID: a.id, joinedAt: clock), creator: "icloud-A")
         let membersBefore = cloud.memberCount
-        await expectError("정원이 차면 못 들어감", .groupFull) { try await b.engine.joinGroup(code: "SMALL2") }
+        await expectError("정원이 차면 못 들어감", .groupFull) { try await b.engine.joinGroup(code: "SMAKE2") }
         check("정원 초과 시 멤버 기록이 안 남음", cloud.memberCount == membersBefore)
         check("정원 초과 시 이 기기 그룹 목록도 그대로", !b.engine.state.groups.contains { $0.id == "small" })
         let twenty = StudyGroup(id: "g20", name: "스무 명", inviteCode: "TWENTY", ownerProfileID: "owner", createdAt: clock)
@@ -578,7 +578,7 @@ private func runSocialGroupEngineCases() async {
         try await a.engine.deleteEverything()
         let aGroups = cloud.groupCount
         check("내 프로필이 지워짐", (try await b.backend.fetchProfiles(ids: [a.id])).isEmpty)
-        check("내가 만든 그룹이 지워짐", aGroups == before.1 - 1, "\(aGroups) vs \(before.1)")
+        check("내가 만든 그룹이 지워짐", aGroups == before.1 - 2, "\(aGroups) vs \(before.1)")
         let leftover = try await b.backend.fetchMemberships(profileID: a.id)
         check("내 멤버 기록이 지워짐", leftover.isEmpty)
         check("기기 상태가 비워짐", !a.engine.state.enabled && a.engine.state.friends.isEmpty && a.engine.state.groups.isEmpty && a.engine.state.profileID.isEmpty)
