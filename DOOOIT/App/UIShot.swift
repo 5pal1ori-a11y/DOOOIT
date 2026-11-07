@@ -28,6 +28,8 @@ enum UIShotScreen: String, CaseIterable {
     case guestAccount
     /// 공부 랭킹 (가짜 순위 · 내가 목록 안 / 밖)
     case ranking, rankingFar
+    /// 학교 정보: 설정 · 시간표 · 급식 · 홈의 학교 카드 (가짜 학교 자료, 네트워크 없음)
+    case schoolSetup, school, schoolMeal, homeSchool
     /// 오답노트: 빈 목록 · 수학 문제(문제 탭) · 영어 문제(채점 뒤) · 취약 개념 목록 · 취약 유형 맞춤 학습
     case mathEmpty, mathNoteText, subjectNote, weakList, weakness
 }
@@ -87,6 +89,9 @@ enum UIShot {
             SettingsKey.dailyStudyGoalMinutes: 180,
             StudyPresenceMonitor.enabledKey: matches(.camGuide, .camTimer, .camAway, .camSetup)
         ])
+        if matches(.school, .schoolMeal, .homeSchool), let json = SchoolDemo.selection.encoded() {
+            UserDefaults.standard.register(defaults: [SettingsKey.schoolSelection: json])
+        }
     }
 
     /// 메모리에만 있는 저장소 + 예시 데이터

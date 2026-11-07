@@ -20,6 +20,7 @@ struct AccountView: View {
     @AppStorage(SettingsKey.liveActivityEnabled) private var liveActivityEnabled = true
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
     @AppStorage(SettingsKey.soundEffects) private var soundEffects = true
+    @AppStorage(SettingsKey.schoolSelection) private var schoolRaw = ""
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
     /// 화면 언어: 고른 값 (적용은 안내 창에서 확인한 뒤)
     @State private var languagePick = AppLanguage.selected
@@ -81,6 +82,21 @@ struct AccountView: View {
                     }
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
                         settingLabel("하루 단어", value: L("\(wordGoal)개"), symbol: "book.closed.fill", color: Palette.sky)
+                    }
+                }
+
+                Section {
+                    NavigationLink { SchoolSetupView() } label: {
+                        let school = SchoolSelection.decode(schoolRaw)
+                        HStack(spacing: 12) {
+                            icon("graduationcap", Theme.accent)
+                            Text("학교 정보").foregroundStyle(Palette.ink)
+                            Spacer()
+                            Text(school.map { "\($0.school.name) · \(L("\($0.grade)학년 \($0.classNum)반"))" } ?? L("설정 안 함"))
+                                .font(.pt(.subheadline))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
 
