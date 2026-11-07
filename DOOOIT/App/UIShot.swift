@@ -26,6 +26,8 @@ enum UIShotScreen: String, CaseIterable {
     case guestAccount
     /// 공부 랭킹 (가짜 순위 · 내가 목록 안 / 밖)
     case ranking, rankingFar
+    /// 친구 · 그룹 (가짜 클라우드): 친구 목록 · 친구 추가 · 처음 안내 · 그룹 목록 · 그룹 화면
+    case friends, friendsAdd, socialIntro, groups, groupDetail
     /// 오답노트: 빈 목록 · 수학 문제(문제 탭) · 영어 문제(채점 뒤) · 취약 개념 목록 · 취약 유형 맞춤 학습
     case mathEmpty, mathNoteText, subjectNote, weakList, weakness
 }
@@ -58,6 +60,7 @@ enum UIShot {
         switch screen {
         case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem,
              .weeklyReport, .wordSession, .ranking, .rankingFar,
+             .friends, .friendsAdd, .socialIntro, .groups, .groupDetail,
              .mathEmpty, .mathNoteText, .subjectNote, .weakList, .weakness: return .study
         case .ai, .voice: return .ai
         case .planner: return .planner
@@ -92,6 +95,7 @@ enum UIShot {
         // swiftlint:disable:next force_try
         let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none))
         seed(container.mainContext)
+        UIShotSocial.installIfNeeded()
         if screen == .mathEmpty {
             // 빈 오답노트: 문제와 취약 개념을 모두 지움
             let context = container.mainContext
