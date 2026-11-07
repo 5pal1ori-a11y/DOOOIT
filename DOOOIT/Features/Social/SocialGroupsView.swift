@@ -10,28 +10,47 @@ struct SocialGroupsTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                HStack(spacing: 8) {
-                    actionButton(L("그룹 만들기"), "plus") { showCreate = true }
-                    actionButton(L("코드로 들어가기"), "number") { showJoin = true }
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("내 그룹 \(center.state.groups.count)")
-                        .font(.pt(size: 20, weight: .semibold))
-                        .foregroundStyle(Palette.ink)
-                    if center.state.groups.isEmpty {
-                        EmptyStateView(symbol: "person.3", title: L("아직 그룹이 없어요"), message: L("그룹을 만들어 친구를 초대해 보세요"))
-                            .softCardBackground()
-                    } else {
-                        VStack(spacing: 0) {
-                            ForEach(Array(center.state.groups.enumerated()), id: \.element.id) { index, group in
-                                if index > 0 { RowDivider() }
-                                NavigationLink { SocialGroupDetailView(groupID: group.id) } label: {
-                                    RowLabel(symbol: "person.3", title: group.name, value: group.isOwner ? L("내가 만듦") : nil)
-                                }
-                            }
+                if center.state.groups.isEmpty {
+                    VStack(spacing: 4) {
+                        EmptyStateView(symbol: "person.3", title: L("그룹이 없어요"))
+                        Button("그룹 만들기") { showCreate = true }
+                            .buttonStyle(.primaryFill)
+                            .padding(.horizontal, 16)
+                        Button { showJoin = true } label: {
+                            Text("코드로 들어가기")
+                                .font(.pt(.subheadline).weight(.semibold))
+                                .foregroundStyle(Theme.accent)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 44)
                         }
-                        .buttonStyle(.pressableRow)
-                        .softCardBackground()
+                        .buttonStyle(.pressable)
+                        .padding(.bottom, 8)
+                    }
+                    .softCardBackground()
+                    .staggerIn(index: 0)
+                } else {
+                    HStack(spacing: 8) {
+                        actionButton(L("그룹 만들기"), "plus") { showCreate = true }
+                        actionButton(L("코드로 들어가기"), "number") { showJoin = true }
+                    }
+                    .staggerIn(index: 0)
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("그룹")
+                                .font(.pt(size: 20, weight: .semibold))
+                                .foregroundStyle(Palette.ink)
+                            Text("\(center.state.groups.count)")
+                                .font(.pt(size: 17, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        ForEach(Array(center.state.groups.enumerated()), id: \.element.id) { index, group in
+                            NavigationLink { SocialGroupDetailView(groupID: group.id) } label: {
+                                groupCard(group)
+                            }
+                            .buttonStyle(.pressable)
+                            .staggerIn(index: index + 1)
+                        }
                     }
                 }
             }
@@ -42,6 +61,25 @@ struct SocialGroupsTab: View {
         .scrollIndicators(.hidden)
         .sheet(isPresented: $showCreate) { GroupNameSheet() }
         .sheet(isPresented: $showJoin) { GroupJoinSheet() }
+    }
+
+    /// 그룹 한 장: 이니셜 칸 · 이름 · 방장 표시
+    private func groupCard(_ group: JoinedGroup) -> some View {
+        HStack(spacing: 12) {
+            Text(String(group.name.prefix(1)))
+                .font(.pt(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.secondary)
+                .frame(width: 44, height: 44)
+                .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
+            Text(group.name)
+                .font(.pt(.body).weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+            if group.isOwner { TagLabel(text: L("방장")) }
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right").font(.pt(.footnote).weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .softCard(padding: 14)
     }
 
     private func actionButton(_ title: String, _ symbol: String, action: @escaping () -> Void) -> some View {
@@ -70,7 +108,7 @@ private struct GroupNameSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text("그룹 이름을 정해 주세요").font(.pt(.subheadline)).foregroundStyle(.secondary)
+                Text("그룹 이름").font(.pt(.subheadline)).foregroundStyle(.secondary)
                 TextField(L("예: 수능 D-100"), text: $name)
                     .font(.pt(.body))
                     .glassField()
@@ -78,7 +116,6 @@ private struct GroupNameSheet: View {
                         if new.count > SocialLimits.groupNameMax { name = String(new.prefix(SocialLimits.groupNameMax)) }
                     }
                 if let errorText { Text(errorText).font(.pt(.footnote)).foregroundStyle(Palette.danger) }
-                Text("멤버는 \(SocialLimits.maxMembers)명까지 들어올 수 있어요.").font(.pt(.footnote)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
                 Button {
                     busy = true
@@ -116,7 +153,7 @@ private struct GroupJoinSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text("그룹 초대 코드를 입력해 주세요").font(.pt(.subheadline)).foregroundStyle(.secondary)
+                Text("초대 코드").font(.pt(.subheadline)).foregroundStyle(.secondary)
                 TextField("ABC-234", text: $text)
                     .font(.pt(size: 24, weight: .semibold, design: .monospaced))
                     .textInputAutocapitalization(.characters)
@@ -169,13 +206,16 @@ struct SocialGroupDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let detail {
-                    summary(detail)
-                    inviteCard(detail.group)
                     PillSegmentedControl(items: [Period.today, Period.week], selection: $period) {
                         $0 == .today ? L("오늘") : L("이번 주")
                     }
+                    summary(detail)
+                        .staggerIn(index: 0)
                     if let errorText { Text(errorText).font(.pt(.footnote)).foregroundStyle(.secondary) }
                     memberList(detail)
+                        .staggerIn(index: 1)
+                    inviteCard(detail.group)
+                        .staggerIn(index: 2)
                 } else if let errorText {
                     Text(errorText).font(.pt(.subheadline)).foregroundStyle(.secondary).softCard()
                 } else {
@@ -240,17 +280,21 @@ struct SocialGroupDetailView: View {
         let profiles = detail.members.map(\.profile)
         let total = period == .today ? GroupMath.totalToday(profiles, now: now) : GroupMath.totalWeek(profiles, now: now)
         let studying = GroupMath.studyingCount(profiles, now: now)
-        return VStack(alignment: .leading, spacing: 4) {
-            Text(period == .today ? L("오늘 함께 공부한 시간") : L("이번 주 함께 공부한 시간"))
+        return VStack(alignment: .leading, spacing: 8) {
+            Text(period == .today ? L("오늘 합계") : L("이번 주 합계"))
                 .font(.pt(.footnote)).foregroundStyle(.secondary)
-            Text(SocialText.time(total))
-                .font(.pt(size: 34, weight: .bold))
-                .foregroundStyle(Palette.ink)
-                .monospacedDigit()
-                .numberRoll(SocialText.time(total))
-            Text("멤버 \(detail.members.count)/\(detail.group.maxMembers) · 지금 \(studying)명 공부 중")
-                .font(.pt(.footnote))
-                .foregroundStyle(.secondary)
+            SocialTimeText(seconds: total, big: 40, small: 17)
+            Rectangle().fill(Palette.line).frame(height: 0.5).padding(.vertical, 4)
+            HStack(spacing: 6) {
+                if studying > 0 { SocialLiveDot(size: 8) }
+                Text("\(studying)명 공부 중")
+                    .foregroundStyle(studying > 0 ? Palette.success : Color.secondary)
+                Spacer()
+                Text("\(detail.members.count)/\(detail.group.maxMembers)명")
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+            .font(.pt(.footnote))
         }
         .softCard()
     }
@@ -271,12 +315,19 @@ struct SocialGroupDetailView: View {
                 Haptics.tap()
                 Task { try? await Task.sleep(for: .seconds(1.5)); copied = false }
             } label: {
-                Image(systemName: copied ? "checkmark" : "doc.on.doc").frame(width: 40, height: 40)
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .frame(width: 40, height: 40)
+                    .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
+                    .popOnce(when: copied)
             }
             .buttonStyle(.pressable)
             .accessibilityLabel("복사")
-            ShareLink(item: shareText) { Image(systemName: "square.and.arrow.up").frame(width: 40, height: 40) }
-                .buttonStyle(.pressable)
+            ShareLink(item: shareText) {
+                Image(systemName: "square.and.arrow.up")
+                    .frame(width: 40, height: 40)
+                    .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
+            }
+            .buttonStyle(.pressable)
         }
         .foregroundStyle(Palette.ink)
         .softCard()
@@ -292,7 +343,15 @@ struct SocialGroupDetailView: View {
             let today = SocialClock.dayKey(now)
             let sorted = GroupMath.sortedByToday(detail.members.map(\.profile), now: now)
             for p in sorted {
-                if let row = byID[p.id] { entries.append(MemberEntry(row: row, seconds: SocialPresence.todaySeconds(of: p, todayKey: today), rank: nil)) }
+                guard let row = byID[p.id] else { continue }
+                let seconds = SocialPresence.todaySeconds(of: p, todayKey: today)
+                // 시간을 알 수 있는 사람만 순위 (비공개는 순위 없이 아래에)
+                var rank: Int?
+                if let seconds {
+                    // 같은 시간이면 같은 순위 (주간 순위와 같은 규칙)
+                    if let last = entries.last, let lastRank = last.rank, last.seconds == seconds { rank = lastRank } else { rank = entries.count + 1 }
+                }
+                entries.append(MemberEntry(row: row, seconds: seconds, rank: rank))
             }
         } else {
             let ranking = GroupMath.weeklyRanking(detail.members.map(\.profile), now: now)
@@ -305,7 +364,7 @@ struct SocialGroupDetailView: View {
         }
         return VStack(spacing: 0) {
             ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
-                if index > 0 { SocialDivider(leading: entry.rank == nil ? 64 : 98) }
+                if index > 0 { SocialDivider(leading: entry.rank == nil ? 68 : 102) }
                 memberRow(entry.row, seconds: entry.seconds, rank: entry.rank, now: now, detail: detail)
             }
         }

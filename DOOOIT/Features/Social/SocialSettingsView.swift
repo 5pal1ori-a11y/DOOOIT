@@ -16,8 +16,8 @@ struct SocialSettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
-                    SectionTitle(L("닉네임"))
-                    HStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        SocialAvatar(name: nickname.isEmpty ? center.state.nickname : nickname, size: 44)
                         TextField(L("닉네임"), text: $nickname)
                             .font(.pt(.body))
                             .textInputAutocapitalization(.never)
@@ -37,7 +37,7 @@ struct SocialSettingsView: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("내 공부 상태 보여주기").font(.pt(.body)).foregroundStyle(Palette.ink)
-                            Text("끄면 친구에게 닉네임만 보여요").font(.pt(.footnote)).foregroundStyle(.secondary)
+                            Text("끄면 닉네임만 보여요").font(.pt(.footnote)).foregroundStyle(.secondary)
                         }
                         Spacer(minLength: 8)
                         Toggle("", isOn: Binding(get: { center.state.showStatus }, set: { setShow($0) }))
@@ -70,17 +70,12 @@ struct SocialSettingsView: View {
                 .buttonStyle(.pressableRow)
                 .softCardBackground()
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Button(role: .destructive) { confirmDelete = true } label: {
-                        RowLabel(symbol: "trash", color: Palette.danger, title: L("친구 기능 끄고 내 정보 지우기"), chevron: false)
-                            .foregroundStyle(Palette.danger)
-                    }
-                    .buttonStyle(.pressableRow)
-                    .softCardBackground()
-                    Text("내 프로필, 그룹 멤버 기록, 내가 만든 그룹이 모두 지워져요. 친구에게서도 사라져요.")
-                        .font(.pt(.caption))
-                        .foregroundStyle(.secondary)
+                Button(role: .destructive) { confirmDelete = true } label: {
+                    RowLabel(symbol: "trash", color: Palette.danger, title: L("친구 기능 끄고 내 정보 지우기"), chevron: false)
+                        .foregroundStyle(Palette.danger)
                 }
+                .buttonStyle(.pressableRow)
+                .softCardBackground()
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
@@ -102,13 +97,13 @@ struct SocialSettingsView: View {
             Button("다시 만들기") { regenerate() }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("예전 코드로는 더 이상 나를 찾을 수 없어요. 이미 친구인 사람은 그대로예요.")
+            Text("예전 코드는 못 써요. 친구는 그대로예요.")
         }
         .confirmationDialog("내 정보를 모두 지울까요?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("지우기", role: .destructive) { deleteAll() }
             Button("취소", role: .cancel) {}
         } message: {
-            Text("되돌릴 수 없어요. 다시 쓰려면 처음부터 시작해야 해요.")
+            Text("프로필과 그룹 기록이 모두 지워져요. 되돌릴 수 없어요.")
         }
     }
 
@@ -158,7 +153,7 @@ private struct SocialBlockedView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 if center.state.blocked.isEmpty {
-                    EmptyStateView(symbol: "nosign", title: L("차단한 사람이 없어요")).softCardBackground()
+                    EmptyStateView(symbol: "nosign", title: L("차단한 사람이 없어요")).softCardBackground().staggerIn(index: 0)
                 } else {
                     VStack(spacing: 0) {
                         ForEach(Array(center.state.blocked.enumerated()), id: \.element.id) { index, ref in

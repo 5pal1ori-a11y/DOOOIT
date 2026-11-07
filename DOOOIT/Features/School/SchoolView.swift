@@ -5,7 +5,7 @@ enum SchoolText {
     static func errorMessage(_ error: Error) -> String {
         switch error as? NeisError {
         case .network?: return L("인터넷에 연결되지 않았어요")
-        case .limited?: return L("지금은 불러올 수 없어요. 잠시 뒤에 다시 해 보세요")
+        case .limited?: return L("지금은 불러올 수 없어요")
         default: return L("불러오지 못했어요")
         }
     }
@@ -190,16 +190,10 @@ struct TimetablePane: View {
     private func notes(_ week: TimetableWeek) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             if week.departments.count > 1 && selection.department.isEmpty {
-                Text("학과가 여러 개예요. 학교 설정에서 골라 주세요")
+                Text("학교 설정에서 학과를 골라요")
             }
             if week.incomplete == true {
-                Text("일부 교시는 불러오지 못했어요")
-            }
-            if selection.school.kind == .high {
-                Text("선택과목은 반별 시간표와 다를 수 있어요")
-            }
-            if week.cells.contains(where: { $0.subject.contains(" / ") }) {
-                Text("여러 과목이 있는 칸은 / 로 나눠 보여요")
+                Text("일부 교시가 없어요")
             }
         }
         .font(.pt(.footnote))

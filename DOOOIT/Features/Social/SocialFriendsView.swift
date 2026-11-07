@@ -23,8 +23,9 @@ struct SocialFriendsTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 myCodeCard
+                    .staggerIn(index: 0)
                 if center.publishFailing {
-                    Text("내 상태를 아직 올리지 못했어요. 연결되면 다시 올려요.")
+                    Label("상태를 올리지 못했어요", systemImage: "exclamationmark.circle")
                         .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                 }
@@ -70,9 +71,14 @@ struct SocialFriendsTab: View {
         let code = center.state.friendCode
         let shareText = L("MOTI에서 같이 공부해요! 내 친구 코드: \(SocialCode.display(code))")
         return VStack(alignment: .leading, spacing: 12) {
-            Text("내 친구 코드").font(.pt(.footnote)).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text("내 친구 코드").font(.pt(.footnote)).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Text(center.state.nickname).font(.pt(.footnote)).foregroundStyle(.secondary).lineLimit(1)
+            }
             Text(SocialCode.display(code))
                 .font(.pt(size: 34, weight: .bold, design: .monospaced))
+                .monospacedDigit()
                 .foregroundStyle(Palette.ink)
                 .minimumScaleFactor(0.7)
                 .lineLimit(1)
@@ -88,6 +94,7 @@ struct SocialFriendsTab: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 40)
                         .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
+                        .popOnce(when: copied)
                 }
                 .buttonStyle(.pressable)
                 ShareLink(item: shareText) {
@@ -109,9 +116,16 @@ struct SocialFriendsTab: View {
     private var friendsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("친구 \(center.state.friends.count)")
-                    .font(.pt(size: 20, weight: .semibold))
-                    .foregroundStyle(Palette.ink)
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("친구")
+                        .font(.pt(size: 20, weight: .semibold))
+                        .foregroundStyle(Palette.ink)
+                    Text("\(center.state.friends.count)")
+                        .font(.pt(size: 17, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .numberRoll(Double(center.state.friends.count))
+                }
                 Spacer()
                 Button { showAdd = true } label: {
                     Text("친구 추가").font(.pt(.subheadline).weight(.semibold))
@@ -122,12 +136,13 @@ struct SocialFriendsTab: View {
                 Text(errorText).font(.pt(.footnote)).foregroundStyle(.secondary)
             }
             if center.state.friends.isEmpty {
-                VStack(spacing: 12) {
-                    EmptyStateView(symbol: "person.2", title: L("아직 친구가 없어요"), message: L("친구 코드를 입력하면 같이 공부할 수 있어요"))
+                VStack(spacing: 4) {
+                    EmptyStateView(symbol: "person.2", title: L("친구가 없어요"))
                     Button("친구 추가") { showAdd = true }.buttonStyle(.primaryFill)
                         .padding(.horizontal, 16).padding(.bottom, 16)
                 }
                 .softCardBackground()
+                .staggerIn(index: 1)
             } else if !loaded && loading {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 32)
             } else {
@@ -136,6 +151,7 @@ struct SocialFriendsTab: View {
                     ForEach(Array(sorted.enumerated()), id: \.element.id) { index, row in
                         if index > 0 { SocialDivider() }
                         friendRow(row)
+                            .staggerIn(index: index + 1)
                     }
                 }
                 .softCardBackground()
@@ -199,7 +215,7 @@ private struct AddFriendSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 16) {
-                Text("친구가 알려 준 코드를 입력해 주세요")
+                Text("친구 코드")
                     .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
                 TextField("ABCD-EFGH", text: $text)
@@ -281,7 +297,7 @@ struct ReportSheet: View {
                 Text("'\(target.nickname)'님을 신고할까요?")
                     .font(.pt(.headline))
                     .foregroundStyle(Palette.ink)
-                Text("신고하면 이 사람은 바로 숨겨져요. 신고 내용은 운영자가 확인해요.")
+                Text("신고하면 바로 숨겨져요")
                     .font(.pt(.footnote))
                     .foregroundStyle(.secondary)
                 VStack(spacing: 0) {
