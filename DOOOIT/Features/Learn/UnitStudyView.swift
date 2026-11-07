@@ -168,6 +168,8 @@ struct UnitStudyView: View {
             }
         }
         .animation(Motion.quick, value: inVariant)
+        // 문제를 풀 때는 탭 바를 숨겨서 화면을 넓게
+        .toolbar(inVariant ? .hidden : .automatic, for: .tabBar)
         .background { AppBackground() }
         .navigationTitle(unit)
         .navigationBarTitleDisplayMode(.inline)

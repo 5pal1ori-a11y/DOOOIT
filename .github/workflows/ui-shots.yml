@@ -135,7 +135,7 @@ jobs:
                 ai|aiAnswer|aiCompare) sleep 14 ;;
                 mathNote) sleep 12 ;;
                 mockExam|mockResult) sleep 10 ;;
-                variantSession|variantFeedback|variantResult|variantSheet) sleep 16 ;;
+                variantSession|variantFeedback|variantResult|variantSheet|curriculum) sleep 16 ;;
                 *) sleep 7 ;;
               esac
               xcrun simctl io "$UDID" screenshot --type=png "$OUT/$screen-$mode.png" >/dev/null 2>&1 || echo "::warning::$screen-$mode 사진 실패"

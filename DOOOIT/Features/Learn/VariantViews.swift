@@ -109,43 +109,32 @@ struct VariantSessionView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    if summary {
-                        summaryView
-                    } else {
-                        header
-                        if loading {
-                            ProgressView().frame(maxWidth: .infinity).padding(.top, 48)
-                        } else if exhausted {
-                            exhaustedView
-                        } else if let item {
-                            VStack(alignment: .leading, spacing: 20) {
-                                questionText(item)
-                                answerArea(item)
-                                if let result { feedback(item, result).id("feedback") }
-                            }
-                            .id(item.id)
-                            .transition(.rise(6))
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if summary {
+                    summaryView
+                } else {
+                    header
+                    if loading {
+                        ProgressView().frame(maxWidth: .infinity).padding(.top, 48)
+                    } else if exhausted {
+                        exhaustedView
+                    } else if let item {
+                        VStack(alignment: .leading, spacing: 20) {
+                            questionText(item)
+                            answerArea(item)
                         }
+                        .id(item.id)
+                        .transition(.rise(6))
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 12)
-                .padding(.bottom, 24)
             }
-            .scrollDismissesKeyboard(.interactively)
-            .scrollIndicators(.hidden)
-            // 채점하면 풀이가 보이게 아래로 (풀이 카드가 그려진 다음에)
-            .onChange(of: answered) { _, now in
-                guard now else { return }
-                Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(180))
-                    withAnimation(Motion.quick) { proxy.scrollTo("feedback", anchor: .bottom) }
-                }
-            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .scrollIndicators(.hidden)
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .modifier(VariantChrome(embedded: embedded, inSheet: inSheet, title: topic.title))
         .task {
@@ -268,9 +257,9 @@ struct VariantSessionView: View {
                         .transition(.opacity)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: big ? 72 : 52, alignment: big ? .center : .leading)
+            .frame(maxWidth: .infinity, minHeight: big ? 72 : 48, alignment: big ? .center : .leading)
             .padding(.horizontal, 16)
-            .padding(.vertical, big ? 0 : 6)
+            .padding(.vertical, big ? 0 : 4)
             .background(tint.opacity(0.08), in: .rect(cornerRadius: Radius.card, style: .continuous))
             .background(Palette.card, in: .rect(cornerRadius: Radius.card, style: .continuous))
             .overlay {
@@ -287,12 +276,14 @@ struct VariantSessionView: View {
         .accessibilityLabel(text)
     }
 
-    // MARK: 채점 뒤: 짧은 풀이 카드
+    // MARK: 채점 뒤: 아래 막대 (맞았는지 · 짧은 풀이 · 다음)
 
-    private func feedback(_ item: PracticeItem, _ result: GradeResult) -> some View {
+    /// 짧은 풀이: 처음엔 두 줄만, "풀이 더 보기"를 누르면 전부
+    private func feedback(_ item: PracticeItem) -> some View {
         let lines = item.explanation.map { MathSymbolBar.pretty($0) }
-        let shown = showAllSteps ? lines : Array(lines.prefix(3))
-        return VStack(alignment: .leading, spacing: 12) {
+        let more = lines.count > 2 || lines.joined().count > 60
+        let shown = showAllSteps ? lines : Array(lines.prefix(2))
+        return VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(Image(systemName: "circle.fill"))
                     .font(.pt(size: 7))
@@ -311,44 +302,47 @@ struct VariantSessionView: View {
                 }
             }
             if !shown.isEmpty {
-                Hairline()
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
                     ForEach(Array(shown.enumerated()), id: \.offset) { _, line in
                         Text(line)
                             .font(.pt(.footnote))
                             .foregroundStyle(.secondary)
+                            .lineLimit(showAllSteps ? nil : 2)
                             .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                if lines.count > 3 && !showAllSteps {
+            }
+            HStack(spacing: 16) {
+                if more && !showAllSteps {
                     Button("풀이 더 보기") { withAnimation(Motion.quick) { showAllSteps = true } }
                         .font(.pt(.footnote).weight(.semibold))
                         .foregroundStyle(Theme.accent)
                 }
-            }
-            if !correct {
-                let didSave = saved.contains(item.id)
-                Button { saveToNotes(item, given: given) } label: {
-                    Label(didSave ? L("오답노트에 담았어요") : L("오답노트에 담기"), systemImage: didSave ? "checkmark" : "arrow.down.circle")
-                        .font(.pt(.footnote).weight(.semibold))
+                if !correct {
+                    let didSave = saved.contains(item.id)
+                    Button { saveToNotes(item, given: given) } label: {
+                        Label(didSave ? L("오답노트에 담았어요") : L("오답노트에 담기"), systemImage: didSave ? "checkmark" : "arrow.down.circle")
+                            .font(.pt(.footnote).weight(.semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(didSave ? Color.secondary : Theme.accent)
+                    .disabled(didSave)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(didSave ? Color.secondary : Theme.accent)
-                .disabled(didSave)
+                Spacer(minLength: 0)
             }
         }
-        .softCard()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .transition(.rise(6))
     }
-
-    // MARK: 아래 막대: 제출 / 다음 + 단계 바꾸기
 
     @ViewBuilder
     private var bottomBar: some View {
         if !summary, !loading, !exhausted, let item {
             if answered {
                 let last = round.count >= size
-                VStack(spacing: 4) {
+                VStack(spacing: 8) {
+                    feedback(item)
                     Button {
                         if last { showSummary() } else { Task { await next(level: level) } }
                     } label: {
@@ -364,7 +358,7 @@ struct VariantSessionView: View {
                     }
                 }
                 .padding(.horizontal, 16)
-                .padding(.top, 8)
+                .padding(.top, 12)
                 .padding(.bottom, 8)
                 .background(Theme.base)
                 .overlay(alignment: .top) { Hairline() }
@@ -639,6 +633,7 @@ private struct VariantChrome: ViewModifier {
                 .background { AppBackground() }
                 .navigationTitle(title)
                 .navigationBarTitleDisplayMode(.inline)
+                .toolbar(.hidden, for: .tabBar)
                 .toolbar {
                     if inSheet {
                         ToolbarItem(placement: .topBarLeading) { Button("닫기") { dismiss() } }
