@@ -82,6 +82,7 @@ final class StudyTimer {
             title: self.title, category: categoryName, symbol: symbol,
             planKey: activityKey, referenceDate: now
         )
+        SocialCenter.shared.timerChanged()
     }
 
     func pause(at now: Date = Date()) {
@@ -91,6 +92,7 @@ final class StudyTimer {
         phase = .paused
         persist()
         LiveActivityManager.shared.showPaused(elapsed: accumulated)
+        SocialCenter.shared.timerChanged()
     }
 
     func resume(at now: Date = Date()) {
@@ -102,6 +104,7 @@ final class StudyTimer {
             title: title, category: categoryName, symbol: symbol,
             planKey: activityKey, referenceDate: now.addingTimeInterval(-accumulated)
         )
+        SocialCenter.shared.timerChanged()
     }
 
     func togglePause() {
@@ -131,6 +134,7 @@ final class StudyTimer {
         accumulated = 0
         persist()
         LiveActivityManager.shared.endAll()
+        SocialCenter.shared.timerChanged()
         return seconds
     }
 

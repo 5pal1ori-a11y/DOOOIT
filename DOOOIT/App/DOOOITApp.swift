@@ -54,6 +54,8 @@ struct DOOOITApp: App {
         #endif
         if auth.currentUser != nil { SeedData.seedIfNeeded(context) }
         studyTimer.attach(context: context)
+        // 친구 · 그룹 (기능을 켜지 않았으면 아무것도 안 함)
+        SocialCenter.shared.attach(context: context)
         PlanScheduler.shared.start(context: context, timer: studyTimer)
         DoitActions.shared.context = context
         // 모티 AI가 배운 내용도 계정마다 따로 (로그인 전에는 저장하지 않음)
