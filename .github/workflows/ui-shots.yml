@@ -26,7 +26,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 100
     env:
-      SCREENS_ALL: "home study ranking rankingFar words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem widgets widgets2 widgets3 widgets4 widgetsLock examPlanSheet examPlanPreview schoolSetup school schoolMeal homeSchool friends friendsAdd socialIntro groups groupDetail"
+      SCREENS_ALL: "home study ranking rankingFar words mathList mathNote ai planner account accountSettings timer auth badges badgeNew mockExam mockResult soundMixer voice grammar grammarOX grammarProblem widgets widgets2 widgets3 widgets4 widgetsLock examPlanSheet examPlanPreview schoolSetup school schoolMeal homeSchool friends friendsAdd socialIntro groups groupDetail themePickerLocked themePickerUnlocked badgesInvite"
       # 다른 언어로도 찍을 화면 (밝게만) · 언어 (-AppleLanguages)
       LANG_SCREENS: "home study words mathList mathNote ai planner account guestAccount appSettings accountSettings timer auth badges weeklyReport mockExam soundMixer grammar widgets widgets2 widgets3 widgets4 widgetsLock schoolSetup school schoolMeal homeSchool"
       LANGS: "en zh-Hans ja"
@@ -142,15 +142,15 @@ jobs:
               echo "$screen-$mode"
             done
           done
-          # 테마 사진: 브랜치 이름에 theme가 들어 있을 때만 (테마 넷 × 홈·앱 설정·오답노트·타이머, 밝게)
+          # 테마 사진: 브랜치 이름에 theme가 들어 있을 때만 (테마 다섯 × 홈·앱 설정·오답노트·타이머, 밝게)
           case "$GITHUB_REF_NAME" in
             *theme*)
               for mode in light dark; do
                 xcrun simctl ui "$UDID" appearance "$mode" || true
-                for theme in mono candy forest ocean; do
+                for theme in mono candy forest ocean sunset; do
                   for screen in home study ranking timer; do
                     xcrun simctl terminate "$UDID" "$BUNDLE" 2>/dev/null || true
-                    TARGS=(-uiShot "$screen" -themeColor "$theme" -AppleLanguages "(ko)" -AppleLocale ko_KR)
+                    TARGS=(-uiShot "$screen" -themeColor "$theme" -uiInvites 3 -AppleLanguages "(ko)" -AppleLocale ko_KR)
                     [ "$mode" = dark ] && TARGS+=(-uiDark)
                     xcrun simctl launch "$UDID" "$BUNDLE" "${TARGS[@]}" >/dev/null
                     sleep 7

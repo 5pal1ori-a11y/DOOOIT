@@ -20,10 +20,12 @@ enum BadgeBook {
         /// 하루 최고 공부 시간 (초)
         var bestDaySeconds = 0
         var notes = 0
+        /// 초대에 성공한 친구 수 (InviteRewards가 세어 둔 값)
+        var invites = 0
     }
 
     enum Metric: String {
-        case streak, hours, words, fixed, ai, mock, perfect, focus, bestDay, notes
+        case streak, hours, words, fixed, ai, mock, perfect, focus, bestDay, notes, invites
 
         func value(_ s: Stats) -> Int {
             switch self {
@@ -37,6 +39,7 @@ enum BadgeBook {
             case .focus: return s.focus25
             case .bestDay: return s.bestDaySeconds / 3600
             case .notes: return s.notes
+            case .invites: return s.invites
             }
         }
 
@@ -47,6 +50,7 @@ enum BadgeBook {
             case .hours, .bestDay: return "시간"
             case .words, .fixed, .notes: return "개"
             case .ai, .mock, .perfect, .focus: return "번"
+            case .invites: return "명"
             }
         }
     }
@@ -61,6 +65,10 @@ enum BadgeBook {
         let colorHex: String
         let metric: Metric
         let target: Int
+        /// 기간·조건이 한정된 배지 (친구 초대)
+        var limited = false
+        /// 받으면 선셋 테마도 열리는 배지
+        var unlocksTheme = false
 
         func value(_ stats: Stats) -> Int { metric.value(stats) }
         func progress(_ stats: Stats) -> Double { min(1, Double(value(stats)) / Double(max(target, 1))) }
@@ -68,7 +76,7 @@ enum BadgeBook {
         func progressText(_ stats: Stats) -> String { "\(min(value(stats), target)) / \(target)\(metric.unit)" }
     }
 
-    static let flame = "#FF8A5C", clock = "#7C83F7", word = "#4FA3F7", fix = "#2FBF8F", ai = "#A78BFA", exam = "#F2709C", focus = "#F2B233"
+    static let flame = "#FF8A5C", clock = "#7C83F7", word = "#4FA3F7", fix = "#2FBF8F", ai = "#A78BFA", exam = "#F2709C", focus = "#F2B233", invite = "#14B8A6"
 
     static let all: [Badge] = [
         Badge(id: "streak3", title: "3일 연속", detail: "3일 이어서 공부", symbol: "flame", colorHex: flame, metric: .streak, target: 3),
@@ -88,7 +96,11 @@ enum BadgeBook {
         Badge(id: "fixed50", title: "다시 맞힘 50", detail: "틀린 문제 50번 다시 맞힘", symbol: "checkmark.seal", colorHex: fix, metric: .fixed, target: 50),
         Badge(id: "firstAI", title: "첫 AI 풀이", detail: "AI 풀이 처음 써 봄", symbol: "lightbulb", colorHex: ai, metric: .ai, target: 1),
         Badge(id: "mockFirst", title: "첫 모의고사", detail: "AI 모의고사 처음 봄", symbol: "doc.text", colorHex: exam, metric: .mock, target: 1),
-        Badge(id: "mockPerfect", title: "모의고사 만점", detail: "AI 모의고사 만점", symbol: "star", colorHex: exam, metric: .perfect, target: 1)
+        Badge(id: "mockPerfect", title: "모의고사 만점", detail: "AI 모의고사 만점", symbol: "star", colorHex: exam, metric: .perfect, target: 1),
+        // 친구 초대 한정 배지 (숫자는 InviteRewards가 세고, 아이디는 InviteRewards.Tier.badgeID와 같음)
+        Badge(id: "invite1", title: "첫 초대", detail: "초대한 친구 1명이 1시간 공부", symbol: "person.badge.plus", colorHex: invite, metric: .invites, target: 1, limited: true),
+        Badge(id: "invite3", title: "초대 3명", detail: "초대한 친구 3명이 1시간 공부", symbol: "person.2", colorHex: invite, metric: .invites, target: 3, limited: true, unlocksTheme: true),
+        Badge(id: "invite10", title: "초대 10명", detail: "초대한 친구 10명이 1시간 공부", symbol: "person.3", colorHex: invite, metric: .invites, target: 10, limited: true)
     ]
 
     static func badge(_ id: String) -> Badge? { all.first { $0.id == id } }

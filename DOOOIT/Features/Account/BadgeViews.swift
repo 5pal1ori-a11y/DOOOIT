@@ -14,6 +14,20 @@ struct BadgeShelfView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
     var body: some View {
+        ScrollViewReader { proxy in
+            shelf
+            #if DEBUG
+                .task {
+                    // 화면 사진: 초대 배지(맨 아래)가 보이게 내려서 찍음
+                    guard UIShot.matches(.badgesInvite) else { return }
+                    try? await Task.sleep(for: .milliseconds(600))
+                    proxy.scrollTo("invite3", anchor: .center)
+                }
+            #endif
+        }
+    }
+
+    private var shelf: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 summary
@@ -24,6 +38,7 @@ struct BadgeShelfView: View {
                             BadgeTile(badge: badge, unlockedAt: center.unlocked[badge.id], stats: center.stats)
                         }
                         .buttonStyle(.pressable)
+                        .id(badge.id)
                     }
                 }
                 .staggerIn(index: 1)
@@ -31,6 +46,9 @@ struct BadgeShelfView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 32)
+            #if DEBUG
+            .padding(.bottom, UIShot.matches(.badgesInvite) ? 160 : 0)
+            #endif
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
@@ -39,7 +57,7 @@ struct BadgeShelfView: View {
         .onAppear { center.check(context: context) }
         .sheet(item: $selected) { badge in
             BadgeDetailSheet(badge: badge, unlockedAt: center.unlocked[badge.id], stats: center.stats)
-                .presentationDetents([.height(320)])
+                .presentationDetents([.height(badge.limited ? 380 : 320)])
                 .presentationCornerRadius(32)
         }
     }
@@ -144,7 +162,16 @@ struct BadgeDetailSheet: View {
             BadgeMedal(badge: badge, isOn: unlockedAt != nil, size: 96, bounce: bounce)
                 .padding(.top, 28)
             Text(badge.title.loc).font(.pt(.title3).weight(.bold)).foregroundStyle(Palette.ink)
+            if badge.limited {
+                TagLabel(text: L("한정 배지"))
+            }
             Text(badge.detail.loc).font(.pt(.subheadline)).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            if badge.unlocksTheme {
+                Label(L("보상 · 선셋 테마"), systemImage: "paintpalette")
+                    .font(.pt(.subheadline).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+            }
             if let unlockedAt {
                 TagLabel(text: unlockedAt.ui("yyyy년 M월 d일"), symbol: "checkmark", color: badge.color)
             } else {
@@ -176,6 +203,9 @@ struct BadgeToastHost: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("새 배지!").font(.pt(.caption).weight(.semibold)).foregroundStyle(toast.badge.color)
                             Text(toast.badge.title.loc).font(.pt(.headline)).foregroundStyle(Palette.ink)
+                            if toast.badge.unlocksTheme {
+                                Text("새 테마가 열렸어요").font(.pt(.caption)).foregroundStyle(.secondary)
+                            }
                         }
                         Spacer(minLength: 0)
                         if toast.more > 0 {

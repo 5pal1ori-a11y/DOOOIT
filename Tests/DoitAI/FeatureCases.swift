@@ -42,7 +42,7 @@ func runBadgeCases() {
     check("배지: 다음 배지는 가장 가까운 것", BadgeBook.next(stats: stats, unlocked: result.unlocked)?.id == "words100" || BadgeBook.next(stats: stats, unlocked: result.unlocked)?.id == "day3h",
           BadgeBook.next(stats: stats, unlocked: result.unlocked)?.id ?? "-")
     check("배지: 최근 배지", BadgeBook.latest(unlocked: ["streak3": day(-3), "hours10": day(-1)])?.id == "hours10")
-    check("배지: 15~20개", (15...20).contains(BadgeBook.all.count), "\(BadgeBook.all.count)")
+    check("배지: 15~30개", (15...30).contains(BadgeBook.all.count), "\(BadgeBook.all.count)")
     check("배지: 아이디 겹치지 않음", Set(BadgeBook.all.map(\.id)).count == BadgeBook.all.count)
 }
 

@@ -194,11 +194,19 @@ struct ProcessingOverlay: View {
     }
 }
 
-/// 테마 고르기: 색 세 가지씩 묶은 카드 넷 (미드나잇 · 포레스트 · 트와일라이트 · 오션)
+/// 테마 고르기: 색 세 가지씩 묶은 카드 다섯 (모노 · 캔디 · 포레스트 · 오션 · 선셋)
+/// 선셋은 친구 3명을 초대하면 열려요: 잠겨 있으면 자물쇠가 보이고, 누르면 안내만 떠요 (테마는 안 바뀜)
 struct ThemePicker: View {
     @AppStorage(SettingsKey.themeColor) private var themeRaw = ThemeColor.standard.rawValue
 
+    /// 잠긴 테마를 눌렀을 때 안내
+    @State private var lockedInfo: ThemeColor?
+    /// 초대에 성공하면 잠금 표시를 다시 그리기 위한 숫자
+    @State private var refresh = 0
+
     private var current: ThemeColor { ThemeColor.from(themeRaw) }
+    /// 아직 잠긴 테마 (안내 글을 보여 줄 것)
+    private var lockedTheme: ThemeColor? { ThemeColor.allCases.first { $0.isLocked } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -218,18 +226,41 @@ struct ThemePicker: View {
                     card(theme)
                 }
             }
+            if let lockedTheme {
+                HStack(spacing: 6) {
+                    Image(systemName: "lock.fill").font(.pt(size: 11, weight: .semibold))
+                    Text(verbatim: "\(lockedTheme.title) · " + L("친구 \(lockedTheme.rewardTheme?.requiredInvites ?? 0)명 초대하면 열려요"))
+                        .font(.pt(.caption))
+                }
+                .foregroundStyle(.secondary)
+            }
         }
         .padding(.vertical, 4)
         .onChange(of: themeRaw) {
             Haptics.tap()
             AppIconSwitcher.apply(ThemeColor.from(themeRaw))
         }
+        .onReceive(NotificationCenter.default.publisher(for: InviteRewards.changed)) { _ in refresh += 1 }
+        .alert(lockedInfo.map { L("\($0.title) 테마는 아직 잠겨 있어요") } ?? "", isPresented: Binding(
+            get: { lockedInfo != nil }, set: { if !$0 { lockedInfo = nil } })) {
+            Button("확인", role: .cancel) {}
+        } message: {
+            if let theme = lockedInfo {
+                Text(L("초대한 친구 \(theme.rewardTheme?.requiredInvites ?? 0)명이 1시간 이상 공부하면 열려요. 지금은 \(InviteRewards.count())명이에요."))
+            }
+        }
     }
 
     private func card(_ theme: ThemeColor) -> some View {
         let isOn = theme == current
+        let isLocked = theme.isLocked
         return Button {
-            withAnimation(Motion.quick) { themeRaw = theme.rawValue }
+            if isLocked {
+                Haptics.tap()
+                lockedInfo = theme
+            } else {
+                withAnimation(Motion.quick) { themeRaw = theme.rawValue }
+            }
         } label: {
             VStack(spacing: 7) {
                 // 진한 색 · 강조색 · 연한 색 세 줄
@@ -242,6 +273,15 @@ struct ThemePicker: View {
                 .clipShape(.rect(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(isOn ? theme.accent : Palette.line, lineWidth: isOn ? 2 : 0.5))
+                .overlay {
+                    if isLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.pt(size: 11, weight: .bold))
+                            .foregroundStyle(Palette.ink)
+                            .frame(width: 24, height: 24)
+                            .background(Palette.card.opacity(0.9), in: .circle)
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if isOn {
                         Image(systemName: "checkmark.circle.fill")
@@ -260,7 +300,7 @@ struct ThemePicker: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.pressable)
-        .accessibilityLabel("\(theme.title) 테마")
+        .accessibilityLabel(isLocked ? L("\(theme.title) 테마 (잠김)") : L("\(theme.title) 테마"))
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }
@@ -400,11 +440,13 @@ extension ButtonStyle where Self == PrimaryButtonStyle {
 }
 
 
-/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (모노가 기본 아이콘, 나머지는 대체 아이콘)
+/// 바탕화면 앱 아이콘을 테마 색에 맞춰 바꿈 (모노가 기본 아이콘, 나머지는 대체 아이콘 · 잠긴 테마는 기본 아이콘)
 /// iOS가 바꿀 때마다 "아이콘을 변경했습니다" 안내를 한 번 보여 줘요
 enum AppIconSwitcher {
     static func iconName(for theme: ThemeColor) -> String? {
-        theme.resolved == .mono ? nil : "AppIcon-\(theme.resolved.rawValue)"
+        // 잠긴 테마(복원한 백업 등)의 아이콘은 쓰지 않고 기본(모노) 아이콘
+        let shown = theme.isLocked ? ThemeColor.standard : theme.resolved
+        return shown == .mono ? nil : "AppIcon-\(shown.rawValue)"
     }
 
     @MainActor static func apply(_ theme: ThemeColor) {

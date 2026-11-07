@@ -129,8 +129,8 @@ struct AccountView: View {
             .sheet(isPresented: $showExamPlan) { ExamPlanView() }
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
-            .uiShotPush(.badges) { BadgeShelfView() }
-            .uiShotPush(.appSettings) { appSettings }
+            .uiShotPush(.badges, .badgesInvite) { BadgeShelfView() }
+            .uiShotPush(.appSettings, .themePickerLocked, .themePickerUnlocked) { appSettings }
             #endif
             .onChange(of: notificationsEnabled) { _, enabled in
                 Task {
