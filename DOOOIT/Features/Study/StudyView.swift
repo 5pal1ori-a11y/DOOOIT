@@ -60,9 +60,11 @@ struct StudyView: View {
             .uiShotPush(.weakList) { WeakConceptListView() }
             .uiShotPush(.weakness) { WeaknessView() }
             .uiShotPush(.mockExam, .mockResult) { MockExamView() }
-            .uiShotPush(.variantHub) { VariantHubView() }
-            .uiShotPush(.variantList) { VariantTopicListView(subject: .math, level: .high) }
+            .uiShotPush(.curriculum) { CurriculumView() }
             .uiShotPush(.variantSession, .variantFeedback, .variantResult) {
+                UnitStudyView(subject: "중학교 수학", unit: "이차방정식", startInVariant: true)
+            }
+            .uiShotPush(.variantSheet) {
                 VariantSessionView(topic: DoitVariants.topics(subject: .math, level: .high).first { $0.title == "이차방정식" }
                     ?? DoitVariants.topics(subject: .math, level: .high)[0])
             }

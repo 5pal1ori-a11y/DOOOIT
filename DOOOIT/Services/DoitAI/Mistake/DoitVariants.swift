@@ -399,6 +399,39 @@ enum DoitVariants {
         return item.question + "\n" + item.choices.prefix(5).enumerated().map { "\(marks[$0.offset]) \($0.element)" }.joined(separator: " ")
     }
 
+    // MARK: - AI 학습 단원에서 이어 가기
+
+    /// AI 학습 단원(과목 이름 + 단원 이름, 교육과정 그대로)에서 변형 문제를 낼 수 있는 주제 (엔진이 확인한 것만, 없으면 nil)
+    /// - 수학: 단원에 맞는 계산 유형 중 풀이 엔진이 다시 확인하는 것만 (중학교는 중학교 유형만)
+    /// - 영어: 문법 단원 / 과학 · 사회: 교육과정 자료에서 만든 확인된 문제 5개 이상
+    static func topic(subjectName: String, unit: String) -> VariantTopic? {
+        guard let item = DoitStudy.catalog.first(where: { $0.subjectName == subjectName && $0.unit == unit }) else { return nil }
+        let level = item.level
+        switch item.subject {
+        case "수학":
+            guard level == .middle || level == .high else { return nil }
+            let scope = DoitStudy.scope(for: item)
+            let allowed = Set(mathEntries.filter { level == .middle ? $0.middle : $0.high }.map(\.topic))
+            let list = (DoitStudy.mathTopics(for: scope) ?? []).filter { allowed.contains($0) }
+            var unique: [MathProblems.Topic] = []
+            for t in list where !unique.contains(t) { unique.append(t) }
+            guard !unique.isEmpty else { return nil }
+            let topic = VariantTopic(subject: .math, level: level, title: unit, detail: item.chapter, source: .math(unique))
+            return isOffered(topic) ? topic : nil
+        case "영어":
+            guard let grammar = DoitGrammar.units(subjectName: subjectName, unit: unit).first else { return nil }
+            let topic = VariantTopic(subject: .english, level: grammar.level, title: unit, detail: gradeLabel(grammar.grades, level: grammar.level),
+                                     source: .grammar(subjectName: grammar.subjectName, unit: grammar.name))
+            return isOffered(topic) ? topic : nil
+        case "과학", "사회":
+            guard !item.usesMathEngine, let subject = VariantTopic.Subject(rawValue: item.subject) else { return nil }
+            let topic = VariantTopic(subject: subject, level: level, title: unit, detail: item.chapter, source: .knowledge(subjectName: item.subjectName, unit: unit))
+            return isOffered(topic) ? topic : nil
+        default:
+            return nil
+        }
+    }
+
     // MARK: - 대화에서 이어 가기
 
     /// 대화 주제(수학 문제 · 개념 이름)에서 변형 문제를 낼 수 있는 주제 (없으면 nil)

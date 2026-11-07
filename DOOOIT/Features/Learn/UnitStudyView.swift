@@ -85,17 +85,49 @@ struct UnitStudyView: View {
     var booster: Bool = false
     var initialStep: LearnStep = .concept
     var completed: [String] = []
+    /// 화면 사진용: 변형 문제 단계에서 시작 (낼 수 있는 단원이면)
+    var startInVariant = false
     var onStepDone: ((LearnStep) -> Void)? = nil
+
+    /// 변형 문제 단계: 문제 단계 뒤에 끼는 덤 단계 (엔진이 확인한 변형 문제가 있는 단원만 · 단원 완료 조건에는 안 들어감)
+    static let variantKey = "variant"
 
     @Environment(\.modelContext) private var context
     @State private var step: LearnStep = .concept
     @State private var doneSteps: Set<String> = []
     @State private var showComplete = false
     @State private var loaded = false
+    @State private var variantTopic: VariantTopic?
+    @State private var inVariant = false
+
+    /// 단계 막대에 나오는 칸 (변형 문제는 낼 수 있을 때만 문제 뒤에)
+    private struct Slot: Identifiable {
+        let key: String
+        let title: String
+        let longTitle: String
+        var id: String { key }
+    }
+
+    private var slots: [Slot] {
+        var list: [Slot] = []
+        for item in LearnStep.allCases {
+            list.append(Slot(key: item.rawValue, title: item.title, longTitle: item.longTitle))
+            if item == .problem, variantTopic != nil {
+                list.append(Slot(key: Self.variantKey, title: L("변형"), longTitle: L("변형 문제")))
+            }
+        }
+        return list
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             stepBar
+            if inVariant, let variantTopic {
+                // 변형 문제는 한 문제씩 보여 줘서 자체 스크롤 · 아래 막대를 씀
+                VariantSessionView(topic: variantTopic, embedded: true, link: (subject, unit), onFinish: finishVariant)
+                    .id(Self.variantKey)
+                    .transition(.opacity)
+            } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     if showComplete {
@@ -117,7 +149,9 @@ struct UnitStudyView: View {
                         case .concept: ConceptStepView(subject: subject, unit: unit, booster: booster, onDone: finish)
                         case .cloze: ClozeStepView(subject: subject, unit: unit, booster: booster, onDone: finish)
                         case .ox: OXStepView(subject: subject, unit: unit, booster: booster, onDone: finish)
-                        case .problem: ProblemStepView(subject: subject, unit: unit, booster: booster, onDone: finish)
+                        case .problem: ProblemStepView(subject: subject, unit: unit, booster: booster,
+                                                       nextTitle: variantTopic != nil && !doneSteps.contains(Self.variantKey) ? L("변형 문제로") : L("취약 복습으로"),
+                                                       onDone: finish)
                         case .weak: WeakStepView(subject: subject, unit: unit, onDone: finish)
                         }
                     }
@@ -131,10 +165,18 @@ struct UnitStudyView: View {
                 .animation(Motion.spring, value: showComplete)
             }
             .scrollDismissesKeyboard(.interactively)
+            }
         }
+        .animation(Motion.quick, value: inVariant)
         .background { AppBackground() }
         .navigationTitle(unit)
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            // 이 단원으로 낼 수 있는 변형 문제가 있는지 (엔진이 확인한 것만)
+            let found = await VariantLookup.find(subject: subject, unit: unit)
+            variantTopic = found
+            if startInVariant, found != nil { inVariant = true }
+        }
         .onAppear {
             guard !loaded else { return }
             loaded = true
@@ -149,33 +191,42 @@ struct UnitStudyView: View {
         }
     }
 
-    /// 번호 동그라미 5개를 선으로 이은 단계 표시 (끝낸 단계는 ✓)
+    /// 번호 동그라미를 선으로 이은 단계 표시 (끝낸 단계는 ✓ · 변형 문제는 낼 수 있는 단원만 문제 뒤에)
     private var stepBar: some View {
-        HStack(alignment: .top, spacing: 0) {
-            ForEach(Array(LearnStep.allCases.enumerated()), id: \.element) { index, item in
-                let isDone = doneSteps.contains(item.rawValue)
-                let isCurrent = step == item
+        let items = slots
+        return HStack(alignment: .top, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                let isDone = doneSteps.contains(item.key)
+                let isCurrent = inVariant ? item.key == Self.variantKey : (item.key == step.rawValue)
                 Button {
-                    withAnimation(Motion.spring) { step = item }
+                    withAnimation(Motion.spring) {
+                        if item.key == Self.variantKey {
+                            inVariant = true
+                        } else if let target = LearnStep(rawValue: item.key) {
+                            inVariant = false
+                            step = target
+                        }
+                    }
                     Haptics.tap()
                 } label: {
                     VStack(spacing: 6) {
                         ZStack {
                             Circle()
-                                .fill(isCurrent ? Theme.accent : (isDone ? Theme.accent.opacity(0.14) : Palette.card))
+                                .fill(isCurrent ? Theme.accent : Palette.card)
                             Circle()
-                                .strokeBorder(isCurrent || isDone ? Color.clear : Color.primary.opacity(0.12), lineWidth: 1.5)
+                                .strokeBorder(isCurrent ? Color.clear : Palette.line, lineWidth: 0.5)
                             if isDone && !isCurrent {
-                                Image(systemName: "checkmark").font(.pt(.caption).weight(.heavy)).foregroundStyle(Theme.accent)
+                                Image(systemName: "checkmark").font(.pt(.caption).weight(.bold)).foregroundStyle(Theme.accent)
                             } else {
                                 Text("\(index + 1)")
-                                    .font(.pt(.subheadline).weight(.bold))
+                                    .font(.pt(.subheadline).weight(.semibold))
+                                    .monospacedDigit()
                                     .foregroundStyle(isCurrent ? Theme.onAccent : Color.secondary)
                             }
                         }
                         .frame(width: 32, height: 32)
                         Text(item.title)
-                            .font(.pt(.caption2).weight(isCurrent ? .bold : .medium))
+                            .font(.pt(.caption2).weight(isCurrent ? .semibold : .regular))
                             .foregroundStyle(isCurrent ? Palette.ink : Color.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -185,22 +236,23 @@ struct UnitStudyView: View {
                 .accessibilityLabel("\(index + 1)단계 \(item.longTitle)\(isDone ? L(", 완료") : "")")
                 .background(alignment: .top) {
                     // 옆 단계와 잇는 선
-                    if index < LearnStep.allCases.count - 1 {
+                    if index < items.count - 1 {
                         GeometryReader { proxy in
                             Rectangle()
-                                .fill(isDone ? Theme.accent.opacity(0.4) : Color.primary.opacity(0.1))
-                                .frame(width: proxy.size.width - 40, height: 2)
-                                .offset(x: proxy.size.width / 2 + 20, y: 15)
+                                .fill(isDone ? Theme.accent.opacity(0.4) : Palette.line)
+                                .frame(width: max(0, proxy.size.width - 40), height: 1)
+                                .offset(x: proxy.size.width / 2 + 20, y: 15.5)
                         }
                     }
                 }
             }
         }
+        .animation(Motion.quick, value: items.count)
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 12)
-        .background(Palette.card.opacity(0.7))
-        .overlay(alignment: .bottom) { Divider() }
+        .background(Palette.card)
+        .overlay(alignment: .bottom) { Hairline() }
     }
 
     /// 다섯 단계를 다 끝냈을 때: 다음 단원으로 / 처음부터 다시
@@ -228,6 +280,7 @@ struct UnitStudyView: View {
                 Button {
                     withAnimation(Motion.spring) {
                         showComplete = false
+                        inVariant = false
                         step = .concept
                     }
                 } label: {
@@ -248,6 +301,23 @@ struct UnitStudyView: View {
         doneSteps.insert(finished.rawValue)
         LearnProgress.mark(finished, subject: subject, unit: unit, context: context)
         onStepDone?(finished)
+        // 문제 단계 뒤에는 변형 문제 (낼 수 있는 단원에서, 아직 안 했을 때)
+        if finished == .problem, variantTopic != nil, !doneSteps.contains(Self.variantKey) {
+            withAnimation(Motion.spring) { inVariant = true }
+            return
+        }
+        advance(after: finished)
+    }
+
+    /// 변형 문제를 한 판 끝냄 → 문제 뒤 단계로
+    private func finishVariant() {
+        doneSteps.insert(Self.variantKey)
+        LearnProgress.mark(key: Self.variantKey, subject: subject, unit: unit, context: context)
+        withAnimation(Motion.spring) { inVariant = false }
+        advance(after: .problem)
+    }
+
+    private func advance(after finished: LearnStep) {
         let all = LearnStep.allCases
         if all.allSatisfy({ doneSteps.contains($0.rawValue) }) {
             Haptics.celebrate()
@@ -700,6 +770,8 @@ struct ProblemStepView: View {
     let subject: String
     let unit: String
     let booster: Bool
+    /// 결과 화면의 다음 단계 버튼 글 (변형 문제가 이어지는 단원이면 "변형 문제로")
+    var nextTitle: String = L("취약 복습으로")
     var onDone: (LearnStep) -> Void
 
     @Environment(\.modelContext) private var context
@@ -718,7 +790,7 @@ struct ProblemStepView: View {
             if finished || set.items.isEmpty {
                 VStack(spacing: 14) {
                     ResultSummaryCard(correct: correct, total: set.items.count)
-                    primaryButton(L("취약 복습으로")) { onDone(.problem) }
+                    primaryButton(nextTitle) { onDone(.problem) }
                     Button("새 문제 받기") { index = 0; correct = 0; wrongs = []; picked = nil; finished = false; regenerate() }
                         .font(.pt(.subheadline))
                 }

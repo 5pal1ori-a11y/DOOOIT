@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 /// 공부 탭의 "AI 학습" 영역: 목록 하나로 (단원별 학습 · 취약 유형 · 모의고사 · 주간 리포트)
+/// 변형 문제는 단원별 학습 안에 들어 있어요 (단원 학습의 한 단계 · 단원 목록의 "변형 연습")
 struct LearnHubSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -9,10 +10,6 @@ struct LearnHubSection: View {
             VStack(spacing: 0) {
                 NavigationLink { CurriculumView() } label: {
                     RowLabel(symbol: "lightbulb", title: L("AI 학습"))
-                }
-                RowDivider()
-                NavigationLink { VariantHubView() } label: {
-                    RowLabel(symbol: "square.on.square", title: L("기출·변형 문제"))
                 }
                 RowDivider()
                 NavigationLink { WeaknessView() } label: {

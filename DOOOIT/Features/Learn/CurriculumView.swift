@@ -32,9 +32,14 @@ enum LearnProgress {
     }
 
     static func mark(_ step: LearnStep, subject: String, unit: String, context: ModelContext) {
+        mark(key: step.rawValue, subject: subject, unit: unit, context: context)
+    }
+
+    /// 단계 말고 덤으로 하는 것(변형 문제)도 같은 기록에 (진행률 · 완료 계산에는 들어가지 않음)
+    static func mark(key: String, subject: String, unit: String, context: ModelContext) {
         var list = all(context: context)
         var progress = list.first { $0.subject == subject && $0.unit == unit } ?? UnitProgress(subject: subject, unit: unit)
-        if !progress.done.contains(step.rawValue) { progress.done.append(step.rawValue) }
+        if !progress.done.contains(key) { progress.done.append(key) }
         list.removeAll { $0.subject == subject && $0.unit == unit }
         list.insert(progress, at: 0)
         ContentCache.save(list, key: indexKey, context: context)
@@ -64,6 +69,8 @@ struct CurriculumView: View {
     @State private var choicesMessage = ""
     /// 직접 적은 말로 단원을 못 찾았을 때 (화면 안에 안내 + 비슷한 단원)
     @State private var missed: (query: String, options: [StudyScope])?
+    /// "변형 연습"을 누른 단원의 주제 (시트로 바로 풀기)
+    @State private var practiceTopic: VariantTopic?
 
     /// 학습할 단원 (교육과정 이름 그대로)
     struct StudyTarget: Hashable, Identifiable {
@@ -141,6 +148,12 @@ struct CurriculumView: View {
         .navigationDestination(item: $target) { item in
             UnitStudyView(subject: item.subject, unit: item.unit)
         }
+        .sheet(item: $practiceTopic) { topic in
+            NavigationStack { VariantSessionView(topic: topic, inSheet: true) }
+        }
+        #if DEBUG
+        .task { if UIShot.matches(.curriculum) { query = "이차방정식" } }
+        #endif
         .confirmationDialog("어느 단원을 공부할까요?", isPresented: Binding(get: { !choices.isEmpty }, set: { if !$0 { choices = [] } }),
                             titleVisibility: .visible) {
             ForEach(choices, id: \.key) { option in
@@ -207,12 +220,26 @@ struct CurriculumView: View {
                 SectionTitle(L("찾은 단원"))
                 VStack(spacing: 0) {
                     ForEach(Array(matches.enumerated()), id: \.offset) { index, match in
-                        Button {
-                            open(subject: match.subject.name, unit: match.unit.title)
-                        } label: {
-                            unitRow(subject: match.subject.name, unit: match.unit.title, caption: match.subject.name)
+                        // 단원 한 줄 + (엔진이 확인한 변형 문제가 있으면) 작은 "변형 연습" 버튼
+                        HStack(spacing: 0) {
+                            Button {
+                                open(subject: match.subject.name, unit: match.unit.title)
+                            } label: {
+                                unitRow(subject: match.subject.name, unit: match.unit.title, caption: match.subject.name, chevron: false)
+                            }
+                            .buttonStyle(.pressableRow)
+                            VariantChip(subject: match.subject.name, unit: match.unit.title) { practiceTopic = $0 }
+                            Button {
+                                open(subject: match.subject.name, unit: match.unit.title)
+                            } label: {
+                                Image(systemName: "chevron.right")
+                                    .font(.pt(.footnote).weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                                    .frame(width: 40, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHidden(true)
                         }
-                        .buttonStyle(.pressableRow)
                         if index < matches.count - 1 { RowDivider() }
                     }
                 }
@@ -508,9 +535,9 @@ struct CurriculumView: View {
     // MARK: 공통
 
     /// 단원 한 줄: 진행 링 · 단원 이름 · 정답률
-    private func unitRow(subject: String, unit: String, caption: String) -> some View {
+    private func unitRow(subject: String, unit: String, caption: String, chevron: Bool = true) -> some View {
         UnitRow(progress: progresses.first { $0.subject == subject && $0.unit == unit },
-                title: unit, caption: caption, accuracy: unitAccuracy(records, subject: subject, unit: unit))
+                title: unit, caption: caption, accuracy: unitAccuracy(records, subject: subject, unit: unit), showsChevron: chevron)
     }
 
     /// 직접 적은 말 → 과목·학년·단원 분석 → 바로 시작 / 골라 달라고 묻기 / 없다고 알려주기
@@ -586,6 +613,7 @@ struct UnitRow: View {
     let title: String
     var caption: String?
     var accuracy: Int?
+    var showsChevron = true
 
     var body: some View {
         HStack(spacing: 14) {
@@ -620,9 +648,11 @@ struct UnitRow: View {
                     .padding(.vertical, 3)
                     .background((accuracy >= 80 ? Palette.success : (accuracy >= 60 ? Theme.accent : Palette.danger)).opacity(0.12), in: .capsule)
             }
-            Image(systemName: "chevron.right")
-                .font(.pt(.footnote).weight(.semibold))
-                .foregroundStyle(.tertiary)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.pt(.footnote).weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 13)

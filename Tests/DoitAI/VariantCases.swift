@@ -265,6 +265,38 @@ func runVariantCases() async {
     check("변형 문제: 확인 못 하는 수학 개념은 주제 없음 (행렬)", DoitVariants.topic(forConcept: "행렬") == nil)
     check("변형 문제: 알 수 없는 말은 주제 없음", DoitVariants.topic(forConcept: "아무말대잔치") == nil && DoitVariants.topic(forProblem: "오늘 날씨 어때") == nil)
 
+    // 6-2) AI 학습 단원에서 변형 문제 찾기 (과목 이름 + 단원 이름)
+    var unitTopics = 0, unitBad: [String] = []
+    var bySubject: [String: Int] = [:]
+    for item in DoitStudy.catalog {
+        guard let t = DoitVariants.topic(subjectName: item.subjectName, unit: item.unit) else { continue }
+        unitTopics += 1
+        bySubject[t.subject.rawValue, default: 0] += 1
+        if !DoitVariants.isOffered(t) { unitBad.append("낼 수 없는 주제: \(item.subjectName) \(item.unit)") }
+        if t.title != item.unit { unitBad.append("제목 불일치: \(item.unit)") }
+        if case .math(let list) = t.source {
+            // 수학: 풀이 엔진이 확인하는 유형만 · 중학교 단원에 고등 유형이 섞이지 않음
+            let allowed = Set(DoitVariants.mathTopics(level: t.level).compactMap { entry -> MathProblems.Topic? in
+                if case .math(let l) = entry.source { return l.first }
+                return nil
+            })
+            if !list.allSatisfy(allowed.contains) { unitBad.append("수학 유형 범위 밖: \(item.subjectName) \(item.unit) \(list)") }
+        }
+        // 한 세트가 실제로 나오고 모두 확인된 문제
+        let set = DoitVariants.makeSet(topic: t, level: 1)
+        if set.count != DoitVariants.setSize { unitBad.append("세트 \(set.count)개: \(item.subjectName) \(item.unit)") }
+        for q in set where !DoitVariants.verified(q, topic: t) { unitBad.append("확인 실패: \(q.question)") }
+    }
+    for line in unitBad.prefix(12) { check("변형 문제(단원): \(line)", false) }
+    check("변형 문제(단원): \(unitTopics)개 단원에서 변형 문제 · \(bySubject)", unitBad.isEmpty && unitTopics >= 60 && (bySubject["수학"] ?? 0) >= 15 && (bySubject["영어"] ?? 0) >= 10, "\(unitBad.count) / \(unitTopics) / \(bySubject)")
+    check("변형 문제(단원): 중학교 수학 이차방정식", DoitVariants.topic(subjectName: "중학교 수학", unit: "이차방정식")?.subject == .math)
+    check("변형 문제(단원): 중학교 영어 현재완료", DoitVariants.topic(subjectName: "중학교 영어", unit: "현재완료")?.subject == .english)
+    check("변형 문제(단원): 확인 못 하는 단원(행렬)은 없음", DoitVariants.topic(subjectName: "공통수학1", unit: "행렬과 그 연산") == nil)
+    check("변형 문제(단원): 없는 단원 · 자유 주제는 없음", DoitVariants.topic(subjectName: "중학교 수학", unit: "없는 단원") == nil
+          && DoitVariants.topic(subjectName: DoitStudy.freeSubject, unit: "이차방정식") == nil)
+    check("변형 문제(단원): 초등 수학은 없음", DoitStudy.catalog.filter { $0.level == .elementary && $0.subject == "수학" }.allSatisfy { DoitVariants.topic(subjectName: $0.subjectName, unit: $0.unit) == nil })
+    print("[변형 문제] 단원 연결 \(unitTopics)개 \(bySubject) · 오류 \(unitBad.count)")
+
     // 7) 구조화된 답
     await runStructuredCases()
 }
