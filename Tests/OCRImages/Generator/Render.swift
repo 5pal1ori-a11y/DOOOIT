@@ -38,6 +38,12 @@ enum Seg {
     case over(String)
     /// 호: 글자 위에 둥근 선 (호 AB)
     case arc(String)
+    /// 큰 연산자 ∑ ∏ ∫: 위끝·아래끝을 기호 위아래에 쌓거나(stacked) 오른쪽 위·아래에 붙임 (미적분 교재 모양)
+    case bigOp(String, below: String, above: String, stacked: Bool)
+    /// lim + 아래에 쌓은 x→a
+    case lim(String)
+    /// 아래 첨자 (수식 글꼴: 기울임 영문 · aₙ, Sₙ)
+    case subm(String)
 }
 
 /// 그래프 (축 이름, 눈금, 점들 0~1)
@@ -84,6 +90,8 @@ struct Style {
     var paper = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
     /// 영어 단어장 표제어 글꼴 (nil이면 latin)
     var termFont: String?
+    /// 미적분 사진: 수학 기호(′²³π∞→∑∫√Δ …)도 영문 글꼴로 (기존 문제 사진은 그대로 두려고 꺼 둠)
+    var mathSymbolsLatin = false
 }
 
 private func font(_ name: String, _ size: CGFloat) -> CTFont {
@@ -99,7 +107,7 @@ func attributed(_ text: String, math: Bool, size: CGFloat, style: Style, bold: B
             name = fontName
         } else if math {
             if ch.isASCII && ch.isLetter { name = style.italic }
-            else if ch.isASCII || "−×÷±≤≥≠·".contains(ch) { name = style.latin }
+            else if ch.isASCII || "−×÷±≤≥≠·".contains(ch) || (style.mathSymbolsLatin && "′²³π∞→∑∫√ΔθαβγΣ∏≈∈".contains(ch)) { name = style.latin }
             else { name = style.korean }
         } else {
             name = bold ? style.koreanBold : style.korean
@@ -233,6 +241,52 @@ func measure(_ seg: Seg, style: Style) -> Measured {
             ctx.move(to: CGPoint(x: p.x + size * 0.06, y: p.y + top))
             ctx.addQuadCurve(to: CGPoint(x: p.x + inner.width, y: p.y + top), control: CGPoint(x: p.x + size * 0.03 + inner.width / 2, y: p.y + top + size * 0.36))
             ctx.strokePath()
+        }
+    case .subm(let s):
+        let inner = measureText(attributed(s, math: true, size: size * 0.64, style: style))
+        let drop = size * 0.2
+        return Measured(width: inner.width + size * 0.05, ascent: max(0, inner.ascent - drop), descent: drop + inner.descent) { ctx, p in
+            inner.draw(ctx, CGPoint(x: p.x + size * 0.02, y: p.y - drop))
+        }
+    case .lim(let below):
+        let word = measureText(attributed("lim", math: false, size: size, style: style, fontName: style.latin))
+        let lo = measureText(attributed(below, math: true, size: size * 0.68, style: style))
+        let gap = size * 0.06
+        let width = max(word.width, lo.width) + size * 0.16
+        return Measured(width: width, ascent: word.ascent, descent: lo.ascent + gap + lo.descent) { ctx, p in
+            word.draw(ctx, CGPoint(x: p.x + (width - word.width) / 2, y: p.y))
+            lo.draw(ctx, CGPoint(x: p.x + (width - lo.width) / 2, y: p.y - gap - lo.ascent))
+        }
+    case .bigOp(let sym, let below, let above, let stacked):
+        let scale: CGFloat = sym == "∫" ? 1.9 : 1.5
+        let glyph = measureText(attributed(sym, math: false, size: size * scale, style: style, fontName: style.latin))
+        let line = CTLineCreateWithAttributedString(attributed(sym, math: false, size: size * scale, style: style, fontName: style.latin))
+        let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+        // 기호의 잉크 가운데를 수식 가운데선(글자 높이의 0.3배)에 맞춤
+        let axis = size * 0.3
+        let shift = axis - ink.midY
+        let symTop = ink.maxY + shift, symBottom = -(ink.minY + shift)
+        let lo = measureText(attributed(below, math: true, size: size * 0.66, style: style))
+        let hi = measureText(attributed(above, math: true, size: size * 0.66, style: style))
+        let gap = size * 0.08
+        if stacked {
+            let width = max(glyph.width, lo.width, hi.width) + size * 0.2
+            let hiBase = symTop + gap + hi.descent
+            let loBase = -(symBottom + gap + lo.ascent)
+            return Measured(width: width, ascent: hiBase + hi.ascent, descent: max(0, -(loBase - lo.descent))) { ctx, p in
+                glyph.draw(ctx, CGPoint(x: p.x + (width - glyph.width) / 2, y: p.y + shift))
+                if !above.isEmpty { hi.draw(ctx, CGPoint(x: p.x + (width - hi.width) / 2, y: p.y + hiBase)) }
+                if !below.isEmpty { lo.draw(ctx, CGPoint(x: p.x + (width - lo.width) / 2, y: p.y + loBase)) }
+            }
+        }
+        // 옆에 붙임: ∫ 의 위끝은 윗부분 오른쪽, 아래끝은 아랫부분 오른쪽 (적분 기호가 기울어서 위끝이 더 오른쪽)
+        let bounds = max(lo.width, hi.width)
+        let hiX = glyph.width * 0.62, loX = glyph.width * 0.18
+        let hiBase = symTop - hi.ascent * 0.9, loBase = -symBottom + lo.descent * 0.2
+        return Measured(width: glyph.width + bounds + size * 0.1, ascent: symTop, descent: symBottom) { ctx, p in
+            glyph.draw(ctx, CGPoint(x: p.x, y: p.y + shift))
+            if !above.isEmpty { hi.draw(ctx, CGPoint(x: p.x + hiX, y: p.y + hiBase)) }
+            if !below.isEmpty { lo.draw(ctx, CGPoint(x: p.x + loX, y: p.y + loBase)) }
         }
     case .u(let s):
         let inner = measureText(attributed(s, math: false, size: size, style: style, fontName: style.termFont ?? style.latin))

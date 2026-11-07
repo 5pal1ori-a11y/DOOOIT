@@ -18,6 +18,8 @@ enum PaddleOCRText {
         "in": "∈", "notin": "∉", "cup": "∪", "cap": "∩", "subset": "⊂", "subseteq": "⊆", "supset": "⊃", "emptyset": "∅",
         "pi": "π", "alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ", "theta": "θ", "lambda": "λ", "mu": "μ",
         "sigma": "σ", "omega": "ω", "Delta": "Δ", "Omega": "Ω", "prime": "′",
+        // 미적분: \sum_{k=1}^{n} → ∑_{k=1}^{n}, \int_a^b → ∫_a^b, \lim_{x \to a} → lim_{x→a} (첨자는 parse 에서 붙임)
+        "sum": "∑", "int": "∫", "prod": "∏", "oint": "∮", "partial": "∂", "nabla": "∇", "lim": "lim",
         // 도형 기호 (앱 표기는 GeometryText): 합동 \cong → ≡, 닮음 \backsim → ∽, 평행 \| → ∥
         "cong": "≡", "backsim": "∽", "thicksim": "∽", "frown": "⌒", "smallfrown": "⌒", "bot": "⊥", "measuredangle": "∠",
         "bigtriangleup": "△", "vartriangle": "△", "triangleup": "△", "|": "∥", "shortparallel": "∥", "varpi": "π",
@@ -124,6 +126,15 @@ enum PaddleOCRText {
             if ch == "^" || ch == "_" {
                 i += 1
                 let arg = argument(&c, &i)
+                // 큰 기호 ∑ ∫ ∏ lim 의 위끝·아래끝은 식 모양을 그대로: ∑_{k=1}^{n}, ∫_a^b, lim_{x→a}
+                let operatorTail = out.range(of: #"(?:∑|∫|∏|∮|lim)(?:_(?:\{[^}]*\}|[^{}\s]))?$"#, options: .regularExpression) != nil
+                if operatorTail {
+                    let a = arg.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: " ", with: "")
+                    if !a.isEmpty {
+                        out += (ch == "^" ? "^" : "_") + (a.count <= 1 ? a : "{\(a)}")
+                        continue
+                    }
+                }
                 if ch == "^" {
                     let a = arg.trimmingCharacters(in: .whitespaces)
                     if a == "2" { out += "²" } else if a == "3" { out += "³" }

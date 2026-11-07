@@ -6,6 +6,8 @@ struct Check: Codable {
     var name: String
     var ok: Bool
     var detail: String
+    /// 미적분 기호 검사의 기호 종류 (∑, ∫범위, lim …)
+    var cls: String? = nil
 }
 
 /// Vision이 읽은 줄 그대로 (다시 채점할 때 OCRLine으로 되돌림)
@@ -89,6 +91,28 @@ func rounded(_ r: CGRect) -> [Double] {
     [r.minX, r.minY, r.width, r.height].map { (Double($0) * 100_000).rounded() / 100_000 }
 }
 
+/// 미적분 비교용: 띄어쓰기·중괄호 없애고 첨자는 _ ^ 로 통일 (aₙ₊₁ = a_{n+1} = a_n+1), 아포스트로피는 ′
+func calcNorm(_ s: String) -> String {
+    let subs: [Character: Character] = ["₀": "0", "₁": "1", "₂": "2", "₃": "3", "₄": "4", "₅": "5", "₆": "6", "₇": "7", "₈": "8", "₉": "9",
+                                        "ₙ": "n", "ₖ": "k", "ᵢ": "i", "ₓ": "x", "₊": "+", "₋": "-", "ₐ": "a", "ₕ": "h", "ₜ": "t", "ₘ": "m"]
+    let sups: [Character: Character] = ["⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9",
+                                        "ⁿ": "n", "ˣ": "x", "⁺": "+", "⁻": "-", "ᵏ": "k"]
+    var out = ""
+    var mode: Character = " "   // 직전 글자가 첨자였는지 (_ 또는 ^)
+    for ch in s {
+        if ch.isWhitespace || ch == "{" || ch == "}" { continue }
+        if let b = subs[ch] { if mode != "_" { out += "_" }; out.append(b); mode = "_"; continue }
+        if let b = sups[ch] { if mode != "^" { out += "^" }; out.append(b); mode = "^"; continue }
+        mode = " "
+        switch ch {
+        case "−", "–", "‒": out += "-"
+        case "'", "’", "`", "ʹ": out += "′"
+        default: out.append(ch)
+        }
+    }
+    return out
+}
+
 /// 비교용: 띄어쓰기 없애고 기호 모양 통일
 func norm(_ s: String) -> String {
     var t = s.replacingOccurrences(of: "²", with: "^2").replacingOccurrences(of: "³", with: "^3")
@@ -127,6 +151,20 @@ func evaluateProblem(_ spec: CaseSpec, text: String, unsure: [String], result: i
         }
     }
     let flatText = norm(text)
+    if let calc = e.calc {
+        let flat = calcNorm(text)
+        var seen: [String: Int] = [:]
+        for token in calc {
+            seen[token.text, default: 0] += 1
+            let need = seen[token.text]!
+            let alternatives = token.text.split(separator: ";").map { calcNorm(String($0)) }
+            let found = alternatives.map { flat.components(separatedBy: $0).count - 1 }.max() ?? 0
+            let ok = found >= need
+            var c = Check(name: "기호 \(token.cls) \(token.text)", ok: ok, detail: ok ? "" : "없음 (\(found)/\(need))")
+            c.cls = token.cls
+            checks.append(c)
+        }
+    }
     if e.blank == true {
         checks.append(Check(name: "빈칸 □", ok: text.contains("□"), detail: text.contains("□") ? "" : "□ 없음"))
     }
@@ -228,11 +266,40 @@ func summarize(_ results: [CaseResult], title: String) -> String {
     let overall = results.isEmpty ? 0 : results.map(\.score).reduce(0, +) / Double(results.count)
     var summary = "## \(title)\n\n**통과 \(passCount)/\(results.count)** · 평균 점수 \(String(format: "%.1f%%", overall * 100))\n\n"
     summary += table({ $0.category }, "분류") + "\n" + table({ $0.degrade }, "손상") + "\n"
+    summary += calcSummary(results)
     summary += "### 실패\n\n"
     for r in results where !r.passed {
         summary += "- `\(r.id)`: " + r.checks.filter { !$0.ok }.map { "\($0.name) — \($0.detail)" }.joined(separator: "; ") + "\n"
     }
     return summary
+}
+
+/// 미적분 기호 종류별 정확도 (기호 검사가 있는 사진만)
+func calcSummary(_ results: [CaseResult]) -> String {
+    let calc = results.filter { r in r.checks.contains { $0.cls != nil } }
+    guard !calc.isEmpty else { return "" }
+    var byClass: [String: (ok: Int, total: Int)] = [:]
+    for r in calc { for c in r.checks { if let k = c.cls { var e = byClass[k] ?? (0, 0); e.total += 1; if c.ok { e.ok += 1 }; byClass[k] = e } } }
+    let all = byClass.values.reduce((0, 0)) { ($0.0 + $1.ok, $0.1 + $1.total) }
+    func pct(_ a: Int, _ b: Int) -> String { b == 0 ? "-" : String(format: "%.1f%%", Double(a) * 100 / Double(b)) }
+    var out = "### 미적분 기호 (사진 \(calc.count)장 · 기호 검사 \(all.1)개 · 맞음 \(all.0)개 = \(pct(all.0, all.1)))\n\n| 기호 | 맞음 | 비율 |\n|---|---|---|\n"
+    for (k, e) in byClass.sorted(by: { $0.key < $1.key }) { out += "| \(k) | \(e.ok)/\(e.total) | \(pct(e.ok, e.total)) |\n" }
+    // 사진 종류(손상)별 · 문제별 통과
+    var byDegrade: [String: (ok: Int, total: Int)] = [:]
+    for r in calc { var e = byDegrade[r.degrade] ?? (0, 0); e.total += 1; if r.passed { e.ok += 1 }; byDegrade[r.degrade] = e }
+    out += "\n| 손상 | 사진 통과 |\n|---|---|\n"
+    for (k, e) in byDegrade.sorted(by: { $0.key < $1.key }) { out += "| \(k) | \(e.ok)/\(e.total) |\n" }
+    out += "\n문제별 (기호 검사 맞음/전체, 사진 3장 합)\n\n| 문제 | 기호 | 통과 |\n|---|---|---|\n"
+    var byProblem: [String: (ok: Int, total: Int, pass: Int, n: Int)] = [:]
+    for r in calc {
+        let id = r.id.components(separatedBy: "__")[0]
+        var e = byProblem[id] ?? (0, 0, 0, 0)
+        for c in r.checks where c.cls != nil { e.total += 1; if c.ok { e.ok += 1 } }
+        e.n += 1; if r.passed { e.pass += 1 }
+        byProblem[id] = e
+    }
+    for (k, e) in byProblem.sorted(by: { $0.key < $1.key }) { out += "| \(k) | \(e.ok)/\(e.total) | \(e.pass)/\(e.n) |\n" }
+    return out + "\n"
 }
 
 // MARK: - 학생 필기 사진 요약 (전: 필기 지우기 없이 · 후: 지금 코드)

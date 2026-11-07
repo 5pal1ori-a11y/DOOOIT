@@ -124,7 +124,8 @@ enum DoitMathAsked {
             return nil
         }
         // "a − b의 값"을 물었는데 답에 a, b가 없고 값도 아니면 (예: 인수분해한 식만) 물은 값이 아님
-        if let e = askedExpression(t) {
+        // (∑ 의 합은 식 속 k 가 아니라 합 전체를 물은 것이라 건너뜀)
+        if !t.contains("∑"), let e = askedExpression(t) {
             let letters = Set(e.filter { $0.isASCII && $0.isLetter })
             if !letters.isEmpty, letters.isDisjoint(with: Set(answer.filter { $0.isASCII && $0.isLetter })), !looksLikeValue(answer) { return nil }
         }

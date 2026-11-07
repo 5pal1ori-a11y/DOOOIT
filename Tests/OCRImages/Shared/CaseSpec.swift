@@ -19,6 +19,12 @@ struct WordPair: Codable {
     var meaning: String
 }
 
+/// 미적분 기호 검사 한 건: 기호 종류(∑, ∫, lim, ′ …)와 읽어야 할 조각 (";"로 같은 뜻의 다른 표기, 띄어쓰기·중괄호 무시)
+struct CalcToken: Codable {
+    var cls: String
+    var text: String
+}
+
 struct Expectation: Codable {
     /// 보기 (순서대로). nil이면 검사 안 함, []이면 보기가 없어야 함
     var choices: [String]?
@@ -38,6 +44,8 @@ struct Expectation: Codable {
     var leaks: [String]? = nil
     /// 학생이 써 넣은 답 (읽은 글에서 정답 표기로 잡히면 안 됨)
     var handAnswer: String? = nil
+    /// 미적분 기호 검사 (기호 종류별 정확도를 따로 셈)
+    var calc: [CalcToken]? = nil
 }
 
 struct CaseSpec: Codable {

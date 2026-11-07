@@ -1324,6 +1324,10 @@ enum DoitMathExact {
         let target = m[1].replacingOccurrences(of: " ", with: "")
         var rest = t.replacingOccurrences(of: m[0], with: " ")
         for word in ["lim", "_", "{", "}"] { rest = rest.replacingOccurrences(of: word, with: " ") }
+        // f(x), g(x), a·x 처럼 x·y·z 말고 다른 영문자가 든 식은 풀지 않음 (식 뽑기가 모르는 글자를 버려서 f(x)를 x로 읽게 됨)
+        var letters = rest
+        for word in ["sin", "cos", "tan", "log", "ln", "exp", "sqrt", "dx", "dt", "pi"] { letters = letters.replacingOccurrences(of: word, with: " ") }
+        if letters.contains(where: { $0.isASCII && $0.isLetter && !"xyzXYZ".contains($0) }) { return nil }
         let expression = DoitAlgebra.extract(rest).replacingOccurrences(of: " ", with: "")
         guard !expression.isEmpty, !expression.contains("=") else { return nil }
         // 맨 바깥의 / 로 분자·분모 나누기

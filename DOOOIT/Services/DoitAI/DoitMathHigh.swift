@@ -87,6 +87,7 @@ enum DoitMathHigh {
         if let s = limitSolve(t) { return s }
         if let s = series(t) { return s }
         if let s = sigmaFraction(t) { return s }
+        if let s = sigmaClosedForm(t) { return s }
         if let s = recurrence(t) { return s }
         if let s = partialSum(t) { return s }
         if let s = firstExceeding(t) { return s }
@@ -245,6 +246,87 @@ enum DoitMathHigh {
         }
         return Solved(kind: .sequence, topic: "합의 기호 ∑", concept: "분수 꼴은 부분분수 1/(k(k+1)) = 1/k − 1/(k+1) 로 나눠 앞뒤가 지워지게(망원합) 계산해요.",
                       steps: steps, answer: answer)
+    }
+
+    // MARK: - ∑_{k=1}^{n} (n 이 문자인 합: 다항식 꼴만, 정확한 분수로 보간하고 여러 n 으로 다시 확인한 것만)
+
+    /// ∑_{k=1}^{n} (k의 3차 이하 다항식) → n 의 다항식. 합을 n = 시작…시작+4 에서 정확한 분수로 구해 보간하고, 그 뒤 n 여섯 개에서 다시 맞는지 확인
+    static func sigmaClosedForm(_ raw: String) -> Solved? {
+        guard raw.contains("∑") || raw.contains("Σ") else { return nil }
+        let t = DoitMathCalc.superscripts(plainIndices(raw)).replacingOccurrences(of: "{", with: "").replacingOccurrences(of: "}", with: "")
+        guard let m = match(t, #"[∑Σ]\s*_?\s*\(?\s*([k])\s*=\s*([01])\s*\)?\s*\^\s*\(?\s*n\s*\)?\s*"#),
+              let r = t.range(of: m[0]), let index = m[1].first, let lo = Int(m[2]) else { return nil }
+        let body = run(t[r.upperBound...], stopAtEquals: true)
+        guard !body.isEmpty, body.count <= 40, !body.contains("n"), let term = DoitMathCalc.parse(body, variable: index), term.hasVariable else { return nil }
+        // 합 S(m) = ∑_{k=lo}^{m} term(k) 를 정확한 분수로
+        func partial(_ upTo: Int) -> Rat? {
+            var total: Rat = .zero
+            if upTo < lo { return total }
+            for k in lo...upTo {
+                guard let v = DoitMathCalc.evalRat(term, Rat(k)), let next = total + v else { return nil }
+                total = next
+            }
+            return total
+        }
+        // 다항식 확인: term 이 k 의 3차 이하 다항식이어야 함 (S 가 4차 이하). 앞 5개로 보간한 것이 뒤 6개와 모두 같아야 함
+        let xs = Array((lo - 1)...(lo + 3))
+        var ys: [Rat] = []
+        for x in xs { guard let y = partial(x) else { return nil }; ys.append(y) }
+        // 라그랑주 보간으로 n 의 다항식 계수 (n⁴ … n⁰)
+        var coef = [Rat](repeating: .zero, count: 5)
+        for i in 0..<5 {
+            var poly: [Rat] = [.one]   // 낮은 차수부터
+            var denom: Rat = .one
+            for j in 0..<5 where j != i {
+                guard let xj = Rat(xs[j]), let xi = Rat(xs[i]), let d = xi - xj, let nd = denom * d else { return nil }
+                denom = nd
+                var next = [Rat](repeating: .zero, count: poly.count + 1)
+                for (power, c) in poly.enumerated() {
+                    guard let a = c * (-xj), let sum = next[power] + a, let b = next[power + 1] + c else { return nil }
+                    next[power] = sum; next[power + 1] = b
+                }
+                poly = next
+            }
+            for (power, c) in poly.enumerated() {
+                guard let scaled = c * ys[i], let q = scaled / denom, let sum = coef[power] + q else { return nil }
+                coef[power] = sum
+            }
+        }
+        func evaluate(_ n: Int) -> Rat? {
+            var total: Rat = .zero
+            for (power, c) in coef.enumerated() {
+                guard let pw = Rat(n).flatMap({ $0.power(power) }), let term = c * pw, let sum = total + term else { return nil }
+                total = sum
+            }
+            return total
+        }
+        for n in (lo + 4)...(lo + 9) {
+            guard let direct = partial(n), let formula = evaluate(n), direct == formula else { return nil }
+        }
+        // 식으로 쓰기
+        var parts: [String] = []
+        for power in stride(from: 4, through: 0, by: -1) where !coef[power].isZero {
+            let c = coef[power]
+            let mag = Rat(abs(c.n), c.d)!
+            let variable = power == 0 ? "" : power == 1 ? "n" : "n" + ["", "", "²", "³", "⁴"][power]
+            let number: String
+            if power == 0 { number = mag.text }
+            else if mag == Rat.one { number = "" }
+            else if mag.isInteger { number = mag.text }
+            else { number = "(\(mag.text))" }
+            parts.append((c.n < 0 ? "− " : (parts.isEmpty ? "" : "+ ")) + number + variable)
+        }
+        guard !parts.isEmpty else { return nil }
+        var answer = parts.joined(separator: " ")
+        if answer.hasPrefix("− ") { answer = "−" + answer.dropFirst(2) }
+        // 잘 알려진 모양은 인수분해한 꼴도 함께
+        let known: [String: String] = ["(1/2)n² + (1/2)n": "n(n+1)/2", "(1/3)n³ + (1/2)n² + (1/6)n": "n(n+1)(2n+1)/6", "(1/4)n⁴ + (1/2)n³ + (1/4)n²": "{n(n+1)/2}²"]
+        let tidy = known[answer]
+        let shown = tidy.map { "\($0) = \(answer)" } ?? answer
+        var steps = [step("식", "∑(\(index)=\(lo)→n) \(body)")]
+        steps.append(step("n = \(lo)…\(lo + 4) 에서 합을 구해 n 의 다항식으로 정리하고, n = \(lo + 4)…\(lo + 9) 에서 다시 확인하면", shown))
+        return Solved(kind: .sequence, topic: "합의 기호 ∑", concept: "∑ₖ₌₁ⁿ k = n(n+1)/2, ∑ k² = n(n+1)(2n+1)/6, ∑ k³ = {n(n+1)/2}², ∑ c = cn",
+                      steps: steps, answer: shown)
     }
 
     // MARK: - 점화식

@@ -32,6 +32,9 @@ func plain(_ segs: [Seg]) -> String {
         // 선분은 앱 표기 A̅B̅ (글자마다 윗줄 U+0305), 호는 "호 AB"
         case .over(let s): return s.map { "\($0)\u{305}" }.joined()
         case .arc(let s): return "호 " + s
+        case .bigOp(let sym, let below, let above, _): return sym + "_{\(below)}^{\(above)}"
+        case .lim(let below): return "lim_{\(below)}"
+        case .subm(let s): return "_{\(s)}"
         }
     }.joined()
 }

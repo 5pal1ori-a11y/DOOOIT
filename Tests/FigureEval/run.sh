@@ -20,7 +20,7 @@ rm -rf "$PKG"
 mkdir -p "$SRC"
 cp "$ROOT/Tests/FigureEval/Package.swift" "$PKG/"
 cp "$ROOT/Tests/FigureEval/Eval/main.swift" "$SRC/"
-cp "$ROOT/DOOOIT/Services/DoitAI/Mistake/DoitFigureFacts.swift" "$ROOT/DOOOIT/Services/GeometryText.swift" "$ROOT/DOOOIT/Services/MathOCRFixer.swift" \
+cp "$ROOT/DOOOIT/Services/DoitAI/Mistake/DoitFigureFacts.swift" "$ROOT/DOOOIT/Services/GeometryText.swift" "$ROOT/DOOOIT/Services/MathOCRFixer.swift" "$ROOT/DOOOIT/Services/CalculusText.swift" \
    "$ROOT/DOOOIT/Services/FigureVision.swift" "$ROOT/DOOOIT/Services/DoitBrain/DoitVisionEngine.swift" "$SRC/"
 for f in PixelImage GraphReader ShapeReader ChartReader; do cp "$ROOT/DOOOIT/Services/VisionCore/$f.swift" "$SRC/"; done
 for f in PaddleOCRSupport PaddleOCRText PaddleOCRModel PaddleOCREngine; do cp "$ROOT/DOOOIT/Services/PaddleOCR/$f.swift" "$SRC/"; done
