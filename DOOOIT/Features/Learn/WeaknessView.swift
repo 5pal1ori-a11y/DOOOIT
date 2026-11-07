@@ -71,36 +71,23 @@ struct WeaknessView: View {
     var body: some View {
         let list = weaknesses
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 16) {
                 Text("빈칸·O/X·문제 풀이 기록과 오답노트를 모아 약한 유형을 찾아요.")
-                    .font(.pt(.subheadline))
+                    .font(.pt(.footnote))
                     .foregroundStyle(.secondary)
-                NavigationLink { WeakConceptListView() } label: {
-                    HStack(spacing: 12) {
-                        IconBadge(symbol: "target", color: Palette.danger)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("오답노트 취약 개념").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
-                            Text("개념별 오답 횟수·원인·숙련도").font(.pt(.caption)).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
+                    .padding(.horizontal, 2)
+                VStack(spacing: 0) {
+                    NavigationLink { WeakConceptListView() } label: {
+                        RowLabel(symbol: "target", title: L("오답노트 취약 개념"), subtitle: L("개념별 오답 횟수·원인·숙련도"))
                     }
-                    .softCard(cornerRadius: 20, padding: 14)
-                }
-                .buttonStyle(.pressable)
-                NavigationLink { MockExamView() } label: {
-                    HStack(spacing: 12) {
-                        IconBadge(symbol: "doc.text", color: Palette.sky)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("AI 모의고사").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.ink)
-                            Text("취약 개념 10문제").font(.pt(.caption)).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
+                    .buttonStyle(.pressable)
+                    RowDivider()
+                    NavigationLink { MockExamView() } label: {
+                        RowLabel(symbol: "doc.text", title: L("AI 모의고사"), subtitle: L("취약 개념 10문제"))
                     }
-                    .softCard(cornerRadius: 20, padding: 14)
+                    .buttonStyle(.pressable)
                 }
-                .buttonStyle(.pressable)
+                .softCardBackground()
                 if list.isEmpty {
                     EmptyStateView(symbol: "target", title: L("아직 취약 유형이 없어요"))
                         .softCard()
@@ -108,10 +95,11 @@ struct WeaknessView: View {
                 }
                 ForEach(Array(list.enumerated()), id: \.element.id) { index, item in
                     weaknessCard(item)
-                        .appearAnimation(delay: Double(index) * 0.07)
+                        .appearAnimation(delay: Double(index) * 0.05)
                 }
             }
             .padding(.horizontal, 16)
+            .padding(.top, 8)
             .padding(.bottom, 32)
         }
         .scrollIndicators(.hidden)
@@ -121,66 +109,79 @@ struct WeaknessView: View {
     }
 
     private func weaknessCard(_ item: Weakness) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 6) {
-                TagLabel(text: item.subject, color: .secondary)
-                if item.total > 0 { TagLabel(text: L("정답률 \(Int(item.accuracy * 100))%"), color: Theme.accent) }
-                if item.wrongNotes > 0 { TagLabel(text: L("오답노트 \(item.wrongNotes)"), color: Palette.danger) }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(item.unit)
+                    .font(.pt(size: 20, weight: .semibold))
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(2)
+                Spacer(minLength: 8)
+                Text(item.subject.loc)
+                    .font(.pt(.caption2).weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Palette.cardInset, in: .rect(cornerRadius: Radius.chip, style: .continuous))
             }
-            Label(item.unit, systemImage: "lightbulb").font(.pt(.headline)).foregroundStyle(Theme.accent)
-            Text("\(item.headline)\n\(item.plan)")
-                .font(.pt(.title3).weight(.bold))
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("맞춤 학습 예상 시간 \(TimeText.durationL(minutes: item.minutes))")
-                .font(.pt(.caption))
-                .foregroundStyle(.secondary)
-
+            if item.total > 0 || item.wrongNotes > 0 {
+                HStack(spacing: 16) {
+                    if item.total > 0 { StatusText(text: L("정답률 \(Int(item.accuracy * 100))%"), color: .secondary).monospacedDigit() }
+                    if item.wrongNotes > 0 { StatusText(text: L("오답노트 \(item.wrongNotes)"), color: Palette.danger).monospacedDigit() }
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.headline)
+                    .font(.pt(.body).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(item.plan)
+                    .font(.pt(.subheadline))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Hairline()
             levelBar(item.level)
+            Text("맞춤 학습 예상 시간 \(TimeText.durationL(minutes: item.minutes))")
+                .font(.pt(.footnote))
+                .foregroundStyle(.secondary)
 
             NavigationLink {
                 UnitStudyView(subject: item.subject, unit: item.unit, initialStep: item.startStep)
             } label: {
                 Text("이 맞춤 학습 시작하기")
-                    .font(.pt(.body).weight(.bold))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 40)
             }
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
+            .buttonStyle(.flatProminent)
         }
-        .softCard(cornerRadius: 24, padding: 20)
+        .softCard()
     }
 
     private func levelBar(_ level: Int) -> some View {
         let labels = [L("개념이해 전"), L("실전활용 가능"), L("고난도 정복")]
         let current = (Double(level) + 0.5) / 3
         let target = min(1, (Double(level) + 1.5) / 3)
-        return VStack(spacing: 6) {
+        return VStack(spacing: 8) {
             HStack {
-                Text("현재 내 실력은?").font(.pt(.caption)).foregroundStyle(.secondary)
+                Text("현재 내 실력은?").font(.pt(.footnote)).foregroundStyle(.secondary)
                 Spacer()
-                Label("예상 도달: \(labels[min(level + 1, 2)])", systemImage: "lightbulb")
-                    .font(.pt(.caption).weight(.semibold))
-                    .foregroundStyle(Theme.accent)
+                Text("예상 도달: \(labels[min(level + 1, 2)])")
+                    .font(.pt(.footnote).weight(.semibold))
+                    .foregroundStyle(Palette.ink)
             }
             LevelFillBar(current: current, target: target)
-                .frame(height: 10)
+                .frame(height: 3)
             HStack {
                 ForEach(Array(labels.enumerated()), id: \.offset) { index, label in
                     Text(label)
-                        .font(.pt(.caption2).weight(index == level ? .bold : .regular))
-                        .foregroundStyle(index == level ? Color.primary : Color.secondary)
+                        .font(.pt(.caption2).weight(index == level ? .semibold : .regular))
+                        .foregroundStyle(index == level ? Palette.ink : Color.secondary)
                         .frame(maxWidth: .infinity)
                 }
             }
         }
-        .padding(14)
-        .background(Theme.accent.opacity(0.05), in: .rect(cornerRadius: 14))
     }
 }
 
-/// 실력 막대: 처음 보일 때 왼쪽부터 차오름
+/// 실력 막대: 얇은 줄, 처음 보일 때 왼쪽부터 차오름
 private struct LevelFillBar: View {
     let current: Double
     let target: Double
@@ -189,13 +190,14 @@ private struct LevelFillBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.primary.opacity(0.08))
-                Capsule().fill(Theme.accent.opacity(0.25)).frame(width: geo.size.width * (filled ? target : 0))
-                Capsule().fill(Theme.accent).frame(width: geo.size.width * (filled ? current : 0))
+                Rectangle().fill(Theme.secondaryFill)
+                Rectangle().fill(Theme.accent.opacity(0.3)).frame(width: geo.size.width * (filled ? target : 0))
+                Rectangle().fill(Theme.accent).frame(width: geo.size.width * (filled ? current : 0))
             }
+            .clipShape(.capsule)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.9).delay(0.2)) { filled = true }
+            withAnimation(.easeOut(duration: 0.6).delay(0.1)) { filled = true }
         }
     }
 }

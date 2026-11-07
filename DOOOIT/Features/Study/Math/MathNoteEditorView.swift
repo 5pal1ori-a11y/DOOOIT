@@ -43,7 +43,7 @@ struct MathNoteEditorView: View {
         GeometryReader { geo in
             let pageWidth = max(geo.size.width - 32, 100)
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 16) {
                     infoCard
                     if tab != .note, let type = note.scan?.problemType {
                         ProblemTypeChip(type: type)
@@ -56,7 +56,7 @@ struct MathNoteEditorView: View {
                         page(width: pageWidth)
                     case .grade where !subject.isMath:
                         // 수학이 아닌 과목: AI 풀이 → 함께 풀기 → 내 답 채점 → (채점 뒤) 틀린 이유 · 해설 · 다시 풀기 → 취약 개념
-                        VStack(spacing: 14) {
+                        VStack(spacing: 12) {
                             AISolutionCard(note: note) { withAnimation(.snappy) { tab = .text; isEditingText = true } }
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
@@ -69,7 +69,7 @@ struct MathNoteEditorView: View {
                         }
                     case .grade:
                         // AI 풀이 → 함께 풀기 → 내 답 채점 → (채점 뒤) 오답 원인 · 다시 풀기 → 과정 채점(접힘) → 취약 개념
-                        VStack(spacing: 14) {
+                        VStack(spacing: 12) {
                             AISolutionCard(note: note) { withAnimation(.snappy) { tab = .text; isEditingText = true } }
                             GuidedSolveEntryCard(note: note) { withAnimation(.snappy) { tab = .text } }
                             MistakeGradingCard(note: note) { withAnimation(.snappy) { tab = .text } }
@@ -160,27 +160,30 @@ struct MathNoteEditorView: View {
 
     // MARK: Info
 
-    /// 머리말: 문제 사진 · 제목 · 단원 · 상태
+    /// 머리말: 문제 사진 · 제목 · 과목 태그 · 단원 · 상태
     private var infoCard: some View {
-        HStack(alignment: .center, spacing: 14) {
+        HStack(alignment: .top, spacing: 12) {
             Color.clear
-                .frame(width: 64, height: 64)
+                .frame(width: 56, height: 56)
                 .background { GridPaperBackground() }
                 .overlay {
                     if let data = note.thumbnailData, let thumb = UIImage(data: data) {
                         Image(uiImage: thumb).resizable().scaledToFill()
                     } else {
-                        Image(systemName: subject.symbol).font(.pt(.title3)).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: subject.symbol.outlineSymbol)
+                            .environment(\.symbolVariants, .none)
+                            .font(.pt(.title3))
+                            .foregroundStyle(Color.secondary.opacity(0.6))
                     }
                 }
-                .clipShape(.rect(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.06)))
+                .clipShape(.rect(cornerRadius: Radius.field, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.field, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
             VStack(alignment: .leading, spacing: 4) {
                 TextField("제목", text: $note.title)
-                    .font(.pt(.title3).weight(.bold))
+                    .font(.pt(size: 20, weight: .semibold))
                     .foregroundStyle(Palette.ink)
-                HStack(spacing: 6) {
-                    // 과목: AI가 정한 과목이면 반짝이 표시. 직접 고르면 다시 자동으로 바꾸지 않음
+                HStack(spacing: 8) {
+                    // 과목: 직접 고르면 다시 자동으로 바꾸지 않음
                     Menu {
                         SubjectMenuItems(includeAuto: true, onAuto: {
                             note.redetectSubject(force: true)
@@ -197,17 +200,13 @@ struct MathNoteEditorView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Text(note.status.title)
-                .font(.pt(.caption).weight(.bold))
-                .foregroundStyle(note.status.color)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(note.status.color.opacity(0.12), in: .capsule)
+            StatusText(text: note.status.title, color: note.status == .unsolved ? .secondary : note.status.color)
+                .padding(.top, 4)
         }
-        .softCard(cornerRadius: 22, padding: 14)
+        .softCard()
     }
 
-    /// 밑줄 탭 (문제 · 풀이 · 필기)
+    /// 밑줄 탭 (문제 · 풀이 · 필기): 아래에 헤어라인, 고른 탭만 굵은 선
     private var tabBar: some View {
         HStack(spacing: 0) {
             ForEach(EditorTab.allCases) { item in
@@ -216,26 +215,28 @@ struct MathNoteEditorView: View {
                     withAnimation(.snappy) { tab = item }
                     Haptics.tap()
                 } label: {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 10) {
                         HStack(spacing: 4) {
                             Text(item.rawValue.loc)
                             if item == .text && !note.isRecognitionConfirmed {
                                 Circle().fill(Palette.warning).frame(width: 6, height: 6)
                             }
                         }
-                        .font(.pt(.subheadline).weight(isOn ? .bold : .medium))
+                        .font(.pt(.subheadline).weight(isOn ? .semibold : .regular))
                         .foregroundStyle(isOn ? Palette.ink : Color.secondary)
-                        Capsule()
+                        Rectangle()
                             .fill(isOn ? Palette.ink : Color.clear)
-                            .frame(width: 32, height: 3)
+                            .frame(height: 2)
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityAddTraits(isOn ? .isSelected : [])
             }
         }
         .padding(.top, 2)
+        .background(alignment: .bottom) { Hairline() }
     }
 
     // MARK: Page
@@ -254,8 +255,8 @@ struct MathNoteEditorView: View {
                         .scaledToFit()
                         .frame(width: width, height: imageHeight)
                     Rectangle()
-                        .fill(Theme.accent.opacity(0.35))
-                        .frame(height: 2)
+                        .fill(Palette.noteGrid)
+                        .frame(height: 1)
                 }
                 Text("풀이")
                     .font(.pt(.caption).weight(.bold))
@@ -292,7 +293,8 @@ struct MathNoteEditorView: View {
             }
         }
         .frame(width: width, height: height)
-        .clipShape(.rect(cornerRadius: 14))
+        .clipShape(.rect(cornerRadius: Radius.card, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
         // 필기 종이는 다크 모드에서도 흰 종이 그대로 (검은 펜 글씨가 보이도록)
         .environment(\.colorScheme, .light)
     }
@@ -374,7 +376,7 @@ struct MathNoteEditorView: View {
                             }
                             .frame(width: 46, height: 44)
                             .foregroundStyle(tool == item ? Theme.onAccent : Color.primary)
-                            .background(tool == item ? Theme.accent : Color.clear, in: .rect(cornerRadius: 14))
+                            .background(tool == item ? Theme.accent : Color.clear, in: .rect(cornerRadius: Radius.field, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -398,7 +400,7 @@ struct MathNoteEditorView: View {
     // MARK: Recognized text
 
     private var recognizedCard: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             problemSheet
 
             if let textMessage {
@@ -413,10 +415,9 @@ struct MathNoteEditorView: View {
 
     /// 문제를 종이처럼 보여주고, "고치기"를 누르면 편집 + 수식 기호 바
     private var problemSheet: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Image(systemName: "doc.text.fill").foregroundStyle(Theme.accent)
-                Text("문제").font(.pt(.headline)).foregroundStyle(Palette.ink)
+                Text("문제").font(.pt(size: 17, weight: .semibold)).foregroundStyle(Palette.ink)
                 if isRecognizing { ProgressView().controlSize(.small) }
                 Spacer()
                 Menu {
@@ -446,7 +447,7 @@ struct MathNoteEditorView: View {
                     Image(systemName: "ellipsis")
                         .font(.pt(.subheadline).weight(.bold))
                         .frame(width: 32, height: 32)
-                        .background(Color.primary.opacity(0.06), in: .circle)
+                        .background(Theme.secondaryFill, in: .rect(cornerRadius: Radius.field, style: .continuous))
                         .foregroundStyle(Palette.ink)
                 }
                 .disabled(isRecognizing)
@@ -456,9 +457,9 @@ struct MathNoteEditorView: View {
                     Label(isEditingText ? L("완료") : L("고치기"), systemImage: isEditingText ? "checkmark" : "pencil")
                         .font(.pt(.subheadline).weight(.semibold))
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(Theme.accent.opacity(0.12), in: .capsule)
-                        .foregroundStyle(Theme.accent)
+                        .frame(height: 32)
+                        .background(isEditingText ? Theme.accent : Theme.secondaryFill, in: .rect(cornerRadius: Radius.field, style: .continuous))
+                        .foregroundStyle(isEditingText ? Theme.onAccent : Palette.ink)
                 }
                 .buttonStyle(.plain)
             }
@@ -470,7 +471,7 @@ struct MathNoteEditorView: View {
                     .frame(minHeight: 160)
                     .scrollContentBackground(.hidden)
                     .padding(10)
-                    .background(Color.black.opacity(0.04), in: .rect(cornerRadius: 14))
+                    .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
                 if subject.isMath {
                     MathSymbolBar { symbol in insertSymbol(symbol) }
                     Text("x² 는 ^2, 루트는 √( ) 로 써도 보기 좋게 바뀌어요.")
@@ -490,14 +491,7 @@ struct MathNoteEditorView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(18)
-        .background(Palette.card, in: .rect(cornerRadius: 14))
-        .overlay(alignment: .leading) {
-            UnevenRoundedRectangle(topLeadingRadius: 22, bottomLeadingRadius: 22)
-                .fill(Theme.accent)
-                .frame(width: 5)
-        }
-        .clipShape(.rect(cornerRadius: 14))
+        .softCard()
     }
 
     private func insertSymbol(_ symbol: MathSymbolBar.Symbol) {
@@ -590,6 +584,9 @@ struct MathNoteEditorView: View {
         annotations = note.annotations
         // 인식 결과를 아직 확인하지 않았으면 문제 탭부터, 확인했으면 풀이부터
         tab = note.isRecognitionConfirmed ? .grade : .text
+        #if DEBUG
+        if UIShot.screen == .mathNoteText { tab = .text }
+        #endif
         if note.scan == nil, !note.recognizedText.isEmpty { rescan(note.recognizedText) }
         // 예전 노트: 문제 유형만 찾아 붙임 (과목·글은 그대로)
         if note.scan?.typeID == nil, !note.recognizedText.isEmpty { note.refreshProblemType() }

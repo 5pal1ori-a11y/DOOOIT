@@ -81,17 +81,15 @@ struct SubjectTag: View {
     private var spoken: String { auto ? L("과목 \(label), 자동으로 정함") : L("과목 \(label)") }
 
     var body: some View {
-        let color = Color(hex: DoitSubjectNote.colorHex(broad: DoitSubjectDetector.broad(ofStored: label)))
-        HStack(spacing: 2) {
-            if auto { Image(systemName: "lightbulb").font(.pt(size: 8, weight: .bold)) }
-            Text(label.loc).lineLimit(1)
-        }
-        .font(.pt(.caption2).weight(.bold))
-        .foregroundStyle(color)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 2)
-        .background(color.opacity(0.14), in: .capsule)
-        .accessibilityLabel(spoken)
+        // 작은 글자 태그: 회색 칸 + 회색 글자 (과목마다 다른 색을 쓰지 않음)
+        Text(label.loc)
+            .font(.pt(.caption2).weight(.semibold))
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Palette.cardInset, in: .rect(cornerRadius: Radius.chip, style: .continuous))
+            .accessibilityLabel(spoken)
     }
 }
 
@@ -135,14 +133,12 @@ struct ProblemTypeChip: View {
                 withAnimation(.snappy) { open.toggle() }
                 Haptics.tap()
             } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "list.bullet").font(.pt(.caption).weight(.bold))
-                    Text("문제 유형").font(.pt(.caption).weight(.semibold)).foregroundStyle(.secondary)
-                    Text(type.name).font(.pt(.caption).weight(.bold)).foregroundStyle(Palette.ink).lineLimit(1)
+                HStack(spacing: 8) {
+                    FlowLabel(L("문제 유형"))
+                    Text(type.name).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink).lineLimit(1)
                     Spacer(minLength: 0)
                     Image(systemName: open ? "chevron.up" : "chevron.down").font(.pt(.caption2).weight(.bold)).foregroundStyle(.tertiary)
                 }
-                .foregroundStyle(Theme.accent)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
@@ -153,20 +149,18 @@ struct ProblemTypeChip: View {
                     line(L("푸는 법"), summary.steps)
                     if let trap = summary.trap { line(L("함정"), trap) }
                 }
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Theme.accent.opacity(0.08), in: .rect(cornerRadius: 14))
+        .softCard(padding: 12)
     }
 
     private var hint: String { open ? L("설명 접기") : L("푸는 법 보기") }
 
     private func line(_ title: String, _ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title).font(.pt(.caption2).weight(.bold)).foregroundStyle(.secondary).frame(width: 40, alignment: .leading)
-            Text(text).font(.pt(.caption)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
+            Text(title).font(.pt(.footnote)).foregroundStyle(.secondary).frame(width: 52, alignment: .leading)
+            Text(text).font(.pt(.footnote)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -195,20 +189,22 @@ struct SubjectCauseCard: View {
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.8)
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 36)
-                                .foregroundStyle(isOn ? Palette.card : Palette.ink)
-                                .background(isOn ? AnyShapeStyle(Palette.ink) : AnyShapeStyle(Color.primary.opacity(0.06)), in: .capsule)
+                                .frame(height: 40)
+                                .foregroundStyle(isOn ? Theme.onAccent : Palette.ink)
+                                .background(isOn ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Theme.secondaryFill), in: .rect(cornerRadius: Radius.field, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
                 }
                 if let analysis, analysis.cause != .unknown {
-                    Label(DoitSubjectNote.tip(for: analysis.cause, subject: subject), systemImage: "lightbulb")
+                    Hairline()
+                    Text(DoitSubjectNote.tip(for: analysis.cause, subject: subject))
                         .font(.pt(.subheadline))
                         .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let evidence = analysis?.evidence.first {
-                    Text(evidence).font(.pt(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Text(evidence).font(.pt(.footnote)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
             .softCard()
@@ -282,11 +278,11 @@ struct SubjectExplainCard: View {
     var body: some View {
         let concepts = self.concepts
         let hints = self.wordHints
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             FlowHeader(number: 4, title: L("해설"), symbol: "book")
             if !correctText.isEmpty {
                 HStack(spacing: 8) {
-                    Text("정답").font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
+                    FlowLabel(L("정답"))
                     Text(correctText).font(.pt(.subheadline).weight(.semibold)).foregroundStyle(Palette.ink)
                 }
             }
@@ -295,7 +291,7 @@ struct SubjectExplainCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     sectionTitle(L("풀이"))
                     ForEach(Array(solution.steps.enumerated()), id: \.offset) { _, step in
-                        Text(step.work).font(.pt(.subheadline)).fixedSize(horizontal: false, vertical: true)
+                        Text(step.work).font(.pt(.subheadline)).foregroundStyle(Palette.ink).fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -320,7 +316,7 @@ struct SubjectExplainCard: View {
     }
 
     private func sectionTitle(_ text: String) -> some View {
-        Text(text).font(.pt(.caption).weight(.bold)).foregroundStyle(.secondary)
+        FlowLabel(text)
     }
 
     private func conceptRow(_ entry: DoitKnowledge.Entry) -> some View {
@@ -344,7 +340,7 @@ struct SubjectExplainCard: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.cardInset, in: .rect(cornerRadius: 14))
+            .background(Palette.cardInset, in: .rect(cornerRadius: Radius.field, style: .continuous))
         }
         .buttonStyle(.plain)
     }
@@ -355,7 +351,7 @@ struct SubjectExplainCard: View {
             Text(hint.meaning).font(.pt(.subheadline)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             if hint.inBook {
-                Image(systemName: "book.closed.fill").font(.pt(.caption)).foregroundStyle(subject.color)
+                Image(systemName: "book.closed").font(.pt(.caption)).foregroundStyle(.secondary)
                     .accessibilityLabel("단어장에 있음")
             } else if let meaning = DoitEnglish.koreanMeaning(of: hint.term) {
                 let done = added.contains(hint.term)
@@ -368,9 +364,9 @@ struct SubjectExplainCard: View {
                 } label: {
                     Image(systemName: done ? "checkmark" : "plus")
                         .font(.pt(.caption).weight(.bold))
-                        .frame(width: 26, height: 26)
-                        .foregroundStyle(Theme.accent)
-                        .background(Theme.accent.opacity(0.12), in: .circle)
+                        .frame(width: 28, height: 28)
+                        .foregroundStyle(Palette.ink)
+                        .background(Theme.secondaryFill, in: .rect(cornerRadius: Radius.chip, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(done ? L("추가됨") : L("단어장에 추가"))
@@ -384,9 +380,10 @@ struct SubjectExplainCard: View {
     private var aiSection: some View {
         if DoitBrain.shared.isAvailable, !note.correctAnswer.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
+                Hairline()
                 if let aiText {
                     HStack(spacing: 6) {
-                        Label("AI 해설", systemImage: "lightbulb").font(.pt(.caption).weight(.bold)).foregroundStyle(Theme.accent)
+                        FlowLabel(L("AI 해설"))
                         Text("틀릴 수 있어요").font(.pt(.caption2)).foregroundStyle(.secondary)
                     }
                     Text(aiText).font(.pt(.subheadline)).foregroundStyle(Palette.ink).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
@@ -397,9 +394,9 @@ struct SubjectExplainCard: View {
                     }
                 } else {
                     Button { Task { await explain() } } label: {
-                        Label("AI 해설", systemImage: "lightbulb").frame(maxWidth: .infinity).frame(height: 36)
+                        Text("AI 해설")
                     }
-                    .buttonStyle(.glass)
+                    .buttonStyle(.flat)
                     if aiFailed { Text("지금은 만들 수 없어요").font(.pt(.caption)).foregroundStyle(.secondary) }
                 }
             }
@@ -455,18 +452,19 @@ struct SubjectRetryCard: View {
             } else {
                 if let result { feedback(result) }
                 Button(action: start) {
-                    Label(retries.isEmpty && result == nil ? L("다시 풀기") : L("한 번 더"), systemImage: "arrow.counterclockwise")
-                        .frame(maxWidth: .infinity).frame(height: 38)
+                    Text(retries.isEmpty && result == nil ? L("다시 풀기") : L("한 번 더"))
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.flatProminent)
             }
             if !retries.isEmpty {
                 HStack(spacing: 6) {
                     ForEach(Array(retries.suffix(6).enumerated()), id: \.offset) { _, attempt in
-                        Image(systemName: attempt.correct ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(attempt.correct ? Palette.success : Palette.danger)
+                        Circle()
+                            .fill(attempt.correct ? Palette.success : Palette.danger)
+                            .frame(width: 8, height: 8)
+                            .accessibilityLabel(attempt.correct ? L("정답") : L("오답"))
                     }
-                    Text(retries.last.map { $0.date.ui("M월 d일") } ?? "").font(.pt(.caption)).foregroundStyle(.secondary)
+                    Text(retries.last.map { $0.date.ui("M월 d일") } ?? "").font(.pt(.footnote)).foregroundStyle(.secondary)
                 }
                 .font(.pt(.subheadline))
             }
@@ -492,13 +490,11 @@ struct SubjectRetryCard: View {
             ForEach(Array(order.enumerated()).filter { choices.indices.contains($0.element) }, id: \.offset) { display, original in
                 Button { submit("\(original + 1)") } label: {
                     HStack(spacing: 10) {
-                        Text("\(display + 1)").font(.pt(.subheadline).weight(.bold)).frame(width: 26, height: 26)
-                            .background(Theme.accent.opacity(0.12), in: .circle)
+                        Text("\(display + 1)").font(.pt(.subheadline).weight(.semibold)).monospacedDigit().foregroundStyle(.secondary).frame(width: 20)
                         Text(MathSymbolBar.pretty(choices[original])).foregroundStyle(Palette.ink).multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
-                    .padding(10)
-                    .background(Color.primary.opacity(0.04), in: .rect(cornerRadius: 12))
+                    .flatField()
                 }
                 .buttonStyle(.plain)
             }
@@ -508,7 +504,7 @@ struct SubjectRetryCard: View {
                     Button { submit(mark) } label: {
                         Text(mark).font(.pt(.title2).weight(.bold)).frame(maxWidth: .infinity).frame(height: 52)
                             .foregroundStyle(Palette.ink)
-                            .background(Color.primary.opacity(0.06), in: .rect(cornerRadius: 14))
+                            .background(Theme.secondaryFill, in: .rect(cornerRadius: Radius.button, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
@@ -519,15 +515,15 @@ struct SubjectRetryCard: View {
                     .lineLimit(kind == .essay ? 2...6 : 1...1)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .padding(10)
-                    .background(Color.primary.opacity(0.05), in: .rect(cornerRadius: 12))
+                    .flatField()
                 Button("채점") { submit(answer) }
-                    .buttonStyle(.glassProminent)
+                    .buttonStyle(.flatProminent)
+                    .fixedSize()
                     .disabled(answer.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         Button("그만하기") { withAnimation(.snappy) { solving = false } }
-            .font(.pt(.caption).weight(.semibold))
+            .font(.pt(.footnote).weight(.semibold))
             .foregroundStyle(.secondary)
     }
 
@@ -535,12 +531,12 @@ struct SubjectRetryCard: View {
         VStack(alignment: .leading, spacing: 8) {
             switch result.verdict {
             case .correct:
-                Label("정답이에요", systemImage: "checkmark.circle.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.success)
+                StatusText(text: L("정답이에요"), color: Palette.success)
             case .wrong:
-                Label("오답 · 정답 \(correctShown)", systemImage: "xmark.circle.fill").font(.pt(.subheadline).weight(.bold)).foregroundStyle(Palette.danger)
+                StatusText(text: L("오답 · 정답 \(correctShown)"), color: Palette.danger)
             case .partial, .needsReview:
-                Text(result.reasons.first ?? L("확인이 필요해요")).font(.pt(.subheadline))
-                HStack(spacing: 10) {
+                Text(result.reasons.first ?? L("확인이 필요해요")).font(.pt(.subheadline)).foregroundStyle(Palette.ink)
+                HStack(spacing: 8) {
                     confirm(L("맞았어요"), correct: true)
                     confirm(L("틀렸어요"), correct: false)
                 }
@@ -560,11 +556,9 @@ struct SubjectRetryCard: View {
             record(correct: correct)
             withAnimation(.snappy) { result = nil }
         } label: {
-            Text(title).font(.pt(.subheadline).weight(.bold)).frame(maxWidth: .infinity).padding(.vertical, 9)
-                .foregroundStyle(Theme.onAccent)
-                .background(correct ? Palette.success : Palette.danger, in: .rect(cornerRadius: 12))
+            Text(title)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.flat)
     }
 
     private func start() {

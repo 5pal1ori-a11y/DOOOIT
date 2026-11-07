@@ -52,7 +52,9 @@ struct StudyView: View {
             .navigationTitle("학습")
             #if DEBUG
             .uiShotPush(.words) { WordHomeView() }
-            .uiShotPush(.mathList, .mathNote) { MathNoteListView() }
+            .uiShotPush(.mathList, .mathNote, .mathNoteText, .mathEmpty, .subjectNote) { MathNoteListView() }
+            .uiShotPush(.weakList) { WeakConceptListView() }
+            .uiShotPush(.weakness) { WeaknessView() }
             .uiShotPush(.mockExam, .mockResult) { MockExamView() }
             .uiShotPush(.grammar) { UnitStudyView(subject: "중학교 영어", unit: "현재완료") }
             .uiShotPush(.grammarOX) { UnitStudyView(subject: "중학교 영어", unit: "현재완료", initialStep: .ox) }

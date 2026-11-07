@@ -50,7 +50,7 @@ struct MathNoteListView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 if notes.isEmpty {
                     emptyState
                         .appearAnimation()
@@ -59,9 +59,9 @@ struct MathNoteListView: View {
                         .appearAnimation()
                     if !weakConcepts.isEmpty {
                         NavigationLink { WeakConceptListView() } label: {
-                            RowLabel(symbol: "target", color: Palette.pink, title: L("취약 개념"),
+                            RowLabel(symbol: "target", title: L("취약 개념"),
                                      value: "\(weakConcepts.count)")
-                                .softCardBackground(cornerRadius: 20)
+                                .softCardBackground()
                         }
                         .buttonStyle(.pressable)
                         .appearAnimation(delay: 0.04)
@@ -79,7 +79,7 @@ struct MathNoteListView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, 4)
+            .padding(.top, 8)
             .padding(.bottom, 32)
             .animation(Motion.spring, value: filter)
             .animation(Motion.spring, value: notes.count)
@@ -140,101 +140,78 @@ struct MathNoteListView: View {
         }
         #if DEBUG
         .task {
-            if UIShot.screen == .mathNote, openedNote == nil {
+            if UIShot.matches(.mathNote, .mathNoteText), openedNote == nil {
                 try? await Task.sleep(for: .milliseconds(400))
                 openedNote = notes.first { $0.subjectKind == .math && $0.status == .wrong }
+            } else if UIShot.screen == .subjectNote, openedNote == nil {
+                try? await Task.sleep(for: .milliseconds(400))
+                openedNote = notes.first { $0.subjectKind == .english }
             }
         }
         #endif
         .errorAlert($errorMessage)
     }
 
-    /// 맨 위: 복습할 문제 수 · 상태별 개수 · 정답률 링 · 문제 찍기
+    /// 맨 위: 복습할 문제 수(큰 숫자) · 상태별 개수 · 정답률 · 문제 찍기
     private var summaryCard: some View {
         // 맞힌 문제라도 다시 풀 날이 된 과목 문제는 복습에 넣음
         let toReview = count(.wrong) + count(.unsolved) + scoped.filter { $0.status == .correct && $0.isReviewDue }.count
         let graded = count(.wrong) + count(.correct)
         let ratio = graded == 0 ? 0 : Double(count(.correct)) / Double(graded)
-        return VStack(alignment: .leading, spacing: 18) {
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(toReview > 0 ? L("복습할 문제") : L("모두 복습했어요"))
-                        .font(.pt(.subheadline).weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Text("\(toReview)개")
-                        .font(.pt(size: 34, weight: .bold))
-                        .foregroundStyle(Palette.ink)
-                        .contentTransition(.numericText())
-                }
-                Spacer(minLength: 8)
-                ZStack {
-                    ProgressRing(progress: ratio, lineWidth: 9, color: Palette.success)
-                    VStack(spacing: 0) {
-                        Text("\(Int(ratio * 100))%").font(.pt(.subheadline).weight(.bold)).monospacedDigit().foregroundStyle(Palette.ink)
-                        Text("정답률").font(.pt(.caption2)).foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 76, height: 76)
+        return VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(toReview > 0 ? L("복습할 문제") : L("모두 복습했어요"))
+                    .font(.pt(.footnote))
+                    .foregroundStyle(.secondary)
+                BigNumberText(text: L("\(toReview)개"), size: 36)
+                    .contentTransition(.numericText())
+            }
+            Hairline()
+            HStack(spacing: 12) {
+                StatColumn(value: "\(count(.wrong))", label: Filter.wrong.title)
+                StatColumn(value: "\(count(.unsolved))", label: Filter.unsolved.title)
+                StatColumn(value: graded == 0 ? "–" : "\(Int(ratio * 100))%", label: L("정답률"))
             }
             captureButtons
         }
-        .softCard(cornerRadius: 26, padding: 20)
+        .softCard()
     }
 
     /// 촬영하기 (과목은 자동) + 앨범에서 고르기
     private var captureButtons: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button { openScanner() } label: {
-                Label("촬영하기", systemImage: "camera.fill")
+                Text("촬영하기")
             }
             .buttonStyle(.primaryFill)
             Button { showPhotoPicker = true } label: {
                 Image(systemName: "photo.on.rectangle")
-                    .font(.pt(.headline))
-                    .foregroundStyle(Theme.accent)
+                    .font(.pt(size: 18, weight: .regular))
+                    .foregroundStyle(Palette.ink)
                     .frame(width: 52, height: 52)
-                    .background(Theme.accent.pastel, in: .rect(cornerRadius: 14, style: .continuous))
+                    .background(Theme.secondaryFill, in: .rect(cornerRadius: Radius.button, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("앨범에서 선택")
         }
     }
 
     /// 상태 고르기 (개수 함께)
     private var filterChips: some View {
-        HStack(spacing: 8) {
-            ForEach(Filter.allCases) { item in
-                let isOn = filter == item
-                let number: Int = {
-                    switch item {
-                    case .all: return scoped.count
-                    case .unsolved: return count(.unsolved)
-                    case .wrong: return count(.wrong)
-                    case .correct: return count(.correct)
-                    }
-                }()
-                Button {
-                    withAnimation(.snappy) { filter = item }
-                    Haptics.tap()
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(item.title)
-                        Text("\(number)").monospacedDigit().opacity(0.7)
-                    }
-                    .font(.pt(.subheadline).weight(.semibold))
-                    .padding(.horizontal, 13)
-                    .frame(height: 34)
-                    .foregroundStyle(isOn ? Palette.card : Palette.ink)
-                    .background(isOn ? AnyShapeStyle(Palette.ink) : AnyShapeStyle(Palette.card), in: .capsule)
-                    .overlay(Capsule().strokeBorder(Color.primary.opacity(isOn ? 0 : 0.08)))
+        PillSegmentedControl(items: Filter.allCases, selection: $filter) { item in
+            let number: Int = {
+                switch item {
+                case .all: return scoped.count
+                case .unsolved: return count(.unsolved)
+                case .wrong: return count(.wrong)
+                case .correct: return count(.correct)
                 }
-                .buttonStyle(.plain)
-            }
-            Spacer(minLength: 0)
+            }()
+            return "\(item.title) \(number)"
         }
     }
 
-    /// 문제 목록 (한 줄씩: 사진 · 제목 · 유형·날짜 · 상태)
+    /// 문제 목록 (한 줄씩: 사진 · 제목 · 과목·유형·날짜 · 상태), 줄 사이는 헤어라인
     private var noteList: some View {
         VStack(spacing: 0) {
             ForEach(Array(filtered.enumerated()), id: \.element.id) { index, note in
@@ -250,38 +227,26 @@ struct MathNoteListView: View {
                         Label("삭제", systemImage: "trash")
                     }
                 }
-                if index < filtered.count - 1 { Divider().padding(.leading, 88) }
+                if index < filtered.count - 1 { Hairline().padding(.leading, 76) }
             }
         }
-        .softCardBackground(cornerRadius: 22)
+        .softCardBackground()
     }
 
+    /// 빈 상태: 회색 아이콘 + 한 줄 + 버튼
     private var emptyState: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "camera.viewfinder")
-                .font(.pt(size: 30, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .frame(width: 72, height: 72)
-                .background(Theme.accent.opacity(0.12), in: .circle)
-            VStack(spacing: 6) {
-                Text("틀린 문제를 찍어 보세요")
-                    .font(.pt(.title3).weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                Text("채점과 풀이, 해답까지 한번에")
-                    .font(.pt(.subheadline))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+        VStack(spacing: 16) {
+            EmptyStateView(symbol: "camera.viewfinder", title: L("틀린 문제를 찍어 보세요"))
             captureButtons
             Button { createBlank() } label: {
                 Text("문제 직접 입력")
-                    .font(.pt(.subheadline).weight(.semibold))
+                    .font(.pt(.subheadline))
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
         }
         .frame(maxWidth: .infinity)
-        .softCard(cornerRadius: 26, padding: 24)
+        .softCard()
     }
 
     private func openScanner() {
@@ -427,50 +392,51 @@ private func graphNote(_ analysis: ImageAnalysis) -> String {
     return L("그래프가 있지만 식을 읽지 못했어요. 필요한 값은 직접 적어 주세요.")
 }
 
-/// 오답노트 한 줄: 문제 사진 · 제목 · 유형·날짜 · 상태
+/// 오답노트 한 줄: 문제 사진 · 제목 · 과목 태그와 유형·날짜 · 상태(점 + 글자)
 private struct MathNoteRow: View {
     let note: MathNote
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             Color.clear
-                .frame(width: 58, height: 58)
+                .frame(width: 48, height: 48)
                 .background { GridPaperBackground() }
                 .overlay {
                     if let data = note.thumbnailData, let image = UIImage(data: data) {
                         Image(uiImage: image).resizable().scaledToFill()
                     } else {
-                        Image(systemName: DoitSubjectNote.symbol(broad: note.broadSubject)).font(.pt(.title3)).foregroundStyle(Palette.ink.opacity(0.3))
+                        Image(systemName: DoitSubjectNote.symbol(broad: note.broadSubject).outlineSymbol)
+                            .environment(\.symbolVariants, .none)
+                            .font(.pt(.title3))
+                            .foregroundStyle(Color.secondary.opacity(0.6))
                     }
                 }
-                .clipShape(.rect(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.06)))
+                .clipShape(.rect(cornerRadius: Radius.field, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: Radius.field, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(note.title)
-                    .font(.pt(.subheadline).weight(.semibold))
+                    .font(.pt(.body).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                 HStack(spacing: 6) {
                     SubjectTag(label: note.subjectLabel, auto: note.isSubjectAuto)
                     Text(subtitle)
-                        .font(.pt(.caption))
+                        .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
             Spacer(minLength: 8)
-            if note.isReviewDue {
-                Image(systemName: "arrow.counterclockwise.circle.fill")
-                    .foregroundStyle(Palette.warning)
-                    .accessibilityLabel("다시 풀 차례")
+            VStack(alignment: .trailing, spacing: 4) {
+                StatusText(text: note.status.title, color: note.status == .unsolved ? .secondary : note.status.color)
+                if note.isReviewDue {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.pt(.caption).weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("다시 풀 차례")
+                }
             }
-            Text(note.status.title)
-                .font(.pt(.caption).weight(.bold))
-                .foregroundStyle(note.status.color)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(note.status.color.opacity(0.12), in: .capsule)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
