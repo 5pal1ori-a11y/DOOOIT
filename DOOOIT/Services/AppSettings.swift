@@ -13,6 +13,10 @@ enum SettingsKey {
     static let themeColor = "themeColor"
     static let dDayTitle = "dDayTitle"
     static let dDayDate = "dDayDate"
+    /// 학교 정보 (SchoolSelection JSON) · 홈 학교 카드 숨김 · 급식 알레르기 안내 펼침
+    static let schoolSelection = "school.selection"
+    static let schoolHomeHidden = "school.homeHidden"
+    static let schoolAllergyLegend = "school.allergyLegend"
 }
 
 /// 뷰 밖(서비스)에서 설정값을 읽기 위한 헬퍼. 기본값은 각 화면의 @AppStorage 기본값과 같아야 함.

@@ -9,6 +9,8 @@
 		<string>audio</string>
 		<string>remote-notification</string>
 	</array>
+	<key>NEISAPIKey</key>
+	<string></string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>

@@ -24,7 +24,9 @@ enum AccountStore {
         SettingsKey.autoStartTimer, SettingsKey.appearance, SettingsKey.themeColor,
         SettingsKey.dDayTitle, SettingsKey.dDayDate, "selectedTab", "doitUserName", "dooit.autoStartedPlanKeys",
         // 배지를 처음 받은 날짜
-        BadgeCenter.unlockedKey
+        BadgeCenter.unlockedKey,
+        // 학교 정보 (학교 · 학년/반) · 홈 학교 카드 숨김 · 급식 알레르기 안내
+        SettingsKey.schoolSelection, SettingsKey.schoolHomeHidden, SettingsKey.schoolAllergyLegend
     ]
 
     // MARK: iCloud 동기화 (같은 Apple ID 기기끼리 이어짐)

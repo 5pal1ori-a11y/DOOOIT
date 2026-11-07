@@ -23,6 +23,7 @@ struct AccountView: View {
     @AppStorage(SettingsKey.dDayTitle) private var dDayTitle = ""
     @AppStorage(SettingsKey.dDayDate) private var dDayDate: Double = 0
     @State private var showExamPlan = false
+    @AppStorage(SettingsKey.schoolSelection) private var schoolRaw = ""
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
     /// 화면 언어: 고른 값 (적용은 안내 창에서 확인한 뒤)
     @State private var languagePick = AppLanguage.selected
@@ -91,6 +92,21 @@ struct AccountView: View {
                             Image(systemName: "chevron.right").font(.pt(.footnote).weight(.semibold)).foregroundStyle(.tertiary)
                         }
                         .foregroundStyle(Palette.ink)
+                    }
+                }
+
+                Section {
+                    NavigationLink { SchoolSetupView() } label: {
+                        let school = SchoolSelection.decode(schoolRaw)
+                        HStack(spacing: 12) {
+                            icon("graduationcap", Theme.accent)
+                            Text("학교 정보").foregroundStyle(Palette.ink)
+                            Spacer()
+                            Text(school.map { "\($0.school.name) · \(L("\($0.grade)학년 \($0.classNum)반"))" } ?? L("설정 안 함"))
+                                .font(.pt(.subheadline))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
 

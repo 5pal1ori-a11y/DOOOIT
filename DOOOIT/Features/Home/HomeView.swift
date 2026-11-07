@@ -39,10 +39,12 @@ struct HomeView: View {
                             RecentBadgeChip()
                         }
                         .staggerIn(index: 2)
-                        plansSection(now: now)
+                        SchoolHomeSection()
                             .staggerIn(index: 3)
-                        weekSection(now: now)
+                        plansSection(now: now)
                             .staggerIn(index: 4)
+                        weekSection(now: now)
+                            .staggerIn(index: 5)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -52,6 +54,11 @@ struct HomeView: View {
             }
             .background { AppBackground() }
             .toolbar(.hidden, for: .navigationBar)
+            #if DEBUG
+            .uiShotPush(.school) { SchoolView() }
+            .uiShotPush(.schoolMeal) { SchoolView(initialMode: .meal) }
+            .uiShotPush(.schoolSetup) { SchoolSetupView() }
+            #endif
             .sheet(isPresented: $showAllPlans) {
                 TodayPlansSheet().presentationDetents([.medium, .large])
             }
