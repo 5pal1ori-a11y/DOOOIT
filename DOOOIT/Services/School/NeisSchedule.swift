@@ -22,7 +22,7 @@ enum NeisPeriodClock {
         switch kind {
         case .elementary: return (9 * 60, 40, 10, 4, 50)
         case .middle, .other: return (8 * 60 + 50, 45, 10, 4, 50)
-        case .high: return (8 * 60 + 40, 50, 10, 4, 60)
+        case .high: return (8 * 60 + 40, 50, 10, 4, 70)
         }
     }
 

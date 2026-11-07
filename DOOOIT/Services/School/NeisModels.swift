@@ -86,6 +86,30 @@ struct SchoolSelection: Codable, Hashable, Sendable {
     }
 }
 
+/// 예전에 저장한 값(새 칸이 없는 JSON)도 읽도록 빠진 칸은 기본값
+extension School {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(officeCode: try c.decode(String.self, forKey: .officeCode),
+                  schoolCode: try c.decode(String.self, forKey: .schoolCode),
+                  name: try c.decode(String.self, forKey: .name),
+                  kindName: try c.decode(String.self, forKey: .kindName),
+                  region: try c.decode(String.self, forKey: .region),
+                  address: try c.decodeIfPresent(String.self, forKey: .address) ?? "",
+                  highSchoolType: try c.decodeIfPresent(String.self, forKey: .highSchoolType) ?? "")
+    }
+}
+
+extension SchoolSelection {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(school: try c.decode(School.self, forKey: .school),
+                  grade: try c.decode(Int.self, forKey: .grade),
+                  classNum: try c.decode(Int.self, forKey: .classNum),
+                  department: try c.decodeIfPresent(String.self, forKey: .department) ?? "")
+    }
+}
+
 // MARK: - 시간표
 
 struct TimetableCell: Codable, Hashable, Sendable {
