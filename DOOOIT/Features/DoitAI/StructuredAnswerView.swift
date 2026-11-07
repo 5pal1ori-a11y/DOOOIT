@@ -76,12 +76,13 @@ struct StructuredAnswerView: View {
         let columns = table.header.count
         return Grid(horizontalSpacing: 0, verticalSpacing: 0) {
             GridRow {
-                ForEach(Array(table.header.enumerated()), id: \.offset) { _, title in
+                ForEach(Array(table.header.enumerated()), id: \.offset) { column, title in
                     Text(title.loc)
                         .font(.pt(.footnote).weight(.semibold))
                         .foregroundStyle(Palette.ink)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: column == 0 ? 48 : .infinity, alignment: .leading)
                         .padding(8)
+                        .gridColumnAlignment(.leading)
                 }
             }
             .background(Palette.cardInset)
@@ -89,10 +90,11 @@ struct StructuredAnswerView: View {
                 Rectangle().fill(Palette.line).frame(height: 0.5).gridCellColumns(columns)
                 GridRow(alignment: .firstTextBaseline) {
                     ForEach(Array(row.enumerated()), id: \.offset) { column, cell in
+                        // 첫 칸(줄 이름)은 좁게, 나머지가 넓게
                         Text(MathSymbolBar.pretty(column == 0 ? cell.loc : cell))
                             .font(.pt(.footnote).weight(column == 0 ? .semibold : .regular))
                             .foregroundStyle(column == 0 ? Color.secondary : Palette.ink)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(maxWidth: column == 0 ? 48 : .infinity, alignment: .leading)
                             .padding(8)
                             .fixedSize(horizontal: false, vertical: true)
                     }

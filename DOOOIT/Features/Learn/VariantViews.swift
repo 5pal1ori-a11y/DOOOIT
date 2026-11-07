@@ -84,7 +84,7 @@ struct VariantHubView: View {
                 if let count {
                     Text(count == 0 ? L("준비 중") : L("주제 \(count)개"))
                 } else {
-                    Text(verbatim: " ")
+                    Text(verbatim: "…")
                 }
             }
             .font(.pt(.footnote))
@@ -194,30 +194,40 @@ struct VariantSessionView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if summary {
-                    summaryView
-                } else {
-                    levelBar
-                    progressBar
-                    if loading {
-                        ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
-                    } else if exhausted {
-                        exhaustedView
-                    } else if let item {
-                        questionCard(item)
-                        if let result { feedback(item, result) }
-                        actions(item)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if summary {
+                        summaryView
+                    } else {
+                        levelBar
+                        progressBar.id("top")
+                        if loading {
+                            ProgressView().frame(maxWidth: .infinity).padding(.top, 40)
+                        } else if exhausted {
+                            exhaustedView
+                        } else if let item {
+                            questionCard(item)
+                            if let result { feedback(item, result) }
+                            actions(item)
+                        }
                     }
+                    Color.clear.frame(height: 1).id("end")
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .scrollDismissesKeyboard(.interactively)
+            .scrollIndicators(.hidden)
+            // 채점하면 풀이와 다음 버튼이 보이게 아래로
+            .onChange(of: answered) { _, now in
+                if now { withAnimation(Motion.quick) { proxy.scrollTo("end", anchor: .bottom) } }
+            }
+            .onChange(of: item?.id) { _, _ in
+                proxy.scrollTo("top", anchor: .top)
+            }
         }
-        .scrollDismissesKeyboard(.interactively)
-        .scrollIndicators(.hidden)
         .background { AppBackground() }
         .navigationTitle(topic.title)
         .navigationBarTitleDisplayMode(.inline)
@@ -339,7 +349,6 @@ struct VariantSessionView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(answered)
     }
 
     // MARK: 채점 · 풀이
