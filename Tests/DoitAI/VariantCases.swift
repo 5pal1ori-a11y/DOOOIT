@@ -261,6 +261,8 @@ func runVariantCases() async {
     // 6) 대화에서 주제 찾기
     check("변형 문제: 이차방정식 풀이에서 → 이차방정식", DoitVariants.topic(forProblem: "x²-5x+6=0 풀어줘")?.title == "이차방정식")
     check("변형 문제: 현재완료 → 영어 문법", DoitVariants.topic(forConcept: "현재완료")?.subject == .english)
+    check("변형 문제: 이차방정식 개념 → 수학 주제", DoitVariants.topic(forConcept: "이차방정식")?.subject == .math && DoitVariants.topic(forConcept: "인수분해") != nil)
+    check("변형 문제: 확인 못 하는 수학 개념은 주제 없음 (행렬)", DoitVariants.topic(forConcept: "행렬") == nil)
     check("변형 문제: 알 수 없는 말은 주제 없음", DoitVariants.topic(forConcept: "아무말대잔치") == nil && DoitVariants.topic(forProblem: "오늘 날씨 어때") == nil)
 
     // 7) 구조화된 답
@@ -354,6 +356,13 @@ private func runStructuredCases() async {
         let fromA = [a.summary] + a.points + a.examples + a.traps, fromB = [b.summary] + b.points + b.examples + b.traps
         check("구조화: 비교 표의 모든 칸은 두 단원 자료의 글", table.rows.allSatisfy { fromA.contains($0[1]) && fromB.contains($0[2]) }, "\(table.rows)")
         check("구조화: 비교 표 줄 2개 이상 · 변형 문제 칩", table.rows.count >= 2 && compared?.structured?.practice != nil)
+        let chips = compared?.suggestions ?? []
+        check("구조화: 비교 표 뒤 칩은 변형 문제 · 각 개념 설명", chips == [DoitStructured.practiceChip, "현재완료 설명해줘", "과거시제 설명해줘"], "\(chips)")
+        for chip in chips.dropFirst() {
+            assistant.reset()
+            await assistant.send(chip)
+            check("구조화: 칩 '\(chip)'을 보내면 설명이 나옴", assistant.messages.last?.text.hasPrefix("**") == true, assistant.messages.last?.text ?? "")
+        }
     } else {
         check("구조화: 현재완료와 과거시제 차이는 표로", false, compared?.text ?? "")
     }
@@ -366,7 +375,7 @@ private func runStructuredCases() async {
     check("구조화: 모르는 차이 질문은 표 없이 기존 답", assistant.messages.last?.structured?.table == nil)
 
     // 7-6) 구조로 바꾸지 않는 말
-    for ask in ["안녕", "내일 오후 4시에 수학 공부 추가해줘", "고마워", "오늘 할 일 알려줘"] {
+    for ask in ["안녕", "내일 오후 4시에 수학 공부 추가해줘", "고마워", "오늘 할 일 알려줘", "3시간은 몇 분이야", "옴의 법칙에서 전압 6V 저항 3Ω 전류는"] {
         assistant.reset()
         await assistant.send(ask)
         check("구조화: '\(ask)'는 구조로 안 바꿈", assistant.messages.last?.structured == nil)
@@ -376,6 +385,10 @@ private func runStructuredCases() async {
     assistant.reset()
     await assistant.send("현재완료 변형 문제")
     check("변형 문제 열기: '현재완료 변형 문제'", assistant.practiceRequest?.title == "현재완료", assistant.practiceRequest?.title ?? "없음")
+    assistant.practiceRequest = nil
+    assistant.reset()
+    await assistant.send("이차방정식 변형 문제")
+    check("변형 문제 열기: '이차방정식 변형 문제'", assistant.practiceRequest?.title == "이차방정식", assistant.practiceRequest?.title ?? "없음")
     assistant.practiceRequest = nil
     assistant.reset()
     await assistant.send("변형 문제 풀기")

@@ -51,6 +51,8 @@ enum DoitStructured {
             return math(text, question: question)
         }
         guard text.hasPrefix("**"), origin == .knowledge || origin == .subject else { return nil }
+        // 숫자가 든 과목 질문은 계산·단위 바꾸기 답이라 그대로 (구조로 나누지 않음)
+        if origin == .subject, question.contains(where: \.isNumber) { return nil }
         return knowledge(text)
     }
 
@@ -264,9 +266,18 @@ enum DoitStructured {
     /// 추천 칩 (엔진이 실제로 할 수 있는 것만, 최대 3개)
     /// - 변형 문제: 이 주제로 문제를 낼 수 있을 때
     /// - 더 쉽게 · 예시 · 왜: 지금 대화 상태로 이어 말하기를 풀 수 있을 때
+    /// - 비교 표: 비교한 두 개념을 각각 설명하기 (엔진이 "**"로 시작하는 설명을 내는 것만)
+    @MainActor
     static func chips(for answer: DoitStructuredAnswer, existing: [String], state: DoitDialogue.State) -> [String] {
         var chips: [String] = []
         if answer.practice != nil { chips.append(practiceChip) }
+        if let table = answer.table, table.header.count == 3 {
+            for name in table.header.dropFirst() {
+                let ask = "\(name) 설명해줘"
+                if DoitEngine.respond(to: ask, photo: nil).text.hasPrefix("**") { chips.append(ask) }
+            }
+            return Array(chips.prefix(3))
+        }
         let probes: [(chip: String, probe: String)] = [("더 쉽게 설명해줘", "더 쉽게"), ("예시 보여줘", "예시"), ("왜 그래?", "왜?")]
         for item in probes where viable(item.probe, state: state) { chips.append(item.chip) }
         for suggestion in existing where !chips.contains(suggestion) {

@@ -467,11 +467,11 @@ struct VariantSessionView: View {
         loading = true
         exhausted = false
         resetAnswer()
-        let topic = topic, level = level, seen = seen
-        let made = await Task.detached(priority: .userInitiated) { DoitVariants.makeItem(topic: topic, level: level, avoid: seen) }.value
+        let topic = topic, level = level, avoid = seen
+        let made = await Task.detached(priority: .userInitiated) { DoitVariants.makeItem(topic: topic, level: level, avoid: avoid) }.value
         item = made
         exhausted = made == nil
-        if let made { seen.insert(DoitPractice.questionKey(made.question)); self.seen = seen }
+        if let made { seen.insert(DoitPractice.questionKey(made.question)) }
         loading = false
     }
 

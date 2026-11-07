@@ -422,6 +422,13 @@ enum DoitVariants {
 
     /// 개념 이름 (예: "현재완료", "광합성")으로 변형 문제를 낼 수 있는 주제
     static func topic(forConcept name: String) -> VariantTopic? {
+        // 수학: 주제 이름이 그대로 같을 때 ("이차방정식", "인수분해")
+        let key = name.filter { !$0.isWhitespace }
+        if let entry = mathEntries.first(where: { $0.title.filter { !$0.isWhitespace } == key }) {
+            let kb = DoitKnowledge.entry(named: name)?.level
+            let level: SchoolLevel = (kb == .middle && entry.middle) || !entry.high ? .middle : .high
+            return mathTopics(level: level).first { if case .math(let list) = $0.source { return list == [entry.topic] }; return false }
+        }
         let grammar = DoitGrammar.find(name)
         if let unit = grammar.first {
             let topic = VariantTopic(subject: .english, level: unit.level, title: unit.name, detail: gradeLabel(unit.grades, level: unit.level),
