@@ -58,6 +58,11 @@ func runCalculusCases() async {
         ("수열 {an}에서 an = 2n-1", "{a_n}"),
         ("수열 Sn = n2+2n 일 때", "S_n"),
         ("Σ k=1", "∑ k=1"),
+        ("10g2 8 + In e의 값", "log2 8 + ln e"),
+        ("평균변화율은? (Ay/Ax)", "Δy/Δx"),
+        ("수열 {an}에서 a1 = 3, a4 의 값은", "a_1 = 3, a_4"),
+        ("5in x의 값", "sin x"),
+        ("f(x) = x³ − 3x²일 때. /(2)의 값은?", "f′(2)의 값"),
     ]
     for (input, expected) in fixes {
         let out = MathOCRFixer.fix(input)
@@ -66,7 +71,7 @@ func runCalculusCases() async {
     // 고치면 안 되는 것 (영어 소유격·일반 식·지수)
     let keep: [String] = [
         "He doesn't know", "f(x) = x^2 + 1", "a limit of the speed", "x' + 1을 구하시오", "an apple", "lm 단위", "(x+1)2",
-        "이차함수 y = 2x2 의 그래프", "tim", "Kim과 Lee", "S = 3n"
+        "이차함수 y = 2x2 의 그래프", "tim", "Kim과 Lee", "S = 3n", "In the morning", "2a3 + b", "A와 B의 거리 Ax", "x = 3/(2)의 값", "f(x) = 1/(x)의 값은?"
     ]
     for input in keep {
         let out = MathOCRFixer.fix(input)
@@ -74,6 +79,21 @@ func runCalculusCases() async {
     }
     // 수열 문맥이 없으면 an → a_n 으로 바꾸지 않음
     check("수열 문맥 없이 an 은 그대로", !MathOCRFixer.fix("an 이 어디 있나").contains("a_n"))
+
+    // 정밀 인식(LaTeX) → 앱 표기
+    let latex: [(String, String)] = [
+        (#"\sum_{k=1}^{10} (2k+1)"#, "∑_{k=1}^{10} (2k+1)"),
+        (#"\sum_{k=1}^{n} k^{2}"#, "∑_{k=1}^n k²"),
+        (#"\int_{0}^{1} x^{2} dx"#, "∫_0^1 x² dx"),
+        (#"\int_{-1}^{2} (3x^{2}+2x)\,dx"#, "∫_{-1}^2"),
+        (#"\lim_{x \to 2} \frac{x^{2}-4}{x-2}"#, "lim_{x→2}"),
+        (#"\lim_{x \rightarrow \infty} \frac{1}{x}"#, "lim_{x→∞}"),
+        (#"f^{\prime}(2)"#, "f′(2)"),
+    ]
+    for (input, expected) in latex {
+        let out = PaddleOCRText.latex(input)
+        check("LaTeX → 미적분 표기: \(input)", out.contains(expected), out)
+    }
 
     // 2) 위끝·아래끝 글 읽기
     check("∑ 아래끝 k=1", CalculusLayout.sigmaBelow("k=1") == "k=1")
@@ -217,12 +237,13 @@ func runCalculusCases() async {
         check("읽지 못한 끝이 있으면 ∑ 만 (부분 식 안 만듦)", found.first { $0.kind == .sigma }?.text == "∑" && found.first { $0.kind == .sigma }?.strong == false, found.map(\.text).joined(separator: ","))
     }
 
+    #if !MINI
     // 6) 풀이 엔진이 읽은 글(앱 표기)을 받아 풀거나, 모르면 풀지 않음
     let solvable: [(String, String)] = [
         ("다음 값을 구하시오.\n∑_{k=1}^{10} (2k+1)", "120"),
         ("∑_{k=1}^{10} k", "55"),
         ("정적분 ∫_0^1 x² dx 의 값은?", "1/3"),
-        ("∫_{-1}^{2} (3x² + 2x) dx 의 값은?", "9"),
+        ("∫_{-1}^{2} (3x² + 2x) dx 의 값은?", "12"),
         ("lim_{x→2} (x²−4)/(x−2) 의 값을 구하시오.", "4"),
         ("f(x) = x³ − 3x² + 2일 때, f′(2)의 값은?", "0"),
         ("f(x) = x³ − 3x² + 2일 때, f'(2)의 값은?", "0"),
@@ -237,4 +258,5 @@ func runCalculusCases() async {
         let solved = MathSolver.solve(text)
         check("미적분: 모르면 안 풂 (\(text))", solved == nil || solved?.kind == .integral && text.hasPrefix("∫ (2x+1)"), solved?.answer ?? "")
     }
+    #endif
 }

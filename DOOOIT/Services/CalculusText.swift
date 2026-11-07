@@ -41,6 +41,10 @@ enum CalculusText {
         t = replace(t, #"(?<![A-Za-z])([fgFGhH])\s?(['’`´ʹ′]{1,2})(?=\s*\()"#) { _, groups in
             groups[0] + String(repeating: "′", count: groups[1].count)
         }
+        // f′ 의 ′ 를 합쳐 "/" 로 읽은 것: f(x) 가 정의된 문제에서 "/(2)의 값" → f′(2)의 값
+        if t.range(of: #"f\s*\(\s*x\s*\)\s*="#, options: .regularExpression) != nil {
+            t = replace(t, #"(^|[\s,.(])/(?=\(\s*-?[0-9a-z]+\s*\)\s*(?:의|을|를|와|과|=|$))"#, "$1f′")
+        }
         // y' 도 문맥이 있을 때 (미분 문제의 y′ = …)
         if hasCalculusCue(t) {
             t = replace(t, #"(?<![A-Za-z])([yvaxP])['’`´ʹ](?=\s*(?:=|\(|,|\)|의|를|은|는|을|이|가|$))"#, "$1′")
@@ -49,10 +53,20 @@ enum CalculusText {
         t = replace(t, #"(?<![A-Za-z])d\s*/\s*\(\s*d\s*([xyt])\s*\)"#, "d/d$1")
         t = replace(t, #"\(\s*d\s*([xyt])\s*\)\s*/\s*\(\s*d\s*([xyt])\s*\)"#, "d$1/d$2")
         t = replace(t, #"(?<![A-Za-z])d([xyt])\s*/\s*\(\s*d\s*([xyt])\s*\)"#, "d$1/d$2")
+        // 함수 이름: In e, In x → ln / 10g2, 1og2 → log / 5in → sin (뒤에 식이 이어질 때만)
+        t = replace(t, #"(?<![A-Za-z가-힣0-9])In(?=\s*(?:[xe](?![A-Za-z])|\(|[0-9]))"#, "ln")
+        t = replace(t, #"(?<![A-Za-z0-9])(?:10g|1og|l0g)(?=\s*[0-9₀-₉(])"#, "log")
+        t = replace(t, #"(?<![A-Za-z0-9])5in(?=\s*(?:[0-9a-zθπ(]|$))"#, "sin")
+        // 변화량 Δ: 평균변화율 문제의 Ay/Ax → Δy/Δx
+        if t.contains("변화") || t.contains("Δ") {
+            t = replace(t, #"(?<![A-Za-z가-힣])A([xyt])(?![A-Za-z0-9])"#, "Δ$1")
+        }
         // 수열 아랫첨자: 수열 문맥에서 aₙ, aₖ, Sₙ (a n, an → a_n)
         if hasSequenceCue(t) {
             t = replace(t, #"\{\s*([a-zA-Z])\s*([nk])\s*\}"#, "{$1_$2}")
             t = replace(t, #"(?<![A-Za-z가-힣0-9_])([abcST])([nk])(?![A-Za-z0-9_])"#, "$1_$2")
+            // a1, a4, S2 (항 번호): 숫자 앞이 숫자·글자가 아니고 뒤가 숫자·지수가 아닐 때
+            t = replace(t, #"(?<![A-Za-z가-힣0-9_])([abcST])([0-9])(?![0-9A-Za-z²³⁴_^])"#, "$1_$2")
         }
         return t
     }
