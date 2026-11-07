@@ -212,7 +212,10 @@ struct MainTabView: View {
             if UIShot.isActive { return }
             #endif
             // 아직 잠긴 테마가 저장돼 있으면(복원한 백업 등) 기본 테마로 되돌림
-            if ThemeColor(rawValue: themeRaw)?.isLocked == true { themeRaw = ThemeColor.standard.rawValue }
+            let savedTheme = UserDefaults.standard.string(forKey: SettingsKey.themeColor) ?? ""
+            if ThemeColor(rawValue: savedTheme)?.isLocked == true {
+                UserDefaults.standard.set(ThemeColor.standard.rawValue, forKey: SettingsKey.themeColor)
+            }
             // 바탕화면 아이콘이 지금 테마 색과 다르면 맞춤 (이미 맞으면 아무 일도 없음)
             AppIconSwitcher.apply(Theme.current)
             // 랭킹에 참여 중이면 Game Center에 로그인해 둠 (타이머를 마치면 바로 반영되게)
