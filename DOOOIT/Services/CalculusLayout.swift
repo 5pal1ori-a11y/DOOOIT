@@ -131,7 +131,9 @@ enum CalculusLayout {
         guard let m = try? NSRegularExpression(pattern: #"^([a-zA-Zθ])(?:→|->|-->|-?>|⟶|-|~)([-+]?)([^-+→]{1,5}?)([-+]?)$"#).firstMatch(in: t, range: NSRange(t.startIndex..., in: t)),
               m.numberOfRanges == 5 else { return nil }
         func group(_ i: Int) -> String { Range(m.range(at: i), in: t).map { String(t[$0]) } ?? "" }
-        let variable = group(1), sign = group(2), target = group(3), side = group(4)
+        let rawVariable = group(1), sign = group(2), target = group(3), side = group(4)
+        // 극한 변수는 소문자 (x 를 X 로 읽은 것 바로잡기), θ 는 그대로
+        let variable = rawVariable == "θ" ? rawVariable : rawVariable.lowercased()
         let value: String
         if isInfinity(target) { value = "∞" }
         else if let d = digits(target), d.count <= 3 { value = d }
@@ -140,6 +142,17 @@ enum CalculusLayout {
         // 부호가 앞뒤 모두 있으면 모호함
         guard sign.isEmpty || side.isEmpty else { return nil }
         return "\(variable)→\(sign)\(value)\(side)"
+    }
+
+    /// "lim" 낱말이 든 줄 둘레(줄 아래 한 줄 높이까지): 필기 지우기가 극한 아래 x→a 를 풀이로 오인해 지우지 않게 지킬 자리
+    static func limitGuardRects(lines: [OCRGlyphLine]) -> [CGRect] {
+        guard let regex = try? NSRegularExpression(pattern: #"(?<![A-Za-z])(?:lim|Iim|1im|llm|Ilm|iim|lm|lirn|Iirn|tim|Lim|1imp|limp)(?![A-Za-z])"#) else { return [] }
+        return lines.compactMap { line in
+            let range = NSRange(line.text.startIndex..., in: line.text)
+            guard regex.firstMatch(in: line.text, range: range) != nil else { return nil }
+            let b = line.box
+            return CGRect(x: b.minX - b.height * 0.5, y: b.minY - b.height * 1.2, width: b.width + b.height, height: b.height * 2.2)
+        }
     }
 
     /// 위끝·아래끝 글을 식에 붙일 모양으로 (한 글자면 중괄호 없이)
@@ -210,6 +223,15 @@ enum CalculusLayout {
                 let symbolLike = near.filter { lookalikes.contains(chars[host][$0]) }
                 if f.kind == .sigma {
                     if symbolLike.count == 1, near.count <= 2 { range = symbolLike[0]..<(symbolLike[0] + 1) }
+                    else if f.strong, symbolLike.isEmpty {
+                        // "k=1" 같은 시작 값이 읽혀 ∑ 가 확실한데 기호 자리에 엉뚱한 글자(n, 9, 한 글자)가 읽힌 경우: 기호 상자 안에 든 글자 하나만 바꿈
+                        let inside = near.filter { i in
+                            guard let r = xRange(host, i) else { return false }
+                            let mid = (r.lowerBound + r.upperBound) / 2
+                            return mid >= a.minX - a.width * 0.15 && mid <= a.maxX + a.width * 0.15 && chars[host][i].isASCII
+                        }
+                        if inside.count == 1 { range = inside[0]..<(inside[0] + 1) }
+                    }
                 } else if let first = symbolLike.first {
                     // ∫: 첫 비슷한 글자부터 기호 오른쪽 끝(위끝·아래끝 자리)까지의 찌꺼기 글자
                     var last = first

@@ -140,3 +140,42 @@ enum CalculusShape {
         return n
     }
 }
+
+// MARK: 위끝·아래끝 글자 덩어리 고르기, 필기 판정에서 지킬 자리
+
+extension CalculusShape {
+    /// 사각형(픽셀) 안에서 잉크가 있는 가로 구간(열)을 gap 이상 떨어진 곳에서 끊어 묶고, cx 에 가장 가까운 묶음의 꼭 맞는 상자를 돌려줌
+    /// (위끝·아래끝 글자만 잘라 읽으려고: 옆 글자·식이 같이 잘려 들어가지 않게)
+    static func inkRun(_ ink: FractionFinder.Ink, x0: Int, x1: Int, y0: Int, y1: Int, gap: Int, near cx: Int) -> (x0: Int, x1: Int, y0: Int, y1: Int)? {
+        let xs = max(0, x0), xe = min(ink.width - 1, x1), ys = max(0, y0), ye = min(ink.height - 1, y1)
+        guard xs <= xe, ys <= ye else { return nil }
+        var columns: [Int] = []
+        for x in xs...xe {
+            for y in ys...ye where ink.mask[y * ink.width + x] { columns.append(x); break }
+        }
+        guard !columns.isEmpty else { return nil }
+        var runs: [[Int]] = [[columns[0]]]
+        for x in columns.dropFirst() {
+            if x - runs[runs.count - 1][runs[runs.count - 1].count - 1] > gap { runs.append([x]) } else { runs[runs.count - 1].append(x) }
+        }
+        func distance(_ r: [Int]) -> Int { cx >= r[0] && cx <= r[r.count - 1] ? 0 : min(abs(cx - r[0]), abs(cx - r[r.count - 1])) }
+        guard let run = runs.min(by: { distance($0) < distance($1) }) else { return nil }
+        var top = Int.max, bottom = -1
+        for x in run[0]...run[run.count - 1] {
+            for y in ys...ye where ink.mask[y * ink.width + x] { top = min(top, y); bottom = max(bottom, y) }
+        }
+        return bottom >= 0 ? (run[0], run[run.count - 1], top, bottom) : nil
+    }
+
+    /// 사진 모양으로 찾은 큰 기호 둘레(위·아래 한 글자 높이, 좌우 반 글자 너비)를 Vision 좌표 사각형으로.
+    /// 필기 지우기가 ∑ ∫ 아래 "k=1"·위끝과 기호가 든 인쇄 식 줄을 풀이로 오인해 지우지 않게 지킬 자리
+    static func guardRects(_ ink: FractionFinder.Ink) -> [CGRect] {
+        let w = CGFloat(ink.width), h = CGFloat(ink.height)
+        return find(ink).map { f in
+            let b = f.blob
+            let x0 = CGFloat(b.x0) - CGFloat(b.width) * 0.7, x1 = CGFloat(b.x1 + 1) + CGFloat(b.width) * 0.7
+            let y0 = CGFloat(b.y0) - CGFloat(b.height) * 1.0, y1 = CGFloat(b.y1 + 1) + CGFloat(b.height) * 1.0
+            return CGRect(x: max(0, x0) / w, y: 1 - min(h, y1) / h, width: (min(w, x1) - max(0, x0)) / w, height: (min(h, y1) - max(0, y0)) / h)
+        }
+    }
+}

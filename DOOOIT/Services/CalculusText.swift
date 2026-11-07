@@ -57,6 +57,8 @@ enum CalculusText {
         t = replace(t, #"(?<![A-Za-z가-힣0-9])In(?=\s*(?:[xe](?![A-Za-z])|\(|[0-9]))"#, "ln")
         t = replace(t, #"(?<![A-Za-z0-9])(?:10g|1og|l0g)(?=\s*[0-9₀-₉(])"#, "log")
         t = replace(t, #"(?<![A-Za-z0-9])5in(?=\s*(?:[0-9a-zθπ(]|$))"#, "sin")
+        // 근호 V 뒤에 바로 변수: = Vx+1 → √x+1 (앞이 글자·숫자가 아니고 뒤가 변수 한 글자일 때)
+        t = replace(t, #"(?<![A-Za-z0-9가-힣])V(?=[xyabnkt](?![A-Za-z]))"#, "√")
         // 변화량 Δ: 평균변화율 문제의 Ay/Ax → Δy/Δx
         if t.contains("변화") || t.contains("Δ") {
             t = replace(t, #"(?<![A-Za-z가-힣])A([xyt])(?![A-Za-z0-9])"#, "Δ$1")

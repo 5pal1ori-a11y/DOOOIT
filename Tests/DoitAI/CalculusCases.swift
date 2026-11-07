@@ -62,6 +62,7 @@ func runCalculusCases() async {
         ("평균변화율은? (Ay/Ax)", "Δy/Δx"),
         ("수열 {an}에서 a1 = 3, a4 의 값은", "a_1 = 3, a_4"),
         ("5in x의 값", "sin x"),
+        ("함수 f(x) = Vx+1의 x = 3", "√x+1"),
         ("f(x) = x³ − 3x²일 때. /(2)의 값은?", "f′(2)의 값"),
     ]
     for (input, expected) in fixes {
@@ -71,7 +72,7 @@ func runCalculusCases() async {
     // 고치면 안 되는 것 (영어 소유격·일반 식·지수)
     let keep: [String] = [
         "He doesn't know", "f(x) = x^2 + 1", "a limit of the speed", "x' + 1을 구하시오", "an apple", "lm 단위", "(x+1)2",
-        "이차함수 y = 2x2 의 그래프", "tim", "Kim과 Lee", "S = 3n", "In the morning", "2a3 + b", "A와 B의 거리 Ax", "x = 3/(2)의 값", "f(x) = 1/(x)의 값은?"
+        "이차함수 y = 2x2 의 그래프", "tim", "Kim과 Lee", "S = 3n", "In the morning", "2a3 + b", "A와 B의 거리 Ax", "V = 3x", "Vx 축의 길이", "VR 값", "x = 3/(2)의 값", "f(x) = 1/(x)의 값은?"
     ]
     for input in keep {
         let out = MathOCRFixer.fix(input)
@@ -156,7 +157,7 @@ func runCalculusCases() async {
     do {
         // lim: 한국어 읽기에서 "x→2" 가 "2->2" 로 틀렸어도 영어 읽기 조각으로 읽음 (실제 줄)
         let hosts = calc_lim_rat_clean_korean
-        let found = await CalculusFind.find(ink: Canvas(10, 10).ink, pieces: hosts + calc_lim_rat_clean_english, hosts: hosts, lineHeight: 0.19) { _ in nil }
+        let found = await CalculusFind.find(ink: Canvas(10, 10).ink, pieces: hosts + calc_lim_rat_clean_english, hosts: hosts, lineHeight: 0.19) { _, _ in nil }
         check("lim 실제 줄: lim_{x→2} 찾음", found.count == 1 && found[0].text == "lim_{x→2}", found.map(\.text).joined(separator: ","))
         if let f = found.first {
             let plan = CalculusLayout.plan(lines: hosts, findings: [f], lineHeight: 0.19)
@@ -167,13 +168,13 @@ func runCalculusCases() async {
     do {
         // lim: 영어 읽기가 아래끝을 분모와 묶어 "x→∞ x2 -3" 으로 읽은 경우 (실제 줄)
         let hosts = calc_lim_inf_clean_korean
-        let found = await CalculusFind.find(ink: Canvas(10, 10).ink, pieces: hosts + calc_lim_inf_clean_english, hosts: hosts, lineHeight: 0.12) { _ in nil }
+        let found = await CalculusFind.find(ink: Canvas(10, 10).ink, pieces: hosts + calc_lim_inf_clean_english, hosts: hosts, lineHeight: 0.12) { _, _ in nil }
         check("lim 묶인 조각: lim_{x→∞}", found.count == 1 && found[0].text == "lim_{x→∞}", found.map(\.text).joined(separator: ","))
     }
     do {
         // 이미 lim_{x→2} 로 읽었으면 다시 안 붙임
         let hosts = [glyph("lim_{x→2} f(x)", 1, 0.1, 0.5, 0.3, 0.05, Array(repeating: nil, count: 14))]
-        let found = await CalculusFind.find(ink: Canvas(10, 10).ink, pieces: hosts, hosts: hosts, lineHeight: 0.05) { _ in "x→2" }
+        let found = await CalculusFind.find(ink: Canvas(10, 10).ink, pieces: hosts, hosts: hosts, lineHeight: 0.05) { _, _ in "x→2" }
         check("이미 lim_{…} 이면 안 찾음", found.isEmpty)
     }
 
@@ -208,36 +209,100 @@ func runCalculusCases() async {
         check("모양: 큰 괄호는 ∫ 아님", CalculusShape.find(c.ink).isEmpty)
     }
 
-    // 5) 큰 기호 + 위끝·아래끝 읽기 (잉크 그림 + 가짜 자르기 읽기)
-    do {
+    // 5) 큰 기호 + 위끝·아래끝 읽기 (잉크 그림 + 가짜 자르기 읽기): 위(Vision y 큼)는 "10", 아래는 "k=1"
+    func sigmaCanvas(aboveWide: Bool = false) -> Canvas {
         var c = Canvas(700, 260)
         for i in 0..<12 { c.glyph(30 + i * 40, 120) }
         c.sigma(520, 100)
-        // 위끝·아래끝 자리에 작은 글자 잉크
-        c.glyph(528, 52, w: 12, h: 18); c.glyph(520, 180, w: 40, h: 16)
-        let host = glyph("E (2k+1)", 0.5, 0.70, 0.32, 0.27, 0.30, Array(repeating: nil, count: 8))
-        var asked = 0
-        let found = await CalculusFind.find(ink: c.ink, pieces: [host], hosts: [host], lineHeight: 0.1) { _ in
-            asked += 1
-            return asked == 1 ? "10" : "k=1"
-        }
+        // 위끝·아래끝 자리에 작은 글자 잉크 (위끝: 한 글자 · ∞ 는 납작하게)
+        if aboveWide { c.glyph(520, 62, w: 36, h: 14) } else { c.glyph(532, 52, w: 12, h: 18) }
+        c.glyph(520, 180, w: 40, h: 16)
+        return c
+    }
+    let host = glyph("E (2k+1)", 0.5, 0.70, 0.32, 0.27, 0.30, Array(repeating: nil, count: 8))
+    do {
+        let found = await CalculusFind.find(ink: sigmaCanvas().ink, pieces: [host], hosts: [host], lineHeight: 0.1) { box, _ in box.midY > 0.5 ? "10" : "k=1" }
         let sigma = found.first { $0.kind == .sigma }
-        // 위끝을 먼저 묻는지 아래끝을 먼저 묻는지는 구현 순서 (아래끝 → 위끝)
-        check("위끝·아래끝 읽기: 두 번 물음", asked == 2, "\(asked)")
-        check("위끝·아래끝 읽기: 둘 다 읽혀야 붙음 (아래끝이 식이 아니면 ∑만)", sigma != nil, "\(found)")
+        check("∑ 위끝·아래끝 읽어 붙임", sigma?.text == "∑_{k=1}^{10}" && sigma?.strong == true, found.map(\.text).joined(separator: ","))
+        check("∑ 위끝·아래끝 자리 둘", sigma?.regions.count == 2, "\(sigma?.regions.count ?? 0)")
     }
     do {
-        // 잉크는 있는데 읽지 못한 쪽이 있으면 부분만 붙이지 않음
+        // 세 번 읽어 두 번 이상 같아야 믿음: 읽을 때마다 다르게 나오면 붙이지 않음
+        var n = 0
+        let found = await CalculusFind.find(ink: sigmaCanvas().ink, pieces: [host], hosts: [host], lineHeight: 0.1) { box, _ in
+            n += 1
+            return box.midY > 0.5 ? ["10", "6", "9"][n % 3] : "k=1"
+        }
+        let sigma = found.first { $0.kind == .sigma }
+        check("읽을 때마다 다른 위끝은 믿지 않음 (부분 식 안 만듦)", sigma?.text == "∑" && sigma?.strong == false, found.map(\.text).joined(separator: ","))
+    }
+    do {
+        let found = await CalculusFind.find(ink: sigmaCanvas().ink, pieces: [host], hosts: [host], lineHeight: 0.1) { _, _ in nil }
+        check("읽지 못한 끝이 있으면 ∑ 만 (부분 식 안 만듦)", found.first { $0.kind == .sigma }?.text == "∑" && found.first { $0.kind == .sigma }?.strong == false, found.map(\.text).joined(separator: ","))
+    }
+    do {
+        // ∞ 는 8 로 읽히기 쉬움: 위끝 잉크가 납작하면 ∞
+        let found = await CalculusFind.find(ink: sigmaCanvas(aboveWide: true).ink, pieces: [host], hosts: [host], lineHeight: 0.1) { box, _ in box.midY > 0.5 ? "8" : "n=1" }
+        check("납작한 위끝 8 → ∞", found.first { $0.kind == .sigma }?.text == "∑_{n=1}^∞", found.map(\.text).joined(separator: ","))
+        let narrow = await CalculusFind.find(ink: sigmaCanvas().ink, pieces: [host], hosts: [host], lineHeight: 0.1) { box, _ in box.midY > 0.5 ? "8" : "n=1" }
+        check("좁은 위끝 8 은 그대로 8", narrow.first { $0.kind == .sigma }?.text == "∑_{n=1}^8", narrow.map(\.text).joined(separator: ","))
+    }
+    // ∫ 위끝·아래끝: 세 번 어긋나게 잘라 읽어 두 번 이상 같을 때만, 둘 다 읽혔을 때만 붙임
+    do {
+        var c = Canvas(700, 260)
+        for i in 0..<12 { c.glyph(30 + i * 40, 110) }
+        c.integral(560, 70)
+        let hostLine = glyph("25. 1, (3x+2) dx", 0.5, 0.60, 0.40, 0.30, 0.30, Array(repeating: nil, count: 16))
+        let ok = await CalculusFind.find(ink: c.ink, pieces: [hostLine], hosts: [hostLine], lineHeight: 0.1) { box, _ in box.midY > 0.5 ? "2" : "-1" }
+        check("∫ 위끝·아래끝 읽어 붙임", ok.first { $0.kind == .integral }?.text == "∫_{-1}^2" && ok.first?.strong == true, ok.map(\.text).joined(separator: ","))
+        let half = await CalculusFind.find(ink: c.ink, pieces: [hostLine], hosts: [hostLine], lineHeight: 0.1) { box, _ in box.midY > 0.5 ? "2" : nil }
+        check("∫ 아래끝을 못 읽으면 ∫ 만", half.first { $0.kind == .integral }?.text == "∫" && half.first?.strong == false, half.map(\.text).joined(separator: ","))
+        let noisy = await CalculusFind.find(ink: c.ink, pieces: [hostLine], hosts: [hostLine], lineHeight: 0.1) { box, variant in box.midY > 0.5 ? ["re", "J1", "L"][variant % 3] : ["J1", "x", "re"][variant % 3] }
+        check("∫ 위끝 읽기가 엉뚱하면 ∫ 만", noisy.first { $0.kind == .integral }?.text == "∫", noisy.map(\.text).joined(separator: ","))
+    }
+    // lim 아래: 이미 읽힌 조각이 없어도 잘라 읽은 글로
+    do {
+        var c = Canvas(700, 200)
+        for i in 0..<10 { c.glyph(30 + i * 40, 60) }
+        c.glyph(130, 112, w: 50, h: 18)            // lim 아래 글자 묶음
+        c.glyph(300, 112, w: 50, h: 18)            // 같은 높이의 멀리 떨어진 다른 식 (섞이면 안 됨)
+        let chars: [CGRect?] = [CGRect(x: 0.19, y: 0.5, width: 0.02, height: 0.15), CGRect(x: 0.21, y: 0.5, width: 0.02, height: 0.15), CGRect(x: 0.23, y: 0.5, width: 0.02, height: 0.15)]
+        let lim = glyph("lim", 1, 0.19, 0.5, 0.06, 0.15, chars)
+        var seen: [CGRect] = []
+        let found = await CalculusFind.find(ink: c.ink, pieces: [lim], hosts: [lim], lineHeight: 0.15) { box, _ in seen.append(box); return "x→∞" }
+        check("lim 아래: 잘라 읽은 글로 lim_{x→∞}", found.first { $0.kind == .limit }?.text == "lim_{x→∞}", found.map(\.text).joined(separator: ","))
+        check("lim 아래: 멀리 떨어진 식은 잘라 읽기에 안 섞임", seen.allSatisfy { $0.maxX < 0.32 }, "\(seen.map(\.maxX))")
+    }
+    // 필기 지우기에서 지킬 자리: lim 줄 둘레, 큰 기호 둘레
+    do {
+        let lim = glyph("11. lim", 1, 0.03, 0.60, 0.1, 0.1, [])
+        let other = glyph("다음을 구하시오", 1, 0.03, 0.9, 0.3, 0.05, [])
+        let guards = CalculusLayout.limitGuardRects(lines: [lim, other])
+        check("lim 줄 둘레를 지킴 (아래 한 줄까지)", guards.count == 1 && guards[0].contains(CGPoint(x: 0.08, y: 0.55)) && !guards[0].contains(CGPoint(x: 0.1, y: 0.9)), "\(guards)")
         var c = Canvas(700, 260)
         for i in 0..<12 { c.glyph(30 + i * 40, 120) }
         c.sigma(520, 100)
-        c.glyph(528, 52, w: 12, h: 18); c.glyph(520, 180, w: 40, h: 16)
-        let host = glyph("E (2k+1)", 0.5, 0.70, 0.32, 0.27, 0.30, Array(repeating: nil, count: 8))
-        let found = await CalculusFind.find(ink: c.ink, pieces: [host], hosts: [host], lineHeight: 0.1) { _ in nil }
-        check("읽지 못한 끝이 있으면 ∑ 만 (부분 식 안 만듦)", found.first { $0.kind == .sigma }?.text == "∑" && found.first { $0.kind == .sigma }?.strong == false, found.map(\.text).joined(separator: ","))
+        let rects = CalculusShape.guardRects(c.ink)
+        check("큰 기호 둘레를 지킴", rects.count == 1 && rects[0].width > 0.07 && rects[0].height > 0.3, "\(rects)")
     }
 
     #if !MINI
+    // 5-2) 검은 글자만 읽은 사진에서 ∑ 줄이 빠지거나 기호 없이 읽혔을 때, 원래 사진의 기호 줄을 살림
+    do {
+        let heading = OCRLine(text: "1. 다음 값을 구하시오.", confidence: 1, box: CGRect(x: 0.03, y: 0.70, width: 0.21, height: 0.11))
+        let formula = OCRLine(text: "∑_{k=1}^{10} (2k+1)", confidence: 0.6, box: CGRect(x: 0.035, y: 0.34, width: 0.11, height: 0.17))
+        let tail = OCRLine(text: "위 식의 값을 모두 더한 결과가 얼마인지 구하시오.", confidence: 1, box: CGRect(x: 0.03, y: 0.05, width: 0.40, height: 0.1))
+        let lost = OCRService.chooseInkReading(original: [heading, formula, tail], ink: [heading, tail])
+        check("검은 글자 읽기에서 빠진 ∑ 줄 살림", lost.contains { $0.text.hasPrefix("∑_{k=1}^{10}") }, lost.map(\.text).joined(separator: " | "))
+        let plain = OCRLine(text: "Z (2k+ 1)", confidence: 0.5, box: CGRect(x: 0.035, y: 0.34, width: 0.11, height: 0.17))
+        let swapped = OCRService.chooseInkReading(original: [heading, formula, tail], ink: [heading, plain, tail])
+        check("검은 글자 읽기가 기호 없이 읽었으면 기호 붙인 줄로", swapped.contains { $0.text.hasPrefix("∑_{k=1}^{10}") } && !swapped.contains { $0.text.hasPrefix("Z") }, swapped.map(\.text).joined(separator: " | "))
+        // 기호 없는 일반 줄은 이전처럼 (살리지 않음)
+        let other = OCRLine(text: "x² + 1 = 0", confidence: 1, box: CGRect(x: 0.5, y: 0.2, width: 0.2, height: 0.1))
+        check("기호 없는 줄은 되살리지 않음", !OCRService.chooseInkReading(original: [heading, other], ink: [heading]).contains { $0.text.contains("x²") })
+        // 읽은 글 점수: 위끝·아래끝까지 붙인 기호가 더 높음
+        check("기호까지 붙인 읽기를 더 믿음", OCRService.readingScore("∑_{k=1}^{10} (2k+1)") > OCRService.readingScore("Z (2k+1)"))
+    }
     // 6) 풀이 엔진이 읽은 글(앱 표기)을 받아 풀거나, 모르면 풀지 않음
     let solvable: [(String, String)] = [
         ("다음 값을 구하시오.\n∑_{k=1}^{10} (2k+1)", "120"),

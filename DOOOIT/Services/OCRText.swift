@@ -56,6 +56,12 @@ extension OCRService {
         return calculusLost + inkLines.map { line in
             guard let match = original.first(where: { overlapRatio($0.box, line.box) > 0.6 }), match.text != line.text else { return line }
             let a = MathOCRFixer.fix(line.text), b = MathOCRFixer.fix(match.text)
+            // 원래 사진에서만 미적분 기호(∑ ∫ lim_{…})를 붙여 읽었으면 그 줄로 (한글이 같을 때)
+            func hasCalculus(_ t: String) -> Bool { t.contains(where: { "∑∫".contains($0) }) || t.contains("lim_{") }
+            // (양쪽 모두 기호를 붙여 읽었으면 원래 사진 쪽: 위끝·아래끝을 찾아 읽은 결과라서)
+            if hasCalculus(b), a.filter(isHangul) == b.filter(isHangul) || !hasCalculus(a) {
+                return OCRLine(text: match.text, confidence: max(line.confidence, match.confidence), box: line.box)
+            }
             // 같은 줄(한글이 같고 길이가 비슷)일 때만 비교
             guard a.filter(isHangul) == b.filter(isHangul), abs(a.count - b.count) <= 3,
                   readingScore(b) >= readingScore(a) + 2 else { return line }

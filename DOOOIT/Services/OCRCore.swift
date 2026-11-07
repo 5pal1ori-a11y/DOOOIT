@@ -116,8 +116,8 @@ enum OCRService {
             let hosts = glyphLinesAligned(korean)
             let heights = korean.map(\.boundingBox.height).sorted()
             let lineHeight = heights[heights.count / 2]
-            let findings = await CalculusFind.find(ink: ink, pieces: hosts + glyphLinesAligned(english), hosts: hosts, lineHeight: lineHeight) { box in
-                await readCrop(cgImage, box: box)
+            let findings = await CalculusFind.find(ink: ink, pieces: hosts + glyphLinesAligned(english), hosts: hosts, lineHeight: lineHeight) { box, variant in
+                await readCrop(cgImage, box: box, variant: variant)
             }
             if !findings.isEmpty { calculus = CalculusLayout.plan(lines: hosts, findings: findings, lineHeight: lineHeight) }
         }
@@ -880,14 +880,15 @@ enum OCRService {
     }
 
     /// 사진 한 부분(Vision 좌표)을 잘라 키워서 읽음: 미적분 위끝·아래끝(k=1, 10, x→2)처럼 작은 글 한두 개 읽기용
-    static func readCrop(_ cgImage: CGImage, box: CGRect) async -> String? {
+    static func readCrop(_ cgImage: CGImage, box: CGRect, variant: Int = 0) async -> String? {
         let full = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
         let rect = CGRect(x: box.minX * full.width, y: (1 - box.maxY) * full.height, width: box.width * full.width, height: box.height * full.height)
             .integral.intersection(full)
         guard rect.width >= 4, rect.height >= 4, let crop = cgImage.cropping(to: rect) else { return nil }
-        // 글자 높이가 80픽셀쯤 되게 키우고 흰 여백을 둠
-        let scale = max(1, min(8, 80 / rect.height))
-        let pad = Int(max(8, rect.height * scale * 0.25))
+        // 글자 높이가 80픽셀쯤 되게 키우고 흰 여백을 둠 (variant 1·2: 더 크게·더 작게, 여백도 달리 → 세 번 읽어 맞춰 봄)
+        let targets: [CGFloat] = [80, 120, 56], pads: [CGFloat] = [0.25, 0.45, 0.15]
+        let scale = max(1, min(10, targets[variant % 3] / rect.height))
+        let pad = Int(max(8, rect.height * scale * pads[variant % 3]))
         let w = Int(rect.width * scale) + pad * 2, h = Int(rect.height * scale) + pad * 2
         guard let context = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
                                       space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
@@ -1029,10 +1030,31 @@ enum OCRService {
         let cgImage = scaled(image, maxDimension: 3000)
         guard let pixels = rgbaPixels(cgImage) else { return (image, HandwritingFilter.Report()) }
         let observations = (try? await observe(cgImage, languages: ["ko-KR", "en-US"], correction: false)) ?? []
-        let lines = handwritingLines(observations, width: cgImage.width, height: cgImage.height)
+        var lines = handwritingLines(observations, width: cgImage.width, height: cgImage.height)
+        // 미적분 기호(∑ ∫ lim)가 든 식 줄과 그 위·아래끝은 인쇄: 문제 글 아래 낮은 신뢰도로 읽힌 식이라 풀이로 오인해 지우지 않게 판정에서 뺌
+        if mode == .text {
+            let guarded = calculusGuard(cgImage, observations: observations)
+            if !guarded.isEmpty {
+                let W = CGFloat(cgImage.width), H = CGFloat(cgImage.height)
+                lines = lines.filter { line in
+                    let box = CGRect(x: line.box.minX / W, y: 1 - line.box.maxY / H, width: line.box.width / W, height: line.box.height / H)
+                    return !guarded.contains { $0.intersects(box) }
+                }
+            }
+        }
         let result = HandwritingFilter.clean(pixels, lines: lines, mode: mode)
         guard result.report.erased > 0, let cleaned = makeImage(result.pixels) else { return (image, result.report) }
         return (cleaned, result.report)
+    }
+
+    /// 필기 지우기에서 지킬 미적분 식 자리 (Vision 좌표): 큰 기호 ∑ ∫ 둘레와 "lim" 이 든 줄 둘레
+    static func calculusGuard(_ cgImage: CGImage, observations: [VNRecognizedTextObservation]) -> [CGRect] {
+        var rects = CalculusLayout.limitGuardRects(lines: glyphLinesAligned(observations))
+        if let page = grayPage(cgImage, lines: observations.map(\.boundingBox)) {
+            let ink = FractionFinder.Ink(mask: FractionFinder.inkMask(gray: page.gray, width: page.width, height: page.height), width: page.width, height: page.height)
+            rects += CalculusShape.guardRects(ink)
+        }
+        return rects
     }
 
     /// Vision 결과 → 필기 판정용 줄 (픽셀 좌표, 위가 0 · 글자마다 상자 · 줄 기울기)

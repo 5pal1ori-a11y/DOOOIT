@@ -131,9 +131,9 @@ func rawDump(_ image: CGImage, result: inout CaseResult) async {
         let hosts = OCRService.glyphLinesAligned(k)
         let heights = k.map(\.boundingBox.height).sorted()
         if !heights.isEmpty {
-            let found = await CalculusFind.find(ink: ink, pieces: hosts + OCRService.glyphLinesAligned(e), hosts: hosts, lineHeight: heights[heights.count / 2]) { box in
-                let text = await OCRService.readCrop(prepared, box: box)
-                notes.items.append("calc 자른 읽기 \(rounded(box)) → \(text ?? "nil")")
+            let found = await CalculusFind.find(ink: ink, pieces: hosts + OCRService.glyphLinesAligned(e), hosts: hosts, lineHeight: heights[heights.count / 2]) { box, variant in
+                let text = await OCRService.readCrop(prepared, box: box, variant: variant)
+                notes.items.append("calc 자른 읽기 \(variant) \(rounded(box)) → \(text ?? "nil")")
                 return text
             }
             for f in found { notes.items.append("calc 찾음 \(f.kind.rawValue) \(f.text) strong=\(f.strong)") }
