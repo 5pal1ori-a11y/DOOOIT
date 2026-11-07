@@ -109,8 +109,19 @@ enum OCRService {
         let english = await englishRead ?? []
         let rects = await boxRead
         let circles = await circleRead
-        let lines = merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions,
-                          ink: page.map { FractionFinder.Ink(mask: FractionFinder.inkMask(gray: $0.gray, width: $0.width, height: $0.height), width: $0.width, height: $0.height) })
+        let ink = page.map { FractionFinder.Ink(mask: FractionFinder.inkMask(gray: $0.gray, width: $0.width, height: $0.height), width: $0.width, height: $0.height) }
+        // 미적분 기호: ∑ ∫ 는 사진 모양으로, lim 은 글자로 찾고 위끝·아래끝을 읽어 붙임
+        var calculus: CalculusLayout.Plan?
+        if let ink, !korean.isEmpty {
+            let hosts = glyphLinesAligned(korean)
+            let heights = korean.map(\.boundingBox.height).sorted()
+            let lineHeight = heights[heights.count / 2]
+            let findings = await CalculusFind.find(ink: ink, pieces: hosts + glyphLinesAligned(english), hosts: hosts, lineHeight: lineHeight) { box in
+                await readCrop(cgImage, box: box)
+            }
+            if !findings.isEmpty { calculus = CalculusLayout.plan(lines: hosts, findings: findings, lineHeight: lineHeight) }
+        }
+        let lines = merge(korean: korean, english: english, rects: rects, circles: circles, barFractions: barFractions, ink: ink, calculus: calculus)
         return (lines, barFractions)
     }
 
@@ -328,7 +339,13 @@ enum OCRService {
 
     /// 한국어 줄의 수식 부분(한글이 없는 구간)을 같은 자리의 영어 전용 인식 결과와 비교해서 더 수식다운 쪽을 고름
     static func merge(korean: [VNRecognizedTextObservation], english: [VNRecognizedTextObservation], rects: [CGRect] = [],
-                      circles: [MathOCRFixer.Shape] = [], barFractions: [BarFraction] = [], ink: FractionFinder.Ink? = nil) -> [OCRLine] {
+                      circles: [MathOCRFixer.Shape] = [], barFractions: [BarFraction] = [], ink: FractionFinder.Ink? = nil,
+                      calculus: CalculusLayout.Plan? = nil) -> [OCRLine] {
+        // 미적분 위끝·아래끝으로 쓰인 조각은 분수·지수 조각으로 보지 않음
+        let calcConsumed = calculus?.consumed ?? []
+        func inCalcRegion(_ box: CGRect) -> Bool {
+            (calculus?.regions ?? []).contains { $0.insetBy(dx: -$0.width * 0.05, dy: -$0.height * 0.05).contains(CGPoint(x: box.midX, y: box.midY)) }
+        }
         // 영어 전용 결과를 낱말 단위 위치로
         var words: [Word] = []
         for observation in english {
@@ -350,6 +367,7 @@ enum OCRService {
 
         // 분수: 분자·분모가 문장 줄 위아래에 따로 읽힌 짧은 조각 → "a/b"로 합쳐서 그 줄에 끼워 넣음
         let shortIndexes = korean.indices.filter { index in
+            guard !calcConsumed.contains(index) else { return false }
             guard let text = korean[index].topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces) else { return false }
             return !text.isEmpty && text.count <= 7 && !text.contains(where: isHangul)
         }
@@ -391,7 +409,7 @@ enum OCRService {
 
         // 줄과 떨어져서 따로 읽힌 작은 지수(x² 의 2 등) 찾기
         func superscriptText(_ observation: VNRecognizedTextObservation) -> String? {
-            guard !isFractionBox(observation.boundingBox),
+            guard !isFractionBox(observation.boundingBox), !inCalcRegion(observation.boundingBox),
                   let raw = observation.topCandidates(1).first?.string.trimmingCharacters(in: .whitespaces),
                   raw.range(of: #"^[0-9n]{1,2}$"#, options: .regularExpression) != nil,
                   observation.boundingBox.height < medianHeight * 0.75 else { return nil }
@@ -510,10 +528,12 @@ enum OCRService {
         let lines = korean.indices.map { lineIndex -> OCRLine? in
             let observation = korean[lineIndex]
             if fractionPieces.contains(lineIndex) { return nil }      // 분수 조각은 줄에 끼워 넣음
+            if calcConsumed.contains(lineIndex) { return nil }        // ∑ ∫ lim 의 위끝·아래끝은 기호에 붙임
+            let calcHere = (calculus?.edits ?? []).filter { $0.line == lineIndex }
             if superscriptText(observation) != nil { return nil }   // 지수 조각은 줄에 끼워 넣음
             let candidates = observation.topCandidates(3)
             guard let best = candidates.first else { return nil }
-            let candidate = circleEdits[lineIndex] != nil ? best : candidates.filter { $0.confidence >= best.confidence - 0.15 }
+            let candidate = circleEdits[lineIndex] != nil || !calcHere.isEmpty ? best : candidates.filter { $0.confidence >= best.confidence - 0.15 }
                 .min { mathPenalty($0.string) < mathPenalty($1.string) } ?? best
             let original = candidate.string
             let chars = Array(original)
@@ -666,6 +686,9 @@ enum OCRService {
                 }
             }
 
+            // 1-3b) 미적분 기호: 기호 자리 글자를 ∑_{k=1}^{n} 같은 식으로 (그 자리의 지수 끼워 넣기는 뺌)
+            insertions.removeAll { ins in calcHere.contains { ins.offset > $0.range.lowerBound && ins.offset < $0.range.upperBound } }
+
             // 1-4) 보기 번호 ①~⑤
             let circleHere = circleEdits[lineIndex] ?? []
 
@@ -691,6 +714,7 @@ enum OCRService {
                     // 보기 번호를 고친 구간, 분수로 바꾼 구간도 그대로 둠
                     if circleHere.contains(where: { $0.remove.overlaps(range) || ($0.remove.lowerBound >= range.lowerBound && $0.remove.lowerBound <= range.upperBound) }) { continue }
                     if barEdits.contains(where: { $0.range.overlaps(range) }) || blankEdits.contains(where: { $0.range.overlaps(range) }) { continue }
+                    if calcHere.contains(where: { $0.range.overlaps(range) || ($0.range.isEmpty && range.contains($0.range.lowerBound)) }) { continue }
                     let originalPart = String(chars[range])
                     guard originalPart.contains(where: { $0.isNumber || ($0.isASCII && $0.isLetter) || "=+-×÷^()√<>".contains($0) }),
                           let box = try? candidate.boundingBox(for: index(range.lowerBound)..<index(range.upperBound))?.boundingBox else { continue }
@@ -716,6 +740,7 @@ enum OCRService {
             edits += barEdits.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             edits += blankEdits.filter { b in !barEdits.contains { $0.range.overlaps(b.range) } }
                 .map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
+            edits += calcHere.map { (start: $0.range.lowerBound, end: $0.range.upperBound, text: $0.text) }
             let circled: [Character] = ["①", "②", "③", "④", "⑤"]
             edits += circleHere.map { (start: $0.remove.lowerBound, end: $0.remove.upperBound, text: " \(circled[$0.number - 1]) ") }
             // 뒤에서부터, 같은 자리면 긴 범위를 먼저 (끼워 넣기가 범위 바꾸기에 지워지지 않게)
@@ -724,7 +749,9 @@ enum OCRService {
             }
             let text = String(result).replacingOccurrences(of: #" {2,}"#, with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespaces)
-            return OCRLine(text: text, confidence: adjustedConfidence(text, best.confidence), box: observation.boundingBox)
+            // 미적분 기호를 읽어 붙인 줄은 신뢰도를 올림 (큰 기호가 든 줄은 Vision이 늘 낮게 줌 → 풀이 흔적으로 버려지지 않게)
+            let confidence = calcHere.isEmpty ? best.confidence : max(best.confidence, 0.6)
+            return OCRLine(text: text, confidence: adjustedConfidence(text, confidence), box: observation.boundingBox)
         }
         // 어느 줄에도 붙지 않은 분수는 따로 한 줄
         return lines.compactMap { $0 } + looseBars.map { OCRLine(text: $0.text, confidence: 0.9, box: $0.box) }
@@ -850,6 +877,51 @@ enum OCRService {
         reading.circles = await circleRead.filter { MathOCRFixer.isChoiceCircle($0, lineHeight: median) }.map(\.box)
         reading.lines = subjectMerge(korean: reading.korean, english: reading.english, circles: reading.circles)
         return reading
+    }
+
+    /// 사진 한 부분(Vision 좌표)을 잘라 키워서 읽음: 미적분 위끝·아래끝(k=1, 10, x→2)처럼 작은 글 한두 개 읽기용
+    static func readCrop(_ cgImage: CGImage, box: CGRect) async -> String? {
+        let full = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+        let rect = CGRect(x: box.minX * full.width, y: (1 - box.maxY) * full.height, width: box.width * full.width, height: box.height * full.height)
+            .integral.intersection(full)
+        guard rect.width >= 4, rect.height >= 4, let crop = cgImage.cropping(to: rect) else { return nil }
+        // 글자 높이가 80픽셀쯤 되게 키우고 흰 여백을 둠
+        let scale = max(1, min(8, 80 / rect.height))
+        let pad = Int(max(8, rect.height * scale * 0.25))
+        let w = Int(rect.width * scale) + pad * 2, h = Int(rect.height * scale) + pad * 2
+        guard let context = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                      space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        context.draw(crop, in: CGRect(x: pad, y: pad, width: Int(rect.width * scale), height: Int(rect.height * scale)))
+        guard let image = context.makeImage(),
+              let observations = try? await observe(image, languages: ["en-US"], correction: false) else { return nil }
+        let pieces = observations.compactMap { o -> (x: CGFloat, text: String)? in
+            guard let text = o.topCandidates(1).first?.string else { return nil }
+            return (o.boundingBox.minX, text)
+        }.sorted { $0.x < $1.x }
+        let text = pieces.map(\.text).joined(separator: " ")
+        return text.isEmpty ? nil : text
+    }
+
+    /// 관찰 결과 순서를 그대로 둔 줄 (글을 못 읽은 관찰은 빈 줄로 둠 → 번호가 관찰 번호와 같음)
+    static func glyphLinesAligned(_ observations: [VNRecognizedTextObservation]) -> [OCRGlyphLine] {
+        observations.map { observation in
+            guard let candidate = observation.topCandidates(1).first else {
+                return OCRGlyphLine(text: "", confidence: 0, box: observation.boundingBox, charBoxes: [])
+            }
+            let text = candidate.string
+            var boxes: [CGRect?] = []
+            var index = text.startIndex
+            while index < text.endIndex {
+                let next = text.index(after: index)
+                boxes.append(text[index].isWhitespace ? nil : (try? candidate.boundingBox(for: index..<next))?.boundingBox)
+                index = next
+            }
+            return OCRGlyphLine(text: text, confidence: candidate.confidence, box: observation.boundingBox, charBoxes: boxes)
+        }
     }
 
     /// Vision 결과 → 글자마다 상자가 있는 줄

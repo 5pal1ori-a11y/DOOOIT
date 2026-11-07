@@ -23,7 +23,7 @@ extension OCRService {
             else if "+-=×÷^()√<>≤≥/²³".contains(c) { score += 1 }
             else if c.isUppercase && c.isASCII { score -= 1 }
             // 보기 번호·근호·도형 기호(∠ △ ° ⊥ ∥ ≡ ∽, 선분 윗줄 A̅)는 낯선 기호가 아님 (더 읽은 쪽이 오히려 깎이지 않게)
-            else if !c.isASCII && !"−·αβγθπ①②③④⑤√∠△°⊥∥≡∽".contains(c) && c.unicodeScalars.last?.value != 0x305 { score -= 2 }
+            else if !c.isASCII && !"−·αβγθπ①②③④⑤√∠△°⊥∥≡∽∑∫′→∞≠Δ∈∂".contains(c) && c.unicodeScalars.last?.value != 0x305 { score -= 2 }
         }
         return score - 3 * mathPenalty(text)
     }
@@ -49,7 +49,11 @@ extension OCRService {
         let inkCount = printedText(from: inkLines).count
         let originalCount = printedText(from: original).count
         guard inkCount >= originalCount * 7 / 10 else { return original }
-        return inkLines.map { line in
+        // 검은 글자만 읽은 사진에서 큰 기호(∑ ∫) 줄이 통째로 빠지는 일이 있음 → 미적분 기호를 붙여 읽은 원래 줄이 거기 없으면 되살림
+        let calculusLost = original.filter { line in
+            line.text.contains(where: { "∑∫".contains($0) }) || line.text.contains("lim_{")
+        }.filter { line in !inkLines.contains(where: { overlapRatio($0.box, line.box) > 0.5 }) }
+        return calculusLost + inkLines.map { line in
             guard let match = original.first(where: { overlapRatio($0.box, line.box) > 0.6 }), match.text != line.text else { return line }
             let a = MathOCRFixer.fix(line.text), b = MathOCRFixer.fix(match.text)
             // 같은 줄(한글이 같고 길이가 비슷)일 때만 비교
@@ -117,6 +121,8 @@ extension OCRService {
         }
         // 보기 번호를 읽은 쪽을 더 믿음
         score += text.filter { "①②③④⑤".contains($0) }.count * 4
+        // 미적분: 위끝·아래끝까지 붙여 읽은 ∑_{k=1}^{n} · ∫_a^b · lim_{x→a} 는 더 믿음
+        score += 4 * text.matches(of: #/(?:∑|∫|lim)_/#).count
         // 도형 문제: 제대로 읽은 각(∠A = 50°, ∠C의 크기)·삼각형(△ABC)은 더 믿고, 끼어든 키릴 글자(В, С)는 덜 믿음
         if text.contains(where: { "∠△".contains($0) }) {
             score += 3 * text.matches(of: #/∠[A-Za-z]{1,3}\s*=\s*\d{1,3}(?:\.\d+)?°/#).count

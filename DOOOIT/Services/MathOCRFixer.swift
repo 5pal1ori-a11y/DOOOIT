@@ -683,6 +683,8 @@ enum MathOCRFixer {
                 result = regex.stringByReplacingMatches(in: result, range: NSRange(result.startIndex..., in: result), withTemplate: rule.template)
             }
         }
+        // 미적분 기호 (∑ lim → ∞ f′ d/dx aₙ): 지수 규칙(x' → x²)보다 먼저
+        result = CalculusText.fixEarly(result)
         for rule in letterRules {
             // 도형 문제의 x°, 2x°는 각의 크기 (x²가 아님)
             let pattern = isGeometric ? rule.pattern.replacingOccurrences(of: "[°'", with: "['") : rule.pattern
@@ -694,6 +696,6 @@ enum MathOCRFixer {
             let range = NSRange(result.startIndex..., in: result)
             result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: rule.template)
         }
-        return GeometryText.canonical(cleanChoiceMarks(normalizeChoices(result)))
+        return GeometryText.canonical(cleanChoiceMarks(normalizeChoices(CalculusText.fixLate(result))))
     }
 }

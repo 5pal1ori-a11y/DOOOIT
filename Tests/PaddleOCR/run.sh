@@ -39,6 +39,7 @@ for f in PaddleOCRSupport PaddleOCRText PaddleOCRModel PaddleOCREngine; do
   cp "$ROOT/DOOOIT/Services/PaddleOCR/$f.swift" "$PKG/Sources/PaddleParity/"
 done
 cp "$ROOT/DOOOIT/Services/MathOCRFixer.swift" "$PKG/Sources/PaddleParity/"
+cp "$ROOT/DOOOIT/Services/CalculusText.swift" "$PKG/Sources/PaddleParity/"
 cp "$ROOT/DOOOIT/Services/GeometryText.swift" "$PKG/Sources/PaddleParity/"
 (cd "$PKG" && xcodebuild -scheme PaddleParity -destination 'platform=macOS' -configuration Release \
    -derivedDataPath "$WORK/dd" -skipMacroValidation -skipPackagePluginValidation build 2>&1 | tee "$WORK/build.log" | grep -E "error:|warning: .*Paddle|BUILD" || true)

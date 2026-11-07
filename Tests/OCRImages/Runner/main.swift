@@ -109,7 +109,8 @@ func rawDump(_ image: CGImage, result: inout CaseResult) async {
     }
     let k = await korean ?? []
     result.rawKorean = dump(k)
-    result.rawEnglish = dump(await english ?? [])
+    let e = await english ?? []
+    result.rawEnglish = dump(e)
     result.rects = await rects.map(rounded)
     let all = await shapes
     let heights = k.map(\.boundingBox.height).sorted()
@@ -121,6 +122,27 @@ func rawDump(_ image: CGImage, result: inout CaseResult) async {
     result.fractions = await OCRService.stackedFractions(prepared, page: OCRService.grayPage(prepared, lines: k.map(\.boundingBox)),
                                                          lines: k.map(\.boundingBox), note: { notes.items.append($0) })
         .map { DebugLine(text: $0.text, confidence: 1, box: rounded($0.box)) }
+    // 미적분 기호 찾기 기록: 모양으로 찾은 큰 기호, 위끝·아래끝으로 자른 사진을 읽은 글, 찾은 결과
+    if let page = OCRService.grayPage(prepared, lines: k.map(\.boundingBox)) {
+        let ink = FractionFinder.Ink(mask: FractionFinder.inkMask(gray: page.gray, width: page.width, height: page.height), width: page.width, height: page.height)
+        for f in CalculusShape.find(ink) {
+            notes.items.append("calc 모양 \(f.kind.rawValue) x\(f.blob.x0)-\(f.blob.x1) y\(f.blob.y0)-\(f.blob.y1) 높이비 \(String(format: "%.2f", f.ratio)) (읽기 종이 \(page.width)x\(page.height))")
+        }
+        let hosts = OCRService.glyphLinesAligned(k)
+        let heights = k.map(\.boundingBox.height).sorted()
+        if !heights.isEmpty {
+            let found = await CalculusFind.find(ink: ink, pieces: hosts + OCRService.glyphLinesAligned(e), hosts: hosts, lineHeight: heights[heights.count / 2]) { box in
+                let text = await OCRService.readCrop(prepared, box: box)
+                notes.items.append("calc 자른 읽기 \(rounded(box)) → \(text ?? "nil")")
+                return text
+            }
+            for f in found { notes.items.append("calc 찾음 \(f.kind.rawValue) \(f.text) strong=\(f.strong)") }
+            if !found.isEmpty {
+                let plan = CalculusLayout.plan(lines: hosts, findings: found, lineHeight: heights[heights.count / 2])
+                for e in plan.edits { notes.items.append("calc 고침 줄\(e.line) \(e.range) → \(e.text)") }
+            }
+        }
+    }
     result.notes = notes.items
 }
 
