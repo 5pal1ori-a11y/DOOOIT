@@ -14,7 +14,12 @@ enum SchoolDemo {
         School(officeCode: "D10", schoolCode: "9999996", name: "한빛고등학교", kindName: "고등학교", region: "대구광역시", address: "", highSchoolType: "일반고")
     ]
 
-    static var isOn: Bool { UIShot.matches(.school, .schoolMeal, .schoolSetup, .homeSchool) }
+    /// 실행 인자만 읽어서 (UIShot은 메인 액터 전용이라 여기서는 쓰지 않아요)
+    static var isOn: Bool {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-uiShot"), i + 1 < args.count else { return false }
+        return ["school", "schoolMeal", "schoolSetup", "homeSchool"].contains(args[i + 1])
+    }
 
     // 월~금 시간표 (교시 1…7)
     private static let table: [[String]] = [
