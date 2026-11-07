@@ -14,6 +14,20 @@ struct BadgeShelfView: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 3)
 
     var body: some View {
+        ScrollViewReader { proxy in
+            shelf
+            #if DEBUG
+                .task {
+                    // 화면 사진: 초대 배지(맨 아래)가 보이게 내려서 찍음
+                    guard UIShot.matches(.badgesInvite) else { return }
+                    try? await Task.sleep(for: .milliseconds(600))
+                    proxy.scrollTo("invite3", anchor: .center)
+                }
+            #endif
+        }
+    }
+
+    private var shelf: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
                 summary
@@ -24,6 +38,7 @@ struct BadgeShelfView: View {
                             BadgeTile(badge: badge, unlockedAt: center.unlocked[badge.id], stats: center.stats)
                         }
                         .buttonStyle(.pressable)
+                        .id(badge.id)
                     }
                 }
                 .staggerIn(index: 1)
@@ -31,12 +46,11 @@ struct BadgeShelfView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 32)
+            #if DEBUG
+            .padding(.bottom, UIShot.matches(.badgesInvite) ? 160 : 0)
+            #endif
         }
         .scrollIndicators(.hidden)
-        #if DEBUG
-        // 화면 사진: 초대 배지는 맨 아래라 아래로 내려서 찍음
-        .defaultScrollAnchor(UIShot.matches(.badgesInvite) ? UnitPoint.bottom : UnitPoint.top)
-        #endif
         .background { AppBackground() }
         .navigationTitle("배지")
         .navigationBarTitleDisplayMode(.inline)
