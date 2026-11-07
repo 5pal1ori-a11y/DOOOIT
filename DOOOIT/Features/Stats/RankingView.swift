@@ -38,7 +38,9 @@ struct RankingView: View {
                             .softCard()
                     } else {
                         mySummary(board)
+                            .transition(.opacity)
                         list(board)
+                            .transition(.opacity)
                     }
                 } else if loading {
                     ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
@@ -52,6 +54,8 @@ struct RankingView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 40)
+            // 기간·날짜를 바꾸거나 불러오는 상태가 바뀔 때 내용이 부드럽게 바뀜
+            .animation(Motion.quick, value: "\(period)-\(back)-\(board != nil)-\(loading)")
         }
         .scrollIndicators(.hidden)
         .background { AppBackground() }
@@ -79,12 +83,15 @@ struct RankingView: View {
         let range = board.map { ($0.start, $0.end) } ?? period.fallbackRange(back: back)
         return HStack(spacing: 0) {
             Button { back += 1 } label: { Image(systemName: "chevron.left").frame(width: 40, height: 36) }
+                .buttonStyle(.pressable)
             Text(dateText(range.0, range.1))
                 .font(.pt(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .monospacedDigit()
                 .frame(maxWidth: .infinity)
+                .numberRoll(dateText(range.0, range.1))
             Button { back = max(0, back - 1) } label: { Image(systemName: "chevron.right").frame(width: 40, height: 36) }
+                .buttonStyle(.pressable)
                 .disabled(back == 0)
         }
         .font(.pt(.subheadline).weight(.semibold))
@@ -141,22 +148,26 @@ struct RankingView: View {
                         .font(.pt(size: 36, weight: .bold))
                         .foregroundStyle(Theme.accent)
                         .monospacedDigit()
+                        .numberRoll(Double(me.rank))
                     Spacer(minLength: 12)
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(TimeText.durationL(seconds: me.seconds))
                             .font(.pt(.headline))
                             .foregroundStyle(Palette.ink)
                             .monospacedDigit()
+                            .numberRoll(Double(me.seconds))
                         if let percent = board.topPercent {
                             Text(L("상위 \(percent)%"))
                                 .font(.pt(.footnote))
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
+                                .numberRoll(Double(percent))
                         }
                     }
                 }
             }
             .softCard()
+            .staggerIn(index: 0)
         } else if joined {
             Text("이 기간에 공부하면 내 등수가 나와요")
                 .font(.pt(.subheadline))
@@ -191,6 +202,7 @@ struct RankingView: View {
             .overlay(RoundedRectangle(cornerRadius: Radius.card, style: .continuous).strokeBorder(Palette.line, lineWidth: 0.5))
             .clipShape(.rect(cornerRadius: Radius.card, style: .continuous))
         }
+        .staggerIn(index: 1)
     }
 
     /// 한 줄: 순위(1~3위만 강조색) · 이름 · 공부 시간 (오른쪽 정렬 숫자)
@@ -200,6 +212,7 @@ struct RankingView: View {
                 .font(.pt(size: 17, weight: entry.rank <= 3 ? .bold : .regular))
                 .foregroundStyle(entry.isMe ? Theme.onHighlight : (entry.rank <= 3 ? Theme.accent : Color.secondary))
                 .monospacedDigit()
+                .numberRoll(Double(entry.rank))
                 .frame(width: 28, alignment: .trailing)
             Text(entry.isMe ? L("\(entry.name) (나)") : entry.name)
                 .font(.pt(.body).weight(entry.isMe ? .semibold : .regular))
@@ -210,6 +223,7 @@ struct RankingView: View {
                 .font(.pt(.body).weight(entry.rank == 1 ? .bold : .regular))
                 .foregroundStyle(entry.isMe ? Theme.onHighlight : Palette.ink)
                 .monospacedDigit()
+                .numberRoll(Double(entry.seconds))
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

@@ -22,6 +22,7 @@ struct PlannerView: View {
     @State private var editorTarget: PlanEditorTarget?
     @State private var showCategories = false
     @State private var slideEdge: Edge = .trailing
+    @Namespace private var modeNamespace
 
     var body: some View {
         NavigationStack {
@@ -33,10 +34,10 @@ struct PlannerView: View {
                         Group {
                             if router.mode == .month {
                                 monthContent
-                                    .transition(.asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))
+                                    .transition(Motion.reduced ? .opacity : .asymmetric(insertion: .move(edge: .leading).combined(with: .opacity), removal: .opacity))
                             } else {
                                 dayContent
-                                    .transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+                                    .transition(Motion.reduced ? .opacity : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
                             }
                         }
                         .animation(Motion.spring, value: router.mode)
@@ -103,7 +104,7 @@ struct PlannerView: View {
                 Text(month.ui("M월"))
                     .font(.pt(size: 34, weight: .bold))
                     .foregroundStyle(Palette.ink)
-                    .contentTransition(.numericText())
+                    .numberRoll(month.ui("M월"))
             }
             Spacer()
             if !router.selectedDate.isSameDay(as: Date()) {
@@ -120,6 +121,7 @@ struct PlannerView: View {
                 .frame(height: 34)
                 .background(Palette.card, in: .capsule)
                 .overlay(Capsule().strokeBorder(Color.primary.opacity(0.08)))
+                .transition(.opacity)
             }
             modeToggle
         }
@@ -139,7 +141,11 @@ struct PlannerView: View {
                         .font(.pt(.subheadline).weight(.semibold))
                         .foregroundStyle(isOn ? Theme.onAccent : Color.secondary)
                         .frame(width: 40, height: 30)
-                        .background(isOn ? Theme.accent : Color.clear, in: .capsule)
+                        .background {
+                            if isOn {
+                                Capsule().fill(Theme.accent).matchedGeometryEffect(id: "mode", in: modeNamespace)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(mode.title)
@@ -207,7 +213,7 @@ struct PlannerView: View {
                         .frame(width: 32, height: 32)
                         .background(Theme.accent.opacity(0.12), in: .circle)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel("이 날 할 일 추가")
             }
             if occurrences.isEmpty {
@@ -222,8 +228,9 @@ struct PlannerView: View {
                     }
                     .softCard(cornerRadius: 20, padding: 16)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .padding(.top, 4)
+                .transition(.opacity)
             } else {
                 PlanListCard(occurrences: occurrences) { occurrence in
                     PlanTimelineRow(occurrence: occurrence) { editorTarget = .edit(occurrence.plan) }
@@ -239,8 +246,10 @@ struct PlannerView: View {
                         }
                 }
                 .padding(.top, 4)
+                .transition(.opacity)
             }
         }
+        .animation(Motion.quick, value: occurrences.isEmpty)
     }
 
     // MARK: Day timeline
@@ -307,7 +316,7 @@ struct DayTimelineView: View {
                                 .padding(.vertical, 6)
                                 .background(occurrence.plan.color.opacity(0.12), in: .capsule)
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.pressable)
                         }
                     }
                 }
@@ -460,6 +469,7 @@ struct CalendarGrid: View {
 
     private let weekdays = AppDateFormat.weekdaySymbols
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 7)
+    @Namespace private var selectionNamespace
 
     private var days: [Date] {
         let cal = Calendar.current
@@ -489,7 +499,8 @@ struct CalendarGrid: View {
                         inMonth: day.isSameMonth(as: month),
                         isSelected: day.isSameDay(as: selected),
                         isToday: day.isSameDay(as: Date()),
-                        events: plans.occurrences(on: day).map { DayCell.Event(title: $0.plan.title, color: $0.plan.color, done: $0.isCompleted) }
+                        events: plans.occurrences(on: day).map { DayCell.Event(title: $0.plan.title, color: $0.plan.color, done: $0.isCompleted) },
+                        selectionNamespace: selectionNamespace
                     )
                     .onTapGesture {
                         withAnimation(.snappy) { selected = day.startOfDay }
@@ -514,6 +525,7 @@ private struct DayCell: View {
     let isSelected: Bool
     let isToday: Bool
     let events: [Event]
+    var selectionNamespace: Namespace.ID
 
     var body: some View {
         let weekday = Calendar.current.component(.weekday, from: day)
@@ -525,7 +537,7 @@ private struct DayCell: View {
                 .frame(width: 26, height: 26)
                 .background {
                     if isSelected {
-                        Circle().fill(Theme.accent)
+                        Circle().fill(Theme.accent).matchedGeometryEffect(id: "selectedDay", in: selectionNamespace)
                     } else if isToday {
                         Circle().fill(Theme.highlight)
                     }
@@ -599,6 +611,7 @@ private struct DaySummaryHeader<Trailing: View>: View {
                         Text(summary(done: done, studyMinutes: studyMinutes))
                             .font(.pt(.footnote))
                             .foregroundStyle(.secondary)
+                            .numberRoll(Double(done))
                     }
                 }
                 Spacer(minLength: 8)

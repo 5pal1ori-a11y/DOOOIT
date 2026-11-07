@@ -134,7 +134,7 @@ struct TimerView: View {
                         .font(.pt(.title3).weight(.semibold))
                         .frame(width: 44, height: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel("닫기")
                 Spacer()
                 Button {
@@ -146,7 +146,7 @@ struct TimerView: View {
                         .symbolEffect(.variableColor.iterative, isActive: sound.isPlaying)
                         .frame(width: 44, height: 44)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .accessibilityLabel("집중 사운드")
             }
         }
@@ -180,6 +180,7 @@ struct TimerView: View {
                 targetWheel
             }
             .frame(maxWidth: .infinity)
+            .staggerIn(index: 0)
             .onChange(of: targetMinutes) { _, minutes in
                 UserDefaults.standard.set(minutes ?? 0, forKey: Self.targetKey)
             }
@@ -205,7 +206,7 @@ struct TimerView: View {
                                         .foregroundStyle(isOn ? Color.black : Color.white)
                                         .background(isOn ? Color.white : panel, in: .capsule)
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(.pressable)
                             }
                         }
                     }
@@ -253,6 +254,7 @@ struct TimerView: View {
                 .buttonStyle(.pressable)
                 .padding(.top, 4)
             }
+            .staggerIn(index: 1)
         }
     }
 
@@ -417,6 +419,7 @@ struct TimerView: View {
             } else {
                 Text("목표 \(TimeText.durationL(seconds: target)) · \(TimeText.durationL(seconds: target - Int(elapsed) + 59)) 남음")
                     .font(.pt(.subheadline)).foregroundStyle(Color(white: 0.55))
+                    .numberRoll(Double((target - Int(elapsed) + 59) / 60))
             }
         } else {
             Text(studyTimer.phase == .paused ? L("일시정지됨") : studyTimer.categoryName)
@@ -456,6 +459,7 @@ struct TimerView: View {
             Image(systemName: seconds >= 10 ? "checkmark.seal.fill" : "clock.fill")
                 .font(.pt(size: 64, weight: .bold))
                 .foregroundStyle(seconds >= 10 ? green : Color(white: 0.5))
+                .staggerIn(index: 0)
             VStack(spacing: 8) {
                 Text(seconds >= 10 ? L("수고했어요!") : L("기록이 너무 짧아요"))
                     .font(.pt(.title).weight(.bold))
@@ -470,6 +474,7 @@ struct TimerView: View {
                     Text("랭킹에도 반영했어요").font(.pt(.subheadline)).foregroundStyle(Color(white: 0.6))
                 }
             }
+            .staggerIn(index: 1)
             Spacer()
             Button {
                 savedSeconds = nil

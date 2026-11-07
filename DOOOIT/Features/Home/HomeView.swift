@@ -31,18 +31,18 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         header(now: now)
-                            .appearAnimation()
+                            .staggerIn(index: 0)
                         focusPanel(now: now)
-                            .appearAnimation(delay: 0.06)
+                            .staggerIn(index: 1)
                         VStack(spacing: 8) {
                             quickTiles(now: now)
                             RecentBadgeChip()
                         }
-                        .appearAnimation(delay: 0.12)
+                        .staggerIn(index: 2)
                         plansSection(now: now)
-                            .appearAnimation(delay: 0.18)
+                            .staggerIn(index: 3)
                         weekSection(now: now)
-                            .appearAnimation(delay: 0.24)
+                            .staggerIn(index: 4)
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
@@ -119,7 +119,7 @@ struct HomeView: View {
                             .font(.pt(.title3).weight(.bold))
                             .foregroundStyle(Palette.ink)
                             .monospacedDigit()
-                            .contentTransition(.numericText())
+                            .numberRoll(Double(Int(min(progress, 9.99) * 100)))
                         Text("목표").font(.pt(.caption2)).foregroundStyle(.secondary)
                     }
                 }
@@ -135,8 +135,7 @@ struct HomeView: View {
                         .foregroundStyle(Palette.ink)
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)
-                        .contentTransition(.numericText())
-                        .animation(Motion.spring, value: seconds / 60)
+                        .numberRoll(TimeText.durationL(seconds: seconds))
                     Text(left == 0 ? L("오늘 목표 달성") : L("목표까지 \(TimeText.durationL(seconds: left))"))
                         .font(.pt(.footnote))
                         .foregroundStyle(.secondary)
@@ -160,6 +159,7 @@ struct HomeView: View {
                         .frame(width: 52, height: 52)
                         .background(Palette.ink.opacity(0.06), in: .rect(cornerRadius: Radius.button, style: .continuous))
                 }
+                .buttonStyle(.pressable)
                 .accessibilityLabel("공부 랭킹")
             }
         }
@@ -254,7 +254,7 @@ struct HomeView: View {
                     Text(TimeText.durationL(minutes: total))
                         .font(.pt(.title2).weight(.bold))
                         .foregroundStyle(Palette.ink)
-                        .contentTransition(.numericText())
+                        .numberRoll(Double(total))
                     Text("최근 7일")
                         .font(.pt(.caption))
                         .foregroundStyle(.secondary)
@@ -267,8 +267,9 @@ struct HomeView: View {
                 .chartYAxis { AxisMarks(position: .leading) }
                 .chartYAxisLabel("분")
                 .frame(height: 150)
+                .animation(Motion.fill, value: stats.map(\.minutes))
                 .onAppear {
-                    withAnimation(.spring(response: 0.7, dampingFraction: 0.8).delay(0.3)) { chartShown = true }
+                    withAnimation(Motion.reduced ? nil : .smooth(duration: 0.6).delay(0.25)) { chartShown = true }
                 }
             }
             .softCard()

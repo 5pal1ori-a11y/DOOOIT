@@ -68,8 +68,7 @@ struct CramListView: View {
                     .font(.pt(.caption))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                ProgressView(value: Double(doneSteps), total: Double(max(totalSteps, 1)))
-                    .tint(Theme.accent)
+                LinearProgressBar(value: Double(doneSteps) / Double(max(totalSteps, 1)), height: 5)
             }
             Image(systemName: "chevron.right").font(.pt(.footnote)).foregroundStyle(.tertiary)
         }

@@ -110,7 +110,7 @@ struct MockExamView: View {
                     }
                 }
                 .softCard(cornerRadius: 24, padding: 20)
-                .appearAnimation()
+                .staggerIn(index: 0)
 
                 VStack(alignment: .leading, spacing: 10) {
                     SectionTitle(L("범위"))
@@ -136,7 +136,7 @@ struct MockExamView: View {
                             .padding(.horizontal, 4)
                     }
                 }
-                .appearAnimation(delay: 0.06)
+                .staggerIn(index: 1)
 
                 Button {
                     Task { await begin() }
@@ -393,7 +393,7 @@ struct MockExamView: View {
                     Spacer(minLength: 0)
                 }
                 .softCard(cornerRadius: 24, padding: 20)
-                .appearAnimation()
+                .staggerIn(index: 0)
 
                 VStack(spacing: 0) {
                     ForEach(Array(list.enumerated()), id: \.element.id) { i, q in
@@ -402,7 +402,7 @@ struct MockExamView: View {
                     }
                 }
                 .softCardBackground(cornerRadius: 20)
-                .appearAnimation(delay: 0.06)
+                .staggerIn(index: 1)
 
                 HStack(spacing: 10) {
                     Button("새 시험") { Task { await begin() } }

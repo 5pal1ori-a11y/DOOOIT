@@ -70,6 +70,8 @@ struct WordListView: View {
             } header: {
                 HStack {
                     Text("\(filtered.count)개")
+                        .monospacedDigit()
+                        .numberRoll(Double(filtered.count))
                     Spacer()
                     Button { showAdd = true } label: {
                         Image(systemName: "plus").font(.pt(.subheadline).weight(.bold))
@@ -128,7 +130,7 @@ struct WordListView: View {
                                 .frame(height: 32)
                                 .background(selected ? Theme.accent : Palette.cardInset, in: .capsule)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.pressable)
                     }
                 }
             }
@@ -163,7 +165,7 @@ struct WordListView: View {
                 .padding(.vertical, 10)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressableRow)
 
             iconButton(symbol: "speaker.wave.2", color: .secondary, label: L("\(word.term) 발음 듣기")) {
                 WordSpeaker.shared.speak(word.term)

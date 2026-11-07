@@ -27,6 +27,8 @@ struct StatsView: View {
     @Query private var sessions: [StudySession]
     @Query private var categories: [PlanCategory]
     @State private var period: StatPeriod = .week
+    /// 과목 막대가 처음 나타날 때 왼쪽에서 차오름
+    @State private var barShown = Motion.reduced
 
     private struct Entry {
         let category: String
@@ -71,7 +73,7 @@ struct StatsView: View {
                             .foregroundStyle(Palette.ink)
                     }
                     .frame(maxWidth: .infinity)
-                    .contentTransition(.numericText())
+                    .numberRoll(Double(total))
 
                     if total == 0 {
                         EmptyStateView(symbol: "chart.pie", title: L("아직 공부 기록이 없어요"))
@@ -80,22 +82,22 @@ struct StatsView: View {
                     }
                 }
                 .softCard(cornerRadius: 24, padding: 20)
-                .appearAnimation()
+                .staggerIn(index: 0)
 
                 if total > 0 {
                     subjectList(bySubject, total: total)
-                        .appearAnimation(delay: 0.05)
+                        .staggerIn(index: 1)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
                 comparison(total: total, previous: previous)
                     .softCard(cornerRadius: 24, padding: 20)
-                    .appearAnimation(delay: 0.1)
+                    .staggerIn(index: 2)
 
                 if total > 0 {
                     hourHeat(current)
                         .softCard(cornerRadius: 24, padding: 20)
-                        .appearAnimation(delay: 0.15)
+                        .staggerIn(index: 3)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
@@ -132,12 +134,15 @@ struct StatsView: View {
                 ForEach(items) { item in
                     Rectangle()
                         .fill(color(for: item.name))
-                        .frame(width: max(2, (geo.size.width - gaps) * CGFloat(item.seconds) / CGFloat(total)))
+                        .frame(width: barShown ? max(2, (geo.size.width - gaps) * CGFloat(item.seconds) / CGFloat(total)) : 2)
                 }
             }
+            .animation(Motion.fill, value: barShown)
+            .animation(Motion.fill, value: items.map(\.seconds))
         }
         .frame(height: 16)
         .clipShape(Capsule())
+        .onAppear { barShown = true }
     }
 
     private func subjectList(_ items: [SubjectTotal], total: Int) -> some View {
@@ -154,10 +159,12 @@ struct StatsView: View {
                         .font(.pt(.caption))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
+                        .numberRoll(Double(item.seconds))
                     Text(TimeText.durationL(seconds: item.seconds))
                         .font(.pt(.body).weight(.bold))
                         .monospacedDigit()
                         .frame(minWidth: 90, alignment: .trailing)
+                        .numberRoll(Double(item.seconds))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 13)

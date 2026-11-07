@@ -49,7 +49,7 @@ struct AccountView: View {
             List {
                 Section {
                     profileHeader
-                        .appearAnimation()
+                        .staggerIn(index: 0)
                     if auth.isGuest { guestCard }
                 }
                 .listRowBackground(Color.clear)
@@ -57,7 +57,7 @@ struct AccountView: View {
 
                 Section {
                     statsRow
-                        .appearAnimation(delay: 0.08)
+                        .staggerIn(index: 1)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -337,7 +337,7 @@ struct AccountView: View {
                             .overlay(Circle().strokeBorder(Palette.card, lineWidth: 2))
                     }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .accessibilityLabel("프로필 사진 바꾸기")
             .confirmationDialog("프로필 사진", isPresented: $showPhotoMenu, titleVisibility: .visible) {
                 Button("앨범에서 고르기") { showPhotoPicker = true }
@@ -413,6 +413,7 @@ struct AccountView: View {
             Text(value)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
+                .numberRoll(value)
         }
     }
 

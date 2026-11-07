@@ -23,7 +23,7 @@ struct LearnHubSection: View {
                     RowLabel(symbol: "newspaper.fill", color: Palette.butter, title: L("주간 리포트"))
                 }
             }
-            .buttonStyle(.pressable)
+            .buttonStyle(.pressableRow)
             .softCardBackground(cornerRadius: 20)
         }
     }

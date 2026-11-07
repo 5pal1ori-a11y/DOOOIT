@@ -123,16 +123,20 @@ struct ProgressRing: View {
     let progress: Double
     var lineWidth: CGFloat = 8
     var color: Color = Theme.accent
+    /// 처음 나타날 때 0에서 값까지 차오름 (그 뒤로는 값이 바뀔 때마다 부드럽게)
+    @State private var appeared = Motion.reduced
 
     var body: some View {
+        let shown = appeared ? min(max(progress, 0), 1) : 0
         ZStack {
             Circle().stroke(Theme.secondaryFill, lineWidth: lineWidth)
             Circle()
-                .trim(from: 0, to: min(max(progress, 0), 1))
+                .trim(from: 0, to: shown)
                 .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.smooth, value: progress)
+                .animation(Motion.fill, value: shown)
         }
+        .onAppear { appeared = true }
     }
 }
 
@@ -225,7 +229,7 @@ struct ThemePicker: View {
     private func card(_ theme: ThemeColor) -> some View {
         let isOn = theme == current
         return Button {
-            withAnimation(.snappy) { themeRaw = theme.rawValue }
+            withAnimation(Motion.quick) { themeRaw = theme.rawValue }
         } label: {
             VStack(spacing: 7) {
                 // 진한 색 · 강조색 · 연한 색 세 줄
@@ -244,6 +248,7 @@ struct ThemePicker: View {
                             .font(.pt(size: 15, weight: .bold))
                             .foregroundStyle(theme.onAccent, theme.accent)
                             .offset(x: 5, y: -5)
+                            .transition(.scale(scale: 0.6).combined(with: .opacity))
                     }
                 }
                 Text(theme.title)
@@ -254,7 +259,7 @@ struct ThemePicker: View {
             }
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .accessibilityLabel("\(theme.title) 테마")
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
@@ -341,7 +346,7 @@ struct StatColumn: View {
                 .font(.pt(size: 22, weight: .bold))
                 .foregroundStyle(color)
                 .monospacedDigit()
-                .contentTransition(.numericText())
+                .numberRoll(value)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
             Text(label).font(.pt(.footnote)).foregroundStyle(.secondary)
@@ -356,20 +361,27 @@ struct LinearProgressBar: View {
     var color: Color = Theme.accent
     var height: CGFloat = 8
 
+    /// 처음 나타날 때 0에서 값까지 차오름
+    @State private var appeared = Motion.reduced
+
     var body: some View {
+        let shown = appeared ? min(max(value, 0), 1) : 0
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(Theme.secondaryFill)
-                Capsule().fill(color).frame(width: max(height, geo.size.width * min(max(value, 0), 1)))
+                Capsule().fill(color).frame(width: max(height, geo.size.width * shown))
             }
         }
         .frame(height: height)
-        .animation(.smooth, value: value)
+        .animation(Motion.fill, value: shown)
+        .onAppear { appeared = true }
     }
 }
 
 /// 꽉 찬 강조 버튼 (화면에서 가장 중요한 동작 하나)
 struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.pt(.body).weight(.semibold))
@@ -378,7 +390,8 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(height: 52)
             .background(Theme.current.fill, in: .rect(cornerRadius: Radius.button, style: .continuous))
             .opacity(configuration.isPressed ? 0.75 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 

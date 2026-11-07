@@ -36,12 +36,12 @@ struct StudyView: View {
                             RowLabel(symbol: "chart.bar", title: L("공부 통계"))
                         }
                     }
-                    .buttonStyle(.pressable)
+                    .buttonStyle(.pressableRow)
                     .softCardBackground()
-                    .appearAnimation()
+                    .staggerIn(index: 0)
 
                     LearnHubSection()
-                        .appearAnimation(delay: 0.08)
+                        .staggerIn(index: 1)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 4)

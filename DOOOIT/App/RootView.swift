@@ -29,12 +29,14 @@ struct RootView: View {
                 #endif
             }
             .animation(.smooth(duration: 0.4), value: auth.currentUser)
+            // 테마를 바꾸면 새 색으로 부드럽게 바뀜 (값이 바뀔 때만 움직이므로 다시 그릴 때마다 움직이지 않음)
+            .animation(.easeInOut(duration: 0.3), value: themeRaw)
 
             if showSplash {
                 SplashView {
                     withAnimation(.easeInOut(duration: 0.55)) { showSplash = false }
                 }
-                .transition(.opacity.combined(with: .scale(scale: 1.08)))
+                .transition(Motion.reduced ? .opacity : .opacity.combined(with: .scale(scale: 1.03)))
                 .zIndex(10)
             }
         }
@@ -56,6 +58,7 @@ struct RootView: View {
                 MainTabView()
                     // 테마를 바꾸거나 계정이 바뀌면 탭 화면 전체를 다시 그림 (새 색, 그 계정의 저장소)
                     .id("\(themeRaw)-\(user.id)")
+                    .transition(.opacity)
             }
         } else {
             AuthView()

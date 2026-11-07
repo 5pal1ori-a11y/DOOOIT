@@ -61,8 +61,8 @@ struct WordHomeView: View {
         VStack(spacing: 0) {
             tabBar
             switch tab {
-            case .study: studyTab
-            case .book: WordListView(words: deckWords, defaultDeck: addDeck)
+            case .study: studyTab.transition(.opacity)
+            case .book: WordListView(words: deckWords, defaultDeck: addDeck).transition(.opacity)
             }
         }
         .background(Palette.card.ignoresSafeArea())
@@ -237,7 +237,7 @@ struct WordHomeView: View {
                 Text("\(value)")
                     .font(.pt(size: 44, weight: .bold).monospacedDigit())
                     .foregroundStyle(highlighted ? Theme.accent : Palette.ink)
-                    .contentTransition(.numericText())
+                    .numberRoll(Double(value))
                 Text(label)
                     .font(.pt(.subheadline).weight(.medium))
                     .foregroundStyle(.secondary)
@@ -302,7 +302,7 @@ struct WordHomeView: View {
                 }
             }
         }
-        .buttonStyle(.pressable)
+        .buttonStyle(.pressableRow)
         .background(Palette.cardInset.opacity(0.6), in: .rect(cornerRadius: 14, style: .continuous))
     }
 
@@ -378,5 +378,6 @@ private struct WordStatsSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+        .contentFadeIn()
     }
 }
