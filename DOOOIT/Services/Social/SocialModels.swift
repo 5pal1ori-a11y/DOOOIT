@@ -76,9 +76,11 @@ struct SocialProfile: Equatable, Identifiable {
     var updatedAt: Date
     /// true면 닉네임만 보임 (시간 · 공부 중 표시는 아예 올리지 않음)
     var isHidden: Bool = false
+    /// 누구의 친구 코드로 시작했는지 (처음 추가한 친구의 프로필 id. 초대 보상 같은 기능이 읽음. 없으면 nil)
+    var invitedBy: String?
 
     static let fieldKeys = ["nickname", "friendCode", "todaySeconds", "todayKey", "weekSeconds", "weekKey",
-                            "studyingSince", "updatedAt", "isHidden"]
+                            "studyingSince", "updatedAt", "isHidden", "invitedBy"]
 
     func fields() -> SocialFields {
         var f: SocialFields = [
@@ -92,11 +94,13 @@ struct SocialProfile: Equatable, Identifiable {
             "isHidden": .int(isHidden ? 1 : 0)
         ]
         if let studyingSince { f["studyingSince"] = .date(studyingSince) }
+        if let invitedBy, !invitedBy.isEmpty { f["invitedBy"] = .string(invitedBy) }
         return f
     }
 
     init(id: String, nickname: String, friendCode: String, todaySeconds: Int = 0, todayKey: String = "",
-         weekSeconds: Int = 0, weekKey: String = "", studyingSince: Date? = nil, updatedAt: Date, isHidden: Bool = false) {
+         weekSeconds: Int = 0, weekKey: String = "", studyingSince: Date? = nil, updatedAt: Date, isHidden: Bool = false,
+         invitedBy: String? = nil) {
         self.id = id
         self.nickname = nickname
         self.friendCode = friendCode
@@ -107,6 +111,7 @@ struct SocialProfile: Equatable, Identifiable {
         self.studyingSince = studyingSince
         self.updatedAt = updatedAt
         self.isHidden = isHidden
+        self.invitedBy = invitedBy
     }
 
     /// 받은 기록 → 프로필. 값이 이상해도 범위 안으로 (남이 올린 값은 믿지 않음)
@@ -122,6 +127,7 @@ struct SocialProfile: Equatable, Identifiable {
         self.studyingSince = f.date("studyingSince")
         self.updatedAt = f.date("updatedAt") ?? Date(timeIntervalSince1970: 0)
         self.isHidden = (f.int("isHidden") ?? 0) != 0
+        self.invitedBy = f.string("invitedBy").flatMap { $0.isEmpty ? nil : String($0.prefix(64)) }
     }
 }
 
@@ -262,6 +268,9 @@ struct SocialState: Codable, Equatable {
     var showStatus = true
     /// 이 프로필을 만든 iCloud 계정 (다른 계정으로 바뀌면 처음부터)
     var iCloudOwner = ""
+    /// 시작한 때 · 처음 추가한 친구 (초대로 시작했는지 가늠하는 데 씀. 시작 3일 안에 처음 추가한 친구만 인정)
+    var setUpAt: Date?
+    var invitedBy: String?
     var friends: [FriendRef] = []
     var blocked: [BlockedRef] = []
     var groups: [JoinedGroup] = []

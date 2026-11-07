@@ -134,7 +134,8 @@ final class InMemorySocialBackend: SocialBackend, @unchecked Sendable {
         }
     }
 
-    func accountStatus() async -> SocialAccountStatus { lock.lock(); defer { lock.unlock() }; return status }
+    private func currentStatus() -> SocialAccountStatus { lock.lock(); defer { lock.unlock() }; return status }
+    func accountStatus() async -> SocialAccountStatus { currentStatus() }
     func accountToken() async throws -> String { try enter(); return user }
 
     private func canWrite(_ recordName: String) -> Bool {

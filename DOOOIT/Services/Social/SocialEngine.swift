@@ -77,6 +77,7 @@ final class SocialEngine {
             $0.profileID = profileID
             $0.friendCode = code
             $0.nickname = nickname
+            if $0.setUpAt == nil { $0.setUpAt = now() }
         }
         try await publish(totals: totals, studyingSince: nil)
         mutate { $0.enabled = true }
@@ -119,12 +120,12 @@ final class SocialEngine {
             return SocialProfile(id: state.profileID, nickname: state.nickname, friendCode: state.friendCode,
                                  todaySeconds: totals.today, todayKey: SocialClock.dayKey(at),
                                  weekSeconds: totals.week, weekKey: SocialClock.weekKey(at),
-                                 studyingSince: studyingSince, updatedAt: at, isHidden: false)
+                                 studyingSince: studyingSince, updatedAt: at, isHidden: false, invitedBy: state.invitedBy)
         }
         // 숨기기: 시간 · 공부 중 표시는 아예 올리지 않음
         return SocialProfile(id: state.profileID, nickname: state.nickname, friendCode: state.friendCode,
                              todaySeconds: 0, todayKey: SocialClock.dayKey(at), weekSeconds: 0, weekKey: SocialClock.weekKey(at),
-                             studyingSince: nil, updatedAt: at, isHidden: true)
+                             studyingSince: nil, updatedAt: at, isHidden: true, invitedBy: state.invitedBy)
     }
 
     @discardableResult
@@ -190,7 +191,13 @@ final class SocialEngine {
         if state.isBlocked(profile.id) { throw SocialError.blockedUser }
         if state.isFriend(profile.id) { throw SocialError.alreadyFriend }
         let ref = FriendRef(id: profile.id, nickname: profile.nickname, addedAt: now())
-        mutate { $0.friends.append(ref) }
+        // 시작하고 3일 안에 처음 추가한 친구 = 초대해 준 사람
+        let invited = state.invitedBy == nil && state.friends.isEmpty
+            && (state.setUpAt.map { now().timeIntervalSince($0) < 3 * 86_400 } ?? false)
+        mutate {
+            $0.friends.append(ref)
+            if invited { $0.invitedBy = profile.id }
+        }
         return ref
     }
 

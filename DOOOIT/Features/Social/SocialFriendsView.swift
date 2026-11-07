@@ -239,7 +239,7 @@ private struct AddFriendSheet: View {
         errorText = nil
         Task {
             do {
-                try await center.engine.addFriend(code: text)
+                try await center.addFriend(code: text)
                 Haptics.tap()
                 await onAdded()
                 dismiss()

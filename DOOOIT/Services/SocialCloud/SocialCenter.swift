@@ -120,10 +120,25 @@ final class SocialCenter {
     func setNickname(_ raw: String) async throws {
         try await engine.setNickname(raw)
         lastSnapshot = nil
+        request(.stateChange)
     }
 
     func regenerateFriendCode() async throws {
         try await engine.regenerateFriendCode()
+        lastSnapshot = nil
+        request(.stateChange)
+    }
+
+    /// 친구 추가: 처음 추가한 친구가 "초대한 사람"으로 내 프로필에 실리므로 지금 시간과 함께 다시 올림
+    @discardableResult
+    func addFriend(code: String) async throws -> FriendRef {
+        let before = engine.state.invitedBy
+        let ref = try await engine.addFriend(code: code)
+        if engine.state.invitedBy != before {
+            lastSnapshot = nil
+            request(.stateChange)
+        }
+        return ref
     }
 
     /// 내 공부 상태 보여주기 켜기/끄기: 바로 올려 보고, 못 올리면 되돌림 (숨긴 줄 알았는데 안 숨겨진 상태를 막으려고)

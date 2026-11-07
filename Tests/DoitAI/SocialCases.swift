@@ -225,6 +225,9 @@ private func runSocialMappingCases() {
     check("신고 필드", r.fields().string("reason") == "harassment" && r.fields().string("reportedProfileID") == "p2" && r.fields().date("createdAt") == now)
     check("신고 사유 4가지", ReportReason.allCases.count == 4 && ReportReason.allCases.map(\.rawValue).contains("inappropriateName"))
     check("종류별 필드 이름", SocialRecordType.fieldKeys(SocialRecordType.group) == StudyGroup.fieldKeys && SocialRecordType.fieldKeys("x").isEmpty)
+    var inv = profile("p1", "하늘", now: now)
+    inv.invitedBy = "p7"
+    check("invitedBy 왕복", SocialProfile(id: "p1", fields: inv.fields())?.invitedBy == "p7" && SocialProfile(id: "p1", fields: f)?.invitedBy == nil)
     check("MotiProfile 키가 스키마 파일과 같은 이름", SocialProfile.fieldKeys.contains("friendCode") && SocialRecordType.profile == "MotiProfile")
 }
 
@@ -323,6 +326,10 @@ private func runSocialEngineCases() async {
     do {
         let ref = try await a.engine.addFriend(code: "친구 코드: \(SocialCode.display(b.engine.state.friendCode))")
         check("공유 글로 친구 추가", ref.id == b.id && ref.nickname == "서준" && a.engine.state.friends.count == 1)
+        check("시작 직후 처음 추가한 친구가 초대한 사람", a.engine.state.invitedBy == b.id && a.engine.state.setUpAt != nil)
+        check("초대한 사람 id가 프로필에 실림", a.engine.makeProfile(totals: .init(today: 0, week: 0), studyingSince: nil).invitedBy == b.id
+              && a.engine.makeProfile(totals: .init(today: 0, week: 0), studyingSince: nil).fields().string("invitedBy") == b.id)
+        check("초대한 사람이 없으면 필드를 안 올림", b.engine.makeProfile(totals: .init(today: 0, week: 0), studyingSince: nil).fields()["invitedBy"] == nil)
     } catch { check("친구 추가", false, "\(error)") }
     await expectError("이미 친구", .alreadyFriend) { try await a.engine.addFriend(code: b.engine.state.friendCode) }
 

@@ -3,7 +3,7 @@ import Foundation
 
 /// 진짜 클라우드: CloudKit 공용 데이터베이스 (iCloud.com.donghyeon.moti). 따로 서버 없음.
 /// 기록 이름 = 프로필 · 그룹 id(무작위 UUID), 멤버는 "gm.<그룹>.<프로필>". 필드는 SocialFields 그대로 옮김.
-/// 표 모양은 Config/CloudKitPublicSchema.ckdb (CloudKit Console에서 가져오고 Production에 올려야 동작)
+/// 표 모양은 Config/CloudKitSchema.ckdb (MotiProfile · StudyGroup · GroupMember · MotiReport) (CloudKit Console에서 가져오고 Production에 올려야 동작)
 final class CloudKitSocialBackend: SocialBackend, @unchecked Sendable {
     private let container: CKContainer
     private var database: CKDatabase { container.publicCloudDatabase }
