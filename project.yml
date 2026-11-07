@@ -15,7 +15,7 @@ settings:
     DOOOIT_WATCH_GROUP_SUFFIX: ""
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "1.0.1"
+    MARKETING_VERSION: "1.0.2"
     CURRENT_PROJECT_VERSION: "1"
 packages:
   # 두잇 AI 두뇌 (기기 안 오픈소스 언어 모델)
