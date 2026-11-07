@@ -34282,6 +34282,50 @@
           }
         }
       }
+    },
+    "초대 %lld/%lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invited %lld/%lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待 %lld/%lld"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "邀请 %lld/%lld"
+          }
+        }
+      }
+    },
+    "초대 %lld명": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invited %lld"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "招待 %lld人"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "邀请 %lld人"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

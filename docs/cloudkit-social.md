@@ -19,6 +19,19 @@ title: Friends and groups: CloudKit schema
 
 가져오기에서 문법 오류가 나면 오류 문구를 알려 주세요. 같은 내용을 Console에서 손으로 만들 수도 있어요: 기록 종류마다 위 필드를 만들고, Security Roles에서 `_world` 읽기 · `_icloud` 만들기 · `_creator` 쓰기를 주면 돼요 (`MotiReport`는 `_icloud` 만들기만).
 
+## 초대 보상용 필드 (다시 올려야 해요)
+
+초대 보상(친구 1 · 3 · 10명)을 위해 `MotiProfile`에 `totalSeconds`(INT64, 지금까지 쌓은 공부 초)가 **새로 늘었어요**. 이미 예전 스키마를 올렸다면 아래를 한 번 더 해 주세요:
+
+1. Development 환경에서 **Schema → Import Schema**로 바뀐 `Config/CloudKitSchema.ckdb`를 다시 가져와요 (새 필드만 늘어나요).
+2. **Deploy Schema Changes… → Deploy to Production**을 다시 눌러요.
+3. `MotiProfile.invitedBy`가 Queryable인지 확인해요 (초대한 사람이 "나를 초대한 친구"를 찾을 때 써요).
+
+올리기 전에는 앱이 `totalSeconds`만 빼고 프로필을 올려서 친구 기능은 그대로 동작해요. 다만 초대 보상은 올리기 전에는 늘지 않아요.
+
+규칙: 내가 초대한 친구(그 친구의 `invitedBy`가 내 프로필 id)가 누적 1시간 이상 공부하면 한 명당 한 번만 세요. 공부 상태를 숨긴 친구는 시간을 올리지 않아서 세지 않아요.
+값은 친구 기기가 스스로 올리므로 조작할 수 있어요 (서버 없이 쓰는 한계). 그래서 계정당 최대 30명까지만 세요.
+
 ## 보안 모양
 
 - 읽기는 누구나(`_world`), 쓰기 · 지우기는 기록을 만든 사람만(`_creator`).

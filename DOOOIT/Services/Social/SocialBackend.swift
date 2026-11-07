@@ -50,6 +50,8 @@ protocol SocialBackend: AnyObject, Sendable {
     func fetchProfiles(ids: [String]) async throws -> [String: SocialProfile]
     func findProfile(friendCode: String) async throws -> SocialProfile?
     func deleteProfile(id: String) async throws
+    /// 나를 초대한 사람으로 적은(invitedBy) 프로필들 (초대 보상용. 한 번에 최대 50명)
+    func fetchInvited(by profileID: String) async throws -> [SocialProfile]
 
     func saveGroup(_ group: StudyGroup) async throws
     func fetchGroup(id: String) async throws -> StudyGroup?
@@ -173,6 +175,13 @@ final class InMemorySocialBackend: SocialBackend, @unchecked Sendable {
             guard canWrite(id) else { throw SocialError.permissionDenied }
             cloud.profiles[id] = nil
             cloud.creators[id] = nil
+        }
+    }
+
+    func fetchInvited(by profileID: String) async throws -> [SocialProfile] {
+        try enter()
+        return cloud.locked {
+            Array(cloud.profiles.values.filter { $0.invitedBy == profileID }.sorted { $0.id < $1.id }.prefix(50))
         }
     }
 

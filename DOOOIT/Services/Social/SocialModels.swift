@@ -47,7 +47,9 @@ extension Dictionary where Key == String, Value == SocialValue {
 /// 이 기기에 저장하는 키 (계정마다 따로: AccountStore.personalKeys에 넣음)
 enum SocialKeys {
     static let state = "social.state"
-    static var all: [String] { [state] }
+    /// 초대 보상으로 이미 센 친구 프로필 id 목록 (같은 친구를 두 번 세지 않으려고)
+    static let countedInvites = "invites.countedIDs"
+    static var all: [String] { [state, countedInvites] }
 }
 
 enum SocialLimits {
@@ -59,6 +61,8 @@ enum SocialLimits {
     /// 하루/한 주 공부 시간으로 믿을 수 있는 최대 (잘못된 값이 와도 화면이 깨지지 않게)
     static let daySecondsMax = 24 * 3600
     static let weekSecondsMax = 7 * 24 * 3600
+    /// 지금까지 쌓은 공부 시간으로 믿을 수 있는 최대 (1만 시간)
+    static let totalSecondsMax = 10_000 * 3600
 }
 
 // MARK: - 프로필
@@ -78,9 +82,11 @@ struct SocialProfile: Equatable, Identifiable {
     var isHidden: Bool = false
     /// 누구의 친구 코드로 시작했는지 (처음 추가한 친구의 프로필 id. 초대 보상 같은 기능이 읽음. 없으면 nil)
     var invitedBy: String?
+    /// 지금까지 쌓은 공부 시간 (초대 보상: 초대한 사람이 "1시간 이상 공부했는지"만 봄. 숨기면 0)
+    var totalSeconds: Int = 0
 
     static let fieldKeys = ["nickname", "friendCode", "todaySeconds", "todayKey", "weekSeconds", "weekKey",
-                            "studyingSince", "updatedAt", "isHidden", "invitedBy"]
+                            "studyingSince", "updatedAt", "isHidden", "invitedBy", "totalSeconds"]
 
     func fields() -> SocialFields {
         var f: SocialFields = [
@@ -91,7 +97,8 @@ struct SocialProfile: Equatable, Identifiable {
             "weekSeconds": .int(weekSeconds),
             "weekKey": .string(weekKey),
             "updatedAt": .date(updatedAt),
-            "isHidden": .int(isHidden ? 1 : 0)
+            "isHidden": .int(isHidden ? 1 : 0),
+            "totalSeconds": .int(totalSeconds)
         ]
         if let studyingSince { f["studyingSince"] = .date(studyingSince) }
         if let invitedBy, !invitedBy.isEmpty { f["invitedBy"] = .string(invitedBy) }
@@ -100,7 +107,7 @@ struct SocialProfile: Equatable, Identifiable {
 
     init(id: String, nickname: String, friendCode: String, todaySeconds: Int = 0, todayKey: String = "",
          weekSeconds: Int = 0, weekKey: String = "", studyingSince: Date? = nil, updatedAt: Date, isHidden: Bool = false,
-         invitedBy: String? = nil) {
+         invitedBy: String? = nil, totalSeconds: Int = 0) {
         self.id = id
         self.nickname = nickname
         self.friendCode = friendCode
@@ -112,6 +119,7 @@ struct SocialProfile: Equatable, Identifiable {
         self.updatedAt = updatedAt
         self.isHidden = isHidden
         self.invitedBy = invitedBy
+        self.totalSeconds = totalSeconds
     }
 
     /// 받은 기록 → 프로필. 값이 이상해도 범위 안으로 (남이 올린 값은 믿지 않음)
@@ -128,6 +136,7 @@ struct SocialProfile: Equatable, Identifiable {
         self.updatedAt = f.date("updatedAt") ?? Date(timeIntervalSince1970: 0)
         self.isHidden = (f.int("isHidden") ?? 0) != 0
         self.invitedBy = f.string("invitedBy").flatMap { $0.isEmpty ? nil : String($0.prefix(64)) }
+        self.totalSeconds = min(max(0, f.int("totalSeconds") ?? 0), SocialLimits.totalSecondsMax)
     }
 }
 

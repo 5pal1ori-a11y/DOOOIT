@@ -18,6 +18,7 @@ struct SocialFriendsTab: View {
     @State private var reporting: ReportTarget?
     @State private var removing: FriendRef?
     @State private var copied = false
+    @State private var invites = InviteRewards.count()
 
     var body: some View {
         ScrollView {
@@ -47,6 +48,7 @@ struct SocialFriendsTab: View {
                 await load()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: InviteRewards.changed)) { _ in invites = InviteRewards.count() }
         .sheet(isPresented: $showAdd) {
             AddFriendSheet { await load() }
         }
@@ -74,6 +76,7 @@ struct SocialFriendsTab: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("내 친구 코드").font(.pt(.footnote)).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
+                inviteChip
                 Text(center.state.nickname).font(.pt(.footnote)).foregroundStyle(.secondary).lineLimit(1)
             }
             Text(SocialCode.display(code))
@@ -109,6 +112,24 @@ struct SocialFriendsTab: View {
             .foregroundStyle(Palette.ink)
         }
         .softCard()
+    }
+
+    /// 초대 진행 ("초대 1/3"): 다음 보상 단계까지. 모두 받았으면 "초대 10명"
+    private var inviteChip: some View {
+        let next = InviteRewards.Tier.allCases.first { invites < $0.threshold }
+        return Group {
+            if let next {
+                Text("초대 \(invites)/\(next.threshold)")
+            } else {
+                Text("초대 \(invites)명")
+            }
+        }
+        .font(.pt(.caption).weight(.semibold))
+        .monospacedDigit()
+        .foregroundStyle(Palette.ink)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(Palette.cardInset, in: .capsule)
     }
 
     // MARK: 친구 목록
@@ -198,6 +219,7 @@ struct SocialFriendsTab: View {
             errorText = SocialText.message(for: error)
         }
         loaded = true
+        await center.syncInvites()
     }
 }
 

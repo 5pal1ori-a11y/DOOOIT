@@ -20,6 +20,8 @@ struct PublishedSnapshot: Equatable {
     var todayKey: String
     var hidden: Bool
     var nickname: String
+    /// 지금까지 공부한 분 (초대 보상용. 분이 바뀔 때만 다시 올림)
+    var totalMinutes: Int = 0
 }
 
 struct PublishPolicy {

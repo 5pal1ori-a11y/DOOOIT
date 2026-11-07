@@ -343,6 +343,7 @@ DEFINE SCHEMA
         studyingSince   TIMESTAMP,
         todayKey        STRING,
         todaySeconds    INT64,
+        totalSeconds    INT64,
         updatedAt       TIMESTAMP,
         weekKey         STRING,
         weekSeconds     INT64,

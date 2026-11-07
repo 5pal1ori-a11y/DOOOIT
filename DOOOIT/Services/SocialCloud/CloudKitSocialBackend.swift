@@ -10,6 +10,8 @@ final class CloudKitSocialBackend: SocialBackend, @unchecked Sendable {
     private let lock = NSLock()
     /// 내가 쓴 기록의 서버 정보(변경 표시)를 들고 있어서, 다음 갱신 때 다시 불러오지 않음
     private var cache: [String: CKRecord] = [:]
+    /// 서버 표(스키마)에 totalSeconds가 아직 없어서 거절당했는지 (그러면 그 필드만 빼고 올림)
+    private var totalFieldRejected = false
 
     init(containerID: String = AccountStore.cloudContainer) {
         container = CKContainer(identifier: containerID)
@@ -38,8 +40,24 @@ final class CloudKitSocialBackend: SocialBackend, @unchecked Sendable {
     // MARK: 프로필
 
     func saveProfile(_ profile: SocialProfile) async throws {
-        try await save(type: SocialRecordType.profile, name: profile.id, fields: profile.fields())
+        var fields = profile.fields()
+        if isTotalFieldRejected {
+            fields["totalSeconds"] = nil
+            try await save(type: SocialRecordType.profile, name: profile.id, fields: fields)
+            return
+        }
+        do {
+            try await save(type: SocialRecordType.profile, name: profile.id, fields: fields)
+        } catch SocialError.server(_) {
+            // 새 필드(totalSeconds)를 서버 표에 아직 안 올렸을 수 있음: 그 필드만 빼고 다시 올림 (친구 기능은 계속 동작)
+            fields["totalSeconds"] = nil
+            try await save(type: SocialRecordType.profile, name: profile.id, fields: fields)
+            setTotalFieldRejected()
+        }
     }
+
+    private var isTotalFieldRejected: Bool { lock.lock(); defer { lock.unlock() }; return totalFieldRejected }
+    private func setTotalFieldRejected() { lock.lock(); totalFieldRejected = true; lock.unlock() }
 
     func fetchProfiles(ids: [String]) async throws -> [String: SocialProfile] {
         let records = try await fetchRecords(names: ids)
@@ -57,6 +75,11 @@ final class CloudKitSocialBackend: SocialBackend, @unchecked Sendable {
     }
 
     func deleteProfile(id: String) async throws { try await delete(name: id) }
+
+    func fetchInvited(by profileID: String) async throws -> [SocialProfile] {
+        let records = try await query(type: SocialRecordType.profile, field: "invitedBy", equals: profileID, limit: 50)
+        return records.compactMap { SocialProfile(id: $0.recordID.recordName, fields: Self.fields(of: $0, type: SocialRecordType.profile)) }
+    }
 
     // MARK: 그룹
 

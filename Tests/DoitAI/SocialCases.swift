@@ -292,7 +292,7 @@ private func runSocialStateCases() {
         check("지우면 빈 상태", store.load() == SocialState())
         d.removePersistentDomain(forName: suite)
     }
-    check("계정마다 따로 저장하는 키에 들어감", SocialKeys.all == ["social.state"])
+    check("계정마다 따로 저장하는 키에 들어감", SocialKeys.all == ["social.state", "invites.countedIDs"])
 }
 
 // MARK: - 친구 규칙 (가짜 클라우드)

@@ -49,16 +49,20 @@ enum SocialClock {
     struct Totals: Equatable {
         var today: Int
         var week: Int
+        /// 지금까지 전부 (넘겨 준 기록이 전부일 때만 맞음. 앱은 따로 합산해서 덮어씀)
+        var total: Int = 0
     }
 
     /// 공부 기록들(+ 지금 하는 공부)에서 오늘 · 이번 주 공부 시간
     static func totals(sessions: [(start: Date, seconds: Int)], now: Date) -> Totals {
         let day = dayRange(now), week = weekRange(now)
-        var today = 0, thisWeek = 0
+        var today = 0, thisWeek = 0, all = 0
         for s in sessions {
+            all += max(0, s.seconds)
             today += overlap(start: s.start, seconds: s.seconds, range: day)
             thisWeek += overlap(start: s.start, seconds: s.seconds, range: week)
         }
-        return Totals(today: min(today, SocialLimits.daySecondsMax), week: min(thisWeek, SocialLimits.weekSecondsMax))
+        return Totals(today: min(today, SocialLimits.daySecondsMax), week: min(thisWeek, SocialLimits.weekSecondsMax),
+                      total: min(all, SocialLimits.totalSecondsMax))
     }
 }

@@ -30,6 +30,10 @@ final class SocialCenter {
     @ObservationIgnored private var context: ModelContext?
     @ObservationIgnored private var appActive = true
     @ObservationIgnored private var observers: [Task<Void, Never>] = []
+    /// 지금까지 쌓은 공부 시간(저장된 기록)과 계산한 때 (매번 전부 읽지 않으려고 잠깐 들고 있음)
+    @ObservationIgnored private var storedTotal: (seconds: Int, at: Date)?
+    @ObservationIgnored private var lastInviteSync: Date?
+    @ObservationIgnored private var invitesSyncing = false
 
     init() {
         state = store.load()
@@ -64,6 +68,8 @@ final class SocialCenter {
         heartbeat?.cancel(); heartbeat = nil
         policy = PublishPolicy()
         lastSnapshot = nil
+        storedTotal = nil
+        lastInviteSync = nil
         state = store.load()
         _engine?.replaceState(state)
         if state.enabled { updateHeartbeat(); request(.stateChange) }
@@ -93,7 +99,10 @@ final class SocialCenter {
         updateHeartbeat()
         if active {
             request(.stateChange)
-            Task { await engine.flushPendingReports() }
+            Task {
+                await engine.flushPendingReports()
+                await syncInvites()
+            }
         }
     }
 
@@ -161,8 +170,23 @@ final class SocialCenter {
 
     func timerChanged() {
         guard state.enabled else { return }
+        storedTotal = nil // 공부가 끝나면 새 기록이 생겨서 합계를 다시 셈
         updateHeartbeat()
         request(.stateChange)
+    }
+
+    /// 초대한 친구가 1시간 이상 공부했는지 확인해서 보상 숫자를 올림 (1분에 한 번만. 실패해도 조용히 다음에)
+    func syncInvites() async {
+        guard state.enabled, !invitesSyncing else { return }
+        if let last = lastInviteSync, Date().timeIntervalSince(last) < 60 { return }
+        invitesSyncing = true
+        defer { invitesSyncing = false }
+        do {
+            try await engine.syncInvites()
+            lastInviteSync = Date()
+        } catch {
+            // 인터넷 · 서버 문제는 다음 새로고침 때 다시
+        }
     }
 
     /// 화면이 열릴 때 내 상태도 최신으로
@@ -218,7 +242,8 @@ final class SocialCenter {
         let candidate = engine.makeProfile(totals: totals, studyingSince: since)
         let snapshot = PublishedSnapshot(studying: candidate.studyingSince != nil, todaySeconds: candidate.todaySeconds,
                                          weekSeconds: candidate.weekSeconds, todayKey: candidate.todayKey,
-                                         hidden: candidate.isHidden, nickname: candidate.nickname)
+                                         hidden: candidate.isHidden, nickname: candidate.nickname,
+                                         totalMinutes: candidate.totalSeconds / 60)
         if policy.shouldSend(snapshot, last: lastSnapshot, reason: reason) {
             do {
                 try await engine.publish(totals: totals, studyingSince: since)
@@ -257,7 +282,22 @@ final class SocialCenter {
             if elapsed >= 1 { sessions.append((now.addingTimeInterval(-elapsed), Int(elapsed))) }
             if timer.phase == .running { since = now.addingTimeInterval(-elapsed) }
         }
-        return (SocialClock.totals(sessions: sessions, now: now), since)
+        var totals = SocialClock.totals(sessions: sessions, now: now)
+        // 지금까지 전부: 저장된 기록 합계 + 지금 하는 공부 (이미 위 sessions에 지금 공부가 들어 있음)
+        var running = 0
+        if timer.phase != .idle { running = max(0, Int(timer.elapsed(at: now))) }
+        totals.total = min(storedTotalSeconds(now) + running, SocialLimits.totalSecondsMax)
+        return (totals, since)
+    }
+
+    /// 저장된 공부 기록의 전체 합계 (2분 동안은 다시 안 읽음. 공부가 끝나면 timerChanged가 비움)
+    private func storedTotalSeconds(_ now: Date) -> Int {
+        if let storedTotal, now.timeIntervalSince(storedTotal.at) < 120, now >= storedTotal.at { return storedTotal.seconds }
+        guard let context else { return storedTotal?.seconds ?? 0 }
+        let all = (try? context.fetch(FetchDescriptor<StudySession>())) ?? []
+        let sum = min(all.reduce(0) { $0 + max(0, $1.seconds) }, SocialLimits.totalSecondsMax)
+        storedTotal = (sum, now)
+        return sum
     }
 
     #if DEBUG

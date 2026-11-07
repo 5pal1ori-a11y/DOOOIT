@@ -120,7 +120,8 @@ final class SocialEngine {
             return SocialProfile(id: state.profileID, nickname: state.nickname, friendCode: state.friendCode,
                                  todaySeconds: totals.today, todayKey: SocialClock.dayKey(at),
                                  weekSeconds: totals.week, weekKey: SocialClock.weekKey(at),
-                                 studyingSince: studyingSince, updatedAt: at, isHidden: false, invitedBy: state.invitedBy)
+                                 studyingSince: studyingSince, updatedAt: at, isHidden: false, invitedBy: state.invitedBy,
+                                 totalSeconds: min(max(0, totals.total), SocialLimits.totalSecondsMax))
         }
         // 숨기기: 시간 · 공부 중 표시는 아예 올리지 않음
         return SocialProfile(id: state.profileID, nickname: state.nickname, friendCode: state.friendCode,
@@ -174,7 +175,7 @@ final class SocialEngine {
 
     private func republishLast() async throws {
         let base = lastProfile
-        let totals = SocialClock.Totals(today: base?.todaySeconds ?? 0, week: base?.weekSeconds ?? 0)
+        let totals = SocialClock.Totals(today: base?.todaySeconds ?? 0, week: base?.weekSeconds ?? 0, total: base?.totalSeconds ?? 0)
         try await publish(totals: totals, studyingSince: base?.studyingSince)
     }
 
