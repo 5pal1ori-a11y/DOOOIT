@@ -222,7 +222,12 @@ struct VariantSessionView: View {
             .scrollIndicators(.hidden)
             // 채점하면 풀이와 다음 버튼이 보이게 아래로
             .onChange(of: answered) { _, now in
-                if now { withAnimation(Motion.quick) { proxy.scrollTo("end", anchor: .bottom) } }
+                guard now else { return }
+                // 풀이 카드가 그려진 다음에 내려감
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(180))
+                    withAnimation(Motion.quick) { proxy.scrollTo("end", anchor: .bottom) }
+                }
             }
             .onChange(of: item?.id) { _, _ in
                 proxy.scrollTo("top", anchor: .top)
