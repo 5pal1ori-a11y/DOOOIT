@@ -21,6 +21,7 @@ struct PlannerView: View {
     @State private var month = Date().startOfMonth
     @State private var editorTarget: PlanEditorTarget?
     @State private var showCategories = false
+    @State private var showExamPlan = false
     @State private var slideEdge: Edge = .trailing
     @Namespace private var modeNamespace
 
@@ -56,6 +57,10 @@ struct PlannerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showExamPlan = true } label: { Image(systemName: "graduationcap") }
+                        .accessibilityLabel("시험 계획")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { showCategories = true } label: { Image(systemName: "tag") }
                         .accessibilityLabel("카테고리 관리")
                 }
@@ -76,6 +81,12 @@ struct PlannerView: View {
             .sheet(isPresented: $showCategories) {
                 NavigationStack { CategoryManagerView() }
             }
+            .sheet(isPresented: $showExamPlan) {
+                ExamPlanView()
+            }
+            #if DEBUG
+            .onAppear { if UIShot.matches(.examPlanSheet, .examPlanPreview) { showExamPlan = true } }
+            #endif
             .onChange(of: router.selectedDate) { _, date in
                 if !date.isSameMonth(as: month) { month = date.startOfMonth }
             }

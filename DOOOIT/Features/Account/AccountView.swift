@@ -20,6 +20,9 @@ struct AccountView: View {
     @AppStorage(SettingsKey.liveActivityEnabled) private var liveActivityEnabled = true
     @AppStorage(SettingsKey.autoStartTimer) private var autoStartTimer = true
     @AppStorage(SettingsKey.soundEffects) private var soundEffects = true
+    @AppStorage(SettingsKey.dDayTitle) private var dDayTitle = ""
+    @AppStorage(SettingsKey.dDayDate) private var dDayDate: Double = 0
+    @State private var showExamPlan = false
     @AppStorage(AppearanceMode.key) private var appearanceRaw = AppearanceMode.system.rawValue
     /// 화면 언어: 고른 값 (적용은 안내 창에서 확인한 뒤)
     @State private var languagePick = AppLanguage.selected
@@ -82,6 +85,13 @@ struct AccountView: View {
                     Stepper(value: $wordGoal, in: 5...200, step: 5) {
                         settingLabel("하루 단어", value: L("\(wordGoal)개"), symbol: "book.closed.fill", color: Palette.sky)
                     }
+                    Button { showExamPlan = true } label: {
+                        HStack {
+                            settingLabel("시험 계획", value: dDayValue, symbol: "graduationcap", color: Theme.accent)
+                            Image(systemName: "chevron.right").font(.pt(.footnote).weight(.semibold)).foregroundStyle(.tertiary)
+                        }
+                        .foregroundStyle(Palette.ink)
+                    }
                 }
 
                 Section {
@@ -100,6 +110,7 @@ struct AccountView: View {
             .background { AppBackground() }
             .tint(Theme.accent)
             .navigationTitle("계정")
+            .sheet(isPresented: $showExamPlan) { ExamPlanView() }
             #if DEBUG
             .uiShotPush(.accountSettings) { accountSettings }
             .uiShotPush(.badges) { BadgeShelfView() }
@@ -434,6 +445,13 @@ struct AccountView: View {
     }
 
     // MARK: Helpers
+
+    /// 지금 정해 둔 D-Day ("D-23")
+    private var dDayValue: String {
+        guard !dDayTitle.isEmpty, dDayDate > 0 else { return "" }
+        let diff = Calendar.current.dateComponents([.day], from: Date().startOfDay, to: Date(timeIntervalSince1970: dDayDate).startOfDay).day ?? 0
+        return diff > 0 ? "D-\(diff)" : (diff == 0 ? "D-DAY" : "D+\(-diff)")
+    }
 
     private var appVersion: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
