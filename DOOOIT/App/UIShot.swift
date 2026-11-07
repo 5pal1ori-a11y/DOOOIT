@@ -28,6 +28,8 @@ enum UIShotScreen: String, CaseIterable {
     case ranking, rankingFar
     /// 오답노트: 빈 목록 · 수학 문제(문제 탭) · 영어 문제(채점 뒤) · 취약 개념 목록 · 취약 유형 맞춤 학습
     case mathEmpty, mathNoteText, subjectNote, weakList, weakness
+    /// 시험 D-day 자동 계획: 입력 시트 · 미리보기 (플래너 위에 시트로)
+    case examPlanSheet, examPlanPreview
 }
 
 @MainActor
@@ -60,7 +62,7 @@ enum UIShot {
              .weeklyReport, .wordSession, .ranking, .rankingFar,
              .mathEmpty, .mathNoteText, .subjectNote, .weakList, .weakness: return .study
         case .ai, .voice: return .ai
-        case .planner: return .planner
+        case .planner, .examPlanSheet, .examPlanPreview: return .planner
         case .account, .accountSettings, .appSettings, .badges, .guestAccount: return .account
         default: return .home
         }

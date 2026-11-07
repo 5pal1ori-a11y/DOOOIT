@@ -794,6 +794,7 @@ enum DoitChat {
 
     private static func examPlan(_ c: Context) -> Answer {
         var text = "시험 계획은 이렇게 세워 봐요.\n• D-Day를 정하고 과목별 범위를 단원으로 쪼개기\n• 1회독 개념 → 2회독 문제 → 3회독 오답·암기\n• 마지막 3일은 새로운 것 대신 복습과 오답만"
+        text += "\n플래너의 '시험 계획'에서 시험 날짜와 과목을 고르면 시험 전날까지 하루씩 자동으로 짜 드려요."
         if let d = c.dDay { text += "\n지금 목표: \(d)" }
         return Answer(text: text, suggestions: ["기말고사 D-Day 12월 10일로 설정해줘", "내일 오후 7시 수학 공부 2시간 추가해줘"])
     }
