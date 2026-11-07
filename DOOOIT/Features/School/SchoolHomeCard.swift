@@ -17,7 +17,7 @@ struct SchoolHomeSection: View {
                             Image(systemName: "graduationcap")
                                 .font(.pt(size: 18, weight: .regular))
                                 .foregroundStyle(Theme.secondary)
-                            Text("학교를 설정하면 시간표와 급식이 나와요")
+                            Text("학교를 설정해 주세요")
                                 .font(.pt(.subheadline))
                                 .foregroundStyle(Palette.ink)
                                 .lineLimit(1)

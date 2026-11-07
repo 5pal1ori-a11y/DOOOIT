@@ -121,12 +121,6 @@ struct SchoolSetupView: View {
                 ProgressView().frame(maxWidth: .infinity).padding(.vertical, 24)
             } else if !results.isEmpty {
                 resultList
-                if truncated {
-                    Text("이름을 더 자세히 쓰면 좁혀져요")
-                        .font(.pt(.footnote))
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 2)
-                }
             } else if let message {
                 Text(message)
                     .font(.pt(.footnote))
@@ -183,7 +177,7 @@ struct SchoolSetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionTitle(title: school.name) { EmptyView() }
             if school.kind.timetableEndpoint == nil {
-                Text("이 학교는 시간표를 지원하지 않아요. 급식만 나와요")
+                Text("급식만 지원해요")
                     .font(.pt(.footnote))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 2)
@@ -208,12 +202,9 @@ struct SchoolSetupView: View {
                         departmentRow
                     } else {
                         Button { withAnimation(Motion.quick) { showDepartment = true } } label: {
-                            Text("학과 고르기 (특성화고 등)").font(.pt(.subheadline)).foregroundStyle(Theme.accent)
+                            Text("학과 고르기").font(.pt(.subheadline)).foregroundStyle(Theme.accent)
                         }
                     }
-                    Text("선택과목은 반별 시간표와 다를 수 있어요")
-                        .font(.pt(.footnote))
-                        .foregroundStyle(.secondary)
                 }
             }
             .softCard()
@@ -244,7 +235,7 @@ struct SchoolSetupView: View {
                     }
                 }
             }
-            TextField("비워 두면 돼요 (예: 그래픽아트과)", text: $department)
+            TextField("학과 (선택)", text: $department)
                 .font(.pt(.body))
                 .autocorrectionDisabled()
                 .padding(.horizontal, 12)
@@ -313,7 +304,7 @@ struct SchoolSetupView: View {
             results = []
             truncated = false
             searching = false
-            message = text.isEmpty ? nil : L("두 글자 이상 써 주세요")
+            message = text.isEmpty ? nil : L("두 글자 이상 입력")
             return
         }
         // 입력이 멈추고 0.4초 뒤에 찾음 (글자를 바꾸면 이 작업이 취소됨)
@@ -326,7 +317,7 @@ struct SchoolSetupView: View {
             if Task.isCancelled { return }
             results = found.schools
             truncated = found.truncated
-            message = found.schools.isEmpty ? L("학교를 찾지 못했어요") : nil
+            message = found.schools.isEmpty ? L("결과가 없어요") : nil
         } catch is CancellationError {
             return
         } catch {

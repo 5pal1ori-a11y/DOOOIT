@@ -123,7 +123,7 @@ jobs:
           mkdir -p "$OUT"
           LIST="${SCREENS:-$SCREENS_ALL}"
           # 다국어 브랜치: 한국어는 밝게만 몇 화면
-          case "$GITHUB_REF_NAME" in ui-shots-friends*) LIST="${SCREENS:-friends friendsAdd socialIntro groups groupDetail study}"; MODES="light dark" ;; ui-shots-i18n*) LIST="${SCREENS:-home planner timer appSettings}"; MODES="light" ;; ui-shots-redesign-theme*) LIST="${SCREENS:-home planner account ai}"; MODES="light dark" ;; *) MODES="light dark" ;; esac
+          case "$GITHUB_REF_NAME" in ui-shots-social*) LIST="${SCREENS:-friends friendsAdd socialIntro groups groupDetail schoolSetup}"; MODES="light dark" ;; ui-shots-friends*) LIST="${SCREENS:-friends friendsAdd socialIntro groups groupDetail study}"; MODES="light dark" ;; ui-shots-i18n*) LIST="${SCREENS:-home planner timer appSettings}"; MODES="light" ;; ui-shots-redesign-theme*) LIST="${SCREENS:-home planner account ai}"; MODES="light dark" ;; *) MODES="light dark" ;; esac
           for mode in $MODES; do
             xcrun simctl ui "$UDID" appearance "$mode" || true
             for screen in $LIST; do
