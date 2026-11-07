@@ -1,0 +1,80 @@
+2026-11-07 12:43:38.750 Df DOOOIT[31480:158b5] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-07 12:43:38.839 Df DOOOIT[31480:158b5] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-07 12:43:38.839 Df DOOOIT[31480:158b5] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-07 12:43:39.930 Df DOOOIT[31480:158b5] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [A1D42369-1DE8-4C88-9D1C-EB32CA0AB9BB] (reporting strategy default)>
+2026-11-07 12:43:39.930 Df DOOOIT[31480:158b5] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [F0E02732-7F26-4516-97E4-4B4887896E59] (reporting strategy default)>
+2026-11-07 12:43:39.930 Df DOOOIT[31480:158b5] [com.apple.network:activity] Set activity <nw_activity 50:1 [A1D42369-1DE8-4C88-9D1C-EB32CA0AB9BB] (reporting strategy default)> as the global parent
+2026-11-07 12:43:40.111 Df DOOOIT[31480:158b5] [com.apple.coreaudio:ddagg]        AggregateDevice.mm:887   Creating DefaultDeviceAggregate
+2026-11-07 12:43:40.166 Df DOOOIT[31480:158d3] [com.apple.coreaudio:aqme]           AQMixEngine.cpp:735   AQMEDevice (0x129cbb058) has neither a defaultOutStreamClient nor a defaultInStreamClient
+2026-11-07 12:43:40.265 Df DOOOIT[31480:158d2] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <CA_UISoundClientBase@0x129d3c540>; running count now 1
+2026-11-07 12:43:40.304 Df DOOOIT[31480:158b5] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <AudioQueueObject@0x117598a00; ; [31480]; play>; running count now 2
+2026-11-07 12:43:40.317 Df DOOOIT[31480:1590e] [com.apple.coreaudio:default] AQSTL aq(0x117598a00) start time resolved to: 2719 ioTS st: 2719 ht: 1162.948448
+2026-11-07 12:43:40.672 Df DOOOIT[31480:158b5] [com.apple.network:activity] <nw_activity 50:1 [A1D42369-1DE8-4C88-9D1C-EB32CA0AB9BB] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 4326ms
+2026-11-07 12:43:40.672 Df DOOOIT[31480:158b5] [com.apple.network:activity] <nw_activity 50:2 [F0E02732-7F26-4516-97E4-4B4887896E59] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 4326ms
+2026-11-07 12:43:40.672 Df DOOOIT[31480:158b5] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [A1D42369-1DE8-4C88-9D1C-EB32CA0AB9BB] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-07 12:43:40.744 Df DOOOIT[31480:158d2] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:459   AQME Default-InputOutput: client stopping: <AudioQueueObject@0x117598a00; ; [31480]; play>; running count now 1
+2026-11-07 12:43:51.702 Df DOOOIT[32193:15f91] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-07 12:43:51.702 Df DOOOIT[32193:15f91] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:43:51.702 Df DOOOIT[32193:15f91] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:43:51.702 Df DOOOIT[32193:15f91] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:43:51.788 Df DOOOIT[32193:15f91] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-07 12:43:51.789 Df DOOOIT[32193:15f91] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-07 12:43:52.159 Df DOOOIT[32193:15fb7] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-07 12:43:52.276 Df DOOOIT[32193:15f91] (Foundation) uiShotLang code=ko selected=system args=ko preferred=ko
+2026-11-07 12:43:53.166 Df DOOOIT[32193:15f91] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-07 12:43:53.349 Df DOOOIT[32193:15f91] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-07 12:43:53.349 Df DOOOIT[32193:15f91] [com.apple.UIKit:_UIVisualStyleRegistry] Note: no default visual style class registered as fallback for stylable class UIActivityIndicatorView
+2026-11-07 12:43:58.255 Df DOOOIT[32193:15f91] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [141A9454-59B2-4006-B188-9714B8D8F433] (reporting strategy default)>
+2026-11-07 12:43:58.255 Df DOOOIT[32193:15f91] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [B6DE9164-C8A2-43CE-B268-775CFBA5D120] (reporting strategy default)>
+2026-11-07 12:43:58.255 Df DOOOIT[32193:15f91] [com.apple.network:activity] Set activity <nw_activity 50:1 [141A9454-59B2-4006-B188-9714B8D8F433] (reporting strategy default)> as the global parent
+2026-11-07 12:43:58.947 Df DOOOIT[32193:15f91] [com.apple.coreaudio:ddagg]        AggregateDevice.mm:887   Creating DefaultDeviceAggregate
+2026-11-07 12:43:59.001 Df DOOOIT[32193:15fb7] [com.apple.coreaudio:aqme]           AQMixEngine.cpp:735   AQMEDevice (0x1288b5e58) has neither a defaultOutStreamClient nor a defaultInStreamClient
+2026-11-07 12:43:59.106 Df DOOOIT[32193:15fcb] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <CA_UISoundClientBase@0x1289e5340>; running count now 1
+2026-11-07 12:43:59.143 Df DOOOIT[32193:15f91] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <AudioQueueObject@0x128b11e00; ; [32193]; play>; running count now 2
+2026-11-07 12:43:59.159 Df DOOOIT[32193:16129] [com.apple.coreaudio:default] AQSTL aq(0x128b11e00) start time resolved to: 2727 ioTS st: 2727 ht: 1181.790978
+2026-11-07 12:43:59.210 Df DOOOIT[32193:15f91] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <AudioQueueObject@0x128b13200; ; [32193]; play>; running count now 3
+2026-11-07 12:43:59.225 Df DOOOIT[32193:16129] [com.apple.coreaudio:default] AQSTL aq(0x128b13200) start time resolved to: 5549 ioTS st: 5549 ht: 1181.854978
+2026-11-07 12:43:59.330 Df DOOOIT[32193:15f91] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <AudioQueueObject@0x10ac8e800; ; [32193]; play>; running count now 4
+2026-11-07 12:43:59.341 Df DOOOIT[32193:15f91] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <AudioQueueObject@0x11605ca00; ; [32193]; play>; running count now 5
+2026-11-07 12:43:59.341 Df DOOOIT[32193:16129] [com.apple.coreaudio:default] AQSTL aq(0x10ac8e800) start time resolved to: 10724 ioTS st: 10724 ht: 1181.972311
+2026-11-07 12:43:59.362 Df DOOOIT[32193:16129] [com.apple.coreaudio:default] AQSTL aq(0x11605ca00) start time resolved to: 11664 ioTS st: 11664 ht: 1181.993645
+2026-11-07 12:43:59.502 Df DOOOIT[32193:15f91] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:245   AQME Default-InputOutput: client starting: <AudioQueueObject@0x128bbd400; ; [32193]; play>; running count now 6
+2026-11-07 12:43:59.522 Df DOOOIT[32193:16129] [com.apple.coreaudio:default] AQSTL aq(0x128bbd400) start time resolved to: 18720 ioTS st: 18720 ht: 1182.153645
+2026-11-07 12:43:59.560 Df DOOOIT[32193:15f91] [com.apple.network:activity] <nw_activity 50:1 [141A9454-59B2-4006-B188-9714B8D8F433] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 10123ms
+2026-11-07 12:43:59.560 Df DOOOIT[32193:15f91] [com.apple.network:activity] <nw_activity 50:2 [B6DE9164-C8A2-43CE-B268-775CFBA5D120] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 10123ms
+2026-11-07 12:43:59.560 Df DOOOIT[32193:15f91] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [141A9454-59B2-4006-B188-9714B8D8F433] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-07 12:43:59.598 Df DOOOIT[32193:15fcc] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:459   AQME Default-InputOutput: client stopping: <AudioQueueObject@0x128b11e00; ; [32193]; play>; running count now 5
+2026-11-07 12:43:59.661 Df DOOOIT[32193:15fb7] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:459   AQME Default-InputOutput: client stopping: <AudioQueueObject@0x128b13200; ; [32193]; play>; running count now 4
+2026-11-07 12:43:59.768 Df DOOOIT[32193:15fcb] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:459   AQME Default-InputOutput: client stopping: <AudioQueueObject@0x10ac8e800; ; [32193]; play>; running count now 3
+2026-11-07 12:43:59.800 Df DOOOIT[32193:15fcc] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:459   AQME Default-InputOutput: client stopping: <AudioQueueObject@0x11605ca00; ; [32193]; play>; running count now 2
+2026-11-07 12:43:59.960 Df DOOOIT[32193:15fb7] [com.apple.coreaudio:aqme]  MEDeviceStreamClient.cpp:459   AQME Default-InputOutput: client stopping: <AudioQueueObject@0x128bbd400; ; [32193]; play>; running count now 1
+2026-11-07 12:44:05.945 Df DOOOIT[32587:16413] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-07 12:44:05.946 Df DOOOIT[32587:16413] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:44:05.947 Df DOOOIT[32587:16413] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:44:05.947 Df DOOOIT[32587:16413] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:44:06.075 Df DOOOIT[32587:16413] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-07 12:44:06.075 Df DOOOIT[32587:16413] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-07 12:44:06.527 Df DOOOIT[32587:164f7] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-07 12:44:06.631 Df DOOOIT[32587:16413] (Foundation) uiShotLang code=ko selected=system args=ko preferred=ko
+2026-11-07 12:44:07.190 Df DOOOIT[32587:16413] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-07 12:44:07.909 Df DOOOIT[32587:16413] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [CABEB5D5-D2C4-4736-B3E0-011FDFD8ECC6] (reporting strategy default)>
+2026-11-07 12:44:07.909 Df DOOOIT[32587:16413] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [69B776AD-8BEB-4EC0-A57A-9D28595982FF] (reporting strategy default)>
+2026-11-07 12:44:07.909 Df DOOOIT[32587:16413] [com.apple.network:activity] Set activity <nw_activity 50:1 [CABEB5D5-D2C4-4736-B3E0-011FDFD8ECC6] (reporting strategy default)> as the global parent
+2026-11-07 12:44:08.343 Df DOOOIT[32587:16413] [com.apple.network:activity] <nw_activity 50:1 [CABEB5D5-D2C4-4736-B3E0-011FDFD8ECC6] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5260ms
+2026-11-07 12:44:08.344 Df DOOOIT[32587:16413] [com.apple.network:activity] <nw_activity 50:2 [69B776AD-8BEB-4EC0-A57A-9D28595982FF] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5260ms
+2026-11-07 12:44:08.344 Df DOOOIT[32587:16413] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [CABEB5D5-D2C4-4736-B3E0-011FDFD8ECC6] (global parent) (reporting strategy default) complete (reason success)>
+2026-11-07 12:44:23.864 Df DOOOIT[33272:16aac] [com.apple.dt.xctest:Default] Registering for test daemon availability notify post.
+2026-11-07 12:44:23.866 Df DOOOIT[33272:16aac] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:44:23.866 Df DOOOIT[33272:16aac] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:44:23.866 Df DOOOIT[33272:16aac] [com.apple.dt.xctest:Default] notify_get_state check indicated test daemon not ready.
+2026-11-07 12:44:23.990 Df DOOOIT[33272:16aac] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to LastOneWins
+2026-11-07 12:44:23.991 Df DOOOIT[33272:16aac] [com.apple.UIKit:KeyWindow] Setting default evaluation strategy for UIUserInterfaceIdiomPhone to SystemShellManaged
+2026-11-07 12:44:24.398 Df DOOOIT[33272:16bee] [com.apple.calls.callkit:Default] Call host has no calls
+2026-11-07 12:44:24.472 Df DOOOIT[33272:16aac] (Foundation) uiShotLang code=ko selected=system args=ko preferred=ko
+2026-11-07 12:44:25.105 Df DOOOIT[33272:16aac] [PrototypeTools:domain] Not observing PTDefaults on customer install.
+2026-11-07 12:44:25.857 Df DOOOIT[33272:16aac] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:1 [2235E049-85A3-4C78-BDE0-C7A243DB2D0F] (reporting strategy default)>
+2026-11-07 12:44:25.857 Df DOOOIT[33272:16aac] [com.apple.network:activity] Create activity from XPC object <nw_activity 50:2 [DA865687-265C-4F5B-A77E-5DFB0381641B] (reporting strategy default)>
+2026-11-07 12:44:25.857 Df DOOOIT[33272:16aac] [com.apple.network:activity] Set activity <nw_activity 50:1 [2235E049-85A3-4C78-BDE0-C7A243DB2D0F] (reporting strategy default)> as the global parent
+2026-11-07 12:44:26.256 Df DOOOIT[33272:16aac] [com.apple.network:activity] <nw_activity 50:1 [2235E049-85A3-4C78-BDE0-C7A243DB2D0F] (global parent) (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5124ms
+2026-11-07 12:44:26.256 Df DOOOIT[33272:16aac] [com.apple.network:activity] <nw_activity 50:2 [DA865687-265C-4F5B-A77E-5DFB0381641B] (reporting strategy default) complete (reason success)> complete with reason 2 (success), duration 5124ms
+2026-11-07 12:44:26.256 Df DOOOIT[33272:16aac] [com.apple.network:activity] Unsetting the global parent activity <nw_activity 50:1 [2235E049-85A3-4C78-BDE0-C7A243DB2D0F] (global parent) (reporting strategy default) complete (reason success)>
