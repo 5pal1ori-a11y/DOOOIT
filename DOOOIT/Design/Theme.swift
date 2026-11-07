@@ -232,7 +232,7 @@ enum ThemeColor: String, CaseIterable, Identifiable {
     var secondaryFill: Color {
         pick(mono: ("#E4E4E7", "#2C2C2E"), candy: ("#FFE0EC", "#2B1A22"),
              forest: ("#E3EEDD", "#1F2E25"), ocean: ("#E0F0FD", "#1A2C3E"),
-             sunset: ("#FFEBDD", "#2E1C14"))
+             sunset: ("#FFEFE5", "#2E1C14"))
     }
 
     /// 하이라이트: 오늘 · 내 줄 · 달성 (캔디는 노랑, 모노는 회색 바탕)

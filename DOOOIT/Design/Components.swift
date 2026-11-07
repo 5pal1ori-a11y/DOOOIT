@@ -201,6 +201,8 @@ struct ThemePicker: View {
 
     /// 잠긴 테마를 눌렀을 때 안내
     @State private var lockedInfo: ThemeColor?
+    /// 초대에 성공하면 잠금 표시를 다시 그리기 위한 숫자
+    @State private var refresh = 0
 
     private var current: ThemeColor { ThemeColor.from(themeRaw) }
     /// 아직 잠긴 테마 (안내 글을 보여 줄 것)
@@ -238,6 +240,7 @@ struct ThemePicker: View {
             Haptics.tap()
             AppIconSwitcher.apply(ThemeColor.from(themeRaw))
         }
+        .onReceive(NotificationCenter.default.publisher(for: InviteRewards.changed)) { _ in refresh += 1 }
         .alert(lockedInfo.map { L("\($0.title) 테마는 아직 잠겨 있어요") } ?? "", isPresented: Binding(
             get: { lockedInfo != nil }, set: { if !$0 { lockedInfo = nil } })) {
             Button("확인", role: .cancel) {}
