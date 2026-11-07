@@ -1,0 +1,1 @@
+87f35f1312ba7dc2e9a383da7eb3d2b150f2adbe 학교 불러오기 실패 고침: NEIS가 Accept 헤더(application/json)에 500 오류를 돌려줘서 헤더 제거
