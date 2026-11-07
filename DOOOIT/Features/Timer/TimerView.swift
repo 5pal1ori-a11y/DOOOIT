@@ -17,27 +17,9 @@ struct TimerView: View {
     @State private var lockDenied = false
     @State private var savedSeconds: Int? = {
         #if DEBUG
-        return UIShot.matches(.camResult) ? 3600 : nil
+        return nil
         #else
         return nil
-        #endif
-    }()
-    /// AI 순공부 측정 (카메라로 공부 중인지 보고 순공부 시간만 셈, 기본은 꺼짐)
-    @AppStorage(StudyPresenceMonitor.enabledKey) private var aiMeasure = false
-    @State private var presence = StudyPresenceMonitor.shared
-    @State private var presenceSummary: PresenceSummary? = {
-        #if DEBUG
-        if UIShot.matches(.camResult) {
-            return PresenceSummary(startedAt: Date(), totals: PresenceTotals(measured: 3600, net: 3120, away: 300, still: 120, distracted: 60))
-        }
-        #endif
-        return nil
-    }()
-    @State private var showPresenceGuide: Bool = {
-        #if DEBUG
-        return UIShot.matches(.camGuide)
-        #else
-        return false
         #endif
     }()
     @State private var sound = AmbientSoundPlayer.shared
@@ -88,18 +70,9 @@ struct TimerView: View {
         .statusBarHidden()
         .animation(.smooth(duration: 0.35), value: studyTimer.phase)
         .animation(.smooth(duration: 0.35), value: savedSeconds)
-        .sheet(isPresented: $showPresenceGuide) {
-            PresenceGuideSheet()
-                .presentationDetents([.large])
-                .presentationBackground(.black)
-        }
-        // 앱을 껐다 켰는데 공부가 이어지고 있으면 측정도 이어서
-        .task { presence.resumeIfNeeded() }
         .confirmationDialog("공부를 마칠까요?", isPresented: $showStopConfirm, titleVisibility: .visible) {
             Button(studyTimer.lockUntil != nil ? L("완료하고 잠금 해제") : L("완료하고 기록 저장"), role: .destructive) {
-                let start = studyTimer.startedAt
                 let saved = studyTimer.stop()
-                presenceSummary = presence.finish(totalSeconds: saved) ?? start.flatMap { PresenceStore().summary(forStart: $0) }
                 savedSeconds = saved
                 submitRanking()
             }
@@ -226,7 +199,6 @@ struct TimerView: View {
                 .background(panel, in: .rect(cornerRadius: 14))
 
                 lockToggle
-                presenceToggle
 
                 Button {
                     let task = todayTasks.first { $0.id == selectedTaskID }
@@ -240,8 +212,6 @@ struct TimerView: View {
                         targetMinutes: targetMinutes,
                         lockUntil: lockUntil
                     )
-                    presenceSummary = nil
-                    if aiMeasure { presence.begin(startedAt: studyTimer.startedAt ?? Date()) }
                     Haptics.success()
                 } label: {
                     Label("공부 시작", systemImage: "play.fill")
@@ -281,30 +251,6 @@ struct TimerView: View {
         } message: {
             Text("권한을 허용해야 공부하는 동안 다른 앱을 잠글 수 있어요.")
         }
-    }
-
-    /// AI 순공부 측정 스위치 (켜면 카메라 위치를 맞추는 안내가 나옴)
-    private var presenceToggle: some View {
-        HStack(spacing: 10) {
-            Label("집중 측정", systemImage: "viewfinder")
-                .font(.pt(.subheadline).weight(.semibold))
-                .foregroundStyle(.white)
-            Spacer(minLength: 0)
-            if aiMeasure {
-                Button("가이드") { showPresenceGuide = true }
-                    .font(.pt(.footnote).weight(.semibold))
-                    .foregroundStyle(green)
-            }
-            Toggle("집중 측정", isOn: Binding(get: { aiMeasure }, set: { on in
-                aiMeasure = on
-                if on { showPresenceGuide = true }
-            }))
-            .labelsHidden()
-            .tint(green)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(panel, in: .rect(cornerRadius: 14))
     }
 
     /// 큰 숫자를 위아래로 스크롤해서 목표 시간 고르기 (가운데가 고른 시간, 위아래는 흐리게)
@@ -369,10 +315,6 @@ struct TimerView: View {
                     Label("다른 앱 잠금 중 · \(lockUntil.ui("a h:mm"))까지", systemImage: "lock.fill")
                         .font(.pt(.footnote).weight(.bold))
                         .foregroundStyle(Palette.danger)
-                }
-                if presence.isSessionActive {
-                    PresenceLiveCard()
-                    PresenceChip()
                 }
                 Text(studyTimer.title.loc)
                     .font(.pt(.title3).weight(.bold))
@@ -466,10 +408,6 @@ struct TimerView: View {
                 Text(seconds >= 10 ? TimeText.clock(TimeInterval(seconds)) : L("10초 이상 공부해야 기록돼요."))
                     .font(seconds >= 10 ? .pt(size: 44, weight: .bold).monospacedDigit() : .body)
                     .foregroundStyle(seconds >= 10 ? Color.white : Color(white: 0.6))
-                if seconds >= 10, let presenceSummary, presenceSummary.measuredSeconds >= 10 {
-                    PresenceResultView(totalSeconds: seconds, summary: presenceSummary)
-                        .padding(.top, 4)
-                }
                 if seconds >= 10, RankingService.shared.isJoined {
                     Text("랭킹에도 반영했어요").font(.pt(.subheadline)).foregroundStyle(Color(white: 0.6))
                 }
@@ -478,7 +416,6 @@ struct TimerView: View {
             Spacer()
             Button {
                 savedSeconds = nil
-                presenceSummary = nil
                 studyTimer.isPresented = false
             } label: {
                 Text("닫기")
