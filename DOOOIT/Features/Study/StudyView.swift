@@ -32,6 +32,10 @@ struct StudyView: View {
                             RowLabel(symbol: "trophy", title: L("공부 랭킹"))
                         }
                         RowDivider()
+                        NavigationLink { SocialHubView() } label: {
+                            RowLabel(symbol: "person.2", title: L("친구 · 그룹"), value: socialDetail)
+                        }
+                        RowDivider()
                         NavigationLink { StatsView() } label: {
                             RowLabel(symbol: "chart.bar", title: L("공부 통계"))
                         }
@@ -61,9 +65,18 @@ struct StudyView: View {
             .uiShotPush(.grammarProblem) { UnitStudyView(subject: "중학교 영어", unit: "현재완료", initialStep: .problem) }
             .uiShotPush(.weeklyReport) { WeeklyReportView() }
             .uiShotPush(.ranking, .rankingFar) { RankingView() }
+            .uiShotPush(.friends, .friendsAdd, .socialIntro) { SocialHubView() }
+            .uiShotPush(.groups) { SocialHubView(tab: .groups) }
+            .uiShotPush(.groupDetail) { SocialGroupDetailView(groupID: UIShotSocial.groupID) }
             .uiShotCover(.wordSession) { UIShotWordSession() }
             #endif
         }
+    }
+
+    /// 친구 · 그룹 줄 오른쪽: 켠 뒤에는 친구 수
+    private var socialDetail: String? {
+        let n = SocialCenter.shared.state.friends.count
+        return SocialCenter.shared.isEnabled && n > 0 ? L("\(n)명") : nil
     }
 
     private var wordDetail: String {

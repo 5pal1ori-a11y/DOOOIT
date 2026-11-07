@@ -328,3 +328,73 @@ DEFINE SCHEMA
         GRANT WRITE TO "_creator",
         GRANT READ TO "_world"
     );
+
+    RECORD TYPE MotiProfile (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        friendCode      STRING QUERYABLE,
+        invitedBy       STRING QUERYABLE,
+        isHidden        INT64,
+        nickname        STRING,
+        studyingSince   TIMESTAMP,
+        todayKey        STRING,
+        todaySeconds    INT64,
+        updatedAt       TIMESTAMP,
+        weekKey         STRING,
+        weekSeconds     INT64,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE StudyGroup (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        createdAt         TIMESTAMP,
+        inviteCode        STRING QUERYABLE,
+        maxMembers        INT64,
+        name              STRING,
+        ownerProfileID    STRING QUERYABLE,
+        removedProfileIDs LIST<STRING>,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE GroupMember (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        groupID         STRING QUERYABLE,
+        joinedAt        TIMESTAMP,
+        profileID       STRING QUERYABLE,
+        GRANT WRITE TO "_creator",
+        GRANT CREATE TO "_icloud",
+        GRANT READ TO "_world"
+    );
+
+    RECORD TYPE MotiReport (
+        "___createTime" TIMESTAMP,
+        "___createdBy"  REFERENCE,
+        "___etag"       STRING,
+        "___modTime"    TIMESTAMP,
+        "___modifiedBy" REFERENCE,
+        "___recordID"   REFERENCE,
+        createdAt          TIMESTAMP,
+        reason             STRING,
+        reportedNickname   STRING,
+        reportedProfileID  STRING,
+        reporterProfileID  STRING,
+        GRANT CREATE TO "_icloud"
+    );
