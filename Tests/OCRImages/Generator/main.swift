@@ -81,6 +81,7 @@ for (k, content) in calculusContents.enumerated() {
     let font = calcLatinFonts[k % calcLatinFonts.count]
     style.latin = font.0
     style.italic = font.1
+    style.mathSymbolsLatin = true
     emit(content, style: style, degrades: [.clean, problemDegrades[(k + 1) % problemDegrades.count], problemDegrades[(k + 3) % problemDegrades.count]])
 }
 

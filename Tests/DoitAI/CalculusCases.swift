@@ -146,6 +146,20 @@ func runCalculusCases() async {
         check("∑ 자리 글자가 a 이면 안 바꿈", CalculusLayout.plan(lines: lines, findings: [f], lineHeight: 0.05).edits.isEmpty)
     }
     do {
+        // 숫자 한가운데 글자는 ∑ 가 아님 (사진 시험에서 "16"·"42"·"12"의 2·6 이 ∑ 로 바뀌던 것): 모양만 맞은(strong 아님) 경우
+        func row(_ text: String) -> [OCRGlyphLine] {
+            let chars = Array(text)
+            return [glyph(text, 1, 0.1, 0.5, 0.04 * Double(chars.count), 0.05, chars.indices.map { i in chars[i] == " " ? nil : CGRect(x: 0.1 + 0.04 * Double(i), y: 0.5, width: 0.04, height: 0.05) })]
+        }
+        func finding(at i: Int) -> CalculusLayout.Finding {
+            CalculusLayout.Finding(kind: .sigma, symbol: CGRect(x: 0.1 + 0.04 * Double(i), y: 0.5, width: 0.04, height: 0.05), text: "∑_{k=1}^{n}", regions: [], strong: false, coverMaxX: 0.14 + 0.04 * Double(i))
+        }
+        check("숫자 12 의 2 는 ∑ 로 안 바꿈", CalculusLayout.plan(lines: row("① 12"), findings: [finding(at: 3)], lineHeight: 0.05).edits.isEmpty)
+        check("숫자 42 의 2 도 안 바꿈", CalculusLayout.plan(lines: row("= 42"), findings: [finding(at: 3)], lineHeight: 0.05).edits.isEmpty)
+        check("홀로 읽힌 2 는 ∑ 로 바꿈", CalculusLayout.plan(lines: row("1. 2 (2k+1)"), findings: [finding(at: 3)], lineHeight: 0.05).edits.count == 1)
+        check("홀로 읽힌 Z 는 ∑ 로 바꿈", CalculusLayout.plan(lines: row("Z (2k+1)"), findings: [finding(at: 0)], lineHeight: 0.05).edits.count == 1)
+    }
+    do {
         // ∫ (실제 줄): "25. 1, (352+ 20) dh의 값은?" 에서 ∫ 가 "1," 로 읽힘 → ∫_{-1}^2
         let lines = calc_i_neg_clean_korean
         let f = CalculusLayout.Finding(kind: .integral, symbol: CGRect(x: 0.07191, y: 0.40, width: 0.01495, height: 0.22), text: "∫_{-1}^2",

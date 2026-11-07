@@ -90,6 +90,8 @@ struct Style {
     var paper = CGColor(red: 1, green: 1, blue: 1, alpha: 1)
     /// 영어 단어장 표제어 글꼴 (nil이면 latin)
     var termFont: String?
+    /// 미적분 사진: 수학 기호(′²³π∞→∑∫√Δ …)도 영문 글꼴로 (기존 문제 사진은 그대로 두려고 꺼 둠)
+    var mathSymbolsLatin = false
 }
 
 private func font(_ name: String, _ size: CGFloat) -> CTFont {
@@ -105,7 +107,7 @@ func attributed(_ text: String, math: Bool, size: CGFloat, style: Style, bold: B
             name = fontName
         } else if math {
             if ch.isASCII && ch.isLetter { name = style.italic }
-            else if ch.isASCII || "−×÷±≤≥≠·′²³π∞→∑∫√ΔθαβγΣ∏≈∈".contains(ch) { name = style.latin }
+            else if ch.isASCII || "−×÷±≤≥≠·".contains(ch) || (style.mathSymbolsLatin && "′²³π∞→∑∫√ΔθαβγΣ∏≈∈".contains(ch)) { name = style.latin }
             else { name = style.korean }
         } else {
             name = bold ? style.koreanBold : style.korean

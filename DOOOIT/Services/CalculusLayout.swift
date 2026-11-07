@@ -220,7 +220,21 @@ enum CalculusLayout {
                     if mid >= minX, mid <= maxX + (f.kind == .sigma ? a.width * 0.1 : 0) { near.append(i) }
                 }
                 // 기호 자리에 읽힌 글자: 비슷한 모양 글자 하나(∫ 는 위끝·아래끝 찌꺼기까지) 일 때만 바꿈
-                let symbolLike = near.filter { lookalikes.contains(chars[host][$0]) }
+                var symbolLike = near.filter { lookalikes.contains(chars[host][$0]) }
+                if f.kind == .sigma, !f.strong {
+                    // 숫자·낱말 한가운데 글자(12 의 2, 42 의 2, EXAMPLE 의 M)는 ∑ 가 아님: 읽은 숫자를 망가뜨리지 않게
+                    func neighbor(_ i: Int, _ step: Int) -> Character? {
+                        var j = i + step
+                        while j >= 0, j < chars[host].count, chars[host][j].isWhitespace { j += step }
+                        return j >= 0 && j < chars[host].count ? chars[host][j] : nil
+                    }
+                    symbolLike = symbolLike.filter { i in
+                        let c = chars[host][i], before = neighbor(i, -1), after = neighbor(i, 1)
+                        if c.isNumber { return !(before?.isNumber == true || after?.isNumber == true) }
+                        if c.isLetter { return !(before?.isLetter == true && after?.isLetter == true) }
+                        return true
+                    }
+                }
                 if f.kind == .sigma {
                     if symbolLike.count == 1, near.count <= 2 { range = symbolLike[0]..<(symbolLike[0] + 1) }
                     else if f.strong, symbolLike.isEmpty {
