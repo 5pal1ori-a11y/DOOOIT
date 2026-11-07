@@ -299,7 +299,7 @@ func runCalculusCases() async {
         check("검은 글자 읽기가 기호 없이 읽었으면 기호 붙인 줄로", swapped.contains { $0.text.hasPrefix("∑_{k=1}^{10}") } && !swapped.contains { $0.text.hasPrefix("Z") }, swapped.map(\.text).joined(separator: " | "))
         // 기호 없는 일반 줄은 이전처럼 (살리지 않음)
         let other = OCRLine(text: "x² + 1 = 0", confidence: 1, box: CGRect(x: 0.5, y: 0.2, width: 0.2, height: 0.1))
-        check("기호 없는 줄은 되살리지 않음", !OCRService.chooseInkReading(original: [heading, other], ink: [heading]).contains { $0.text.contains("x²") })
+        check("기호 없는 줄은 되살리지 않음", !OCRService.chooseInkReading(original: [heading, other, tail], ink: [heading, tail]).contains { $0.text.contains("x²") })
         // 읽은 글 점수: 위끝·아래끝까지 붙인 기호가 더 높음
         check("기호까지 붙인 읽기를 더 믿음", OCRService.readingScore("∑_{k=1}^{10} (2k+1)") > OCRService.readingScore("Z (2k+1)"))
     }
@@ -312,13 +312,32 @@ func runCalculusCases() async {
         ("lim_{x→2} (x²−4)/(x−2) 의 값을 구하시오.", "4"),
         ("f(x) = x³ − 3x² + 2일 때, f′(2)의 값은?", "0"),
         ("f(x) = x³ − 3x² + 2일 때, f'(2)의 값은?", "0"),
+        // n 이 문자인 합: 정확한 분수로 보간하고 여러 n 으로 다시 확인한 다항식 꼴만
+        ("∑_{k=1}^{n} k 의 값은?", "n(n+1)/2"),
+        ("∑_{k=1}^{n} k² 의 값을 구하시오.", "n(n+1)(2n+1)/6"),
+        ("∑_{k=1}^{n} k³ 의 값을 구하시오.", "{n(n+1)/2}²"),
+        ("∑_{k=1}^{n} (2k+1) 의 값은?", "n² + 2n"),
+        ("∑_{k=1}^{n} k(k+1) 의 값은?", "(1/3)n³ + n² + (2/3)n"),
+        ("∑_{k=0}^{n} (3k−1) 의 값은?", "(3/2)n² + (1/2)n − 1"),
     ]
     for (text, answer) in solvable {
         let solved = MathSolver.solve(text)
         check("미적분 풀이: \(text.replacingOccurrences(of: "\n", with: " "))", solved?.answer.contains(answer) == true, solved?.answer ?? "못 풂")
     }
+    // 과목·유형 짐작: 읽은 미적분 식(앱 표기)도 수학으로 봄
+    let subjectTexts = [
+        "1. 다음 값을 구하시오.\n∑_{k=1}^{10} (2k+1)",
+        "11. lim_{x→∞} (2x²+1)/(x²−3)의 값은?\n① 0 ② 1 ③ 2 ④ 3 ⑤ ∞",
+        "23. 정적분 ∫_0^1 x² dx의 값은?",
+        "17. f(x) = x³ − 3x² + 2일 때, f′(2)의 값은?",
+        "3. 수열 {a_n}의 일반항이 a_n = 2n − 1일 때, ∑_{k=1}^{10} a_k의 값을 구하시오.",
+    ]
+    for text in subjectTexts {
+        let guess = DoitSubjectDetector.detect(text)
+        check("과목 짐작: 미적분 식은 수학 (\(text.prefix(18)))", guess?.broad == "수학", "\(String(describing: guess?.broad)) \(guess?.detail ?? "")")
+    }
     // 식이 불완전하면 풀지 않음 (틀린 답보다 못 푼 게 나음)
-    let unsolvable = ["∑_{k=1}^{n} k² 의 값은?", "∫_0^x (t² + 1) dt", "∫ (2x+1) dx 를 구하시오.", "lim_{x→2} f(x) 의 값은?"]
+    let unsolvable = ["∑_{k=1}^{n} 2^k 의 값은?", "∑_{k=1}^{n} 1/(k(k+1)) 의 값은?", "∑_{k=1}^{n} a_k 의 값은?", "∑_{k=1}^{n} (2k+1)n 의 값은?", "∫_0^x (t² + 1) dt", "∫ (2x+1) dx 를 구하시오.", "lim_{x→2} f(x) 의 값은?"]
     for text in unsolvable {
         let solved = MathSolver.solve(text)
         check("미적분: 모르면 안 풂 (\(text))", solved == nil || solved?.kind == .integral && text.hasPrefix("∫ (2x+1)"), solved?.answer ?? "")

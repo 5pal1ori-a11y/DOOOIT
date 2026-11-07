@@ -110,6 +110,11 @@ enum OCRService {
         let rects = await boxRead
         let circles = await circleRead
         let ink = page.map { FractionFinder.Ink(mask: FractionFinder.inkMask(gray: $0.gray, width: $0.width, height: $0.height), width: $0.width, height: $0.height) }
+        // 큰 기호 ∑ 의 위·아래 가로줄을 분수 막대로 잘못 찾은 것은 뺌
+        if let ink {
+            let symbols = CalculusShape.symbolRects(ink)
+            if !symbols.isEmpty { barFractions = barFractions.filter { f in !symbols.contains { $0.intersects(f.box) } } }
+        }
         // 미적분 기호: ∑ ∫ 는 사진 모양으로, lim 은 글자로 찾고 위끝·아래끝을 읽어 붙임
         var calculus: CalculusLayout.Plan?
         if let ink, !korean.isEmpty {

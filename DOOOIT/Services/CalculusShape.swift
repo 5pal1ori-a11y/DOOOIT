@@ -167,6 +167,15 @@ extension CalculusShape {
         return bottom >= 0 ? (run[0], run[run.count - 1], top, bottom) : nil
     }
 
+    /// 사진 모양으로 찾은 큰 기호(∑ ∫) 자체의 상자 (Vision 좌표)
+    static func symbolRects(_ ink: FractionFinder.Ink) -> [CGRect] {
+        let w = CGFloat(ink.width), h = CGFloat(ink.height)
+        return find(ink).map { f in
+            let b = f.blob
+            return CGRect(x: CGFloat(b.x0) / w, y: 1 - CGFloat(b.y1 + 1) / h, width: CGFloat(b.width) / w, height: CGFloat(b.height) / h)
+        }
+    }
+
     /// 사진 모양으로 찾은 큰 기호 둘레(위·아래 한 글자 높이, 좌우 반 글자 너비)를 Vision 좌표 사각형으로.
     /// 필기 지우기가 ∑ ∫ 아래 "k=1"·위끝과 기호가 든 인쇄 식 줄을 풀이로 오인해 지우지 않게 지킬 자리
     static func guardRects(_ ink: FractionFinder.Ink) -> [CGRect] {
