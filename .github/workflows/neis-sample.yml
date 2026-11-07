@@ -1,0 +1,32 @@
+name: NEIS Sample
+
+# NEIS 공개 API(open.neis.go.kr) 실제 응답을 받아 로그에 찍고 neis-samples 브랜치에 올림 (ubuntu, 키 없이)
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "neis-sample-run"
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch samples
+        run: bash .github/scripts/neis-sample.sh
+      - name: Push neis-samples
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          URL="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          WORK="$RUNNER_TEMP/out"
+          mkdir -p "$WORK" && cd "$WORK" && git init -q && git checkout -q -b neis-samples
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp -r "$GITHUB_WORKSPACE/samples/." .
+          git add -A && git commit -q -m "NEIS 샘플 $(date -u +%F)"
+          git push -f "$URL" neis-samples
