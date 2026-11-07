@@ -11,6 +11,10 @@ struct LearnHubSection: View {
                     RowLabel(symbol: "lightbulb", title: L("AI 학습"))
                 }
                 RowDivider()
+                NavigationLink { VariantHubView() } label: {
+                    RowLabel(symbol: "square.on.square", title: L("기출·변형 문제"))
+                }
+                RowDivider()
                 NavigationLink { WeaknessView() } label: {
                     RowLabel(symbol: "target", color: Palette.pink, title: L("취약 유형"))
                 }

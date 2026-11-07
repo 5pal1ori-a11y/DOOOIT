@@ -12,6 +12,8 @@ struct DoitAIView: View {
     /// 말로 질문하기
     @State private var voice = VoiceQuestion()
     @FocusState private var focused: Bool
+    /// 대화에서 연 변형 문제 (시트)
+    @State private var practiceTopic: VariantTopic?
     /// 맨 아래를 보고 있을 때만 새 글을 따라 내려감 (위로 올려 읽는 중이면 그대로 둠)
     @State private var atBottom = true
     @State private var lastFollow = Date.distantPast
@@ -117,9 +119,20 @@ struct DoitAIView: View {
             } message: {
                 Text(voice.problem == .denied ? L("설정에서 마이크와 음성 인식을 허용하면 말로 물어볼 수 있어요.") : L("잠시 후 다시 해 주세요."))
             }
+            // 대화에서 "변형 문제 풀기"를 하면 그 주제로 시트를 엶
+            .onChange(of: assistant.practiceRequest) { _, topic in
+                guard let topic else { return }
+                practiceTopic = topic
+                assistant.practiceRequest = nil
+            }
+            .sheet(item: $practiceTopic) { topic in
+                NavigationStack { VariantSessionView(topic: topic, inSheet: true) }
+            }
             #if DEBUG
             .task {
                 if UIShot.matches(.voice) { voice.showDemo("이차방정식 근의 공식 알려줘") }
+                if UIShot.matches(.aiAnswer) { await assistant.send("x²-5x+6=0 풀어줘") }
+                if UIShot.matches(.aiCompare) { await assistant.send("현재완료와 과거시제 차이") }
             }
             #endif
         }
@@ -190,6 +203,9 @@ struct DoitAIView: View {
                             Text(assistant.status.isEmpty ? L("생각하는 중…") : assistant.status.loc)
                                 .font(.pt(.footnote))
                                 .foregroundStyle(.secondary)
+                        } else if let structured = message.structured, !message.isStreaming {
+                            // 구조화된 답: 한 줄 답 · 핵심 · 풀이 · 주의 · 비교 표
+                            StructuredAnswerView(answer: structured) { practiceTopic = $0 }
                         } else {
                             // 쓰는 중에는 글자마다 겹쳐 바뀌는 효과 없이 (흔들림 방지), 덜 닫힌 **도 닫아서 보여 줌
                             Text(Self.markdown(MathSymbolBar.pretty(message.isStreaming ? Self.closingMarkdown(message.text) : message.text)))
@@ -214,7 +230,7 @@ struct DoitAIView: View {
                 }
                 .padding(.trailing, 18)
                 if !message.suggestions.isEmpty && message.id == assistant.messages.last?.id {
-                    suggestionChips(message.suggestions)
+                    suggestionChips(message.suggestions, practice: message.structured?.practice)
                 }
             }
         case .notice:
@@ -269,11 +285,15 @@ struct DoitAIView: View {
         return text
     }
 
-    private func suggestionChips(_ suggestions: [String]) -> some View {
+    private func suggestionChips(_ suggestions: [String], practice: VariantTopic? = nil) -> some View {
         ScrollView(.horizontal) {
             HStack(spacing: 8) {
                 ForEach(suggestions, id: \.self) { suggestion in
-                    Button { Task { await assistant.send(suggestion) } } label: {
+                    Button {
+                        // "변형 문제 풀기"는 바로 문제 화면으로 (엔진이 낼 수 있는 주제일 때만 칩이 있음)
+                        if suggestion == DoitStructured.practiceChip, let practice { practiceTopic = practice; return }
+                        Task { await assistant.send(suggestion) }
+                    } label: {
                         Text(Self.chipLabel(suggestion))
                             .font(.pt(.footnote).weight(.semibold))
                             .foregroundStyle(Theme.accent)

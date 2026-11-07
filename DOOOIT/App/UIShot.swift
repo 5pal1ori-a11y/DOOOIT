@@ -10,6 +10,8 @@ import UIKit
 enum UIShotScreen: String, CaseIterable {
     case home, study, words, mathList, mathNote, ai, planner, account, accountSettings, timer, auth
     case badges, badgeNew, mockExam, mockResult, soundMixer, voice
+    /// 기출·변형 문제: 학교급·과목 타일 · 주제 목록 · 문제 · 푼 뒤 풀이 · 한 판 결과 / 모티 AI 구조화된 답 · 비교 표
+    case variantHub, variantList, variantSession, variantFeedback, variantResult, aiAnswer, aiCompare
     /// 영어 문법 단원 학습 (중학교 영어 · 현재완료): 개념 · O/X · 문제
     case grammar, grammarOX, grammarProblem
     /// 홈 화면 · 잠금 화면 위젯 미리보기 (WidgetGallery.swift)
@@ -65,10 +67,11 @@ enum UIShot {
     static var tab: AppTab {
         switch screen {
         case .study, .words, .mathList, .mathNote, .mockExam, .mockResult, .grammar, .grammarOX, .grammarProblem,
+             .variantHub, .variantList, .variantSession, .variantFeedback, .variantResult,
              .weeklyReport, .wordSession, .ranking, .rankingFar,
              .friends, .friendsAdd, .socialIntro, .groups, .groupDetail,
              .mathEmpty, .mathNoteText, .subjectNote, .weakList, .weakness: return .study
-        case .ai, .voice: return .ai
+        case .ai, .voice, .aiAnswer, .aiCompare: return .ai
         case .planner, .examPlanSheet, .examPlanPreview: return .planner
         case .account, .accountSettings, .appSettings, .badges, .guestAccount: return .account
         case .planner: return .planner

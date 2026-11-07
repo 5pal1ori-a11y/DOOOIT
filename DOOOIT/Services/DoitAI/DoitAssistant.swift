@@ -26,6 +26,8 @@ final class DoitAssistant {
         var rating = 0
         /// 모델이 아직 쓰는 중
         var isStreaming = false
+        /// 구조화된 답 (한 줄 답 · 핵심 · 풀이 · 주의 · 비교 표). 없으면 text를 그대로 보여 줌
+        var structured: DoitStructuredAnswer?
     }
 
     /// 진행 중인 퀴즈
@@ -38,6 +40,8 @@ final class DoitAssistant {
     }
 
     private(set) var messages: [Message] = []
+    /// 채팅에서 연 변형 문제 주제 (화면이 보고 시트를 열고 비움)
+    var practiceRequest: VariantTopic?
     private(set) var isResponding = false
     private(set) var status = ""
 
@@ -174,6 +178,20 @@ final class DoitAssistant {
             }
         }
 
+        // 4-1) 변형 문제 열기: "변형 문제 풀기" (바로 전 주제로) · "현재완료 변형 문제"
+        if image == nil, let reply = practiceCommand(routed) {
+            messages.append(reply)
+            return
+        }
+
+        // 4-1b) "A와 B의 차이": 두 개념을 자료에서 찾아 표로 (자료에 둘 다 없으면 아래 엔진이 그대로 답함)
+        if image == nil, let compared = DoitStructured.comparison(routed) {
+            turn.kind = .knowledge
+            turn.topic = compared.title.components(separatedBy: " · ").first
+            messages.append(Message(role: .assistant, text: compared.plainText, suggestions: [], structured: compared))
+            return
+        }
+
         // 4-2) 문제 유형·과목 묻기: "이 문제 무슨 유형이야?", "이거 무슨 과목?", "영어 문제 유형 알려줘"
         if let reply = problemTypeReply(routed, photo: photo) {
             messages.append(reply)
@@ -250,7 +268,35 @@ final class DoitAssistant {
             lastAnswer = (topic, reply.text)
             DoitEngine.conversationTopic = topic
         }
-        messages.append(Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions))
+        var message = Message(role: .assistant, text: reply.text, actions: actions, suggestions: reply.suggestions)
+        if image == nil, actions.isEmpty, reply.deferred == nil {
+            message.structured = DoitStructured.build(text: reply.text, origin: reply.origin, question: routed)
+        }
+        messages.append(message)
+    }
+
+    // MARK: - 변형 문제 열기
+
+    /// "변형 문제 풀기"(추천 칩) · "현재완료 변형 문제" · "기출 유형 문제"
+    private func practiceCommand(_ question: String) -> Message? {
+        let q = question.replacingOccurrences(of: " ", with: "")
+        guard q.count <= 24, !q.contains("뭐야"), !q.contains("뭔가"), !q.contains("설명"),
+              q.contains("변형문제") || q.contains("기출유형") else { return nil }
+        // 말에 들어 있는 주제 → 바로 전 대화 주제 순서
+        var topic: VariantTopic?
+        let named = question.replacingOccurrences(of: "변형 문제", with: " ").replacingOccurrences(of: "기출 유형", with: " ")
+            .replacingOccurrences(of: "풀기", with: " ").replacingOccurrences(of: "풀어줘", with: " ").replacingOccurrences(of: "내줘", with: " ")
+            .replacingOccurrences(of: "문제", with: " ").trimmingCharacters(in: .whitespaces)
+        if named.count >= 2 { topic = DoitVariants.topic(forConcept: named) ?? DoitVariants.topic(forProblem: named) }
+        if topic == nil, let problem = dialogue.mathProblem { topic = DoitVariants.topic(forProblem: problem) }
+        if topic == nil, let last = dialogue.topic { topic = DoitVariants.topic(forConcept: last) }
+        guard let topic else {
+            return Message(role: .assistant, text: "어떤 주제로 풀지 같이 말해 주세요. 예: 현재완료 변형 문제",
+                           suggestions: ["현재완료 변형 문제", "이차방정식 변형 문제"])
+        }
+        practiceRequest = topic
+        turn.kind = .chat
+        return Message(role: .assistant, text: "'\(topic.title)' 변형 문제를 열었어요.")
     }
 
     // MARK: - 대화 흐름
@@ -294,6 +340,10 @@ final class DoitAssistant {
         guard messages.count > turn.start, let reply = messages.last, reply.role == .assistant, !reply.isStreaming else { return }
         DoitDialogue.update(&dialogue, question: turn.question, reply: reply.text, kind: turn.kind, topic: turn.topic, fromModel: turn.fromModel)
         if turn.kind == .plan, let plan = turn.plan { dialogue.entities["plan"] = plan }
+        // 구조화된 답에는 지금 대화 상태로 실제로 할 수 있는 이어 묻기만 추천 칩으로
+        if let structured = reply.structured, let index = messages.indices.last {
+            messages[index].suggestions = DoitStructured.chips(for: structured, existing: reply.suggestions, state: dialogue)
+        }
     }
 
     // MARK: - 모델
